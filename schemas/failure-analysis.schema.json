@@ -1,0 +1,176 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ai-qa-pipeline/schemas/failure-analysis.schema.json",
+  "title": "Failure Analysis for a Pipeline Run",
+  "description": "analysis/failure-analysis.json. Produced by the Failure Classifier (skills/analyzing-logs). Classification taxonomy is closed (the enum below is canonical). Severity is the Healer guardrails axis (docs/healer-guardrails.md).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "story_id",
+    "execution_date",
+    "total_tests",
+    "passed",
+    "failed",
+    "skipped",
+    "failures",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+    },
+    "run_id": { "type": "string", "minLength": 1 },
+    "story_id": {
+      "type": "string",
+      "pattern": "^(STORY-[0-9]+|[A-Z][A-Z0-9_]*-[0-9]+)$"
+    },
+    "execution_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of the test execution."
+    },
+    "total_tests": { "type": "integer", "minimum": 0 },
+    "passed": { "type": "integer", "minimum": 0 },
+    "failed": { "type": "integer", "minimum": 0 },
+    "skipped": { "type": "integer", "minimum": 0 },
+    "failures": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/failure" }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "finalized"]
+    }
+  },
+  "definitions": {
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "failure_id",
+        "test_case_id",
+        "classification",
+        "severity",
+        "error_message",
+        "evidence_paths"
+      ],
+      "properties": {
+        "failure_id": {
+          "type": "string",
+          "pattern": "^FAIL-[0-9]+$"
+        },
+        "test_case_id": {
+          "description": "The originating TC-XXX (or API-XXX for Phase 1.5+ API failures), or null if the failure cannot be linked to a TC (e.g. the seed test). When null, traceability_unresolved MUST be true.",
+          "oneOf": [
+            { "type": "string", "pattern": "^TC-[0-9]+$" },
+            { "type": "string", "pattern": "^API-[0-9]+$" },
+            { "type": "null" }
+          ]
+        },
+        "traceability_unresolved": {
+          "type": "boolean",
+          "description": "True iff test_case_id is null. Carries a human-readable reason (see traceability_unresolved_reason)."
+        },
+        "traceability_unresolved_reason": {
+          "type": "string",
+          "description": "Required free-text when traceability_unresolved is true. Example: 'seed test — no TC'."
+        },
+        "playwright_test_id": {
+          "type": "string",
+          "description": "PW-XXX for Playwright failures. Required when source == 'playwright' (the Phase 1 default).",
+          "pattern": "^PW-[0-9]+$"
+        },
+        "source": {
+          "type": "string",
+          "description": "Phase 1.5+ extension. 'playwright' is the Phase 1 implicit default; the value becomes load-bearing when both branches feed the same analysis.",
+          "enum": ["playwright", "newman"]
+        },
+        "request_id": {
+          "type": "string",
+          "description": "REQ-XXX for Newman failures. Phase 1.5+.",
+          "pattern": "^REQ-[0-9]+$"
+        },
+        "api_metadata": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Phase 1.5+ extension. Populated for Newman failures.",
+          "properties": {
+            "status_code": { "type": "integer", "minimum": 0, "maximum": 599 },
+            "response_body_snippet": { "type": "string" }
+          }
+        },
+        "classification": {
+          "type": "string",
+          "description": "Closed taxonomy. See skills/analyzing-logs/SKILL.md for the signals that map to each value.",
+          "enum": [
+            "locator_or_selector",
+            "wait_or_timeout",
+            "ui_structural_change",
+            "product_bug",
+            "test_bug",
+            "flaky",
+            "environment_issue",
+            "test_data_issue",
+            "unknown_needs_human_review"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "description": "Healer guardrails axis. Green = auto-fix-as-patch eligible (Phase 3+). Yellow = suggestion only. Red = bug draft only.",
+          "enum": ["green", "yellow", "red"]
+        },
+        "error_message": {
+          "type": "string",
+          "description": "Trimmed error message from the test runner."
+        },
+        "evidence_paths": {
+          "type": "array",
+          "description": "Relative paths to traces, screenshots, HTML report sections, response captures. Reporter agents read paths; they never inline the contents.",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "bug_draft_path": {
+          "type": "string",
+          "description": "Relative path to release/bug-drafts/BUG-XXX.md. Required iff severity == 'red'.",
+          "pattern": "^release/bug-drafts/BUG-[0-9]+\\.md$"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "severity": { "const": "red" } } },
+          "then": { "required": ["bug_draft_path"] }
+        },
+        {
+          "if": { "properties": { "test_case_id": { "type": "null" } } },
+          "then": {
+            "required": [
+              "traceability_unresolved",
+              "traceability_unresolved_reason"
+            ],
+            "properties": {
+              "traceability_unresolved": { "const": true }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "source": { "const": "newman" } },
+            "required": ["source"]
+          },
+          "then": { "required": ["request_id"] }
+        },
+        {
+          "if": {
+            "anyOf": [
+              { "not": { "required": ["source"] } },
+              { "properties": { "source": { "const": "playwright" } } }
+            ]
+          },
+          "then": { "required": ["playwright_test_id"] }
+        }
+      ]
+    }
+  }
+}

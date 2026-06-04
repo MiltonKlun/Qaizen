@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-05-31T18-00-00Z-apiex",
+  "story": {
+    "id": "API-001",
+    "title": "API — Create user and reject invalid registration",
+    "source": "manual",
+    "path": "story.md",
+    "description": "A client can create a user via POST /users (201 with id + createdAt) and is rejected when registering without a password via POST /register (400 with an error). Server-side contract checks against reqres.in; no UI in scope."
+  },
+  "acceptance_criteria": [
+    "Given a valid JSON body with a name and a job, when the client POSTs to /users, then the API responds 201 Created with a body containing a non-empty id and a createdAt timestamp.",
+    "Given a registration body that has an email but no password, when the client POSTs to /register, then the API responds 400 Bad Request with a body containing an error field describing the missing password. No account is created."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "The API accepts an invalid or incomplete request (e.g. registration with no password) or returns a malformed created-resource response, letting bad data into the system.",
+      "severity": "high",
+      "related_acs": [0, 1]
+    }
+  ],
+  "artifact_paths": {
+    "test_cases": "test-cases/API-001.json",
+    "planner_brief": "",
+    "playwright_spec": "",
+    "generated_test": "",
+    "execution_results": "",
+    "html_report": "",
+    "traces": "",
+    "screenshots": "",
+    "failure_analysis": "",
+    "release_report_md": "",
+    "release_report_json": "",
+    "bug_drafts_dir": "release/bug-drafts"
+  },
+  "review_gates": {
+    "requirements_reviewed": false,
+    "test_scope_reviewed": false,
+    "specs_reviewed": false,
+    "code_reviewed": false
+  },
+  "status": "draft"
+}

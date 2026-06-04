@@ -1,0 +1,180 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ai-qa-pipeline/schemas/context.schema.json",
+  "title": "Pipeline Run Context",
+  "description": "Manifest for a single pipeline run. See docs/context-json-guide.md. The boolean form of each review_gates entry is the Phase 1 baseline; the object form is reserved for the Phase 2 audit-field extension (oneOf accepts both, backward-compatible).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "story",
+    "acceptance_criteria",
+    "ambiguities",
+    "risks",
+    "artifact_paths",
+    "review_gates",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Version of this schema the document conforms to. Phase 1 uses '1.0'.",
+      "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+    },
+    "run_id": {
+      "type": "string",
+      "description": "Unique per-run identifier. Phase 1 convention: ISO-8601-ish timestamp + short hash, e.g. 2026-05-28T14-32-01Z-a1b2c3d.",
+      "minLength": 1
+    },
+    "story": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "source", "path"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Top of the traceability chain. STORY-XXX for manual mode, the Jira issue key for Jira mode.",
+          "pattern": "^(STORY-[0-9]+|[A-Z][A-Z0-9_]*-[0-9]+)$"
+        },
+        "title": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "enum": ["manual", "jira"] },
+        "path": {
+          "type": "string",
+          "description": "Relative path to the local Markdown copy of the story.",
+          "minLength": 1
+        },
+        "description": { "type": "string" },
+        "jira_issue_key": {
+          "type": "string",
+          "description": "Required when source == 'jira'. Equal to story.id in that case.",
+          "pattern": "^[A-Z][A-Z0-9_]*-[0-9]+$"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "source": { "const": "jira" } } },
+          "then": { "required": ["jira_issue_key"] }
+        }
+      ]
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "description": "One AC per element. The array index is the canonical position used by risks[].related_acs.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "ambiguities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description", "blocking"],
+        "properties": {
+          "description": { "type": "string", "minLength": 1 },
+          "blocking": { "type": "boolean" }
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "description": "First traceability anchor after the story. Each entry gets a RISK-XXX id.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["risk_id", "description", "severity", "related_acs"],
+        "properties": {
+          "risk_id": {
+            "type": "string",
+            "pattern": "^RISK-[0-9]+$"
+          },
+          "description": { "type": "string", "minLength": 1 },
+          "severity": { "type": "string", "enum": ["low", "medium", "high"] },
+          "related_acs": {
+            "type": "array",
+            "description": "Indices (0-based) into acceptance_criteria.",
+            "items": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "artifact_paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Manifest of files this run produces. Empty string means 'not yet produced'.",
+      "required": [
+        "test_cases",
+        "planner_brief",
+        "playwright_spec",
+        "generated_test",
+        "execution_results",
+        "html_report",
+        "traces",
+        "screenshots",
+        "failure_analysis",
+        "release_report_md",
+        "release_report_json",
+        "bug_drafts_dir"
+      ],
+      "properties": {
+        "test_cases": { "type": "string" },
+        "planner_brief": { "type": "string" },
+        "playwright_spec": { "type": "string" },
+        "generated_test": { "type": "string" },
+        "execution_results": { "type": "string" },
+        "html_report": { "type": "string" },
+        "traces": { "type": "string" },
+        "screenshots": { "type": "string" },
+        "failure_analysis": { "type": "string" },
+        "release_report_md": { "type": "string" },
+        "release_report_json": { "type": "string" },
+        "bug_drafts_dir": { "type": "string" }
+      }
+    },
+    "review_gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Phase 1 form uses booleans. Phase 2 (TG6) introduces an optional audit-field object alongside the boolean via oneOf; both forms remain valid. Phase 2 (TG7) adds the OPTIONAL qa_scope_approved gate that consolidates Gates 1 and 2 — see docs/review-gates.md. The four per-gate fields stay required for backward compatibility; qa_scope_approved is additive and never replaces code_reviewed (Gate 4 never consolidates).",
+      "required": [
+        "requirements_reviewed",
+        "test_scope_reviewed",
+        "specs_reviewed",
+        "code_reviewed"
+      ],
+      "properties": {
+        "requirements_reviewed": { "$ref": "#/definitions/gateValue" },
+        "test_scope_reviewed": { "$ref": "#/definitions/gateValue" },
+        "specs_reviewed": { "$ref": "#/definitions/gateValue" },
+        "code_reviewed": { "$ref": "#/definitions/gateValue" },
+        "qa_scope_approved": {
+          "$ref": "#/definitions/gateValue",
+          "description": "OPTIONAL (Phase 2 TG7). When present and passed, consolidates Gate 1 (requirements_reviewed) and Gate 2 (test_scope_reviewed) into a single approval. The two underlying gates remain present and valid (deprecated, not removed). Same boolean | audit-object shape as the other gates. Gate 4 (code_reviewed) is NEVER consolidated into this."
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "in_progress", "completed", "blocked"]
+    }
+  },
+  "definitions": {
+    "gateValue": {
+      "oneOf": [
+        { "type": "boolean" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "properties": {
+            "status": { "type": "boolean" },
+            "reviewer": { "type": ["string", "null"] },
+            "reviewed_at": {
+              "type": ["string", "null"],
+              "description": "ISO 8601 timestamp, or null when not yet recorded."
+            },
+            "notes": { "type": ["string", "null"] }
+          }
+        }
+      ]
+    }
+  }
+}

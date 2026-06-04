@@ -1,0 +1,25 @@
+{
+  "_comment": "Execution-result status mapping for the Reporter's TestLink sync (Phase 2 TG10). Maps a test case's run outcome to a TestLink execution status. The outcome key is either the special 'passed'/'skipped' (no failure entry, or a skipped test) or one of the failure-analysis classification values. Human-editable; the Reporter/script MUST NOT hardcode any of this. TestLink statuses: Pass, Fail, Blocked, Not Run. See docs/testlink-integration.md section 6 and phase2-integrations.md TG10.",
+  "outcome_to_testlink_status": {
+    "passed": "Pass",
+    "product_bug": "Fail",
+    "flaky": "Blocked",
+    "environment_issue": "Blocked",
+    "test_bug": "Blocked",
+    "test_data_issue": "Blocked",
+    "unknown_needs_human_review": "Blocked",
+    "locator_or_selector": "Blocked",
+    "wait_or_timeout": "Blocked",
+    "ui_structural_change": "Blocked",
+    "skipped": "Not Run"
+  },
+  "default_status": "Blocked",
+  "_default_comment": "Used when an outcome key is not found in the map above (e.g. a future classification value). Blocked is the safe default — it flags the case for a human in TestLink rather than silently passing or failing it.",
+  "testlink_statuses": {
+    "_comment": "Reference only: the TestLink reportTCResult status codes the names map to.",
+    "Pass": "p",
+    "Fail": "f",
+    "Blocked": "b",
+    "Not Run": "n"
+  }
+}

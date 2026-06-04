@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-05-31T19-00-00Z-tg9run",
+  "story": {
+    "id": "STORY-002",
+    "title": "Account access and provisioning",
+    "source": "manual",
+    "path": "story.md",
+    "description": "A registered user can sign in through the web UI (Saucedemo, E2E branch), and the system can provision new user accounts through the API (reqres.in, API branch) while rejecting malformed provisioning requests. Composite demo story spanning two demo targets to exercise the dual E2E/API pipeline."
+  },
+  "acceptance_criteria": [
+    "(UI) Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",
+    "(UI) Given an invalid password, when the user submits the form, then they remain on the login page and an error message explains the credentials were not accepted. No session is created.",
+    "(API) Given a valid JSON body with a name and a job, when a client POSTs to /users, then the API responds 201 Created with a body containing a non-empty id and a createdAt timestamp.",
+    "(API) Given a registration body that has an email but no password, when a client POSTs to /register, then the API responds 400 Bad Request with a body containing an error field describing the missing password. No account is created."
+  ],
+  "ambiguities": [
+    {
+      "description": "This is a composite demo story: the UI ACs target Saucedemo and the API ACs target reqres.in, two separate demo services. In a real project they would be one application. The split is intentional for Phase 1.5 to exercise both pipeline branches; reviewers should read it as 'UI behavior' + 'API contract' rather than one coherent product.",
+      "blocking": false
+    }
+  ],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "A session is created on failed login, or the locked/invalid path leaves the user in an ambiguous authenticated state.",
+      "severity": "high",
+      "related_acs": [0, 1]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "The provisioning API accepts an incomplete request (e.g. registration with no password) or returns a malformed created-resource response, letting bad data into the system.",
+      "severity": "high",
+      "related_acs": [2, 3]
+    }
+  ],
+  "artifact_paths": {
+    "test_cases": "test-cases/STORY-002.json",
+    "planner_brief": "planner-input/STORY-002.planner-brief.md",
+    "playwright_spec": "specs/STORY-002.md",
+    "generated_test": "tests/STORY-002.spec.ts",
+    "execution_results": "reports/results.json",
+    "html_report": "reports/html",
+    "traces": "test-results",
+    "screenshots": "test-results",
+    "failure_analysis": "analysis/failure-analysis.json",
+    "release_report_md": "release/release-report.md",
+    "release_report_json": "release/release-report.json",
+    "bug_drafts_dir": "release/bug-drafts"
+  },
+  "review_gates": {
+    "requirements_reviewed": true,
+    "test_scope_reviewed": true,
+    "specs_reviewed": true,
+    "code_reviewed": true
+  },
+  "status": "completed"
+}

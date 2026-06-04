@@ -1,0 +1,160 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-05-31T19-00-00Z-tg9run",
+  "story_id": "STORY-002",
+  "generated_at": "2026-05-31T19:10:00Z",
+  "test_cases": [
+    {
+      "test_case_id": "TC-001",
+      "title": "Valid user sees inventory after login",
+      "description": "Happy path: a registered, non-locked user signs in to Saucedemo with correct credentials and reaches the inventory list.",
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [0],
+      "priority": "P0",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "The AC is about the user journey through the UI — submit the form, land on the inventory page. The journey crosses page boundaries; an API check alone would not validate the redirect and inventory render. Also the positive baseline against which TC-002 diverges.",
+      "preconditions": [
+        "A non-locked Saucedemo user exists (standard_user / secret_sauce).",
+        "BASE_URL points at https://www.saucedemo.com/."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Navigate to BASE_URL."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Fill the Username field.",
+          "data": "standard_user"
+        },
+        {
+          "step_id": "S-03",
+          "action": "Fill the Password field.",
+          "data": "secret_sauce"
+        },
+        {
+          "step_id": "S-04",
+          "action": "Click the Login button."
+        }
+      ],
+      "expected_results": [
+        "URL changes to a path ending in /inventory.html.",
+        "At least one inventory item is visible on the page."
+      ],
+      "status": "approved",
+      "testlink_id": "4"
+    },
+    {
+      "test_case_id": "TC-002",
+      "title": "Invalid password is rejected and no session is created",
+      "description": "Negative case: a wrong password keeps the user on the login page, shows the error banner, and sets no session cookie.",
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [1],
+      "priority": "P1",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "The AC names UI feedback (remain on login page, see error) plus the no-session guarantee. The UI feedback is an E2E assertion; the no-session part is checked via the session-username cookie absence, the strongest signal available on this backend-less UI.",
+      "preconditions": ["BASE_URL points at https://www.saucedemo.com/."],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Navigate to BASE_URL."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Fill the Username field.",
+          "data": "standard_user"
+        },
+        {
+          "step_id": "S-03",
+          "action": "Fill the Password field with a wrong value.",
+          "data": "wrong-password"
+        },
+        {
+          "step_id": "S-04",
+          "action": "Click the Login button."
+        }
+      ],
+      "expected_results": [
+        "URL remains on the login page (path is '/').",
+        "The error banner is visible: 'Epic sadface: Username and password do not match any user in this service'.",
+        "No session-username cookie is set."
+      ],
+      "status": "approved",
+      "testlink_id": "10"
+    },
+    {
+      "test_case_id": "TC-003",
+      "title": "Create user returns 201 with id and createdAt",
+      "description": "POST /users with a valid name and job creates a user and returns 201 with an id and a createdAt timestamp.",
+      "risk_ids": ["RISK-002"],
+      "acceptance_criteria_refs": [2],
+      "priority": "P1",
+      "test_level_recommendation": "api",
+      "automation_decision": "automate_api",
+      "automation_decision_reason": "Server-side contract: a POST returning a specific status and response shape. No UI to exercise; an API test verifies the contract deterministically. Status-code and data-shape checks belong at the API level per docs/automation-decision-model.md.",
+      "preconditions": [
+        "The API base URL is configured via the Postman environment (reqres.in)."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "POST to /users with a JSON body.",
+          "data": {
+            "name": "morpheus",
+            "job": "leader"
+          }
+        }
+      ],
+      "expected_results": [
+        "Response status code is 201.",
+        "Response body contains a non-empty 'id'.",
+        "Response body contains a 'createdAt' timestamp."
+      ],
+      "status": "approved",
+      "api_metadata": {
+        "method": "POST",
+        "endpoint": "/users",
+        "auth_required": false,
+        "expected_status_codes": [201]
+      },
+      "testlink_id": "16"
+    },
+    {
+      "test_case_id": "TC-004",
+      "title": "Register with missing password is rejected",
+      "description": "POST /register with an email but no password returns 400 with an error message (reqres.in's documented missing-field failure mode).",
+      "risk_ids": ["RISK-002"],
+      "acceptance_criteria_refs": [3],
+      "priority": "P1",
+      "test_level_recommendation": "api",
+      "automation_decision": "automate_api",
+      "automation_decision_reason": "Negative validation at the API contract level: a missing required field must be rejected with 400 and a clear error. Negative API validation is a primary use of automate_api per docs/automation-decision-model.md.",
+      "preconditions": [
+        "The API base URL is configured via the Postman environment (reqres.in)."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "POST to /register with only an email field.",
+          "data": {
+            "email": "sydney@fife"
+          }
+        }
+      ],
+      "expected_results": [
+        "Response status code is 400.",
+        "Response body contains an 'error' field mentioning the missing password."
+      ],
+      "status": "approved",
+      "api_metadata": {
+        "method": "POST",
+        "endpoint": "/register",
+        "auth_required": false,
+        "expected_status_codes": [400]
+      },
+      "testlink_id": "19"
+    }
+  ]
+}

@@ -1,0 +1,128 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-05-28T18-00-00Z-loginex",
+  "story_id": "STORY-001",
+  "generated_at": "2026-05-28T18:05:00Z",
+  "test_cases": [
+    {
+      "test_case_id": "TC-001",
+      "title": "Valid user sees inventory after login",
+      "description": "Happy path: a registered, non-locked user signs in with correct credentials and reaches the inventory list.",
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [0],
+      "priority": "P0",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "The AC is about the user journey through the UI — they submit the form and land on the inventory page. The journey crosses page boundaries; an API check alone would not validate that the redirect and inventory render correctly.",
+      "preconditions": [
+        "A non-locked user account exists in the test environment.",
+        "BASE_URL points at the login page."
+      ],
+      "steps": [
+        { "step_id": "S-01", "action": "Navigate to BASE_URL." },
+        {
+          "step_id": "S-02",
+          "action": "Fill the username field.",
+          "data": "standard_user"
+        },
+        {
+          "step_id": "S-03",
+          "action": "Fill the password field.",
+          "data": "secret_sauce"
+        },
+        { "step_id": "S-04", "action": "Click the Login button." }
+      ],
+      "expected_results": [
+        "URL changes to the inventory page.",
+        "At least one inventory item is visible on the page."
+      ],
+      "status": "draft"
+    },
+    {
+      "test_case_id": "TC-002",
+      "title": "Invalid password is rejected with a clear error",
+      "description": "Negative case: the user submits a wrong password. The form rejects the credentials and shows an error.",
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [1],
+      "priority": "P1",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "The AC explicitly says the user remains on the login page AND sees an error message. The 'sees an error' part is a UI assertion and belongs at E2E. The 'no partial session' part is also covered by API but is asserted here too because the user-facing behaviour is what the AC names.",
+      "preconditions": [
+        "A non-locked user account exists in the test environment."
+      ],
+      "steps": [
+        { "step_id": "S-01", "action": "Navigate to BASE_URL." },
+        {
+          "step_id": "S-02",
+          "action": "Fill the username field.",
+          "data": "standard_user"
+        },
+        {
+          "step_id": "S-03",
+          "action": "Fill the password field with a wrong value.",
+          "data": "wrong-password"
+        },
+        { "step_id": "S-04", "action": "Click the Login button." }
+      ],
+      "expected_results": [
+        "URL remains on the login page.",
+        "An error message is visible explaining the credentials were not accepted."
+      ],
+      "status": "draft"
+    },
+    {
+      "test_case_id": "TC-003",
+      "title": "Locked account is rejected at the API boundary",
+      "description": "Permission check: when a locked account submits valid credentials, the auth endpoint must refuse the request and not create a session. The UI's error display is covered by a separate E2E sibling case if needed; this case asserts the server-side guarantee.",
+      "risk_ids": ["RISK-002"],
+      "acceptance_criteria_refs": [2],
+      "priority": "P0",
+      "test_level_recommendation": "api",
+      "automation_decision": "automate_api",
+      "automation_decision_reason": "The AC is about session creation, not visual feedback. Permission/role checks belong at the API per docs/automation-decision-model.md; testing only via UI would let an API-level bypass slip through. The Phase 1.5 API Agent will pick this case up from the test-cases JSON.",
+      "preconditions": [
+        "A locked user account exists in the test environment."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "POST credentials for the locked account to the auth endpoint.",
+          "data": {
+            "username": "locked_out_user",
+            "password": "secret_sauce"
+          }
+        }
+      ],
+      "expected_results": [
+        "Response status code is in the 4xx range (typically 401 or 403).",
+        "Response body does not contain a session token.",
+        "No session cookie is set on the response."
+      ],
+      "status": "draft"
+    },
+    {
+      "test_case_id": "TC-004",
+      "title": "Visual review of login error styling",
+      "description": "Subjective check that the error banner is legible and on-brand. Captured for manual execution; not automated.",
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [1, 2],
+      "priority": "P3",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "manual",
+      "automation_decision_reason": "The check is about visual quality — colour, contrast, copy readability — which automated assertions cannot judge reliably. Marked manual so it still appears on the QA checklist but does not bloat the automation suite.",
+      "preconditions": ["A registered user account exists."],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Trigger an invalid-credentials error and inspect the banner visually."
+        }
+      ],
+      "expected_results": [
+        "The banner uses an error colour and is readable against the page background.",
+        "The copy is specific enough that a non-technical user knows what to do next."
+      ],
+      "status": "draft"
+    }
+  ]
+}

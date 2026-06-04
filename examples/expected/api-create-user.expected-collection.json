@@ -1,0 +1,69 @@
+{
+  "info": {
+    "name": "COL-001 API-001 — Create user",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "REQ-001 Create user (TC-001)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/users",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"morpheus\",\n  \"job\": \"leader\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('TC-001: status is 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "pm.test('TC-001: body has a non-empty id', function () {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.id).to.exist;",
+              "  pm.expect(String(json.id)).to.have.length.above(0);",
+              "});",
+              "pm.test('TC-001: body has createdAt', function () {",
+              "  pm.expect(pm.response.json().createdAt).to.exist;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "REQ-002 Register missing password is rejected (TC-002)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/register",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"sydney@fife\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('TC-002: status is 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "pm.test('TC-002: body has an error about the missing password', function () {",
+              "  pm.expect(pm.response.json().error).to.exist;",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

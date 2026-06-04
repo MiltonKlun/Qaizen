@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ai-qa-pipeline/schemas/postman-collection.schema.json",
+  "title": "Postman Collection (minimal coherence schema)",
+  "description": "api-tests/collections/[story-id].postman_collection.json. This is NOT the full Postman Collection v2.1 schema (that is huge). It is a minimal schema that guarantees what the API Agent generates is structurally coherent: a named collection in the v2.1 format, a non-empty item array, every request-item carrying a request, and any test scripts being well-formed. Traceability IDs (COL-XXX in info.name, REQ-XXX + the originating TC in each item) are enforced by agents/api-agent.md and the human at Gate 3/4, not by this schema.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["info", "item"],
+  "properties": {
+    "info": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["name", "schema"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable collection name. By convention carries the COL-XXX id and the story id, e.g. 'COL-001 api-create-user'.",
+          "minLength": 1
+        },
+        "schema": {
+          "type": "string",
+          "description": "The Postman collection format URL. Must be the v2.1.0 schema.",
+          "enum": [
+            "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+          ]
+        }
+      }
+    },
+    "item": {
+      "type": "array",
+      "description": "Non-empty. Each entry is either a request-item (has a request) or a folder-item (has a nested item array).",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/item" }
+    }
+  },
+  "definitions": {
+    "item": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "event": {
+          "type": "array",
+          "description": "Optional. Pre-request and test scripts. Items with assertions carry a 'test' event whose script.exec is the assertion code.",
+          "items": { "$ref": "#/definitions/event" }
+        }
+      },
+      "oneOf": [
+        {
+          "description": "Request-item: a single HTTP request.",
+          "required": ["request"],
+          "properties": {
+            "request": { "$ref": "#/definitions/request" }
+          }
+        },
+        {
+          "description": "Folder-item: a group containing nested items.",
+          "required": ["item"],
+          "properties": {
+            "item": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/definitions/item" }
+            }
+          }
+        }
+      ]
+    },
+    "request": {
+      "description": "A Postman request. May be the shorthand string form or the object form; the object form should carry at least a method and url.",
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["method", "url"],
+          "properties": {
+            "method": {
+              "type": "string",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE",
+                "HEAD",
+                "OPTIONS"
+              ]
+            },
+            "url": {
+              "description": "Postman accepts a url as a string or a structured object. Credentials and the base URL come from the environment via {{variables}}, never hardcoded.",
+              "type": ["string", "object"]
+            }
+          }
+        }
+      ]
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["listen", "script"],
+      "properties": {
+        "listen": {
+          "type": "string",
+          "enum": ["prerequest", "test"]
+        },
+        "script": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["exec"],
+          "properties": {
+            "exec": {
+              "description": "The script body. Postman stores it as an array of lines or a single string.",
+              "oneOf": [
+                { "type": "array", "items": { "type": "string" } },
+                { "type": "string" }
+              ]
+            },
+            "type": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

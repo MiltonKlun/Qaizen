@@ -1,0 +1,174 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ai-qa-pipeline/schemas/test-cases.schema.json",
+  "title": "Test Cases for a Story",
+  "description": "test-cases/[story-id].json. The Test Designer's primary output. Every TC carries an Automation Decision with a non-empty reason; see docs/automation-decision-model.md. Risk linkage is mandatory; see docs/traceability.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "story_id", "test_cases"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "story_id": {
+      "type": "string",
+      "description": "Must match context.json.story.id.",
+      "pattern": "^(STORY-[0-9]+|[A-Z][A-Z0-9_]*-[0-9]+)$"
+    },
+    "generated_at": {
+      "type": "string",
+      "description": "ISO 8601 timestamp. Optional."
+    },
+    "test_cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/testCase" }
+    }
+  },
+  "definitions": {
+    "testCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "test_case_id",
+        "title",
+        "description",
+        "risk_ids",
+        "acceptance_criteria_refs",
+        "priority",
+        "test_level_recommendation",
+        "automation_decision",
+        "automation_decision_reason",
+        "preconditions",
+        "steps",
+        "expected_results",
+        "status"
+      ],
+      "properties": {
+        "test_case_id": {
+          "type": "string",
+          "pattern": "^TC-[0-9]+$"
+        },
+        "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "risk_ids": {
+          "type": "array",
+          "description": "MUST reference >=1 RISK-XXX from context.json.risks[].",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^RISK-[0-9]+$"
+          }
+        },
+        "acceptance_criteria_refs": {
+          "type": "array",
+          "description": "Indices (0-based) into context.json.acceptance_criteria.",
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["P0", "P1", "P2", "P3"]
+        },
+        "test_level_recommendation": {
+          "type": "string",
+          "enum": ["unit", "component", "integration", "e2e", "api"]
+        },
+        "automation_decision": {
+          "type": "string",
+          "enum": [
+            "automate_e2e",
+            "automate_api",
+            "automate_component",
+            "manual",
+            "skip"
+          ]
+        },
+        "automation_decision_reason": {
+          "type": "string",
+          "description": "Non-empty. Must be a real explanation, not a restatement of the decision. Generic reasons are a Gate 2 rejection per docs/review-gates.md.",
+          "minLength": 1
+        },
+        "preconditions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["step_id", "action"],
+            "properties": {
+              "step_id": {
+                "type": "string",
+                "description": "e.g. 'S-01', 'S-02'. Stable inside this test case.",
+                "minLength": 1
+              },
+              "action": { "type": "string", "minLength": 1 },
+              "data": {
+                "description": "Optional. Free-form input data for the step.",
+                "type": [
+                  "string",
+                  "object",
+                  "array",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "expected_results": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "approved", "rejected"]
+        },
+        "qmetry_fields": {
+          "type": "object",
+          "description": "Reserved forward-compatibility slot. Phase 1 leaves this empty; future phases may bind a schema."
+        },
+        "testlink_id": {
+          "type": "string",
+          "description": "Populated by Phase 2 syncing-testlink skill. Empty/omitted in Phase 1."
+        },
+        "api_metadata": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Phase 1.5+ extension. Optional. Should be populated only when automation_decision == 'automate_api'. The schema-extension rule (see phase1.5-api-branch.md TG3) is enforced separately; Phase 1 files do not populate this.",
+          "properties": {
+            "method": {
+              "type": "string",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE",
+                "HEAD",
+                "OPTIONS"
+              ]
+            },
+            "endpoint": { "type": "string", "minLength": 1 },
+            "request_body_schema_ref": { "type": "string" },
+            "response_schema_ref": { "type": "string" },
+            "auth_required": { "type": "boolean" },
+            "expected_status_codes": {
+              "type": "array",
+              "items": { "type": "integer", "minimum": 100, "maximum": 599 }
+            }
+          }
+        }
+      }
+    }
+  }
+}
