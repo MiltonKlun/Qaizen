@@ -1,0 +1,15 @@
+node_modules/
+.env
+.env.local
+*.local
+reports/
+# Newman outputs (already covered by reports/ above; listed explicitly per
+# Phase 1.5 TG2 — results go to CI artifacts, never versioned).
+reports/newman-html/
+reports/newman-results.json
+traces/
+playwright-report/
+test-results/
+.playwright-mcp/
+.DS_Store
+.claude/

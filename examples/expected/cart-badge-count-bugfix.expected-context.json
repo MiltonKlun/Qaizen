@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-04T12-00-00Z-cartbug",
+  "story": {
+    "id": "STORY-003",
+    "title": "Cart badge shows stale item count after removing an item",
+    "source": "manual",
+    "path": "story.md",
+    "description": "Regression fix: the header cart badge must decrement immediately when an item is removed, hide when the cart is empty, and stay correct across navigation — it currently shows a cached pre-removal count until a page reload."
+  },
+  "acceptance_criteria": [
+    "Given a cart with N items, when the user removes one item from the cart page, then the header badge updates to N-1 without a page reload.",
+    "Given the user removes the last remaining item, when the cart becomes empty, then the header badge is hidden entirely (not shown as '0').",
+    "Given the user removes an item, when they navigate to another page and back, then the badge still shows the correct count (the fix must not depend on a reload to 'correct itself')."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "The badge keeps showing a stale count after removal, misleading the user about cart contents at the checkout decision point.",
+      "severity": "high",
+      "related_acs": [0, 2]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "An emptied cart still shows a badge (e.g. '0' or the last count), implying items remain.",
+      "severity": "medium",
+      "related_acs": [1]
+    }
+  ],
+  "artifact_paths": {
+    "test_cases": "test-cases/STORY-003.json",
+    "planner_brief": "planner-input/STORY-003.planner-brief.md",
+    "playwright_spec": "",
+    "generated_test": "",
+    "execution_results": "",
+    "html_report": "",
+    "traces": "",
+    "screenshots": "",
+    "failure_analysis": "",
+    "release_report_md": "",
+    "release_report_json": "",
+    "bug_drafts_dir": "release/bug-drafts"
+  },
+  "review_gates": {
+    "requirements_reviewed": false,
+    "test_scope_reviewed": false,
+    "specs_reviewed": false,
+    "code_reviewed": false
+  },
+  "status": "draft"
+}

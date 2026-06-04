@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-04T12-30-00Z-sortenh",
+  "story": {
+    "id": "STORY-004",
+    "title": "Add 'sort products by price' to the inventory page",
+    "source": "manual",
+    "path": "story.md",
+    "description": "Net-new enhancement: a sort control on the inventory page orders products by price low-to-high and high-to-low, with the ordering enforced server-side by the products endpoint and a 400 on an invalid sort parameter."
+  },
+  "acceptance_criteria": [
+    "Given the inventory page, when the user selects 'Price (low to high)', then the products are reordered so each product's price is greater than or equal to the one before it.",
+    "Given the inventory page, when the user selects 'Price (high to low)', then the products are reordered so each product's price is less than or equal to the one before it.",
+    "Given a sort has been applied, when the inventory data is requested from the products endpoint with the corresponding sort parameter, then the endpoint returns the items already ordered (the sort is enforced server-side, not only re-ordered in the browser).",
+    "Given an invalid sort parameter value, when the products endpoint is called, then it responds 400 with an error and does not fall back to an arbitrary order."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "The UI reorders products but the displayed order does not actually match the selected price direction.",
+      "severity": "medium",
+      "related_acs": [0, 1]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "Sorting is done only in the browser; the products endpoint ignores the sort parameter, so any non-UI consumer gets an arbitrary order.",
+      "severity": "high",
+      "related_acs": [2]
+    },
+    {
+      "risk_id": "RISK-003",
+      "description": "An invalid sort parameter is silently accepted and the endpoint returns an arbitrary order instead of a 400, masking client bugs.",
+      "severity": "medium",
+      "related_acs": [3]
+    }
+  ],
+  "artifact_paths": {
+    "test_cases": "test-cases/STORY-004.json",
+    "planner_brief": "planner-input/STORY-004.planner-brief.md",
+    "playwright_spec": "",
+    "generated_test": "",
+    "execution_results": "",
+    "html_report": "",
+    "traces": "",
+    "screenshots": "",
+    "failure_analysis": "",
+    "release_report_md": "",
+    "release_report_json": "",
+    "bug_drafts_dir": "release/bug-drafts"
+  },
+  "review_gates": {
+    "requirements_reviewed": false,
+    "test_scope_reviewed": false,
+    "specs_reviewed": false,
+    "code_reviewed": false
+  },
+  "status": "draft"
+}

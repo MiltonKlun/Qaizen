@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-05-28T18-00-00Z-loginex",
+  "story": {
+    "id": "STORY-001",
+    "title": "Login — Successful sign-in",
+    "source": "manual",
+    "path": "story.md",
+    "description": "A registered, non-locked user can sign in with valid credentials and land on the home page that lists their available inventory."
+  },
+  "acceptance_criteria": [
+    "Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",
+    "Given an invalid password, when the user submits the form, then they remain on the login page and an error message explains the credentials were not accepted. No partial session is created.",
+    "Given a locked user, when they submit valid credentials, then they remain on the login page and an error message explains the account is locked. No session is created."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "A partial session is created on failed login, leaving the user in an ambiguous authenticated state.",
+      "severity": "high",
+      "related_acs": [1, 2]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "Locked-account check is enforced only in the UI, allowing API-level bypass.",
+      "severity": "high",
+      "related_acs": [2]
+    }
+  ],
+  "artifact_paths": {
+    "test_cases": "test-cases/STORY-001.json",
+    "planner_brief": "planner-input/STORY-001.planner-brief.md",
+    "playwright_spec": "",
+    "generated_test": "",
+    "execution_results": "",
+    "html_report": "",
+    "traces": "",
+    "screenshots": "",
+    "failure_analysis": "",
+    "release_report_md": "",
+    "release_report_json": "",
+    "bug_drafts_dir": "release/bug-drafts"
+  },
+  "review_gates": {
+    "requirements_reviewed": false,
+    "test_scope_reviewed": false,
+    "specs_reviewed": false,
+    "code_reviewed": false
+  },
+  "status": "draft"
+}

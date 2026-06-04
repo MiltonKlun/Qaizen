@@ -1,0 +1,79 @@
+{
+  "info": {
+    "name": "COL-001 STORY-002 — Account provisioning (reqres.in)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "REQ-001 Create user returns 201 (TC-003)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/users",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-api-key", "value": "{{api_key}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"morpheus\",\n  \"job\": \"leader\"\n}"
+        },
+        "description": "TC-003 (RISK-002, AC #3): POST /users with a valid name + job must return 201 with a non-empty id and a createdAt timestamp."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('TC-003: status is 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "pm.test('TC-003: body has a non-empty id', function () {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.id, 'id present').to.exist;",
+              "  pm.expect(String(json.id).length, 'id non-empty').to.be.above(0);",
+              "});",
+              "pm.test('TC-003: body has a createdAt timestamp', function () {",
+              "  pm.expect(pm.response.json().createdAt, 'createdAt present').to.exist;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "REQ-002 Register without password returns 400 (TC-004)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/register",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-api-key", "value": "{{api_key}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"sydney@fife\"\n}"
+        },
+        "description": "TC-004 (RISK-002, AC #4): POST /register with an email but no password must be rejected with 400 and an error field describing the missing password."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('TC-004: status is 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "pm.test('TC-004: body has an error about the missing password', function () {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.error, 'error field present').to.exist;",
+              "  pm.expect(String(json.error).toLowerCase(), 'error mentions password').to.include('password');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

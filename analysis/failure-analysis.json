@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-05-31T19-00-00Z-tg9run",
+  "story_id": "STORY-002",
+  "execution_date": "2026-05-31T23:37:05.423Z",
+  "total_tests": 7,
+  "passed": 7,
+  "failed": 0,
+  "skipped": 0,
+  "failures": [],
+  "status": "draft"
+}

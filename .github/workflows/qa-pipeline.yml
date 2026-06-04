@@ -1,0 +1,187 @@
+name: QA Pipeline
+
+# Phase 2 TG8. CI for the AI-QA pipeline repo.
+#
+# Job blocking model (the plan's "no contradictions" rule):
+#   quality-checks  — REQUIRED / blocking. Fails the run if typecheck,
+#                     lint, format, or any committed JSON artifact is
+#                     invalid. This is the gate that protects main.
+#   playwright-full — INFORMATIONAL. continue-on-error: true so a red
+#                     test does not block the PR yet; uploads reports.
+#   newman-api      — INFORMATIONAL. Same, and only runs if the repo has
+#                     api-tests/collections to execute.
+#   ci-summary      — ALWAYS runs, aggregates both reports into the PR
+#                     step summary. Informational (no --fail-on-test-failure)
+#                     until the suite is promoted to blocking.
+#
+# A job is never "non-blocking but required" — informational jobs carry
+# continue-on-error and are NOT listed as required in branch protection.
+# CI never commits, merges, heals, or files Jira/TestLink writes — those
+# are explicit local --apply operations only (CLAUDE.md, phase2 plan §67).
+
+on:
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      STORY_ID:
+        description: 'Optional story id for the API branch (e.g. STORY-002).'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-checks:
+    name: Quality checks (required)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Format check
+        run: npm run format:check
+      - name: Validate committed artifacts against schemas
+        run: npm run validate:all
+      - name: Validate expected examples against schemas
+        run: npm run validate:examples
+
+  contract-stability:
+    name: Architecture Stability check (informational)
+    runs-on: ubuntu-latest
+    # Only on PRs — needs a base ref to diff against. Informational: warns
+    # if schemas/ changed without agents/ + docs/ + examples/expected/.
+    if: github.event_name == 'pull_request'
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so the merge-base with the PR base resolves.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check Architecture Stability Rule (schema + companions)
+        env:
+          CONTRACT_BASE_REF: origin/${{ github.base_ref }}
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          node scripts/check-contract-changes.js
+
+  playwright-full:
+    name: Playwright E2E (informational)
+    runs-on: ubuntu-latest
+    needs: quality-checks
+    continue-on-error: true
+    env:
+      BASE_URL: ${{ vars.BASE_URL || 'https://www.saucedemo.com' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+      - name: Run Playwright tests
+        run: npm test
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            reports/html
+            reports/results.json
+          retention-days: 14
+          if-no-files-found: ignore
+
+  newman-api:
+    name: Newman API (informational)
+    runs-on: ubuntu-latest
+    needs: quality-checks
+    continue-on-error: true
+    env:
+      REQRES_API_KEY: ${{ secrets.REQRES_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Detect API collections
+        id: detect
+        shell: bash
+        run: |
+          if ls api-tests/collections/*.postman_collection.json >/dev/null 2>&1; then
+            echo "has_collections=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_collections=false" >> "$GITHUB_OUTPUT"
+            echo "No API collections found; skipping Newman."
+          fi
+      - name: Run Newman for each collection
+        if: steps.detect.outputs.has_collections == 'true'
+        shell: bash
+        run: |
+          set +e
+          status=0
+          for f in api-tests/collections/*.postman_collection.json; do
+            id=$(basename "$f" .postman_collection.json)
+            echo "::group::Newman $id"
+            STORY_ID="$id" npm run test:api
+            rc=$?
+            [ $rc -ne 0 ] && status=$rc
+            echo "::endgroup::"
+          done
+          exit $status
+      - name: Upload Newman report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-report
+          path: |
+            reports/newman-html
+            reports/newman-results.json
+          retention-days: 14
+          if-no-files-found: ignore
+
+  ci-summary:
+    name: CI summary
+    runs-on: ubuntu-latest
+    needs: [quality-checks, playwright-full, newman-api]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Download Playwright report
+        uses: actions/download-artifact@v4
+        with:
+          name: playwright-report
+          path: reports
+        continue-on-error: true
+      - name: Download Newman report
+        uses: actions/download-artifact@v4
+        with:
+          name: newman-report
+          path: reports
+        continue-on-error: true
+      - name: Write CI summary
+        run: npm run ci:summary

@@ -1,0 +1,28 @@
+{
+  "_comment": "Field mapping for the TestLink adapter (skills/syncing-testlink). Maps our test-cases/*.json fields to TestLink fields. Human-editable; the skill MUST NOT hardcode any of this. See docs/testlink-integration.md section 6.",
+  "fields": {
+    "test_case_id": "external_id",
+    "title": "name",
+    "description": "summary",
+    "preconditions": "preconditions",
+    "steps": "steps",
+    "expected_results": "expected_results"
+  },
+  "priority_to_importance": {
+    "_comment": "TestLink importance: 1=Low, 2=Medium, 3=High.",
+    "P0": 3,
+    "P1": 3,
+    "P2": 2,
+    "P3": 1
+  },
+  "automation_decision_to_execution_type": {
+    "_comment": "TestLink execution_type: 1=Manual, 2=Automated.",
+    "automate_e2e": 2,
+    "automate_api": 2,
+    "automate_component": 2,
+    "manual": 1,
+    "skip": 1
+  },
+  "sync_only_status": ["approved"],
+  "writeback_field": "testlink_id"
+}

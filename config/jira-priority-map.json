@@ -1,0 +1,12 @@
+{
+  "_comment": "Severity -> Jira priority mapping for scripts/create-jira-bugs.js. Bug-draft '## Severity' is red or yellow (green failures never get a draft). Human-editable; the script MUST NOT hardcode any of this. Priority names must match the names configured in your Jira instance (default scheme: Highest/High/Medium/Low/Lowest). See docs/bug-draft-format.md and phase2-integrations.md TG5.",
+  "severity_to_priority": {
+    "red": "Highest",
+    "yellow": "Medium"
+  },
+  "default_priority": "Medium",
+  "issue_type_env": "JIRA_BUG_ISSUETYPE",
+  "default_issue_type": "Bug",
+  "link_type": "Relates",
+  "_link_comment": "Issue-link type used to link a created bug back to the story issue (only when context.story.jira_issue_key exists). Must match a link type name in your Jira instance (read via jira_get_issue_link_types). 'Relates' exists in the default scheme."
+}

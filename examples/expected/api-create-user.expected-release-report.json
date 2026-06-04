@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-05-31T18-00-00Z-apiex",
+  "story_id": "API-001",
+  "report_date": "2026-05-31T18:30:00Z",
+  "summary": "API-001 (create user / reject missing-password registration) — API-branch slice run against reqres.in via Newman. Both API test cases passed: TC-001 (POST /users returns 201 with id + createdAt) and TC-002 (POST /register with a missing password returns 400). No E2E cases in this story, so the e2e group is zeroed. No failures, no bug drafts.",
+  "coverage_by_risk": [
+    {
+      "risk_id": "RISK-001",
+      "covered_by_tcs": ["TC-001", "TC-002"],
+      "status": "covered_passing"
+    }
+  ],
+  "execution_summary": {
+    "e2e": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate": 0
+    },
+    "api": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate": 1
+    },
+    "combined": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate": 1
+    }
+  },
+  "blocking_failures": [],
+  "non_blocking_failures": [],
+  "release_recommendation": "pass",
+  "release_recommendation_reasoning": "Both API test cases for the only high-severity risk (RISK-001) passed against reqres.in; the risk is covered_passing. There are no blocking failures in either branch and no outstanding manual or unexecuted cases. This story has no E2E component, so the e2e execution group is zeroed and does not affect the recommendation.",
+  "bug_drafts": [],
+  "evidence_paths": ["reports/newman-html", "reports/newman-results.json"],
+  "open_questions": [],
+  "status": "draft"
+}

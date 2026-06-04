@@ -1,0 +1,126 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-05-28T16-00-00Z-tg13run",
+  "story_id": "STORY-001",
+  "generated_at": "2026-05-29T10:00:00Z",
+  "test_cases": [
+    {
+      "test_case_id": "TC-001",
+      "title": "Valid user sees inventory after login",
+      "description": "Happy path: a registered, non-locked user signs in with correct credentials and reaches the inventory list.",
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [0],
+      "priority": "P0",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "The AC is about the user journey through the UI — they submit the form and land on the inventory page. The journey crosses page boundaries; an API check alone would not validate that the redirect happens and the inventory grid renders. Also serves as the positive baseline against which TC-002's negative case diverges.",
+      "preconditions": [
+        "A non-locked Saucedemo user exists (standard_user / secret_sauce — documented on the login screen).",
+        "BASE_URL points at https://www.saucedemo.com/."
+      ],
+      "steps": [
+        { "step_id": "S-01", "action": "Navigate to BASE_URL." },
+        {
+          "step_id": "S-02",
+          "action": "Fill the Username field.",
+          "data": "standard_user"
+        },
+        {
+          "step_id": "S-03",
+          "action": "Fill the Password field.",
+          "data": "secret_sauce"
+        },
+        { "step_id": "S-04", "action": "Click the Login button." }
+      ],
+      "expected_results": [
+        "URL changes to a path ending in /inventory.html.",
+        "At least one inventory item is visible on the page."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-002",
+      "title": "Invalid password is rejected with a clear error",
+      "description": "Negative case: the user submits a wrong password. The form rejects the credentials, the URL stays on the login page, and an error banner appears.",
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [1],
+      "priority": "P1",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "The AC explicitly says the user remains on the login page AND sees an error message. The 'sees an error' part is a UI assertion that belongs at E2E. The 'no partial session' guarantee is mostly a server-side concern, but Saucedemo has no backend so we assert the observable UI fact (no navigation, error visible).",
+      "preconditions": ["BASE_URL points at https://www.saucedemo.com/."],
+      "steps": [
+        { "step_id": "S-01", "action": "Navigate to BASE_URL." },
+        {
+          "step_id": "S-02",
+          "action": "Fill the Username field.",
+          "data": "standard_user"
+        },
+        {
+          "step_id": "S-03",
+          "action": "Fill the Password field with a wrong value.",
+          "data": "wrong-password"
+        },
+        { "step_id": "S-04", "action": "Click the Login button." }
+      ],
+      "expected_results": [
+        "URL remains at the login page (path is '/' or ends in '/').",
+        "An error banner is visible whose copy includes the words 'username' and 'password' do not match (Saucedemo's actual error wording: 'Epic sadface: Username and password do not match any user in this service')."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-003",
+      "title": "Locked account is rejected at the API boundary",
+      "description": "Permission check: when a locked account submits valid credentials, the auth endpoint must refuse the request and not create a session. The UI's error display is a separate concern; this case asserts the server-side guarantee.",
+      "risk_ids": ["RISK-002"],
+      "acceptance_criteria_refs": [2],
+      "priority": "P0",
+      "test_level_recommendation": "api",
+      "automation_decision": "automate_api",
+      "automation_decision_reason": "The AC is about session creation, not visual feedback. Permission/role checks belong at the API per docs/automation-decision-model.md; testing only via UI would let an API-level bypass slip through. NOTE: Saucedemo has no real auth endpoint, so this case will execute against the reqres.in equivalent in Phase 1.5 (see docs/ambiguities.md A3). In Phase 1 the case is recorded but not executed.",
+      "preconditions": [
+        "A locked Saucedemo-equivalent user exists (locked_out_user / secret_sauce in Saucedemo terms; the actual Phase 1.5 target is reqres.in)."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "POST credentials for the locked account to the auth endpoint.",
+          "data": {
+            "username": "locked_out_user",
+            "password": "secret_sauce"
+          }
+        }
+      ],
+      "expected_results": [
+        "Response status code is in the 4xx range (typically 400 or 401).",
+        "Response body does not contain a session token or auth cookie.",
+        "No session cookie is set on the response."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-004",
+      "title": "Visual review of login error styling",
+      "description": "Subjective check that the error banner is legible and on-brand. Captured for manual execution; not automated.",
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [1, 2],
+      "priority": "P3",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "manual",
+      "automation_decision_reason": "The check is about visual quality — colour, contrast, copy readability — which automated assertions cannot judge reliably. Marked manual so it still appears on the QA checklist but does not bloat the automation suite.",
+      "preconditions": ["A Saucedemo user account is available."],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Trigger an invalid-credentials error and inspect the banner visually."
+        }
+      ],
+      "expected_results": [
+        "The banner uses an error colour and is readable against the page background.",
+        "The copy is specific enough that a non-technical user knows what to do next."
+      ],
+      "status": "approved"
+    }
+  ]
+}

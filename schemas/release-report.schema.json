@@ -1,0 +1,184 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ai-qa-pipeline/schemas/release-report.schema.json",
+  "title": "Release Report",
+  "description": "release/release-report.json. Produced by the Reporter Agent from context.json + test-cases + failure-analysis + bug drafts. coverage_by_risk is derived from the traceability chain — see docs/traceability.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "story_id",
+    "report_date",
+    "summary",
+    "coverage_by_risk",
+    "execution_summary",
+    "blocking_failures",
+    "non_blocking_failures",
+    "release_recommendation",
+    "release_recommendation_reasoning",
+    "bug_drafts",
+    "evidence_paths",
+    "open_questions",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+    },
+    "run_id": { "type": "string", "minLength": 1 },
+    "story_id": {
+      "type": "string",
+      "pattern": "^(STORY-[0-9]+|[A-Z][A-Z0-9_]*-[0-9]+)$"
+    },
+    "report_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp."
+    },
+    "summary": {
+      "type": "string",
+      "description": "Short prose summary of the run.",
+      "minLength": 1
+    },
+    "coverage_by_risk": {
+      "type": "array",
+      "description": "One entry per RISK-XXX from context.json.risks[]. Derived from the traceability chain.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["risk_id", "covered_by_tcs", "status"],
+        "properties": {
+          "risk_id": {
+            "type": "string",
+            "pattern": "^RISK-[0-9]+$"
+          },
+          "covered_by_tcs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(TC-[0-9]+|API-[0-9]+)$"
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "Coverage status for this risk in this run.",
+            "enum": [
+              "covered_passing",
+              "covered_failing",
+              "covered_partial",
+              "accepted_without_test",
+              "uncovered"
+            ]
+          }
+        }
+      }
+    },
+    "execution_summary": {
+      "description": "Phase 1 form is a single flat object. Phase 1.5 (TG3) switches to a grouped {e2e, api, combined} form. Both forms are accepted via oneOf.",
+      "oneOf": [
+        { "$ref": "#/definitions/executionSummaryFlat" },
+        { "$ref": "#/definitions/executionSummaryGrouped" }
+      ]
+    },
+    "blocking_failures": {
+      "type": "array",
+      "description": "FAIL-XXX ids whose presence flips the release recommendation to fail/conditional_pass/blocked.",
+      "items": {
+        "type": "string",
+        "pattern": "^FAIL-[0-9]+$"
+      }
+    },
+    "non_blocking_failures": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^FAIL-[0-9]+$"
+      }
+    },
+    "release_recommendation": {
+      "type": "string",
+      "enum": ["pass", "fail", "conditional_pass", "blocked"]
+    },
+    "release_recommendation_reasoning": {
+      "type": "string",
+      "description": "Required free-text. conditional_pass MUST list the conditions explicitly.",
+      "minLength": 1
+    },
+    "bug_drafts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["bug_id", "severity", "path"],
+        "properties": {
+          "bug_id": {
+            "type": "string",
+            "pattern": "^BUG-[0-9]+$"
+          },
+          "severity": {
+            "type": "string",
+            "description": "Mirrors failure.severity from analysis/failure-analysis.json. Only red failures produce bug drafts; yellow is documented here when it was promoted to a draft for human triage.",
+            "enum": ["red", "yellow"]
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^release/bug-drafts/BUG-[0-9]+\\.md$"
+          },
+          "jira_key_if_exists": {
+            "type": "string",
+            "description": "Populated by Phase 2 scripts/create-jira-bugs.js --apply. Empty/omitted in Phase 1.",
+            "pattern": "^[A-Z][A-Z0-9_]*-[0-9]+$"
+          }
+        }
+      }
+    },
+    "evidence_paths": {
+      "type": "array",
+      "description": "Relative paths to evidence the reviewer might want to open: HTML report, traces directory, key screenshots. Reporter must reference paths, never inline contents.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "open_questions": {
+      "type": "array",
+      "description": "Things the human needs to answer before the report can move to status='finalized'.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "finalized"]
+    }
+  },
+  "definitions": {
+    "executionCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "passed", "failed", "skipped", "pass_rate"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "pass_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "0..1 (e.g. 0.85 for 85%)."
+        }
+      }
+    },
+    "executionSummaryFlat": {
+      "allOf": [{ "$ref": "#/definitions/executionCounts" }]
+    },
+    "executionSummaryGrouped": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["e2e", "api", "combined"],
+      "properties": {
+        "e2e": { "$ref": "#/definitions/executionCounts" },
+        "api": { "$ref": "#/definitions/executionCounts" },
+        "combined": { "$ref": "#/definitions/executionCounts" }
+      }
+    }
+  }
+}

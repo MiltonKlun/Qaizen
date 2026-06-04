@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-05-28T18-10-00Z-coex",
+  "story": {
+    "id": "QA-1042",
+    "title": "Checkout — Reject expired credit card",
+    "source": "jira",
+    "path": "story.md",
+    "description": "When a customer reaches the payment step of checkout and enters a card whose MM/YY expiry is in the past, the application must reject the payment without contacting the processor, show a specific error, and leave the cart intact.",
+    "jira_issue_key": "QA-1042"
+  },
+  "acceptance_criteria": [
+    "Given a card whose expiry is in any past month (any year), when the customer submits the payment form, then the application rejects the payment client-side or at the order service boundary, before any processor call is made.",
+    "The customer sees the error message 'This card has expired. Please use a different card.' No other error variant is acceptable.",
+    "The cart contents (items, quantities, discount code if any) are preserved and visible when the user returns to the cart.",
+    "The order log records the rejection with the reason 'expired_card_client_reject' and 'processor_called=false'."
+  ],
+  "ambiguities": [
+    {
+      "description": "The story says 'client-side OR at the order service boundary' — both are acceptable. The Test Designer must cover both layers, not pick one and ignore the other.",
+      "blocking": false
+    }
+  ],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "A card is charged anyway because the expiry check runs after the processor call (the regression this story exists to prevent).",
+      "severity": "high",
+      "related_acs": [0, 3]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "The error message becomes generic or non-actionable, leading to abandoned carts.",
+      "severity": "medium",
+      "related_acs": [1]
+    },
+    {
+      "risk_id": "RISK-003",
+      "description": "The cart is cleared on rejection, forcing the user to re-add items.",
+      "severity": "medium",
+      "related_acs": [2]
+    }
+  ],
+  "artifact_paths": {
+    "test_cases": "test-cases/QA-1042.json",
+    "planner_brief": "planner-input/QA-1042.planner-brief.md",
+    "playwright_spec": "",
+    "generated_test": "",
+    "execution_results": "",
+    "html_report": "",
+    "traces": "",
+    "screenshots": "",
+    "failure_analysis": "",
+    "release_report_md": "",
+    "release_report_json": "",
+    "bug_drafts_dir": "release/bug-drafts"
+  },
+  "review_gates": {
+    "requirements_reviewed": false,
+    "test_scope_reviewed": false,
+    "specs_reviewed": false,
+    "code_reviewed": false
+  },
+  "status": "draft"
+}
