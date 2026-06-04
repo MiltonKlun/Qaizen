@@ -1,5 +1,7 @@
 # AI-Assisted QA Pipeline — Sistema fusionado
 
+[![QA Pipeline](https://github.com/MiltonKlun/AI-Assisted-QA/actions/workflows/qa-pipeline.yml/badge.svg)](https://github.com/MiltonKlun/AI-Assisted-QA/actions/workflows/qa-pipeline.yml)
+
 > **Para Claude Code (IDE agent):** este documento es el índice maestro del proyecto. Contiene la visión completa, decisiones arquitecturales, y el orden de los planes de fase. Antes de empezar a trabajar, leé este archivo completo y luego el archivo de la fase que estés ejecutando.
 
 ---
