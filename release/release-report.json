@@ -1,60 +1,43 @@
 {
   "schema_version": "1.0",
-  "run_id": "2026-05-31T19-00-00Z-tg9run",
-  "story_id": "STORY-002",
-  "report_date": "2026-05-31T23:45:00Z",
-  "summary": "STORY-002 (Account access and provisioning) — the Phase 1.5 dual E2E/API vertical slice. The E2E branch ran against Saucedemo (login happy path + invalid-password rejection with the no-session-cookie assertion); the API branch ran against reqres.in (create user -> 201, register-without-password -> 400). All assertions passed in both branches: 0 failures, 0 bug drafts. NOTE: the e2e execution group counts the full Playwright suite (5 tests = STORY-002's 2 + the retained STORY-001 2 + the seed), since both stories' tests coexist under tests/ until the Phase 3 runs/ archival model lands; STORY-002's own E2E contribution is 2 passing tests.",
+  "run_id": "2026-06-04T14-00-00Z-sk10",
+  "story_id": "SK-10",
+  "report_date": "2026-06-04T15:10:00Z",
+  "summary": "SK-10 (valid user login, Jira Mode B) — pure happy-path E2E slice against Saucedemo. Three tests (TC-001 valid login reaches inventory, TC-002 product list visible, TC-003 no error on success) all passed live: 0 failures, 0 bug drafts. Locators were verified live via the playwright-test MCP before authoring. Scope was happy-path only by design; negative login cases belong to sibling stories SK-11 / SK-12.",
   "coverage_by_risk": [
     {
       "risk_id": "RISK-001",
-      "covered_by_tcs": ["TC-001", "TC-002"],
+      "covered_by_tcs": ["TC-001"],
       "status": "covered_passing"
     },
     {
       "risk_id": "RISK-002",
-      "covered_by_tcs": ["TC-003", "TC-004"],
+      "covered_by_tcs": ["TC-001", "TC-002"],
+      "status": "covered_passing"
+    },
+    {
+      "risk_id": "RISK-003",
+      "covered_by_tcs": ["TC-003"],
       "status": "covered_passing"
     }
   ],
   "execution_summary": {
-    "e2e": {
-      "total": 5,
-      "passed": 5,
-      "failed": 0,
-      "skipped": 0,
-      "pass_rate": 1
-    },
-    "api": {
-      "total": 2,
-      "passed": 2,
-      "failed": 0,
-      "skipped": 0,
-      "pass_rate": 1
-    },
-    "combined": {
-      "total": 7,
-      "passed": 7,
-      "failed": 0,
-      "skipped": 0,
-      "pass_rate": 1
-    }
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "pass_rate": 1
   },
   "blocking_failures": [],
   "non_blocking_failures": [],
   "release_recommendation": "pass",
-  "release_recommendation_reasoning": "Both high-severity risks are covered_passing across both branches: RISK-001 by the two E2E tests (TC-001 happy login, TC-002 invalid-password rejection including the session-username cookie-absence check) and RISK-002 by the two API requests (TC-003 create -> 201 with id+createdAt, TC-004 register-without-password -> 400 with an error mentioning password). There are no blocking failures in either branch, no flakes, and no outstanding manual or unexecuted cases. The reqres.in endpoint shapes were verified live (with the required x-api-key) before assertions were written.",
+  "release_recommendation_reasoning": "All three risks are covered_passing. The high-severity RISK-001 (a valid user cannot log in) is covered by TC-001, which passed live: login reaches /inventory.html. RISK-002 (logged in but no usable inventory) is covered by TC-001 + TC-002 (product list renders, 'Products' title visible). RISK-003 (spurious error on success) is covered by TC-003 (no [data-test=error] element on the success page). No blocking failures, no flakes, no skipped or unexecuted cases. This is an E2E-only story (Saucedemo exposes no backend API seam for login), so the flat execution_summary form is used.",
   "bug_drafts": [],
   "evidence_paths": [
     "reports/html",
     "reports/results.json",
-    "reports/newman-html",
-    "reports/newman-results.json",
     "analysis/failure-analysis.json"
   ],
-  "open_questions": [
-    "Secrets hygiene: reports/newman-results.json captures the live x-api-key request header (gitignored now, but a Phase 2 CI-artifact redaction follow-up is tracked in docs/ambiguities.md A5).",
-    "Gate tracking: the API-branch gates (3' collection review, 4' assertion review) were approved out-of-band this run; adding collection_reviewed / api_assertions_reviewed keys to context.schema.json is a Phase 2 follow-up.",
-    "Rotate the reqres.in and Postman API keys that were exposed in the build session."
-  ],
+  "open_questions": [],
   "status": "draft"
 }
