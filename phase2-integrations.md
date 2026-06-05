@@ -637,3 +637,64 @@ Trabajá en pasos pequeños. En cada paso:
 **Después de Task Group 8** (GitHub Actions), correr el vertical slice de Phase 1 + 1.5 dentro del CI para verificar que sigue funcionando idéntico a local.
 
 **Después de Task Group 13** (3 stories procesadas), escribí la retrospectiva antes de pensar en Phase 3.
+
+---
+
+## 8. Proposed post-TG13 evaluation — Jira write-back for test cases / stories (TG14, NOT yet approved)
+
+> **Status:** PROPOSED. Raised by the user during the SK-10 vertical slice
+> (TG13). To be **evaluated and decided AFTER all current TGs (through
+> TG13) are complete**, not built mid-slice. New functionality beyond the
+> original Phase 2 plan (`CLAUDE.md` §8) — treat as a small TG14 or fold
+> into Phase 3 planning. Recorded here so it is not lost.
+
+**The question:** can the system give an easy way to push our local
+artifacts (test cases, risks/stories, etc.) INTO the team's Jira board —
+either copy-paste-ready, or automatically via the `atlassian-write` MCP /
+REST — with proper care, since this WRITES into a shared board?
+
+### Option A — export helper (copy-paste / CSV), LOW complexity, zero write-risk
+
+- A script (e.g. `scripts/export-to-jira.js`) that turns
+  `test-cases/<id>.json` (or context risks) into Jira-ready text: ADF /
+  wiki markup, or a **CSV for Jira's bulk importer**.
+- The human pastes / imports. No write scope used; the board is only
+  touched by a human action.
+- Pros: near-zero risk; trivial (~half a day; it's `create-jira-bugs.js`'s
+  parser + an output formatter); works without MCP; human sees every issue
+  before creation.
+- Cons: manual paste/import step; created keys are not auto-linked back
+  into the local artifacts.
+
+### Option B — automatic creation via MCP/REST (`--apply` gated), LOW-MEDIUM complexity
+
+- A script (e.g. `scripts/create-jira-testcases.js --apply`) that files
+  each **approved** TC as a Jira issue (type configurable), links it to the
+  story (`story.jira_issue_key`), and writes the new key back into
+  `test-cases/<id>.json`.
+- Reuses the entire `create-jira-bugs.js` discipline: dry-run by default,
+  `--apply` required, duplicate-safe via a written-back key, field mapping
+  in `config/jira-testcase-map.json`, plus a `--limit` guard.
+- Pros: fully automated, idempotent, consistent with the existing write
+  pattern; auto back-links keys.
+- Cons / **the careful part — it writes to a SHARED board:** duplicates on
+  re-run (mitigated by the dedup key), wrong issue-type/required-field
+  schema (mitigated by a field-map config), and noise/permissions
+  (mitigated by dry-run-default + `--apply` + `--limit`). The social cost
+  of a bad batch on a team board is real, not just technical.
+
+### Strategic caveat (system of record)
+
+Test cases already sync to **TestLink** (TG4/TG10). Adding Jira issues for
+them means test cases live in three places. **Keep the local
+`test-cases/*.json` as the single system of record**; treat both TestLink
+and Jira as downstream mirrors. Jira issues for *test cases* are only worth
+it if the team manages QA work as Jira tickets; for *bugs*, Jira is already
+the right home (TG5).
+
+### Verdict (to revisit after TG13)
+
+- Build **Option A regardless** — best effort-to-value, zero risk.
+- Build **Option B only if the team decides Jira should hold test cases**,
+  and gate it exactly like `create-jira-bugs.js`.
+- Decide once TG13 + the retrospective are done.

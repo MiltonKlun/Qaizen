@@ -1,58 +1,89 @@
 {
   "schema_version": "1.0",
-  "run_id": "2026-05-31T19-00-00Z-tg9run",
+  "run_id": "2026-06-04T14-00-00Z-sk10",
   "story": {
-    "id": "STORY-002",
-    "title": "Account access and provisioning",
-    "source": "manual",
+    "id": "SK-10",
+    "title": "As a valid user I want to log in successfully",
+    "source": "jira",
     "path": "story.md",
-    "description": "A registered user can sign in through the web UI (Saucedemo, E2E branch), and the system can provision new user accounts through the API (reqres.in, API branch) while rejecting malformed provisioning requests. Composite demo story spanning two demo targets to exercise the dual E2E/API pipeline."
+    "jira_issue_key": "SK-10",
+    "description": "A standard user logs in with valid credentials and lands on the inventory page with the product list visible and no error shown. Authentication component; happy-path login. Fetched from Jira SK-10 (Mode B)."
   },
   "acceptance_criteria": [
-    "(UI) Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",
-    "(UI) Given an invalid password, when the user submits the form, then they remain on the login page and an error message explains the credentials were not accepted. No session is created.",
-    "(API) Given a valid JSON body with a name and a job, when a client POSTs to /users, then the API responds 201 Created with a body containing a non-empty id and a createdAt timestamp.",
-    "(API) Given a registration body that has an email but no password, when a client POSTs to /register, then the API responds 400 Bad Request with a body containing an error field describing the missing password. No account is created."
+    "standard_user can log in with valid credentials",
+    "user lands on inventory page",
+    "product list is visible",
+    "no error message is shown"
   ],
   "ambiguities": [
     {
-      "description": "This is a composite demo story: the UI ACs target Saucedemo and the API ACs target reqres.in, two separate demo services. In a real project they would be one application. The split is intentional for Phase 1.5 to exercise both pipeline branches; reviewers should read it as 'UI behavior' + 'API contract' rather than one coherent product.",
+      "description": "The Jira issue states only the happy path (valid login succeeds). It does not specify negative behaviour (invalid password, locked-out user, empty fields). Those appear to be covered by sibling stories (SK-11 invalid login, SK-12 locked-out user), so this story's scope is treated as happy-path only. Confirm at Gate 1 that negative cases are intentionally out of scope here.",
+      "blocking": false
+    },
+    {
+      "description": "The acceptance criteria are written in the Jira issue as one compound sentence with four clauses; they have been split into four discrete AC entries verbatim by clause. Confirm this split preserves the intended meaning.",
       "blocking": false
     }
   ],
   "risks": [
     {
       "risk_id": "RISK-001",
-      "description": "A session is created on failed login, or the locked/invalid path leaves the user in an ambiguous authenticated state.",
+      "description": "A valid user cannot complete login at all, blocking all access to the application (authentication is the entry point to every other flow).",
       "severity": "high",
       "related_acs": [0, 1]
     },
     {
       "risk_id": "RISK-002",
-      "description": "The provisioning API accepts an incomplete request (e.g. registration with no password) or returns a malformed created-resource response, letting bad data into the system.",
-      "severity": "high",
-      "related_acs": [2, 3]
+      "description": "Login appears to succeed but the user does not actually reach a usable inventory page (e.g. the redirect lands on a blank or product-less page), so the session is created without delivering the expected landing state.",
+      "severity": "medium",
+      "related_acs": [1, 2]
+    },
+    {
+      "risk_id": "RISK-003",
+      "description": "A spurious error message is shown on a successful login, eroding user trust even though access was granted.",
+      "severity": "low",
+      "related_acs": [3]
     }
   ],
   "artifact_paths": {
-    "test_cases": "test-cases/STORY-002.json",
-    "planner_brief": "planner-input/STORY-002.planner-brief.md",
-    "playwright_spec": "specs/STORY-002.md",
-    "generated_test": "tests/STORY-002.spec.ts",
+    "test_cases": "test-cases/SK-10.json",
+    "planner_brief": "planner-input/SK-10.planner-brief.md",
+    "playwright_spec": "specs/SK-10.md",
+    "generated_test": "tests/SK-10.spec.ts",
     "execution_results": "reports/results.json",
     "html_report": "reports/html",
-    "traces": "test-results",
-    "screenshots": "test-results",
+    "traces": "reports/traces",
+    "screenshots": "reports/screenshots",
     "failure_analysis": "analysis/failure-analysis.json",
     "release_report_md": "release/release-report.md",
     "release_report_json": "release/release-report.json",
     "bug_drafts_dir": "release/bug-drafts"
   },
   "review_gates": {
-    "requirements_reviewed": true,
-    "test_scope_reviewed": true,
-    "specs_reviewed": true,
-    "code_reviewed": true
+    "requirements_reviewed": {
+      "status": true,
+      "reviewer": "Milton",
+      "reviewed_at": "2026-06-04T14-10-00Z",
+      "notes": "Gate 1 approved. ACs match SK-10 verbatim; risks meaningful; happy-path-only scope confirmed (negatives belong to SK-11/SK-12)."
+    },
+    "test_scope_reviewed": {
+      "status": true,
+      "reviewer": "Milton",
+      "reviewed_at": "2026-06-04T14-30-00Z",
+      "notes": "Gate 2 approved. 3 TCs, all approved. 100% E2E accepted as correct for a pure happy-path UI login (Saucedemo has no backend API seam); not a default-to-E2E case."
+    },
+    "specs_reviewed": {
+      "status": true,
+      "reviewer": "Milton",
+      "reviewed_at": "2026-06-04T14-45-00Z",
+      "notes": "Gate 3 approved. Spec matches the 3 approved TCs, locators verified live on Saucedemo, no unrelated flows, happy-path scope preserved."
+    },
+    "code_reviewed": {
+      "status": true,
+      "reviewer": "Milton",
+      "reviewed_at": "2026-06-04T15-00-00Z",
+      "notes": "Gate 4 approved. Stable [data-test] locators, business-behavior assertions, no skips/hard waits, one test per approved TC; suite passes live."
+    }
   },
   "status": "completed"
 }
