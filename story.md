@@ -1,19 +1,19 @@
-# SK-10 — As a valid user I want to log in successfully
+# SK-13 — As a user I want to sort products by name and price
 
 > Jira-mode story fetched READ-ONLY by scripts/fetch-jira-story.js for the
 > Phase 2 vertical slice. The Analyst treats this as source: "jira",
-> story.id = "SK-10", story.jira_issue_key = "SK-10".
+> story.id = "SK-13", story.jira_issue_key = "SK-13".
 
 **Issue type:** Task · **Status:** To Do · **Component:** (none)
 
 ## Description / Acceptance criteria (verbatim from Jira)
 
 Work type: Story
-Priority: High
+Priority: Medium
 Initial status: To Do
-Area / Component: Authentication
+Area / Component: Catalog
 
-Acceptance criteria: standard_user can log in with valid credentials; user lands on inventory page; product list is visible; no error message is shown.
+Acceptance criteria: sorting A to Z, Z to A, low to high, and high to low works correctly; selected option remains visible.
 
 ## Notes for the QA pipeline
 

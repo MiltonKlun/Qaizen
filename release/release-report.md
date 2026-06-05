@@ -1,37 +1,38 @@
-# Release Report — SK-10: As a valid user I want to log in successfully
+# Release Report — SK-13: As a user I want to sort products by name and price
 
-**Run ID:** `2026-06-04T14-00-00Z-sk10`
-**Report date:** 2026-06-04T15:10:00Z
-**Recommendation:** **pass** — happy-path login fully green; all three risks covered_passing.
+**Run ID:** `2026-06-04T16-00-00Z-sk13`
+**Report date:** 2026-06-04T17:05:00Z
+**Recommendation:** **pass** — all four sort modes + active-selection check green; all risks covered_passing.
 
 ## Summary
 
-SK-10 (fetched from Jira via Mode B) is a pure happy-path E2E slice against
-Saucedemo. Three tests — TC-001 (valid login reaches the inventory page),
-TC-002 (product list visible after login), and TC-003 (no error message on a
-successful login) — all passed live with 0 failures and 0 bug drafts. The
-locators were verified live via the playwright-test MCP before the test was
-written. Scope is happy-path only by design; negative login cases belong to
-sibling stories SK-11 / SK-12.
+SK-13 (fetched from Jira via Mode B) is an E2E-only slice against Saucedemo —
+sorting is client-side, so there is no backend sort API to assert against.
+Five tests cover the four sort modes (Name A→Z, Name Z→A, Price low→high,
+Price high→low) plus the active-selection-visible check, and all passed live
+with 0 failures and 0 bug drafts. The price-sort assertions compare prices as
+numbers (not strings) to guard against the classic "$10 before $9" ordering
+bug (RISK-002). Sort behaviour and locators were verified live via the
+playwright-test MCP before the test was written.
 
 ## Coverage by risk
 
-| Risk     | Severity | Covered by     | Status          |
-| -------- | -------- | -------------- | --------------- |
-| RISK-001 | high     | TC-001         | covered_passing |
-| RISK-002 | medium   | TC-001, TC-002 | covered_passing |
-| RISK-003 | low      | TC-003         | covered_passing |
+| Risk     | Severity | Covered by                     | Status          |
+| -------- | -------- | ------------------------------ | --------------- |
+| RISK-001 | high     | TC-001, TC-002, TC-003, TC-004 | covered_passing |
+| RISK-002 | medium   | TC-003, TC-004                 | covered_passing |
+| RISK-003 | low      | TC-005                         | covered_passing |
 
 ## Execution summary
 
-- Total: 3
-- Passed: 3
+- Total: 5
+- Passed: 5
 - Failed: 0
 - Skipped: 0
 - Pass rate: 100%
 
-(E2E-only story — Saucedemo exposes no backend API seam for login — so the
-flat execution summary is used.)
+(E2E-only story — Saucedemo sorts client-side — so the flat execution summary
+is used.)
 
 ## Blocking failures
 
@@ -47,11 +48,11 @@ flat execution summary is used.)
 
 ## Recommendation
 
-**pass.** All three risks are covered_passing. The high-severity RISK-001 (a
-valid user cannot log in) passed via TC-001 reaching `/inventory.html`;
-RISK-002 (logged in but no usable inventory) passed via TC-001 + TC-002;
-RISK-003 (spurious error on success) passed via TC-003. No blocking
-failures, no flakes, no skipped or unexecuted cases.
+**pass.** All three risks are covered_passing. RISK-001 (wrong sort order) is
+covered by TC-001–TC-004; RISK-002 (price-as-string ordering) is specifically
+guarded by the numeric price comparisons in TC-003/TC-004; RISK-003
+(active selection not shown) is covered by TC-005. No blocking failures, no
+flakes, no skipped or unexecuted cases.
 
 ## Open questions
 

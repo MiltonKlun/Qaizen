@@ -1,0 +1,16 @@
+# Normalize line endings: store text as LF in git, so CI (Linux) and
+# Windows working copies agree and prettier --check is stable everywhere.
+* text=auto eol=lf
+
+# Explicitly treat these as text (LF).
+*.ts text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Keep CRLF out of shell scripts and Dockerfiles too.
+Dockerfile text eol=lf
+*.sh text eol=lf
