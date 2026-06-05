@@ -1,55 +1,60 @@
 {
   "schema_version": "1.0",
-  "run_id": "2026-06-04T14-00-00Z-sk10",
+  "run_id": "2026-06-04T16-00-00Z-sk13",
   "story": {
-    "id": "SK-10",
-    "title": "As a valid user I want to log in successfully",
+    "id": "SK-13",
+    "title": "As a user I want to sort products by name and price",
     "source": "jira",
     "path": "story.md",
-    "jira_issue_key": "SK-10",
-    "description": "A standard user logs in with valid credentials and lands on the inventory page with the product list visible and no error shown. Authentication component; happy-path login. Fetched from Jira SK-10 (Mode B)."
+    "jira_issue_key": "SK-13",
+    "description": "On the Saucedemo inventory page, the product sort control orders products by name (A to Z, Z to A) and by price (low to high, high to low), and the chosen sort option stays visible as the active selection. Catalog component; client-side sort (Saucedemo has no backend sort API). Fetched from Jira SK-13 (Mode B)."
   },
   "acceptance_criteria": [
-    "standard_user can log in with valid credentials",
-    "user lands on inventory page",
-    "product list is visible",
-    "no error message is shown"
+    "sorting A to Z works correctly",
+    "sorting Z to A works correctly",
+    "sorting low to high works correctly",
+    "sorting high to low works correctly",
+    "selected option remains visible"
   ],
   "ambiguities": [
     {
-      "description": "The Jira issue states only the happy path (valid login succeeds). It does not specify negative behaviour (invalid password, locked-out user, empty fields). Those appear to be covered by sibling stories (SK-11 invalid login, SK-12 locked-out user), so this story's scope is treated as happy-path only. Confirm at Gate 1 that negative cases are intentionally out of scope here.",
+      "description": "The Jira AC is one compound sentence; it has been split into five discrete entries (four sort modes + the selected-option-visible check). Confirm the split preserves intent.",
       "blocking": false
     },
     {
-      "description": "The acceptance criteria are written in the Jira issue as one compound sentence with four clauses; they have been split into four discrete AC entries verbatim by clause. Confirm this split preserves the intended meaning.",
+      "description": "Saucedemo performs sorting client-side; there is no backend API that accepts a sort parameter. So this story is E2E-only — there is no API contract to assert at a lower level. (The API branch of the pipeline was exercised separately by STORY-002 against reqres.in.) Confirm E2E-only is the right scope.",
+      "blocking": false
+    },
+    {
+      "description": "'works correctly' is interpreted as: after selecting a sort mode, the visible product order matches that ordering (names alphabetical asc/desc; prices numeric asc/desc). Confirm this operational definition.",
       "blocking": false
     }
   ],
   "risks": [
     {
       "risk_id": "RISK-001",
-      "description": "A valid user cannot complete login at all, blocking all access to the application (authentication is the entry point to every other flow).",
+      "description": "A selected sort produces the wrong order (e.g. price low-to-high actually shows high-to-low, or name sort is not alphabetical), so the user cannot find products by their intended ordering.",
       "severity": "high",
-      "related_acs": [0, 1]
+      "related_acs": [0, 1, 2, 3]
     },
     {
       "risk_id": "RISK-002",
-      "description": "Login appears to succeed but the user does not actually reach a usable inventory page (e.g. the redirect lands on a blank or product-less page), so the session is created without delivering the expected landing state.",
+      "description": "Price sorting compares prices as strings rather than numbers (e.g. $10 sorts before $9), giving a plausible-looking but incorrect order.",
       "severity": "medium",
-      "related_acs": [1, 2]
+      "related_acs": [2, 3]
     },
     {
       "risk_id": "RISK-003",
-      "description": "A spurious error message is shown on a successful login, eroding user trust even though access was granted.",
+      "description": "After choosing a sort option the control does not reflect the active selection, so the user cannot tell which sort is applied.",
       "severity": "low",
-      "related_acs": [3]
+      "related_acs": [4]
     }
   ],
   "artifact_paths": {
-    "test_cases": "test-cases/SK-10.json",
-    "planner_brief": "planner-input/SK-10.planner-brief.md",
-    "playwright_spec": "specs/SK-10.md",
-    "generated_test": "tests/SK-10.spec.ts",
+    "test_cases": "test-cases/SK-13.json",
+    "planner_brief": "planner-input/SK-13.planner-brief.md",
+    "playwright_spec": "specs/SK-13.md",
+    "generated_test": "tests/SK-13.spec.ts",
     "execution_results": "reports/results.json",
     "html_report": "reports/html",
     "traces": "reports/traces",
@@ -63,26 +68,26 @@
     "requirements_reviewed": {
       "status": true,
       "reviewer": "Milton",
-      "reviewed_at": "2026-06-04T14-10-00Z",
-      "notes": "Gate 1 approved. ACs match SK-10 verbatim; risks meaningful; happy-path-only scope confirmed (negatives belong to SK-11/SK-12)."
+      "reviewed_at": "2026-06-04T16-10-00Z",
+      "notes": "Gate 1 approved. ACs match SK-13 verbatim (5-way split confirmed). All 3 ambiguities accepted: E2E-only scope (Saucedemo client-side sort, no backend API), the AC split, and the 'works correctly' = visible-order-matches-ordering definition."
     },
     "test_scope_reviewed": {
       "status": true,
       "reviewer": "Milton",
-      "reviewed_at": "2026-06-04T14-30-00Z",
-      "notes": "Gate 2 approved. 3 TCs, all approved. 100% E2E accepted as correct for a pure happy-path UI login (Saucedemo has no backend API seam); not a default-to-E2E case."
+      "reviewed_at": "2026-06-04T16-25-00Z",
+      "notes": "Gate 2 approved. 5 TCs, all approved. Granular per-sort-mode cases kept for failure diagnosability; price sorts P0 with numeric-parse assertions (RISK-002). 100% E2E correct for client-side sort."
     },
     "specs_reviewed": {
       "status": true,
       "reviewer": "Milton",
-      "reviewed_at": "2026-06-04T14-45-00Z",
-      "notes": "Gate 3 approved. Spec matches the 3 approved TCs, locators verified live on Saucedemo, no unrelated flows, happy-path scope preserved."
+      "reviewed_at": "2026-06-04T16-40-00Z",
+      "notes": "Gate 3 approved. 5 scenarios = 5 approved TCs; sort behavior + active-option locator verified live; price sorts assert numeric order (RISK-002); no unrelated flows."
     },
     "code_reviewed": {
       "status": true,
       "reviewer": "Milton",
-      "reviewed_at": "2026-06-04T15-00-00Z",
-      "notes": "Gate 4 approved. Stable [data-test] locators, business-behavior assertions, no skips/hard waits, one test per approved TC; suite passes live."
+      "reviewed_at": "2026-06-04T16-55-00Z",
+      "notes": "Gate 4 approved. 5 tests, stable [data-test] locators, web-first assertions (lint enforced the more robust form), numeric price comparison guards RISK-002; suite passes live, lint+typecheck clean."
     }
   },
   "status": "completed"
