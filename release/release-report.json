@@ -1,29 +1,29 @@
 {
   "schema_version": "1.0",
-  "run_id": "2026-06-04T14-00-00Z-sk10",
-  "story_id": "SK-10",
-  "report_date": "2026-06-04T15:10:00Z",
-  "summary": "SK-10 (valid user login, Jira Mode B) — pure happy-path E2E slice against Saucedemo. Three tests (TC-001 valid login reaches inventory, TC-002 product list visible, TC-003 no error on success) all passed live: 0 failures, 0 bug drafts. Locators were verified live via the playwright-test MCP before authoring. Scope was happy-path only by design; negative login cases belong to sibling stories SK-11 / SK-12.",
+  "run_id": "2026-06-04T16-00-00Z-sk13",
+  "story_id": "SK-13",
+  "report_date": "2026-06-04T17:05:00Z",
+  "summary": "SK-13 (sort products by name and price, Jira Mode B) — E2E-only slice against Saucedemo (sorting is client-side; no backend sort API). Five tests covering the four sort modes (Name A->Z, Name Z->A, Price low->high, Price high->low) plus the active-selection-visible check all passed live: 0 failures, 0 bug drafts. The price-sort assertions compare prices as NUMBERS to guard against string-based ordering (RISK-002). Sort behaviour and the active-option locator were verified live via the playwright-test MCP before authoring.",
   "coverage_by_risk": [
     {
       "risk_id": "RISK-001",
-      "covered_by_tcs": ["TC-001"],
+      "covered_by_tcs": ["TC-001", "TC-002", "TC-003", "TC-004"],
       "status": "covered_passing"
     },
     {
       "risk_id": "RISK-002",
-      "covered_by_tcs": ["TC-001", "TC-002"],
+      "covered_by_tcs": ["TC-003", "TC-004"],
       "status": "covered_passing"
     },
     {
       "risk_id": "RISK-003",
-      "covered_by_tcs": ["TC-003"],
+      "covered_by_tcs": ["TC-005"],
       "status": "covered_passing"
     }
   ],
   "execution_summary": {
-    "total": 3,
-    "passed": 3,
+    "total": 5,
+    "passed": 5,
     "failed": 0,
     "skipped": 0,
     "pass_rate": 1
@@ -31,7 +31,7 @@
   "blocking_failures": [],
   "non_blocking_failures": [],
   "release_recommendation": "pass",
-  "release_recommendation_reasoning": "All three risks are covered_passing. The high-severity RISK-001 (a valid user cannot log in) is covered by TC-001, which passed live: login reaches /inventory.html. RISK-002 (logged in but no usable inventory) is covered by TC-001 + TC-002 (product list renders, 'Products' title visible). RISK-003 (spurious error on success) is covered by TC-003 (no [data-test=error] element on the success page). No blocking failures, no flakes, no skipped or unexecuted cases. This is an E2E-only story (Saucedemo exposes no backend API seam for login), so the flat execution_summary form is used.",
+  "release_recommendation_reasoning": "All three risks are covered_passing. RISK-001 (wrong sort order) is covered by TC-001..TC-004, all passing — each sort mode produces the correct rendered order. RISK-002 (price sorted as strings, e.g. $10 before $9) is specifically guarded by TC-003/TC-004, which parse prices numerically and passed (verified live: lohi -> 7.99..49.99). RISK-003 (active selection not shown) is covered by TC-005 (the control reflects the chosen option). No blocking failures, no flakes, no skipped or unexecuted cases. E2E-only story (Saucedemo sorts client-side), so the flat execution_summary form is used.",
   "bug_drafts": [],
   "evidence_paths": [
     "reports/html",

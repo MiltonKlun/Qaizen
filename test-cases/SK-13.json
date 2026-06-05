@@ -1,0 +1,153 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-04T16-00-00Z-sk13",
+  "story_id": "SK-13",
+  "generated_at": "2026-06-04T16:15:00Z",
+  "test_cases": [
+    {
+      "test_case_id": "TC-001",
+      "title": "Sort products Name (A to Z)",
+      "description": "Selecting the 'Name (A to Z)' sort orders the product names in ascending alphabetical order.",
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [0],
+      "priority": "P1",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Saucedemo sorts client-side in the browser; there is no backend sort endpoint to assert against, so 'works correctly' can only be verified by reading the rendered product order after selecting the option. This is a UI-only behavior with no lower-level seam.",
+      "preconditions": [
+        "BASE_URL points at Saucedemo; a standard_user session is on the inventory page."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Select the 'Name (A to Z)' option in the product sort dropdown.",
+          "data": "az"
+        },
+        {
+          "step_id": "S-02",
+          "action": "Read the list of product names in display order."
+        }
+      ],
+      "expected_results": [
+        "The product names are in ascending alphabetical (A->Z) order."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-002",
+      "title": "Sort products Name (Z to A)",
+      "description": "Selecting the 'Name (Z to A)' sort orders the product names in descending alphabetical order.",
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [1],
+      "priority": "P1",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Client-side sort, no backend contract; the descending order is only observable in the rendered UI after selecting the option.",
+      "preconditions": [
+        "BASE_URL points at Saucedemo; a standard_user session is on the inventory page."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Select the 'Name (Z to A)' option in the product sort dropdown.",
+          "data": "za"
+        },
+        {
+          "step_id": "S-02",
+          "action": "Read the list of product names in display order."
+        }
+      ],
+      "expected_results": [
+        "The product names are in descending alphabetical (Z->A) order."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-003",
+      "title": "Sort products Price (low to high)",
+      "description": "Selecting the 'Price (low to high)' sort orders products by ascending numeric price (guards against string-based price comparison).",
+      "risk_ids": ["RISK-001", "RISK-002"],
+      "acceptance_criteria_refs": [2],
+      "priority": "P0",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Client-side sort with no backend seam. P0 because incorrect price ordering directly misleads purchasing; the assertion must parse prices as numbers (not strings) to catch the RISK-002 '$10 before $9' bug, which is only observable end-to-end.",
+      "preconditions": [
+        "BASE_URL points at Saucedemo; a standard_user session is on the inventory page."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Select the 'Price (low to high)' option in the product sort dropdown.",
+          "data": "lohi"
+        },
+        {
+          "step_id": "S-02",
+          "action": "Read the product prices in display order and parse them as numbers."
+        }
+      ],
+      "expected_results": [
+        "The numeric prices are in ascending order (each price >= the previous one)."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-004",
+      "title": "Sort products Price (high to low)",
+      "description": "Selecting the 'Price (high to low)' sort orders products by descending numeric price.",
+      "risk_ids": ["RISK-001", "RISK-002"],
+      "acceptance_criteria_refs": [3],
+      "priority": "P0",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Client-side sort with no backend seam. P0 for the same purchasing-impact reason as TC-003; the assertion parses prices numerically to verify true descending order.",
+      "preconditions": [
+        "BASE_URL points at Saucedemo; a standard_user session is on the inventory page."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Select the 'Price (high to low)' option in the product sort dropdown.",
+          "data": "hilo"
+        },
+        {
+          "step_id": "S-02",
+          "action": "Read the product prices in display order and parse them as numbers."
+        }
+      ],
+      "expected_results": [
+        "The numeric prices are in descending order (each price <= the previous one)."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-005",
+      "title": "Selected sort option remains visible as the active selection",
+      "description": "After choosing a sort option, the sort control reflects that option as the active/selected value so the user can see which sort is applied.",
+      "risk_ids": ["RISK-003"],
+      "acceptance_criteria_refs": [4],
+      "priority": "P2",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "The active-selection state of the dropdown is a rendered UI property only meaningful in the browser after the interaction; there is no API representation of it.",
+      "preconditions": [
+        "BASE_URL points at Saucedemo; a standard_user session is on the inventory page."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Select a non-default sort option (e.g. 'Price (low to high)') in the dropdown.",
+          "data": "lohi"
+        },
+        {
+          "step_id": "S-02",
+          "action": "Inspect the sort control's currently selected value."
+        }
+      ],
+      "expected_results": [
+        "The sort control shows the chosen option as its active/selected value (it did not reset to the default)."
+      ],
+      "status": "approved"
+    }
+  ]
+}
