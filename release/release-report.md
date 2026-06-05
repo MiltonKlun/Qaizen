@@ -1,82 +1,64 @@
-# Release Report — STORY-002: Account access and provisioning
+# Release Report — SK-10: As a valid user I want to log in successfully
 
-**Run ID:** `2026-05-31T19-00-00Z-tg9run`
-**Report date:** 2026-05-31T23:45:00Z
-**Recommendation:** **pass** — both branches green; both high-severity risks covered_passing.
+**Run ID:** `2026-06-04T14-00-00Z-sk10`
+**Report date:** 2026-06-04T15:10:00Z
+**Recommendation:** **pass** — happy-path login fully green; all three risks covered_passing.
 
 ## Summary
 
-STORY-002 is the Phase 1.5 dual E2E/API vertical slice. The E2E branch ran
-against Saucedemo (login happy path + invalid-password rejection with the
-no-session-cookie assertion); the API branch ran against reqres.in (create
-user → 201, register-without-password → 400). All assertions passed in both
-branches: 0 failures, 0 bug drafts.
-
-> **Note on the e2e count:** the e2e execution group counts the full
-> Playwright suite (5 tests = STORY-002's 2 + the retained STORY-001 2 + the
-> seed), because both stories' tests coexist under `tests/` until the Phase 3
-> `runs/` archival model lands. STORY-002's own E2E contribution is 2 passing
-> tests.
+SK-10 (fetched from Jira via Mode B) is a pure happy-path E2E slice against
+Saucedemo. Three tests — TC-001 (valid login reaches the inventory page),
+TC-002 (product list visible after login), and TC-003 (no error message on a
+successful login) — all passed live with 0 failures and 0 bug drafts. The
+locators were verified live via the playwright-test MCP before the test was
+written. Scope is happy-path only by design; negative login cases belong to
+sibling stories SK-11 / SK-12.
 
 ## Coverage by risk
 
-| Risk     | Severity | Covered by     | Branch | Status          |
-| -------- | -------- | -------------- | ------ | --------------- |
-| RISK-001 | high     | TC-001, TC-002 | E2E    | covered_passing |
-| RISK-002 | high     | TC-003, TC-004 | API    | covered_passing |
+| Risk     | Severity | Covered by     | Status          |
+| -------- | -------- | -------------- | --------------- |
+| RISK-001 | high     | TC-001         | covered_passing |
+| RISK-002 | medium   | TC-001, TC-002 | covered_passing |
+| RISK-003 | low      | TC-003         | covered_passing |
 
-## Execution summary (grouped)
+## Execution summary
 
-| Branch       | Total | Passed | Failed | Skipped | Pass rate |
-| ------------ | ----- | ------ | ------ | ------- | --------- |
-| E2E          | 5     | 5      | 0      | 0       | 100%      |
-| API          | 2     | 2      | 0      | 0       | 100%      |
-| **Combined** | 7     | 7      | 0      | 0       | 100%      |
+- Total: 3
+- Passed: 3
+- Failed: 0
+- Skipped: 0
+- Pass rate: 100%
+
+(E2E-only story — Saucedemo exposes no backend API seam for login — so the
+flat execution summary is used.)
 
 ## Blocking failures
 
-None.
+- None.
 
 ## Non-blocking failures
 
-None.
+- None.
 
 ## Bug drafts
 
-None.
+- None (no Red failures).
 
 ## Recommendation
 
-**pass.** Both high-severity risks are covered_passing across both branches:
-
-- **RISK-001** by the two E2E tests — TC-001 (happy login → inventory) and
-  TC-002 (invalid-password rejection, including the `session-username`
-  cookie-absence check).
-- **RISK-002** by the two API requests — TC-003 (create → 201 with
-  `id` + `createdAt`) and TC-004 (register-without-password → 400 with an
-  error mentioning password).
-
-No blocking failures in either branch, no flakes, no outstanding manual or
-unexecuted cases. The reqres.in endpoint shapes were verified live (with the
-required `x-api-key`) before assertions were written.
+**pass.** All three risks are covered_passing. The high-severity RISK-001 (a
+valid user cannot log in) passed via TC-001 reaching `/inventory.html`;
+RISK-002 (logged in but no usable inventory) passed via TC-001 + TC-002;
+RISK-003 (spurious error on success) passed via TC-003. No blocking
+failures, no flakes, no skipped or unexecuted cases.
 
 ## Open questions
 
-- **Secrets hygiene:** `reports/newman-results.json` captures the live
-  `x-api-key` request header (gitignored now, but a Phase 2 CI-artifact
-  redaction follow-up is tracked in `docs/ambiguities.md` A5).
-- **Gate tracking:** the API-branch gates (3' collection review, 4' assertion
-  review) were approved out-of-band this run; adding `collection_reviewed` /
-  `api_assertions_reviewed` keys to `context.schema.json` is a Phase 2
-  follow-up.
-- **Rotate** the reqres.in and Postman API keys that were exposed in the
-  build session.
+- None.
 
 ## Evidence
 
-- `reports/html` — Playwright HTML report.
-- `reports/results.json` — Playwright JSON results.
-- `reports/newman-html` — Newman HTML report.
-- `reports/newman-results.json` — Newman JSON results (treat as
-  secret-bearing; see A5).
-- `analysis/failure-analysis.json` — empty `failures[]` confirming no defects.
+- reports/html
+- reports/results.json
+- analysis/failure-analysis.json
