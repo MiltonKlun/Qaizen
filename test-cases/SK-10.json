@@ -1,0 +1,99 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-04T14-00-00Z-sk10",
+  "story_id": "SK-10",
+  "generated_at": "2026-06-04T14:15:00Z",
+  "test_cases": [
+    {
+      "test_case_id": "TC-001",
+      "title": "Valid user logs in and reaches the inventory page",
+      "description": "Happy path: standard_user signs in with valid credentials and is taken to the inventory page (the URL/landing changes from the login page).",
+      "risk_ids": ["RISK-001", "RISK-002"],
+      "acceptance_criteria_refs": [0, 1],
+      "priority": "P0",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "The AC is the user journey through the UI — submit the login form and land on the inventory page. It crosses a page boundary (login -> inventory) and there is no separate server API exposed by this demo target to assert against, so the journey can only be validated end-to-end in the browser.",
+      "preconditions": [
+        "BASE_URL points at the Saucedemo login page.",
+        "The standard_user account exists (it is a built-in Saucedemo account)."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Navigate to BASE_URL."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Fill the username field.",
+          "data": "standard_user"
+        },
+        {
+          "step_id": "S-03",
+          "action": "Fill the password field.",
+          "data": "secret_sauce"
+        },
+        {
+          "step_id": "S-04",
+          "action": "Click the Login button."
+        }
+      ],
+      "expected_results": [
+        "The URL changes to the inventory page (/inventory.html).",
+        "The login form is no longer shown."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-002",
+      "title": "Inventory page shows the product list after login",
+      "description": "After a successful login the landing page actually renders the product list (guards against a 'logged in but empty page' regression).",
+      "risk_ids": ["RISK-002"],
+      "acceptance_criteria_refs": [1, 2],
+      "priority": "P1",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "The AC 'product list is visible' is a rendered-UI assertion on the post-login page. It is only meaningful in the browser after the real login redirect, so it belongs in the same E2E flow rather than at any other level.",
+      "preconditions": [
+        "A successful login has placed the user on the inventory page (TC-001)."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "After logging in as standard_user, observe the inventory page."
+        }
+      ],
+      "expected_results": [
+        "At least one inventory item (product) is visible on the page.",
+        "The product list container is present and non-empty."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-003",
+      "title": "No error message is shown on a successful login",
+      "description": "On a valid login, no error banner / error text appears (a spurious error on success would erode trust even though access was granted).",
+      "risk_ids": ["RISK-003"],
+      "acceptance_criteria_refs": [3],
+      "priority": "P2",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "The AC 'no error message is shown' is a negative UI assertion about the success path. It is checked in the same E2E flow as TC-001 (assert the error container is absent after a valid login). No server contract is involved.",
+      "preconditions": ["BASE_URL points at the Saucedemo login page."],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Log in as standard_user with valid credentials (as in TC-001)."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Inspect the page for any error message element."
+        }
+      ],
+      "expected_results": [
+        "No error banner or error text is present on the page after the successful login."
+      ],
+      "status": "approved"
+    }
+  ]
+}
