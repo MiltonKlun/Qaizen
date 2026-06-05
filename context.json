@@ -1,60 +1,58 @@
 {
   "schema_version": "1.0",
-  "run_id": "2026-06-04T16-00-00Z-sk13",
+  "run_id": "2026-06-04T18-00-00Z-sk16",
   "story": {
-    "id": "SK-13",
-    "title": "As a user I want to sort products by name and price",
+    "id": "SK-16",
+    "title": "As a user I want to complete checkout successfully",
     "source": "jira",
     "path": "story.md",
-    "jira_issue_key": "SK-13",
-    "description": "On the Saucedemo inventory page, the product sort control orders products by name (A to Z, Z to A) and by price (low to high, high to low), and the chosen sort option stays visible as the active selection. Catalog component; client-side sort (Saucedemo has no backend sort API). Fetched from Jira SK-13 (Mode B)."
+    "jira_issue_key": "SK-16",
+    "description": "On Saucedemo, a user completes the checkout flow: enters first name, last name, and postal code on the information step; the overview page shows the correct items; and finishing the order displays a confirmation message. Checkout component; multi-step E2E journey (cart -> information -> overview -> complete). Fetched from Jira SK-16 (Mode B)."
   },
   "acceptance_criteria": [
-    "sorting A to Z works correctly",
-    "sorting Z to A works correctly",
-    "sorting low to high works correctly",
-    "sorting high to low works correctly",
-    "selected option remains visible"
+    "user can enter first name, last name, and postal code",
+    "overview page shows correct items",
+    "finish displays confirmation message"
   ],
   "ambiguities": [
     {
-      "description": "The Jira AC is one compound sentence; it has been split into five discrete entries (four sort modes + the selected-option-visible check). Confirm the split preserves intent.",
+      "description": "The Jira AC is one compound sentence; it has been split into three discrete entries (information entry, overview correctness, finish confirmation). Confirm the split preserves intent.",
       "blocking": false
     },
     {
-      "description": "Saucedemo performs sorting client-side; there is no backend API that accepts a sort parameter. So this story is E2E-only — there is no API contract to assert at a lower level. (The API branch of the pipeline was exercised separately by STORY-002 against reqres.in.) Confirm E2E-only is the right scope.",
+      "description": "Checkout has an implicit precondition the AC does not state: at least one product must be in the cart, and the user must be logged in, before the checkout flow can start. The test will add a known item to the cart and log in as setup; this is scaffolding for the AC, not an invented requirement. Confirm this setup is acceptable.",
       "blocking": false
     },
     {
-      "description": "'works correctly' is interpreted as: after selecting a sort mode, the visible product order matches that ordering (names alphabetical asc/desc; prices numeric asc/desc). Confirm this operational definition.",
+      "description": "'overview page shows correct items' is interpreted as: the item(s) added to the cart appear on the checkout overview page (same product name(s)). The AC does not mention price/tax totals, so those are treated as out of scope unless you want them included. Confirm this operational definition.",
       "blocking": false
     }
   ],
   "risks": [
     {
       "risk_id": "RISK-001",
-      "description": "A selected sort produces the wrong order (e.g. price low-to-high actually shows high-to-low, or name sort is not alphabetical), so the user cannot find products by their intended ordering.",
+      "description": "Checkout cannot be completed at all (the information step rejects valid input, or Finish does not produce a confirmation), blocking the core purchase flow and all revenue.",
       "severity": "high",
-      "related_acs": [0, 1, 2, 3]
+      "related_acs": [0, 2]
     },
     {
       "risk_id": "RISK-002",
-      "description": "Price sorting compares prices as strings rather than numbers (e.g. $10 sorts before $9), giving a plausible-looking but incorrect order.",
-      "severity": "medium",
-      "related_acs": [2, 3]
+      "description": "The overview page shows the wrong items (missing, extra, or substituted products) versus what the user put in the cart, so the user could confirm an order different from what they intended.",
+      "severity": "high",
+      "related_acs": [1]
     },
     {
       "risk_id": "RISK-003",
-      "description": "After choosing a sort option the control does not reflect the active selection, so the user cannot tell which sort is applied.",
-      "severity": "low",
-      "related_acs": [4]
+      "description": "The information step accepts a submission with a missing required field (first name, last name, or postal code) instead of requiring all three, weakening data integrity at checkout.",
+      "severity": "medium",
+      "related_acs": [0]
     }
   ],
   "artifact_paths": {
-    "test_cases": "test-cases/SK-13.json",
-    "planner_brief": "planner-input/SK-13.planner-brief.md",
-    "playwright_spec": "specs/SK-13.md",
-    "generated_test": "tests/SK-13.spec.ts",
+    "test_cases": "test-cases/SK-16.json",
+    "planner_brief": "planner-input/SK-16.planner-brief.md",
+    "playwright_spec": "specs/SK-16.md",
+    "generated_test": "tests/SK-16.spec.ts",
     "execution_results": "reports/results.json",
     "html_report": "reports/html",
     "traces": "reports/traces",
@@ -68,26 +66,26 @@
     "requirements_reviewed": {
       "status": true,
       "reviewer": "Milton",
-      "reviewed_at": "2026-06-04T16-10-00Z",
-      "notes": "Gate 1 approved. ACs match SK-13 verbatim (5-way split confirmed). All 3 ambiguities accepted: E2E-only scope (Saucedemo client-side sort, no backend API), the AC split, and the 'works correctly' = visible-order-matches-ordering definition."
+      "reviewed_at": "2026-06-04T18-10-00Z",
+      "notes": "Gate 1 approved. ACs verbatim from SK-16 (3-way split). All 3 ambiguities accepted: the split, the cart+login setup scaffolding, and 'correct items' = added products appear on overview by name (price/tax totals out of scope)."
     },
     "test_scope_reviewed": {
       "status": true,
       "reviewer": "Milton",
-      "reviewed_at": "2026-06-04T16-25-00Z",
-      "notes": "Gate 2 approved. 5 TCs, all approved. Granular per-sort-mode cases kept for failure diagnosability; price sorts P0 with numeric-parse assertions (RISK-002). 100% E2E correct for client-side sort."
+      "reviewed_at": "2026-06-04T18-25-00Z",
+      "notes": "Gate 2 approved. 3 TCs, all approved. Two P0 (complete-checkout, correct-overview-items) + one P1 negative (missing-field validation). 100% E2E correct for a multi-page checkout journey; cart+login is shared setup scaffolding."
     },
     "specs_reviewed": {
       "status": true,
       "reviewer": "Milton",
-      "reviewed_at": "2026-06-04T16-40-00Z",
-      "notes": "Gate 3 approved. 5 scenarios = 5 approved TCs; sort behavior + active-option locator verified live; price sorts assert numeric order (RISK-002); no unrelated flows."
+      "reviewed_at": "2026-06-04T18-40-00Z",
+      "notes": "Gate 3 approved. 3 scenarios = 3 approved TCs; full checkout flow walked live (confirmation text, exact overview item, real validation error all verified); login+cart are setup only."
     },
     "code_reviewed": {
       "status": true,
       "reviewer": "Milton",
-      "reviewed_at": "2026-06-04T16-55-00Z",
-      "notes": "Gate 4 approved. 5 tests, stable [data-test] locators, web-first assertions (lint enforced the more robust form), numeric price comparison guards RISK-002; suite passes live, lint+typecheck clean."
+      "reviewed_at": "2026-06-04T18-55-00Z",
+      "notes": "Gate 4 approved. 3 tests, stable [data-test] locators, web-first assertions, shared beforeEach setup; TC-002 asserts exactly one overview item (catches missing+extra); suite passes live, lint+typecheck clean."
     }
   },
   "status": "completed"
