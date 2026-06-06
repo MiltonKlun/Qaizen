@@ -200,6 +200,20 @@ story.md (manual) ─or─ Jira issue (mcp-atlassian read-only)
 Phase 1 ends when one story has produced this full chain and the
 retrospective is written.
 
+### 4.1 Two entry points (Phase 2.6, shift-left)
+
+The chain above splits into a **design half** (Analyst → Gate 1 → Test
+Designer → Gate 2 — no code needed) and an **execution half** (Planner →
+Gate 3 → Generator → Gate 4 → execute → report — needs code). The design
+half may be run at **refinement** (before code exists) to produce draft
+test cases as a shared acceptance contract, or at **ready-for-QA** (the
+default). Cases designed at refinement carry `design_stage:
+"pre_development"` and are **refined, not regenerated**, at ready-for-QA.
+Gates 3/4 apply only at the execution half. This is a documented
+convention + one optional schema field — not trigger automation (this
+pipeline's orchestration is human-driven). See `docs/review-gates.md`
+("Two entry points") and `phase2.6-enhancements.md` TG2.6-4.
+
 ---
 
 ## 5. API branch — Phase 1.5+
