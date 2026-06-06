@@ -150,15 +150,28 @@ Acá implementamos por código los Healer guardrails Green/Yellow/Red que están
   **Optional later**:
   - Abrir PR draft para human review, pero nunca mergear.
 
-- [ ] Crear carpeta `analysis/healer-validation/` (ya en folder ownership del README).
-- [ ] Crear carpeta `release/healer-patches/`.
-- [ ] Actualizar `.gitignore` si los workspace temporales se crean en raíz.
+- [x] Crear carpeta `analysis/healer-validation/`.
+- [x] Crear carpeta `release/healer-patches/`.
+- [x] `.gitignore` ignora el workspace temporal del healer (`.healer-workspace/`).
 
 **Definition of Done:**
-- [ ] Script existe.
-- [ ] Green failures producen `.patch` validados.
-- [ ] No commits ni merges automáticos.
-- [ ] Guardrails enforced programáticamente (intentar cambiar un expected value = error).
+- [x] Script existe. (`scripts/run-healer.js`, `npm run heal`; harness with the
+      guardrails enforced in code. Patch GENERATION is an explicit agent/LLM
+      hook — a headless script cannot LLM-rewrite a locator; the harness gates
+      candidates and validates them.)
+- [x] Green failures producen `.patch` validados. (Green = candidate path;
+      yellow = suggestion-only; red = untouched.)
+- [x] No commits ni merges automáticos. (Never commits/merges/touches main;
+      dry-run default.)
+- [x] Guardrails enforced programáticamente. **Unit-verified**: a candidate
+      that changes an expected value, adds `.skip`, deletes a test, weakens an
+      assertion (toBeTruthy), or touches a snapshot is REJECTED; a locator-only
+      fix is allowed. An attempted violation exits 1 (CI/human notices).
+
+> **Honest scope (matches TG1):** the harness owns the safe, deterministic
+> guardrail + validation layer; fix generation is the Healer agent's job (or
+> the Playwright native healer). Together = the TG2 intent. The headless
+> harness makes zero unsupervised changes.
 
 ---
 
