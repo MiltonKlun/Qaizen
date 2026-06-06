@@ -194,9 +194,22 @@ Acá implementamos por código los Healer guardrails Green/Yellow/Red que están
   - **No** mergea.
 
 **Definition of Done:**
-- [ ] CI puede asistir con Green fixes sin debilitar review controls.
-- [ ] PR comments resumen el estado.
-- [ ] No commits automáticos.
+- [x] CI puede asistir con Green fixes sin debilitar review controls.
+      (`healer` job in `.github/workflows/qa-pipeline.yml`: PR-only,
+      `continue-on-error` (informational), `needs: playwright-full`, runs only
+      when the report shows failures, runs the classifier + Green-only healer,
+      uploads `healer-patches` artifact.)
+- [x] PR comments resumen el estado. (github-script posts a green/yellow/red
+      summary comment; `pull-requests: write` scoped ONLY to comment.)
+- [x] No commits automáticos. (The job never pushes/commits/merges — only
+      uploads artifacts + posts a comment. In CI there is no Gate-4-approved
+      context, so it reports the Healer runs locally; it never fabricates one.)
+
+> **Honest scope:** the CI job is the orchestration + reporting wrapper around
+> the TG1 classifier + TG2 harness. Because CI has no human-approved
+> `context.json` (Gate 4), the job detects failures and reports, but the
+> actual patch generation stays the local/agent path — CI never makes
+> unsupervised code changes, consistent with §3.6.
 
 ---
 

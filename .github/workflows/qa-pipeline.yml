@@ -159,6 +159,104 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+  healer:
+    name: Healer (informational, Green-only)
+    runs-on: ubuntu-latest
+    needs: playwright-full
+    # Only worth running on PRs (where a human reviews the suggestions), and
+    # only when the Playwright suite actually had failures. playwright-full is
+    # continue-on-error, so its job result is 'success' even on test failures —
+    # we detect real failures from the downloaded report instead of job status.
+    if: github.event_name == 'pull_request'
+    continue-on-error: true
+    permissions:
+      contents: read
+      pull-requests: write # only to POST a summary comment — never pushes code
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Download Playwright report
+        uses: actions/download-artifact@v4
+        with:
+          name: playwright-report
+          path: reports
+        continue-on-error: true
+      - name: Classify + heal (Green only) — never commits, never merges
+        id: heal
+        shell: bash
+        run: |
+          # No report (suite didn't run / no artifact) => nothing to do.
+          if [ ! -f reports/results.json ]; then
+            echo "No Playwright report; nothing to heal."
+            echo "ran=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Count failures from the report (expected=passed, unexpected=failed).
+          failed=$(node -e "const r=require('./reports/results.json');process.stdout.write(String((r.stats&&r.stats.unexpected)||0))")
+          echo "Playwright unexpected (failed): $failed"
+          if [ "$failed" = "0" ]; then
+            echo "Suite is green; the Healer has nothing to do."
+            echo "ran=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The classifier needs a Gate-4-passed context.json. In CI there is no
+          # approved run context, so we cannot fabricate one — the Healer is an
+          # ASSIST for a human-reviewed PR. Report that it would run locally.
+          if [ ! -f context.json ]; then
+            echo "No approved context.json in CI; the Healer runs locally after Gate 4."
+            echo "ran=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          node scripts/run-failure-classifier.js || true
+          node scripts/run-healer.js --apply || true
+          echo "ran=true" >> "$GITHUB_OUTPUT"
+      - name: Upload healer patches
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: healer-patches
+          path: |
+            release/healer-patches
+            analysis/healer-validation
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Post Healer summary comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let green = 0, yellow = 0, red = 0, note = '';
+            try {
+              const fa = JSON.parse(fs.readFileSync('analysis/failure-analysis.json', 'utf8'));
+              for (const f of fa.failures || []) {
+                if (f.severity === 'green') green++;
+                else if (f.severity === 'yellow') yellow++;
+                else if (f.severity === 'red') red++;
+              }
+            } catch {
+              note = '\n_(No classified failures available in CI — the Healer assists a human-reviewed PR; it runs locally after Gate 4. It never commits or merges.)_';
+            }
+            const body = [
+              '## Healer summary (informational)',
+              '',
+              `- :green_circle: Green fixes (candidate patches): **${green}**`,
+              `- :yellow_circle: Yellow (needs human review): **${yellow}**`,
+              `- :red_circle: Red (bug-draft only, never auto-fixed): **${red}**`,
+              '',
+              'The Healer **never commits, never merges, and only patches Green failures** as reviewable artifacts (CLAUDE.md §3.6). Patches, if any, are in the `healer-patches` artifact.' + note,
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
   ci-summary:
     name: CI summary
     runs-on: ubuntu-latest
