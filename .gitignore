@@ -31,3 +31,9 @@ runs/**/screenshots/
 # (metrics/.gitkeep), not the generated files.
 metrics/pipeline-metrics.json
 metrics/pipeline-metrics.md
+
+# Phase 3 TG10 /evolve proposal is regenerable from git + metrics + session
+# summaries — keep the dir (evolve/.gitkeep), not the generated proposal.
+# session-summaries/ ARE versioned (durable human input /evolve reads).
+evolve/evolve-proposal.json
+evolve/evolve-proposal.md
