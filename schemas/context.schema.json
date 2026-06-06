@@ -145,6 +145,15 @@
         }
       }
     },
+    "prompt_versions": {
+      "type": "object",
+      "description": "OPTIONAL (Phase 3 TG8, prompt versioning). Records which agent prompt VERSION drove this run, keyed by agent name (the frontmatter `name:` of agents/*.md), value = that file's `version:` (semver). This pins a run to the exact prompts that produced it, so a metrics/regression delta can be attributed to a specific prompt change. Absent on older runs (the pipeline runs identically without it). Keys are agent names; this object is NOT a closed enum so new agents can register without a schema change.",
+      "additionalProperties": {
+        "type": "string",
+        "description": "Semantic version of the agent prompt used (matches agents/<name>.md frontmatter `version:`).",
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+      }
+    },
     "artifact_paths": {
       "type": "object",
       "additionalProperties": false,

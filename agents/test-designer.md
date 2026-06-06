@@ -10,6 +10,13 @@ description: |
   becomes enforceable in code.
 phase_introduced: 1
 phase_active: 1+
+version: 1.0.0
+changed_in_run: null
+changelog: |
+  - 1.0.0: Initial versioned baseline (Phase 3 TG8). Paired test-cases
+    JSON + planner brief; source of TC-XXX ids and the Automation Decision
+    Model. Phase 3 TG15 added optional code_change_context use for
+    regression prioritization (secondary; ACs stay the source of truth).
 owned_outputs:
   - test-cases/[story-id].json
   - planner-input/[story-id].planner-brief.md

@@ -410,9 +410,26 @@ Para soporte de múltiples runs sin overwrite.
 - [ ] Crear `docs/prompt-versioning.md`.
 
 **Definition of Done:**
-- [ ] Cada agent tiene version.
-- [ ] Context.json registra versions usadas en cada run.
-- [ ] Evaluation antes de adopción de major changes documentado.
+- [x] Cada agent tiene version. (All 7 `agents/*.md` carry `version: 1.0.0` +
+      `changed_in_run` + `changelog` frontmatter — initial versioned baseline.)
+- [x] Context.json registra versions usadas en cada run. (Optional open
+      `prompt_versions` map in `schemas/context.schema.json` keyed by agent
+      name → semver; example
+      `examples/expected/login-success-prompt-versioned.expected-context.json`.
+      Optional ⇒ backward-compatible, no migration. Populated as a manual/agent
+      step per `docs/prompt-versioning.md` §2 — no runtime injector by design.)
+- [x] Evaluation antes de adopción de major changes documentado.
+      (`docs/prompt-versioning.md` §1 semver rules + §3 the > 10% match-drop
+      signal; CI `prompt-eval` job runs `npm run evaluate` on any PR that
+      touches `agents/`, informational/warn-only.)
+
+> **Honest scope:** `prompt_versions` is recorded by the agent/human when a run
+> starts (read each agent's `version:`), not auto-injected — consistent with the
+> project's no-runtime-orchestrator stance. The field + the convention are the
+> contract; a helper script can be added later if the manual step is friction.
+> Architecture Stability satisfied in one PR: schema + all 7 agents + docs
+> (prompt-versioning, context-json-guide, pipeline-architecture) + example +
+> CI; optional field ⇒ no migration.
 
 ---
 

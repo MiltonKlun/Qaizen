@@ -10,6 +10,12 @@ description: |
   stays human.
 phase_introduced: 3
 phase_active: 3+
+version: 1.0.0
+changed_in_run: null
+changelog: |
+  - 1.0.0: Initial versioned baseline (Phase 3 TG8 / introduced TG4).
+    Gate 3 assist with deterministic risk_coverage + uncovered_risks;
+    auto_approval_eligible is a hint only, Gate 3 stays human.
 owned_outputs:
   - analysis/spec-reviews/[story-id].spec-review.json
   - analysis/spec-reviews/[story-id].spec-review.md

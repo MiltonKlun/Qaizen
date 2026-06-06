@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-06T09-00-00Z-promptver",
+  "story": {
+    "id": "STORY-001",
+    "title": "Login — Successful sign-in (prompt-versioned run)",
+    "source": "manual",
+    "path": "story.md",
+    "description": "Same login slice as login-success, showing the Phase 3 (TG8) prompt_versions map. Each agent that ran is pinned to the version of its agents/<name>.md prompt, so a later metrics/regression delta can be attributed to a specific prompt change. The field is optional and open (additionalProperties) — older runs omit it and still validate."
+  },
+  "acceptance_criteria": [
+    "Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",
+    "Given an invalid password, when the user submits the form, then they remain on the login page and an error message explains the credentials were not accepted. No partial session is created.",
+    "Given a locked user, when they submit valid credentials, then they remain on the login page and an error message explains the account is locked. No session is created."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "A partial session is created on failed login, leaving the user in an ambiguous authenticated state.",
+      "severity": "high",
+      "related_acs": [1, 2]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "Locked-account check is enforced only in the UI, allowing API-level bypass.",
+      "severity": "high",
+      "related_acs": [2]
+    }
+  ],
+  "prompt_versions": {
+    "analyst": "1.0.0",
+    "test-designer": "1.0.0",
+    "failure-classifier": "1.0.0",
+    "reporter": "1.0.0"
+  },
+  "artifact_paths": {
+    "test_cases": "test-cases/STORY-001.json",
+    "planner_brief": "planner-input/STORY-001.planner-brief.md",
+    "playwright_spec": "specs/STORY-001.md",
+    "generated_test": "tests/STORY-001.spec.ts",
+    "execution_results": "reports/results.json",
+    "html_report": "reports/html",
+    "traces": "reports/traces",
+    "screenshots": "reports/screenshots",
+    "failure_analysis": "analysis/failure-analysis.json",
+    "release_report_md": "release/release-report.md",
+    "release_report_json": "release/release-report.json",
+    "bug_drafts_dir": "release/bug-drafts"
+  },
+  "review_gates": {
+    "requirements_reviewed": true,
+    "test_scope_reviewed": true,
+    "specs_reviewed": true,
+    "code_reviewed": true
+  },
+  "status": "completed"
+}
