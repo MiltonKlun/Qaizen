@@ -23,7 +23,8 @@
     "migrate:external-ids": "node scripts/migrate-testcases-external-ids.js",
     "new-run": "node scripts/new-run.js",
     "classify": "node scripts/run-failure-classifier.js",
-    "heal": "node scripts/run-healer.js"
+    "heal": "node scripts/run-healer.js",
+    "metrics": "node scripts/pipeline-metrics.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

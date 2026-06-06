@@ -341,9 +341,17 @@ Para soporte de múltiples runs sin overwrite.
   - Threshold sugerido: menos de 10% rejection rate en gates relevantes sobre 10 runs consecutivos.
 
 **Definition of Done:**
-- [ ] Script de métricas funciona.
-- [ ] Output MD + JSON.
-- [ ] Equipo puede medir si el pipeline mejora QA o crea ruido.
+- [x] Script de métricas funciona. (`scripts/pipeline-metrics.js`,
+      `npm run metrics`; walks `runs/`, handles partial archives gracefully —
+      verified against the 5 archived runs: 5 found, SK-16 pass rate 100%.)
+- [x] Output MD + JSON. (`metrics/pipeline-metrics.{md,json}`, gitignored as
+      regenerable; `metrics/.gitkeep` versioned.)
+- [x] Equipo puede medir si el pipeline mejora QA o crea ruido.
+      (`docs/pipeline-architecture.md` §8.2 explains each metric + the
+      <10%/10-run prompt-stability threshold + reading Gate 3/4 rejection.)
+
+> **Scope note:** Gate 3/4 rejection counts are not recorded per-run in the
+> current schema, so the script reports them as "not tracked".
 
 ---
 
