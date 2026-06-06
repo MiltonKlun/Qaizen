@@ -516,10 +516,29 @@ Adaptación del concepto `/evolve` de `ai-qa-workflow`.
   - Cómo aceptar/rechazar cambios sugeridos.
 
 **Definition of Done:**
-- [ ] `scripts/evolve.js` (o agent) existe.
-- [ ] Corrió al menos una vez con datos reales.
-- [ ] Produjo al menos una recomendación útil.
-- [ ] Doc explica el loop.
+- [x] `scripts/evolve.js` (o agent) existe. (`npm run evolve`; gathers git
+      (90d) + `metrics/pipeline-metrics.json` + `session-summaries/*.md`,
+      scores by occurrence (3+ = high per the plan), emits
+      `evolve/evolve-proposal.{json,md}`. Optional `scripts/session-summary.js`
+      (`npm run session-summary`) captures friction. GitHub issues declared as
+      an agent-fed gap, not silently ignored. NEVER applies a change.)
+- [x] Corrió al menos una vez con datos reales. (Ran against this repo's real
+      45-commit/90-day history + a recorded session summary; metrics
+      regenerated from the 5 archived runs first.)
+- [x] Produjo al menos una recomendación útil. (Two 🔴 high-confidence,
+      evidence-backed findings that match the real Phase 2–3 pain: "stacked /
+      orphaned PRs" (3×) and "artifact clobber / single-occupancy" (3×) — the
+      exact systemic issues, surfaced from human session notes. Worked example
+      in `docs/evolve-loop.md` §6.)
+- [x] Doc explica el loop. (`docs/evolve-loop.md` — sources, scoring, outputs,
+      when to run (90d/10-run cadence), accept/reject flow, worked example.)
+
+> **Honest scope:** evolve gathers + scores deterministically and PROPOSES;
+> the human edits the named targets with the usual discipline (schema ⇒
+> Architecture Stability; prompt ⇒ version + eval). No self-rewrite — consistent
+> with Phase 3 §2 (metrics guide improvement, never rewrite contracts).
+> Proposals are gitignored (regenerable); session-summaries ARE versioned
+> (durable human input).
 
 ---
 

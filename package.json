@@ -25,7 +25,9 @@
     "list-runs": "node scripts/list-runs.js",
     "classify": "node scripts/run-failure-classifier.js",
     "heal": "node scripts/run-healer.js",
-    "metrics": "node scripts/pipeline-metrics.js"
+    "metrics": "node scripts/pipeline-metrics.js",
+    "evolve": "node scripts/evolve.js",
+    "session-summary": "node scripts/session-summary.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
