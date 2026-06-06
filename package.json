@@ -22,6 +22,7 @@
     "sync:jira-testcases": "node scripts/create-jira-testcases.js",
     "migrate:external-ids": "node scripts/migrate-testcases-external-ids.js",
     "new-run": "node scripts/new-run.js",
+    "list-runs": "node scripts/list-runs.js",
     "classify": "node scripts/run-failure-classifier.js",
     "heal": "node scripts/run-healer.js",
     "metrics": "node scripts/pipeline-metrics.js"
