@@ -34,10 +34,12 @@
       "pass_rate": 1
     }
   },
+  "uncovered_risks": [],
+  "uncovered_high_severity_count": 0,
   "blocking_failures": [],
   "non_blocking_failures": [],
   "release_recommendation": "pass",
-  "release_recommendation_reasoning": "Both API test cases for the only high-severity risk (RISK-001) passed against reqres.in; the risk is covered_passing. There are no blocking failures in either branch and no outstanding manual or unexecuted cases. This story has no E2E component, so the e2e execution group is zeroed and does not affect the recommendation.",
+  "release_recommendation_reasoning": "Both API test cases for the only high-severity risk (RISK-001) passed against reqres.in; the risk is covered_passing. There are no blocking failures in either branch, no uncovered risks, and no outstanding manual or unexecuted cases. This story has no E2E component, so the e2e execution group is zeroed and does not affect the recommendation.",
   "bug_drafts": [],
   "evidence_paths": ["reports/newman-html", "reports/newman-results.json"],
   "open_questions": [],

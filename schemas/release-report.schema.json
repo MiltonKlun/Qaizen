@@ -82,6 +82,19 @@
         { "$ref": "#/definitions/executionSummaryGrouped" }
       ]
     },
+    "uncovered_risks": {
+      "type": "array",
+      "description": "OPTIONAL (Phase 2.6, Improvement 3). risk_ids from context.json.risks[] that have ZERO covering test cases — i.e. coverage_by_risk entries whose status is 'uncovered'. Derived deterministically from the traceability chain; no LLM. Surfaced explicitly so a reviewer sees gaps without having to scan coverage_by_risk by hand.",
+      "items": {
+        "type": "string",
+        "pattern": "^RISK-[0-9]+$"
+      }
+    },
+    "uncovered_high_severity_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "OPTIONAL (Phase 2.6). Count of uncovered_risks whose severity in context.json.risks[] is 'high'. When > 0 the release_recommendation should not be 'pass' (a high-severity risk with no test is a coverage gap)."
+    },
     "blocking_failures": {
       "type": "array",
       "description": "FAIL-XXX ids whose presence flips the release recommendation to fail/conditional_pass/blocked.",

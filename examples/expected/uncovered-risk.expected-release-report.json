@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-06T10-00-00Z-uncovex",
+  "story_id": "STORY-005",
+  "report_date": "2026-06-06T10:30:00Z",
+  "summary": "Demonstrates the Phase 2.6 (Improvement 3) uncovered-risk reporting. Two risks: RISK-001 (high) is covered and passing; RISK-002 (high) has NO test case at all. The explicit uncovered_risks fields surface the gap, and because a high-severity risk is uncovered the recommendation is conditional_pass (not pass), with the gap named as a condition.",
+  "coverage_by_risk": [
+    {
+      "risk_id": "RISK-001",
+      "covered_by_tcs": ["TC-001"],
+      "status": "covered_passing"
+    },
+    {
+      "risk_id": "RISK-002",
+      "covered_by_tcs": [],
+      "status": "uncovered"
+    }
+  ],
+  "execution_summary": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "pass_rate": 1
+  },
+  "uncovered_risks": ["RISK-002"],
+  "uncovered_high_severity_count": 1,
+  "blocking_failures": [],
+  "non_blocking_failures": [],
+  "release_recommendation": "conditional_pass",
+  "release_recommendation_reasoning": "All executed tests passed and RISK-001 is covered_passing, but RISK-002 (high severity) has no covering test case at all (uncovered_high_severity_count = 1). A high-severity risk with zero tests is a coverage gap, so this cannot be a clean pass. Condition: add at least one test case for RISK-002 (re-open Gate 2) before release, or record an explicit acceptance decision for it.",
+  "bug_drafts": [],
+  "evidence_paths": ["reports/html", "analysis/failure-analysis.json"],
+  "open_questions": [
+    "RISK-002 is uncovered (high severity) — decide whether to add a test case or formally accept the risk without one."
+  ],
+  "status": "draft"
+}

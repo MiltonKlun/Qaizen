@@ -211,6 +211,15 @@ The Reporter emits this view as `release_report.json.coverage_by_risk[]`.
 The schema for that field is in `schemas/release-report.schema.json`
 (Phase 1 TG7).
 
+**Explicit coverage gaps (Phase 2.6, Improvement 3).** The Reporter also
+emits two derived fields so a zero-coverage risk is impossible to miss:
+`uncovered_risks` (every `risk_id` whose `coverage_by_risk` status is
+`uncovered`) and `uncovered_high_severity_count` (how many of those are
+`high` severity). These are a deterministic query over the chain — no LLM.
+A run with `uncovered_high_severity_count > 0` cannot be a `pass`
+(`agents/reporter.md` §5.5/§6). The Phase 3 Spec Reviewer surfaces the same
+gap earlier, at Gate 3 (`phase3-healing-scaling.md` §4.5.a).
+
 ### 4.2 AC coverage
 
 For each AC (by index in `context.json.acceptance_criteria`):
