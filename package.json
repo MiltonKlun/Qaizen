@@ -22,7 +22,8 @@
     "sync:jira-testcases": "node scripts/create-jira-testcases.js",
     "migrate:external-ids": "node scripts/migrate-testcases-external-ids.js",
     "new-run": "node scripts/new-run.js",
-    "classify": "node scripts/run-failure-classifier.js"
+    "classify": "node scripts/run-failure-classifier.js",
+    "heal": "node scripts/run-healer.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
