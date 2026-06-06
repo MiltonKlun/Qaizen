@@ -171,6 +171,18 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
    - `blocking_failures` — every `FAIL-XXX` with `severity: "red"`.
    - `non_blocking_failures` — every `FAIL-XXX` with `severity:
 "yellow"` or `"green"`.
+     5.5. **Compute the explicit uncovered-risk fields** (Phase 2.6,
+     Improvement 3) — deterministically, no LLM:
+   - `uncovered_risks` — every `risk_id` whose `coverage_by_risk` entry
+     has `status: "uncovered"` (zero covering test cases). Do NOT include
+     `accepted_without_test` risks — those are a deliberate decision, not
+     a gap.
+   - `uncovered_high_severity_count` — how many of `uncovered_risks` have
+     `severity: "high"` in `context.json.risks[]`.
+     These make coverage gaps explicit on the report instead of something a
+     reviewer must spot by scanning `coverage_by_risk`. Both fields are
+     optional in the schema; always emit them when `context.json.risks[]`
+     is non-empty.
 6. **Decide `release_recommendation`** (the schema enforces the
    enum; this agent enforces the meaning). **The recommendation is
    computed across both branches: a blocking failure in _either_ the
@@ -189,8 +201,12 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
      but no Red failures on high-severity risks. List the conditions
      explicitly in `release_recommendation_reasoning`, naming which
      branch each condition belongs to.
-   - `pass` — no blocking failures in either branch, and every
-     high-severity risk is `covered_passing` (across both branches).
+   - `pass` — no blocking failures in either branch, every
+     high-severity risk is `covered_passing` (across both branches),
+     AND `uncovered_high_severity_count == 0`. A high-severity risk with
+     **no test at all** is a coverage gap: it cannot be `pass`. Such a
+     run is at best `conditional_pass` (list the uncovered risk as a
+     condition) — or send it back to Gate 2 to add the missing case.
 7. **Write `release_recommendation_reasoning`** — a non-empty
    string explaining the choice. For `conditional_pass`, list the
    conditions explicitly. Generic reasoning is a Gate-4-equivalent
@@ -385,6 +401,8 @@ Required top-level fields (see the schema for the full list):
   "execution_summary": {
     /* flat in P1; grouped in P1.5+ */
   },
+  "uncovered_risks": [], // RISK-XXX with zero covering TCs (Phase 2.6)
+  "uncovered_high_severity_count": 0, // how many of those are high severity
   "blocking_failures": ["FAIL-001"],
   "non_blocking_failures": [],
   "release_recommendation": "fail",
@@ -424,6 +442,11 @@ Markdown, structured for a reviewer:
 | RISK-001 | high     | TC-001, TC-002 | covered_failing |
 
 | ...
+
+## Coverage gaps
+
+- **Uncovered risks:** RISK-XXX, ... (or "none")
+- **Uncovered high-severity:** N (must be 0 for a `pass`)
 
 ## Execution summary
 
