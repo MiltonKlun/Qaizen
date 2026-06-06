@@ -1,0 +1,127 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ai-qa-pipeline/schemas/spec-review.schema.json",
+  "title": "Spec Review",
+  "description": "analysis/spec-reviews/[story-id].spec-review.json. Produced by the Spec Reviewer Agent (Phase 3 TG4) to ASSIST the human at Gate 3 — it never approves or rejects. Combines a checklist-driven findings list with deterministic risk-coverage (Improvement 3 / §4.5.a). auto_approval_eligible is only a hint; the human always decides (CLAUDE.md §3.5).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "story_id",
+    "reviewed_at",
+    "findings",
+    "recommendations",
+    "risk_coverage",
+    "uncovered_risks",
+    "uncovered_high_severity_count",
+    "auto_approval_eligible"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+    },
+    "story_id": {
+      "type": "string",
+      "pattern": "^(STORY-[0-9]+|[A-Z][A-Z0-9_]*-[0-9]+)$"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "description": "ISO 8601 timestamp."
+    },
+    "findings": {
+      "type": "array",
+      "description": "Checklist issues the human should weigh at Gate 3. Empty array = the deterministic checks found nothing; it does NOT mean approved.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "description"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "The checklist category this finding belongs to.",
+            "enum": [
+              "missing_negative_case",
+              "missing_expected_outcome",
+              "approved_tc_not_in_spec",
+              "uncovered_high_risk",
+              "low_value_visual_e2e",
+              "scope_mismatch_with_brief",
+              "unsupported_flow_introduced",
+              "traceability_gap"
+            ]
+          },
+          "description": { "type": "string", "minLength": 1 },
+          "tc_id": {
+            "type": "string",
+            "description": "Optional. The TC-XXX (or API-XXX) this finding concerns.",
+            "pattern": "^(TC-[0-9]+|API-[0-9]+)$"
+          },
+          "risk_id": {
+            "type": "string",
+            "description": "Optional. The RISK-XXX this finding concerns.",
+            "pattern": "^RISK-[0-9]+$"
+          },
+          "severity": {
+            "type": "string",
+            "description": "How strongly this should weigh on the Gate 3 decision.",
+            "enum": ["info", "warning", "blocker"]
+          }
+        }
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "description": "Free-text suggestions for the human / Planner (e.g. 'add a negative case for TC-003').",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "risk_coverage": {
+      "type": "array",
+      "description": "One entry per RISK-XXX in context.json.risks[]. Deterministic from the RISK -> TC chain — no LLM (§4.5.a).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "risk_id",
+          "severity",
+          "covering_test_case_ids",
+          "covered"
+        ],
+        "properties": {
+          "risk_id": { "type": "string", "pattern": "^RISK-[0-9]+$" },
+          "severity": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Copied from context.json.risks[].severity."
+          },
+          "covering_test_case_ids": {
+            "type": "array",
+            "description": "TCs whose risk_ids include this risk. May be empty.",
+            "items": {
+              "type": "string",
+              "pattern": "^(TC-[0-9]+|API-[0-9]+)$"
+            }
+          },
+          "covered": {
+            "type": "boolean",
+            "description": "false when covering_test_case_ids is empty."
+          }
+        }
+      }
+    },
+    "uncovered_risks": {
+      "type": "array",
+      "description": "risk_ids where covered == false.",
+      "items": { "type": "string", "pattern": "^RISK-[0-9]+$" }
+    },
+    "uncovered_high_severity_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Count of uncovered_risks whose severity is 'high'. When > 0, auto_approval_eligible MUST be false."
+    },
+    "auto_approval_eligible": {
+      "type": "boolean",
+      "description": "HINT ONLY — the human always decides Gate 3 (CLAUDE.md §3.5). Heuristic: true only when findings has no 'blocker', every high-severity risk is covered, and uncovered_high_severity_count == 0. Never auto-approves."
+    }
+  }
+}

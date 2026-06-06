@@ -223,9 +223,17 @@ Acá implementamos por código los Healer guardrails Green/Yellow/Red que están
   - Humano sigue siendo el approval final.
 
 **Definition of Done:**
-- [ ] Spec Reviewer existe.
-- [ ] Asiste pero no reemplaza humano.
-- [ ] Output JSON validable.
+- [x] Spec Reviewer existe. (`agents/spec-reviewer.md`, 11 secciones;
+      `schemas/spec-review.schema.json`; `analysis/spec-reviews/`.)
+- [x] Asiste pero no reemplaza humano. (No setea gates; `auto_approval_eligible`
+      es solo hint; Gate 3 sigue humano — `CLAUDE.md` §3.5.)
+- [x] Output JSON validable. (Schema + example
+      `examples/expected/spec-review-uncovered.expected-spec-review.json`;
+      validate-examples + validate-all reconocen el suffix.)
+- [x] **§4.5.a** incorporado: `risk_coverage` + `uncovered_risks` +
+      `uncovered_high_severity_count` determinísticos; high-severity uncovered
+      ⇒ `blocker` finding ⇒ `auto_approval_eligible: false`. `docs/review-gates.md`
+      Gate 3 actualizado.
 
 ---
 

@@ -327,9 +327,15 @@ product owner co-approves.
       `TC-XXX` in a comment or metadata block.
 
 **Approver:** the QA engineer driving the slice. In Phase 3 the
-`agents/spec-reviewer.md` agent assists by producing a checklist
-JSON; the human still decides. The assistance does not change the
-approval bar.
+`agents/spec-reviewer.md` agent assists by producing
+`analysis/spec-reviews/[story-id].spec-review.{json,md}` — a checklist
+of `findings` plus a **deterministic risk-coverage** report
+(`risk_coverage`, `uncovered_risks`, `uncovered_high_severity_count`,
+computed from the `RISK → TC` chain, no LLM). The reviewer reads the
+uncovered-risk list **before** approving: a high-severity uncovered risk
+is a `blocker` finding and forces the agent's `auto_approval_eligible`
+hint to `false`. **The hint is only a hint — the human always decides;
+the assistance never changes the approval bar** (`CLAUDE.md` §3.5).
 
 **On approval:**
 
