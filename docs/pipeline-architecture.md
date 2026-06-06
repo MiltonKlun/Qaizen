@@ -418,6 +418,43 @@ Phase 3 adds:
 Boundaries are enforced as a hard rule — see `docs/artifact-boundaries.md`
 and `CLAUDE.md` section 3.2.
 
+### 8.1 Run history — the `runs/` layout (Phase 3 TG5)
+
+The repo **root** holds the artifacts of the **current run** —
+`context.json`, `test-cases/`, `specs/`, `tests/`, `analysis/`,
+`release/`, etc. These are single-occupancy: a new story overwrites the
+previous one. The Phase 2 retrospective flagged this as the top pain (a
+near-miss clobber during the SK-13 slice).
+
+`runs/` is the **immutable history** that fixes it, using the
+**root-is-current / runs-is-history** model (Option A from
+`phase3-healing-scaling.md` TG5):
+
+```
+runs/<story-id>/<run-id>/context.json
+runs/<story-id>/<run-id>/test-cases/ specs/ tests/ analysis/ release/ ...
+runs/<story-id>/<run-id>/run-manifest.json
+runs/latest.json                      # per-story pointer to the newest run
+```
+
+- **`scripts/new-run.js <story-id> [label]`** snapshots the current root
+  run into `runs/<story-id>/<run-id>/` (timestamp run-id), writes a
+  `run-manifest.json` (run id, label, source `context.run_id`, status at
+  archive), and updates `runs/latest.json`. `--dry-run` previews.
+- It **copies, never deletes** the root — the root keeps working exactly as
+  today for the agents, and re-running is safe. You archive _after_ a run
+  completes (or before starting the next story).
+- **Durable artifacts are versioned** per run (`context.json`, `story.md`,
+  `test-cases/`, `planner-input/`, `specs/`, `tests/`, `api-tests/`,
+  `analysis/`, `release/`). **Heavy regenerable outputs are not** —
+  `runs/**/reports/`, `runs/**/traces/`, `runs/**/screenshots/` are
+  gitignored (same rule as the root; they're reproducible by re-running).
+- **Traceability is intact per run:** every archived `context.json` keeps
+  its `run_id` and the full `TC → RISK → … → external_ids` chain.
+
+This is the foundation for multi-run history and (later) metrics; it does
+not change any agent's behavior — agents still read/write the root.
+
 ---
 
 ## 9. The contracts (schemas)

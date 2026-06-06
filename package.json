@@ -20,7 +20,8 @@
     "fetch-story": "node scripts/fetch-jira-story.js",
     "export:jira": "node scripts/export-to-jira.js",
     "sync:jira-testcases": "node scripts/create-jira-testcases.js",
-    "migrate:external-ids": "node scripts/migrate-testcases-external-ids.js"
+    "migrate:external-ids": "node scripts/migrate-testcases-external-ids.js",
+    "new-run": "node scripts/new-run.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

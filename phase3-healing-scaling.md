@@ -264,10 +264,19 @@ Para soporte de múltiples runs sin overwrite.
 - [ ] Actualizar `.gitignore` si los `runs/` no se versionan (recomendación: versionar solo `context.json` y `release/release-report.{md,json}` de cada run, ignorar `reports/`, `traces/`, `screenshots/`).
 
 **Definition of Done:**
-- [ ] `runs/` model existe.
-- [ ] `new-run.js` funciona.
-- [ ] Multiple runs coexisten sin overwrite.
-- [ ] Traceability intacta per-run.
+- [x] `runs/` model existe. (Option A: root = current, runs/ = history.)
+- [x] `new-run.js` funciona. (`scripts/new-run.js`, `npm run new-run`,
+      dry-run + real archive + story-mismatch guard verified.)
+- [x] Multiple runs coexisten sin overwrite. (Snapshot copies the root;
+      never deletes it. Per-story `runs/<id>/<run-id>/` + `runs/latest.json`.)
+- [x] Traceability intacta per-run. (Each archived context keeps its
+      run_id + chain; `run-manifest.json` records source run_id + status.)
+- [x] `docs/pipeline-architecture.md` §8.1 documents the model;
+      `.gitignore` versions durable artifacts, ignores reports/traces/screenshots.
+
+> **Built early (Phase 2.6→3 bridge), not the full Phase 3.** Prioritized per
+> the Phase 2 retrospective (single-occupancy clobber pain) and §4.5.b. The
+> rest of Phase 3 (Healer, metrics, etc.) is unchanged.
 
 ---
 
