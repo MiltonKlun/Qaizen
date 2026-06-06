@@ -9,6 +9,13 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
+version: 1.0.0
+changed_in_run: null
+changelog: |
+  - 1.0.0: Initial versioned baseline (Phase 3 TG8). Captures the prompt as
+    of Phase 1 (context.json + RISK minting) through Phase 2 Mode B (Jira
+    fetch) and Phase 3 TG15 (optional code_change_context). `changed_in_run`
+    is null until a future change is adopted from a real run.
 owned_outputs:
   - context.json
 uses_skills:

@@ -10,6 +10,11 @@ description: |
   agent only authors it.
 phase_introduced: 1.5
 phase_active: 1.5+
+version: 1.0.0
+changed_in_run: null
+changelog: |
+  - 1.0.0: Initial versioned baseline (Phase 3 TG8). Phase 1.5 Postman
+    collection + environment authoring; variables never hardcoded.
 owned_outputs:
   - api-tests/collections/[story-id].postman_collection.json
   - api-tests/environments/[story-id].postman_environment.json

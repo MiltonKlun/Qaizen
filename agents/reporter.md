@@ -11,6 +11,12 @@ description: |
   completed.
 phase_introduced: 1
 phase_active: 1+
+version: 1.0.0
+changed_in_run: null
+changelog: |
+  - 1.0.0: Initial versioned baseline (Phase 3 TG8). Two synchronized
+    release reports (md + json); coverage_by_risk via the traceability
+    chain; release_recommendation gated on Red failures + risk coverage.
 owned_outputs:
   - release/release-report.md
   - release/release-report.json
