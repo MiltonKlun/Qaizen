@@ -35,9 +35,9 @@ Phase 3 is required to consume `evidence_paths` from
 that token-efficient pattern starts here, with `context.json` as a
 manifest.
 
-See `docs/pipeline-architecture.md` and (Phase 3 TG7)
-`docs/context-json-guide.md` updates for the token-efficient context
-handling rules.
+See §5.1 (Token-efficient context handling, Phase 3 TG7) for the per-agent
+"loads only" discipline and the no-raw-artifacts-in-prompts rules, and
+`docs/security-and-data-safety.md` §5 for the data-safety motivation.
 
 ---
 
@@ -338,6 +338,46 @@ When a downstream agent needs one of these, it reads
 particular, must not paste raw report content into LLM prompts — it
 references `evidence_paths` from `failure-analysis.json` instead.
 This is the token-efficient pattern formalized in Phase 3 TG7.
+
+---
+
+## 5.1 Token-efficient context handling (Phase 3 TG7)
+
+`context.json` is the manifest, not the payload. The point of a manifest is
+that an agent loads **only the files its step needs**, by path — not the whole
+run. This keeps prompts small (cheaper, faster, less context dilution) and is
+also a data-safety control: what is never inlined cannot leak through a prompt
+(`docs/security-and-data-safety.md` §5).
+
+**The rules:**
+
+1. **Large files always by path, never inlined.** `context.json` references
+   `artifact_paths.<key>`; agents open the file when they need it.
+2. **Each agent loads only what it needs.** Every `agents/*.md` now declares a
+   **"Loads only"** block at the top of its `## 2. Inputs` section, naming the
+   exact files it reads. If an agent needs something not listed, it states the
+   path first — it does not silently pull in the whole run.
+3. **No raw reports, traces, screenshots, or large logs in prompts.** Read the
+   **JSON** reporter output, not the rendered HTML report. Record trace /
+   screenshot **paths** (`evidence_paths`), do not load the artifacts.
+4. **The Reporter consumes summaries.** It answers "ship or not" from the
+   summarized `failure-analysis.json` + `evidence_paths`, never from pasted
+   evidence. The Failure Classifier likewise extracts only the minimal failing
+   lines (after confirming they carry no secret / production value).
+
+**What each agent loads (the declared minimum):**
+
+| Agent              | Loads only                                                                                    |
+| ------------------ | --------------------------------------------------------------------------------------------- |
+| analyst            | `story.md` (Mode A) / Jira issue text (Mode B); optional linked-PR diff, **summarized**.      |
+| test-designer      | `context.json`, `story.md`, `automation-decision-model.md`; `code_change_context` if present. |
+| api-agent          | `context.json`, the `automate_api` cases of `test-cases/`, optional `docs/api-spec.yaml`.     |
+| spec-reviewer      | `context.json`, `test-cases/`, the planner brief, `specs/[story-id].md`.                      |
+| failure-classifier | `reports/results.json` (+ newman JSON), `context.json`, `test-cases/`, the API collection.    |
+| reporter           | `context.json`, `test-cases/`, `analysis/failure-analysis.json`, bug drafts. Summaries only.  |
+
+The `test-management-adapter` is a port, not an LLM-loading step, so it has no
+"Loads only" block.
 
 ---
 

@@ -11,9 +11,12 @@ description: |
   completed.
 phase_introduced: 1
 phase_active: 1+
-version: 1.0.0
+version: 1.1.0
 changed_in_run: null
 changelog: |
+  - 1.1.0: Added the "Loads only" token-efficient context declaration
+    (Phase 3 TG7) — consumes summarized failure-analysis + evidence_paths,
+    never raw reports/traces. Additive, no output-shape change.
   - 1.0.0: Initial versioned baseline (Phase 3 TG8). Two synchronized
     release reports (md + json); coverage_by_risk via the traceability
     chain; release_recommendation gated on Red failures + risk coverage.
@@ -58,6 +61,16 @@ At the end of a successful run, the Reporter sets
 ---
 
 ## 2. Inputs
+
+> **Loads only (Phase 3 TG7, token-efficient context).** The Reporter loads
+> **only**: `context.json`, `test-cases/[story-id].json`,
+> `analysis/failure-analysis.json` (required), and `release/bug-drafts/*.md`. It
+> consumes the **summarized** `failure-analysis.json` + its `evidence_paths` —
+> **not** the raw `reports/results.json`, the HTML report, traces, or
+> screenshots. The planner brief / spec / test files are optional context read
+> sparingly, never copied. This is the canonical token-efficient consumer: the
+> Reporter answers "ship or not" from summaries and paths, never from pasted
+> evidence. See `docs/context-json-guide.md` § token-efficient handling.
 
 - `context.json` (project root).
 - `test-cases/[story-id].json`.

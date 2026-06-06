@@ -10,9 +10,12 @@ description: |
   does not own that path.
 phase_introduced: 1
 phase_active: 1+
-version: 1.0.0
+version: 1.1.0
 changed_in_run: null
 changelog: |
+  - 1.1.0: Added the "Loads only" token-efficient context declaration
+    (Phase 3 TG7) — reads the JSON reporter, not the HTML report; records
+    evidence_paths instead of loading traces/screenshots. Additive.
   - 1.0.0: Initial versioned baseline (Phase 3 TG8). Documents-only
     classifier (two axes: classification + severity); Phase 3 added the
     rule-based pre-classifier handoff (scripts/run-failure-classifier.js)
@@ -60,6 +63,17 @@ This agent does NOT:
 ---
 
 ## 2. Inputs
+
+> **Loads only (Phase 3 TG7, token-efficient context).** The Failure Classifier
+> loads **only**: `reports/results.json` (and `reports/newman-results.json` when
+> present), `context.json`, `test-cases/[story-id].json`, and the API collection
+> for REQ/COL mapping. It reads the **JSON** reporter output, NOT the HTML
+> report; it records `evidence_paths` (trace/screenshot paths) rather than
+> loading the artifacts. **Never paste a trace, a screenshot, or the full HTML
+> report into the prompt** — extract only the minimal failing lines, and confirm
+> they carry no secret/production value first
+> (`docs/security-and-data-safety.md` §4–5). See `docs/context-json-guide.md`
+> § token-efficient handling.
 
 - `reports/results.json` — Playwright JSON reporter output. Always
   present in Phase 1.

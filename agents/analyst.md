@@ -9,9 +9,12 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 1.0.0
+version: 1.1.0
 changed_in_run: null
 changelog: |
+  - 1.1.0: Added the "Loads only" token-efficient context declaration
+    (Phase 3 TG7) — names exactly what the agent loads; large source is
+    summarized, never pasted. Additive, no output-shape change.
   - 1.0.0: Initial versioned baseline (Phase 3 TG8). Captures the prompt as
     of Phase 1 (context.json + RISK minting) through Phase 2 Mode B (Jira
     fetch) and Phase 3 TG15 (optional code_change_context). `changed_in_run`
@@ -61,6 +64,16 @@ It anchors the chain and stops at Gate 1.
 ---
 
 ## 2. Inputs
+
+> **Loads only (Phase 3 TG7, token-efficient context).** The Analyst loads
+> **only**: `story.md` (Mode A) **or** the Jira issue text fetched via the
+> read-only `atlassian` MCP (Mode B). Optionally, for Mode B with a linked PR,
+> the PR diff via the read-only `github` MCP (summarized into
+> `code_change_context`, not stored raw). It does **not** load test artifacts,
+> reports, traces, or screenshots — they do not exist yet. Large source
+> material (e.g. linked Confluence pages, a full PR diff) is **summarized**,
+> never pasted wholesale into the prompt. See `docs/context-json-guide.md` §
+> token-efficient handling and `docs/security-and-data-safety.md` §5.
 
 - **Mode A (manual story).** `story.md` at the project root. The
   file content is the source of truth for ACs and risks.

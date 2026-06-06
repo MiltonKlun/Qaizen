@@ -10,9 +10,11 @@ description: |
   agent only authors it.
 phase_introduced: 1.5
 phase_active: 1.5+
-version: 1.0.0
+version: 1.1.0
 changed_in_run: null
 changelog: |
+  - 1.1.0: Added the "Loads only" token-efficient context declaration
+    (Phase 3 TG7). Additive, no output-shape change.
   - 1.0.0: Initial versioned baseline (Phase 3 TG8). Phase 1.5 Postman
     collection + environment authoring; variables never hardcoded.
 owned_outputs:
@@ -62,6 +64,15 @@ variable carries this value.
 ---
 
 ## 2. Inputs
+
+> **Loads only (Phase 3 TG7, token-efficient context).** The API Agent loads
+> **only**: `context.json`, `test-cases/[story-id].json` (and from it, only the
+> `automate_api` cases), and — when it exists — `docs/api-spec.yaml`. It uses
+> the Postman MCP to read an existing collection / verify endpoint shapes; it
+> does **not** load E2E artifacts, reports, traces, or screenshots. Never paste
+> a full OpenAPI spec or a live response body into the prompt — reference the
+> path and summarize. See `docs/context-json-guide.md` § token-efficient
+> handling.
 
 - `context.json` — for story metadata and the risk anchors.
 - `test-cases/[story-id].json` — **filter to only the cases where

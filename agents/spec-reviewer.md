@@ -10,9 +10,11 @@ description: |
   stays human.
 phase_introduced: 3
 phase_active: 3+
-version: 1.0.0
+version: 1.1.0
 changed_in_run: null
 changelog: |
+  - 1.1.0: Added the "Loads only" token-efficient context declaration
+    (Phase 3 TG7). Additive, no output-shape change.
   - 1.0.0: Initial versioned baseline (Phase 3 TG8 / introduced TG4).
     Gate 3 assist with deterministic risk_coverage + uncovered_risks;
     auto_approval_eligible is a hint only, Gate 3 stays human.
@@ -52,6 +54,14 @@ Produce one `analysis/spec-reviews/[story-id].spec-review.json` (+ a
 ---
 
 ## 2. Inputs
+
+> **Loads only (Phase 3 TG7, token-efficient context).** The Spec Reviewer loads
+> **only**: `context.json`, `test-cases/[story-id].json`,
+> `planner-input/[story-id].planner-brief.md`, and `specs/[story-id].md`. It
+> runs before any test executes, so there are no reports/traces to load — and it
+> must not load them. Risk-coverage is computed deterministically from the
+> `RISK → TC` chain in the files above, no large artifacts. See
+> `docs/context-json-guide.md` § token-efficient handling.
 
 - `context.json` — for `risks[]` (id + severity) and `acceptance_criteria`.
 - `test-cases/[story-id].json` — the approved TCs and their `risk_ids`.

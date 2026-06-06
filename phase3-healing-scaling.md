@@ -382,9 +382,19 @@ Para soporte de múltiples runs sin overwrite.
   - Si el agent necesita data adicional, paths primero.
 
 **Definition of Done:**
-- [ ] Doc actualizado.
-- [ ] Cada agent prompt declara qué carga.
-- [ ] Token usage controlado.
+- [x] Doc actualizado. (`docs/context-json-guide.md` §5.1 "Token-efficient
+      context handling" — manifest-not-payload, the 4 rules, and a per-agent
+      "loads only" table; the old TG7 forward-stub now points to it. Data-safety
+      motivation cross-linked to `docs/security-and-data-safety.md` §5.)
+- [x] Cada agent prompt declara qué carga. (All 6 LLM-loading agents
+      (analyst, test-designer, api-agent, spec-reviewer, failure-classifier,
+      reporter) carry a "Loads only" block atop their `## 2. Inputs`, naming the
+      exact files. `test-management-adapter` is a port, no loading step — exempt.
+      Agent versions bumped to 1.1.0 (MINOR, additive) per the TG8 convention.)
+- [x] Token usage controlado. (Rule 3: JSON reporter not HTML; evidence_paths
+      not artifacts. Reporter/Classifier consume summaries — never paste raw
+      reports/traces/screenshots into prompts. Reinforces the manifest rule and
+      the data-safety posture.)
 
 ---
 

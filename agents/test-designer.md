@@ -10,9 +10,11 @@ description: |
   becomes enforceable in code.
 phase_introduced: 1
 phase_active: 1+
-version: 1.0.0
+version: 1.1.0
 changed_in_run: null
 changelog: |
+  - 1.1.0: Added the "Loads only" token-efficient context declaration
+    (Phase 3 TG7). Additive, no output-shape change.
   - 1.0.0: Initial versioned baseline (Phase 3 TG8). Paired test-cases
     JSON + planner brief; source of TC-XXX ids and the Automation Decision
     Model. Phase 3 TG15 added optional code_change_context use for
@@ -57,6 +59,14 @@ code, or open a browser. Those are downstream concerns.
 ---
 
 ## 2. Inputs
+
+> **Loads only (Phase 3 TG7, token-efficient context).** The Test Designer
+> loads **only**: `context.json` and `story.md` (the local copy). It reads
+> `context.json.code_change_context` if present (already a summary, not a raw
+> diff) and `docs/automation-decision-model.md` for the ruleset. It does
+> **not** load reports, traces, screenshots, or generated tests. Example files
+> are optional shape anchors, read sparingly. See `docs/context-json-guide.md`
+> § token-efficient handling.
 
 - `context.json` at the project root. **Required precondition:**
   `context.json.review_gates.requirements_reviewed == true` (or the
