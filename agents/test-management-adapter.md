@@ -13,6 +13,7 @@ phase_active: 2+
 owned_outputs: []
 implemented_by:
   - skills/syncing-testlink (TestLink — Phase 2, active)
+  - skills/syncing-jira (plain Jira issues — Phase 2.6, active)
   - skills/syncing-xray (Xray — planned, not built)
   - skills/syncing-qase (Qase — planned, not built)
 ---
@@ -84,9 +85,11 @@ each adapter realizes them via its tool's MCP or REST API.
 - Creates or updates the corresponding cases in the tool, mapping our
   fields to the tool's fields via the adapter's own
   `config/<tool>-field-map.json`.
-- Writes the tool's identifier back into our JSON as `testlink_id`
-  (TestLink) or a tool-appropriate `external_id` field, so the linkage
-  is recorded in our source of truth.
+- Writes the tool's identifier back into our JSON. The generic slot is
+  `test_cases[].external_ids` (a `{ tool: id }` object, Phase 2.6) — e.g.
+  the Jira adapter writes `external_ids.jira = "SK-50"`. The TestLink
+  adapter additionally keeps its legacy dedicated `testlink_id` field for
+  backward compatibility. New adapters use `external_ids`.
 - Links to the Jira story when `context.json.story.jira_issue_key`
   exists, if the tool supports it.
 - **Idempotent:** re-running updates the same cases (matched by the
@@ -108,15 +111,24 @@ each adapter realizes them via its tool's MCP or REST API.
 A single env var picks the active adapter:
 
 ```
-TEST_MANAGEMENT_TOOL=testlink   # | xray | qase | none
+TEST_MANAGEMENT_TOOL=testlink   # | jira | both | xray | qase | none
 ```
 
-- `testlink` — the Phase 2 adapter (active).
+- `testlink` — the Phase 2 adapter (active). `scripts/sync-to-testlink.js`.
+- `jira` — the Phase 2.6 adapter (active): creates test cases as **ordinary
+  Jira issues** (no Xray app needed). `scripts/create-jira-testcases.js`,
+  which refuses to run unless this var is `jira` or `both`.
+- `both` — run TestLink **and** Jira (a reuser mirroring to both).
 - `xray`, `qase` — planned; selecting them before the adapter exists is
   an error the dispatcher reports cleanly.
 - `none` — skip test-management sync entirely (valid; the pipeline still
   produces `test-cases/*.json` + the release report, which stand on
   their own).
+
+> **`jira` vs `xray`:** the `jira` adapter creates plain Jira issues — works
+> on any Jira project, no paid app. A future `xray` adapter would use Xray's
+> test-entity APIs for richer test management. They are distinct adapters; a
+> reuser picks what their Jira has.
 
 The dispatcher (`scripts/sync-test-management.js`, introduced when a
 second adapter lands; in Phase 2 the TestLink script is called directly)
@@ -156,11 +168,12 @@ guarantee.
 
 ## 5. Implemented + planned adapters
 
-| Adapter                   | Tool            | Status               | API surface                           | Notes                                                                                                                                                                                                     |
-| ------------------------- | --------------- | -------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `skills/syncing-testlink` | TestLink        | **Active (Phase 2)** | `dogkeeper886/testlink-mcp` (XML-RPC) | The reused `ai-qa-workflow` skill, adapted. See `docs/testlink-integration.md`.                                                                                                                           |
-| `skills/syncing-xray`     | Xray (Jira app) | **Planned**          | Jira REST + Xray REST/GraphQL         | Rides the existing `JIRA_*` token — no new credential. Best "graduation" from TestLink: tests + bugs + stories all in Jira. Build when the team wants Jira-unified test management.                       |
-| `skills/syncing-qase`     | Qase            | **Planned**          | Qase REST (`api.qase.io`)             | Modern, clean API, good free tier. Best non-Jira modern option and the lowest-effort adapter to add — also a good "is the port truly tool-agnostic?" stress test. Build when a non-Jira option is wanted. |
+| Adapter                   | Tool              | Status                 | API surface                           | Notes                                                                                                                                                                                                                                                                                          |
+| ------------------------- | ----------------- | ---------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `skills/syncing-testlink` | TestLink          | **Active (Phase 2)**   | `dogkeeper886/testlink-mcp` (XML-RPC) | The reused `ai-qa-workflow` skill, adapted. See `docs/testlink-integration.md`. Writes `testlink_id` (+ mirrored to `external_ids.testlink`).                                                                                                                                                  |
+| `skills/syncing-jira`     | Plain Jira issues | **Active (Phase 2.6)** | Jira REST v3 (`/rest/api/3/issue`)    | Creates ordinary Jira issues (type configurable, default `Test`) — no Xray app required, works on any Jira. Rides the existing `JIRA_*` token. `scripts/create-jira-testcases.js`, `--apply`-gated, dedup via `external_ids.jira`. See `docs/jira-export.md` for the related read-only export. |
+| `skills/syncing-xray`     | Xray (Jira app)   | **Planned**            | Jira REST + Xray REST/GraphQL         | Distinct from `syncing-jira`: uses Xray's test-entity APIs for richer test management. Build when the team has Xray and wants Jira-unified test management.                                                                                                                                    |
+| `skills/syncing-qase`     | Qase              | **Planned**            | Qase REST (`api.qase.io`)             | Modern, clean API, good free tier. Best non-Jira modern option and the lowest-effort adapter to add — also a good "is the port truly tool-agnostic?" stress test. Build when a non-Jira option is wanted.                                                                                      |
 
 **When to build Xray / Qase:** after Phase 2 proves the sync mechanism
 works end-to-end with TestLink. At that point each new adapter is a

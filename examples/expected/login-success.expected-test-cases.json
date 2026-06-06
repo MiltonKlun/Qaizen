@@ -36,7 +36,11 @@
         "URL changes to the inventory page.",
         "At least one inventory item is visible on the page."
       ],
-      "status": "draft"
+      "status": "draft",
+      "external_ids": {
+        "jira": "SK-1001",
+        "testlink": "42"
+      }
     },
     {
       "test_case_id": "TC-002",

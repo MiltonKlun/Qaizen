@@ -139,7 +139,12 @@
         },
         "testlink_id": {
           "type": "string",
-          "description": "Populated by Phase 2 syncing-testlink skill. Empty/omitted in Phase 1."
+          "description": "Populated by Phase 2 syncing-testlink skill. Empty/omitted in Phase 1. DEPRECATED in favor of external_ids.testlink (Phase 2.6) but kept valid for backward compatibility; the TestLink adapter still writes it."
+        },
+        "external_ids": {
+          "type": "object",
+          "description": "Phase 2.6 (TG2.6-3). Generic tool -> external id linkage written back by a TestManagementAdapter after a push (e.g. {\"jira\": \"SK-50\", \"qase\": \"123\"}). Open/Closed: a new adapter records its id here without adding a new per-tool field. testlink_id remains the TestLink adapter's dedicated field for compatibility; new adapters use this object. Keys are tool names; values are the tool's issue/case id.",
+          "additionalProperties": { "type": "string" }
         },
         "api_metadata": {
           "type": "object",
