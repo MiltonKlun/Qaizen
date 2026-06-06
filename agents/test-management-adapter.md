@@ -10,6 +10,12 @@ description: |
   to another tool's adapter (Open/Closed Principle).
 phase_introduced: 2
 phase_active: 2+
+version: 1.0.0
+changed_in_run: null
+changelog: |
+  - 1.0.0: Initial versioned baseline (Phase 3 TG8). The port (Open/Closed)
+    for test-management sync targets; TestLink + plain-Jira adapters active,
+    Xray/Qase planned. Versioning the port lets adapters evolve independently.
 owned_outputs: []
 implemented_by:
   - skills/syncing-testlink (TestLink — Phase 2, active)

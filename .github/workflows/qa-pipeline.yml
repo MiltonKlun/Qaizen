@@ -13,6 +13,9 @@ name: QA Pipeline
 #   ci-summary      — ALWAYS runs, aggregates both reports into the PR
 #                     step summary. Informational (no --fail-on-test-failure)
 #                     until the suite is promoted to blocking.
+#   prompt-eval     — INFORMATIONAL. Phase 3 TG8: when a PR changes agents/,
+#                     runs the evaluation dataset and surfaces the match %.
+#                     Never blocks, never edits prompts.
 #
 # A job is never "non-blocking but required" — informational jobs carry
 # continue-on-error and are NOT listed as required in branch protection.
@@ -79,6 +82,38 @@ jobs:
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
           node scripts/check-contract-changes.js
+
+  prompt-eval:
+    name: Prompt evaluation (informational)
+    runs-on: ubuntu-latest
+    # Only on PRs that touch agent prompts. Phase 3 TG8: a prompt change is a
+    # contract change, so we run the evaluation dataset and surface the match
+    # percentage on the PR. Informational (continue-on-error) — it never blocks
+    # merge and never edits prompts; the human reads it at the gate. A drop > 10%
+    # vs baseline is the documented "needs rework" signal (docs/prompt-versioning.md).
+    if: github.event_name == 'pull_request'
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Did this PR change agent prompts?
+        id: detect
+        shell: bash
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -q '^agents/'; then
+            echo "agents_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "agents_changed=false" >> "$GITHUB_OUTPUT"
+            echo "No agents/ changes in this PR; prompt evaluation not applicable."
+          fi
+      - name: Evaluate agent prompts against the dataset
+        if: steps.detect.outputs.agents_changed == 'true'
+        run: npm run evaluate
 
   playwright-full:
     name: Playwright E2E (informational)

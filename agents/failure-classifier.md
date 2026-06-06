@@ -10,6 +10,13 @@ description: |
   does not own that path.
 phase_introduced: 1
 phase_active: 1+
+version: 1.0.0
+changed_in_run: null
+changelog: |
+  - 1.0.0: Initial versioned baseline (Phase 3 TG8). Documents-only
+    classifier (two axes: classification + severity); Phase 3 added the
+    rule-based pre-classifier handoff (scripts/run-failure-classifier.js)
+    and the Healer Green/Yellow/Red boundary — this agent still never fixes.
 owned_outputs:
   - analysis/failure-analysis.json
   - release/bug-drafts/BUG-XXX.md (one per Red failure)
