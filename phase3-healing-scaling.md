@@ -528,8 +528,19 @@ Soporte para múltiples stories en paralelo, **sin** autonomía de batch.
   - Útil para dashboard simple (sin web UI).
 
 **Definition of Done:**
-- [ ] Multiple story runs coexisten.
-- [ ] No artifact collisions.
+- [x] Multiple story runs coexisten. (`runs/<story-id>/<run-id>/` (TG5) keeps
+      each story in its own subtree. Verified: `runs/` already holds 5 stories
+      — SK-10, SK-13, SK-16, STORY-001, STORY-002 — side by side, listed by
+      `npm run list-runs`.)
+- [x] No artifact collisions. (Traceability is local to each run dir; no shared
+      single-occupancy file across stories in `runs/`. `scripts/list-runs.js`
+      (`npm run list-runs`, `--story`, `--json`) is the read-only dashboard —
+      story_id, run_id, status (from the run's context.json, else manifest),
+      archived_at, label; tolerates both manifest shapes; never writes.)
+
+> **Scope:** the runs/ layout (TG5) already provided multi-story coexistence;
+> TG11 adds the read-only `list-runs` view over it. Single-story run stays the
+> base unit — no autonomous batch (Phase 3 forbidden work).
 
 ---
 
