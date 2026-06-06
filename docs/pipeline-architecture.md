@@ -455,6 +455,39 @@ runs/latest.json                      # per-story pointer to the newest run
 This is the foundation for multi-run history and (later) metrics; it does
 not change any agent's behavior — agents still read/write the root.
 
+### 8.2 Metrics and monitoring (Phase 3 TG6)
+
+`scripts/pipeline-metrics.js` (`npm run metrics`) walks the archived runs
+under `runs/` and writes `metrics/pipeline-metrics.{md,json}`. Recommended
+cadence: after every ~5 completed runs. **Metrics guide improvement; they
+never rewrite prompts or contracts automatically** (Phase 3 non-negotiable
+rule).
+
+| Metric                                | What it tells you                                                                  |
+| ------------------------------------- | ---------------------------------------------------------------------------------- |
+| Average pass rate by story            | Suite health per area; a falling rate flags regressions or flaky growth.           |
+| Top failing test cases                | Which TCs break most — candidates for redesign or a real recurring product bug.    |
+| Flakiest tests                        | Tests classified `flaky` repeatedly — stabilize or push down the pyramid.          |
+| Healer patch validation rate          | Of Green patches the Healer proposed, how many validated — confidence in auto-fix. |
+| Product bugs found by generated tests | The pipeline's core value signal — is it catching real bugs?                       |
+| Untested high-risk items              | High-severity risks with no covering TC — the coverage gap to close first.         |
+| Gate 3 / Gate 4 rejection rate        | **Prompt quality signals** (see below). Not tracked per-run yet.                   |
+
+**Interpreting gate rejection rates:**
+
+- **High Gate 3 rejection rate** = the Planner is producing bad specs = the
+  Planner prompt needs work.
+- **High Gate 4 rejection rate** = the Generator is producing bad code = the
+  Generator prompt needs work.
+- **Prompts are "stable"** when the relevant gate rejection rate is **< 10%
+  over 10 consecutive runs**. Below that bar, treat the prompt as trusted; a
+  spike above it is the cue to revisit the prompt (and, in Phase 3 TG10, to
+  run `/evolve`).
+
+(Gate rejection counts are not recorded per-run in the current schema; when
+the review audit-field notes start carrying rejection history, the metrics
+script surfaces them. Today it reports them as "not tracked".)
+
 ---
 
 ## 9. The contracts (schemas)
