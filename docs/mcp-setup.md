@@ -210,6 +210,51 @@ real Jira.
 
 ---
 
+## `github` — read-only PR/diff access (Phase 3 TG15)
+
+Phase 3 adds a **read-only** GitHub MCP so the Analyst (Mode B) can fetch a
+linked PR's diff as **secondary context** for risk/regression prioritization.
+It runs as a stdio Docker container, like the Atlassian MCP.
+
+### The hard boundary (read twice)
+
+The diff is **secondary context only**. Acceptance criteria define
+correctness; the diff informs _regression scope_ and _risk prioritization_.
+The Analyst NEVER generates expected-behavior assertions from "what the code
+does" (that would validate the implementation against itself). This is the
+§3.8 rule applied to code: anchor on the requirement, use the diff to sharpen.
+
+### Read-only, by design
+
+- The token is a **fine-grained PAT scoped to read** pull requests + repo
+  contents — no write/admin scopes.
+- `GITHUB_TOOLSETS=repos,pull_requests` restricts which tool groups the MCP
+  server even loads; write-oriented toolsets (issues, actions, etc.) are not
+  enabled. The pipeline never writes to GitHub.
+
+### Optional + PR-dependent
+
+If a Jira story has **no linked PR**, the Analyst skips the diff entirely and
+the pipeline runs exactly as before — no error, no blocking. So this MCP is
+only exercised when QA-ing a story that points at real code (see
+`agents/analyst.md` Mode B and `phase3-healing-scaling.md` TG15). Shift-left
+`pre_development` runs have no PR by definition, so they never use it.
+
+### Setup
+
+1. Create a fine-grained PAT at
+   `https://github.com/settings/personal-access-tokens` with **read-only**
+   Pull requests + Contents on the relevant repo(s).
+2. Put it in `.env` as `GITHUB_PERSONAL_ACCESS_TOKEN`; leave
+   `GITHUB_TOOLSETS=repos,pull_requests`.
+3. Restart Claude Code so it loads the `github` entry from `.mcp.json`.
+
+`code_change_context` in `context.json` (optional) records what was fetched:
+`linked_pr`, `base_sha`, `head_sha`, `changed_files[]`, `summary`,
+`fetched_at`. Absent when there is no linked PR.
+
+---
+
 ## Future state
 
 Phase 1.5 — adds the Postman MCP for the API branch. Documented in
@@ -225,5 +270,6 @@ supported TestLink path is the XML-RPC script `scripts/sync-to-testlink.js`
 `playwright-test`, `atlassian`, `atlassian-write`, `postman` — **no
 `testlink`**.
 
-Phase 3 — no MCP additions planned. Hardening, prompt versioning, and
-metrics are application-level.
+Phase 3 — adds the read-only `github` MCP (TG15, above) for code-change
+awareness. Otherwise hardening, prompt versioning, and metrics are
+application-level.

@@ -16,6 +16,7 @@ uses_skills:
 uses_mcps:
   - atlassian (read-only allowlist; Mode B story fetch; see docs/mcp-setup.md)
   - atlassian-write (Phase 2; ONLY for the optional, human-approved "pipeline started" comment)
+  - github (Phase 3 TG15; read-only; ONLY to fetch a linked PR's diff as secondary context)
 ---
 
 # Analyst Agent
@@ -70,6 +71,20 @@ later agents read `story.md`, not Jira. In Mode B the Analyst also
 sets `story.source = "jira"`, `story.id` = the literal Jira key, and
 `story.jira_issue_key` = the same key (the schema requires
 `jira_issue_key` when `source == "jira"`).
+
+### Code-change context (Phase 3 TG15, optional, Mode B only)
+
+If — and only if — the Jira issue has a **linked pull request** (via its
+development panel / a linked-PR field), the Analyst may fetch that PR's diff
+via the **read-only `github` MCP** and record it in
+`context.json.code_change_context` (linked_pr, base_sha, head_sha,
+changed_files[], a short summary, fetched_at). This is **secondary context
+only** — it sharpens regression scope and risk prioritization. It NEVER
+defines expected behavior: acceptance criteria remain the source of truth
+(`CLAUDE.md` §3.8). If there is **no linked PR**, the Analyst skips this
+entirely — no `code_change_context`, no error, the run proceeds exactly as
+without it. The Analyst never writes to GitHub. See `docs/mcp-setup.md`
+"`github`".
 
 Mode is chosen by what's available:
 
@@ -139,9 +154,17 @@ high-level steps are:
    via `mcp-atlassian:jira_get_issue` (read-only entry), writes a local
    `story.md` copy, and sets `story.source = "jira"`,
    `story.id` = the Jira key, `story.jira_issue_key` = the same key.
+   2.5. **(Mode B, Phase 3 TG15, optional) Fetch the linked PR diff.** If
+   the Jira issue has a linked PR, use the read-only `github` MCP to fetch
+   the diff (base → head) and write `context.json.code_change_context`
+   (linked_pr, base_sha, head_sha, changed_files[], summary, fetched_at).
+   If no linked PR, skip — do not set the field. Secondary context only;
+   never a source of expected behavior. Never write to GitHub.
 3. **Extract acceptance criteria** verbatim. Do not paraphrase, do
    not infer missing ACs from context. If the story is ambiguous,
    list whatever is written and add an entry to `ambiguities`.
+   **The diff (if fetched) must NOT add or change ACs** — ACs come only
+   from the story text.
 4. **Identify risks.** For each meaningful product / business /
    security risk the story implies, mint a `RISK-XXX` id and write a
    one-sentence description, a severity (`low` / `medium` / `high`),

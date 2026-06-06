@@ -592,10 +592,20 @@ acceptance criteria remain the source of truth (reinforces `CLAUDE.md` §3.8).
       primary path and diff is the optional enhancement.
 
 **Definition of Done:**
-- [ ] GitHub MCP configured read-only; `code_change_context` optional + valid.
-- [ ] Story with a linked PR produces it; story without one runs identically.
-- [ ] Diff used for regression scope, never expected behavior.
-- [ ] Architecture Stability Rule satisfied in one PR.
+- [x] GitHub MCP configured read-only (`github` in `.mcp.json`,
+      `GITHUB_TOOLSETS=repos,pull_requests`); `code_change_context` optional
+      in `schemas/context.schema.json` + validates (new example
+      `examples/expected/code-change-aware.expected-context.json`).
+- [x] Story with a linked PR produces it; story without one runs identically
+      (Analyst Mode B step 2.5 skips silently when no PR — documented).
+- [x] Diff used for regression scope + file→risk linkage, never expected
+      behavior (analyst.md §2 + step 3, test-designer.md §2 — secondary only).
+- [x] Architecture Stability Rule satisfied in one PR (schema + analyst +
+      test-designer + docs (mcp-setup, context-json-guide) + example;
+      optional field ⇒ no migration; .mcp.json + .env.example for the MCP).
+
+> **Built early (enhancement bridge), not the full Phase 3.** Latent value
+> until stories link real code PRs; harmless (skips when no PR).
 
 ---
 

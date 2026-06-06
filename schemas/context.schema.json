@@ -97,6 +97,54 @@
         }
       }
     },
+    "code_change_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "OPTIONAL (Phase 3 TG15, Improvement 1). SECONDARY context only: the diff of a linked PR, used to sharpen regression scope and risk prioritization. It NEVER defines expected behavior — acceptance_criteria remain the source of truth (CLAUDE.md §3.8). Populated by the Analyst (Mode B) only when the Jira story has a linked PR; absent otherwise (the pipeline runs identically with no diff). Filled via the read-only GitHub MCP; no custom diff engine, no deploy/ECR infra.",
+      "required": ["linked_pr", "base_sha", "head_sha", "changed_files"],
+      "properties": {
+        "linked_pr": {
+          "type": "string",
+          "description": "URL of the linked pull request, e.g. https://github.com/org/repo/pull/123."
+        },
+        "base_sha": {
+          "type": "string",
+          "description": "The base/target SHA (the 'deployed' side). May be a configured branch like main."
+        },
+        "head_sha": {
+          "type": "string",
+          "description": "The PR head SHA."
+        },
+        "changed_files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "change_type"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "change_type": {
+                "type": "string",
+                "enum": ["added", "modified", "deleted", "renamed"]
+              },
+              "related_risk_ids": {
+                "type": "array",
+                "description": "Optional. RISK-XXX this changed file maps to, linking code change -> risk for regression prioritization.",
+                "items": { "type": "string", "pattern": "^RISK-[0-9]+$" }
+              }
+            }
+          }
+        },
+        "summary": {
+          "type": "string",
+          "description": "Short LLM summary of what the diff does, in the Analyst's own words. Secondary context, not a requirement."
+        },
+        "fetched_at": {
+          "type": "string",
+          "description": "ISO 8601 timestamp of when the diff was fetched."
+        }
+      }
+    },
     "artifact_paths": {
       "type": "object",
       "additionalProperties": false,
