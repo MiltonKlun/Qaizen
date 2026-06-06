@@ -1,0 +1,22 @@
+{
+  "_comment": "Field mapping for the Jira test-case adapter (skills/syncing-jira, scripts/create-jira-testcases.js, Phase 2.6 TG2.6-3). Maps our test-cases/*.json fields to a plain Jira issue. Human-editable; the adapter MUST NOT hardcode any of this. This creates ORDINARY Jira issues (no Xray app required), so it works on any Jira project. See agents/test-management-adapter.md and phase2.6-enhancements.md TG2.6-3.",
+  "issue_type_env": "JIRA_TESTCASE_ISSUETYPE",
+  "default_issue_type": "Test",
+  "_issue_type_comment": "Many Jira sites have a 'Test' issue type; if yours does not, set JIRA_TESTCASE_ISSUETYPE=Task (or another existing type). The adapter retries without an unknown type's extras rather than failing the batch.",
+  "summary_template": "{test_case_id} {title}",
+  "priority_field": "priority",
+  "priority_map": {
+    "_comment": "Our P0-P3 -> Jira priority names (default scheme). Configurable; remove this block to omit priority entirely.",
+    "P0": "Highest",
+    "P1": "High",
+    "P2": "Medium",
+    "P3": "Low"
+  },
+  "labels": ["ai-qa-pipeline", "test-case"],
+  "_labels_comment": "Static labels added to every created test-case issue, plus the story id and test_case_id are appended automatically for traceability.",
+  "link_type": "Relates",
+  "_link_comment": "Issue-link type used to link a created test-case issue back to the story issue (only when context.story.jira_issue_key exists). Must match a link type in your Jira instance.",
+  "writeback_key": "jira",
+  "_writeback_comment": "Key under test-cases[].external_ids where the created Jira issue key is recorded (e.g. external_ids.jira = 'SK-50'). Drives idempotency: a case already carrying this key is skipped on re-run.",
+  "sync_only_status": ["approved"]
+}
