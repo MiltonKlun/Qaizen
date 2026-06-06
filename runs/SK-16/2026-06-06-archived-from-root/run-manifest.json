@@ -1,0 +1,19 @@
+{
+  "run_id": "2026-06-06-archived-from-root",
+  "story_id": "SK-16",
+  "label": "archived-from-root",
+  "archived_at": "2026-06-06T08:00:20.138Z",
+  "completeness": "full",
+  "note": "Full run: context/analysis/release reflect this story (it was the live root run at archival time).",
+  "archived_files": [
+    "test-cases/SK-16.json",
+    "specs/SK-16.md",
+    "tests/SK-16.spec.ts",
+    "planner-input/SK-16.planner-brief.md",
+    "context.json",
+    "story.md",
+    "analysis/failure-analysis.json",
+    "release/release-report.json",
+    "release/release-report.md"
+  ]
+}

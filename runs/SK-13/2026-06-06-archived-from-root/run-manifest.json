@@ -1,0 +1,14 @@
+{
+  "run_id": "2026-06-06-archived-from-root",
+  "story_id": "SK-13",
+  "label": "archived-from-root",
+  "archived_at": "2026-06-06T08:00:20.130Z",
+  "completeness": "partial",
+  "note": "PARTIAL: only the per-story design+test artifacts survived at the root; context.json/analysis/release were overwritten by the later SK-16 run before archival. Reports/traces/screenshots are regenerable and were never archived.",
+  "archived_files": [
+    "test-cases/SK-13.json",
+    "specs/SK-13.md",
+    "tests/SK-13.spec.ts",
+    "planner-input/SK-13.planner-brief.md"
+  ]
+}

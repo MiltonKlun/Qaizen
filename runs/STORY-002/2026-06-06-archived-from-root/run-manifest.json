@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-06-06-archived-from-root",
+  "story_id": "STORY-002",
+  "label": "archived-from-root",
+  "archived_at": "2026-06-06T08:00:20.148Z",
+  "completeness": "partial",
+  "note": "PARTIAL: only the per-story design+test artifacts survived at the root; context.json/analysis/release were overwritten by the later SK-16 run before archival. Reports/traces/screenshots are regenerable and were never archived.",
+  "archived_files": [
+    "test-cases/STORY-002.json",
+    "specs/STORY-002.md",
+    "tests/STORY-002.spec.ts",
+    "planner-input/STORY-002.planner-brief.md",
+    "api-tests/collections/STORY-002.postman_collection.json",
+    "api-tests/environments/STORY-002.postman_environment.json"
+  ]
+}
