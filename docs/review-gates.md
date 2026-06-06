@@ -35,6 +35,40 @@ parallel with the E2E-branch gates when the story has both
 
 ---
 
+## Two entry points: refinement vs ready-for-QA (Phase 2.6 TG2.6-4, shift-left)
+
+The pipeline splits into two halves that already exist:
+
+- **Design half** — Analyst → **Gate 1** → Test Designer → **Gate 2**.
+  Produces `context.json` + `test-cases/[story-id].json` +
+  `planner-input/`. Requirement-anchored; **no running code needed**.
+- **Execution half** — Playwright Planner → **Gate 3** → Generator →
+  **Gate 4** → execute → classify → report. Needs running code + an env.
+
+The design half can be entered at **two points**:
+
+| Entry point      | When                                                 | Gates that apply                                                      |
+| ---------------- | ---------------------------------------------------- | --------------------------------------------------------------------- |
+| **Refinement**   | A story enters refinement/design, before code exists | **Gate 1, Gate 2** only                                               |
+| **Ready-for-QA** | The story is ready to test (code exists)             | Gate 1, Gate 2 (refine, don't regen) + **Gate 3, Gate 4** (and 3'/4') |
+
+- **Gates 3 and 4 do NOT apply at refinement** — there is no code to write
+  a spec or test against. Running the execution half before code exists is
+  forbidden (`phase2.6-enhancements.md` TG2.6-4).
+- Test cases produced at refinement carry `design_stage: "pre_development"`.
+  At ready-for-QA the Test Designer **refines those existing cases** (and
+  flips them to `ready_for_qa`) rather than regenerating from scratch; cases
+  with no `design_stage` are treated as `ready_for_qa` (the single-entry
+  default, unchanged for teams that don't do formal refinement).
+- `design_stage` is **orthogonal to `status`**: a `pre_development` case is
+  still subject to Gate 2 approval (`status: approved`).
+
+> **Scope note (this pipeline):** orchestration is human-driven — there is
+> no automatic Jira-status trigger. "Two entry points" is a documented
+> convention plus the optional `design_stage` field, not trigger automation.
+
+---
+
 ## Gate state in `context.json`
 
 ```jsonc

@@ -73,7 +73,8 @@
         "URL remains on the login page.",
         "An error message is visible explaining the credentials were not accepted."
       ],
-      "status": "draft"
+      "status": "draft",
+      "design_stage": "ready_for_qa"
     },
     {
       "test_case_id": "TC-003",
