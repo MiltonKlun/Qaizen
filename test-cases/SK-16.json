@@ -1,0 +1,113 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-04T18-00-00Z-sk16",
+  "story_id": "SK-16",
+  "generated_at": "2026-06-04T18:15:00Z",
+  "test_cases": [
+    {
+      "test_case_id": "TC-001",
+      "title": "Complete checkout end-to-end shows the confirmation message",
+      "description": "Happy path: from a cart with a known item, the user enters first name, last name, and postal code, reaches the overview, clicks Finish, and sees the order confirmation message.",
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [0, 2],
+      "priority": "P0",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Checkout is a multi-page UI journey (cart -> information -> overview -> complete) on a front-end-only app; there is no backend order API to assert against, so the full flow and its final confirmation can only be validated end-to-end in the browser.",
+      "preconditions": [
+        "BASE_URL points at Saucedemo.",
+        "Logged in as standard_user with one known product added to the cart (setup)."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "From the cart, click Checkout."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Enter first name, last name, and postal code, then continue.",
+          "data": {
+            "firstName": "Test",
+            "lastName": "User",
+            "postalCode": "1000"
+          }
+        },
+        {
+          "step_id": "S-03",
+          "action": "On the overview page, click Finish."
+        }
+      ],
+      "expected_results": [
+        "The order completes and a confirmation message is shown (e.g. 'Thank you for your order').",
+        "The URL reflects the checkout-complete step."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-002",
+      "title": "Overview page shows the correct item",
+      "description": "The item added to the cart appears on the checkout overview page by name (guards against missing/extra/substituted items at the confirm step).",
+      "risk_ids": ["RISK-002"],
+      "acceptance_criteria_refs": [1],
+      "priority": "P0",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Whether the overview reflects the cart contents is a rendered-UI assertion mid-journey; with no order API to inspect, it must be checked end-to-end. P0 because confirming a wrong order is a direct money/trust failure (RISK-002).",
+      "preconditions": [
+        "BASE_URL points at Saucedemo.",
+        "Logged in as standard_user with one known product (e.g. 'Sauce Labs Backpack') added to the cart (setup)."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "From the cart, click Checkout and complete the information step with valid data.",
+          "data": {
+            "firstName": "Test",
+            "lastName": "User",
+            "postalCode": "1000"
+          }
+        },
+        {
+          "step_id": "S-02",
+          "action": "On the overview page, read the listed item name(s)."
+        }
+      ],
+      "expected_results": [
+        "The overview lists exactly the product that was added to the cart (same name).",
+        "No unexpected extra items are present."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-003",
+      "title": "Information step blocks a missing required field",
+      "description": "Submitting the checkout information step with a required field empty (e.g. postal code) is rejected with an error rather than proceeding to the overview.",
+      "risk_ids": ["RISK-003"],
+      "acceptance_criteria_refs": [0],
+      "priority": "P1",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "The information form's required-field validation is enforced in the UI on this front-end-only app; there is no server endpoint to validate against, so the negative case is verified end-to-end (assert an error appears and the overview is not reached).",
+      "preconditions": [
+        "BASE_URL points at Saucedemo.",
+        "Logged in as standard_user with one product in the cart; on the checkout information step (setup)."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Enter first name and last name but leave postal code empty, then click Continue.",
+          "data": {
+            "firstName": "Test",
+            "lastName": "User",
+            "postalCode": ""
+          }
+        }
+      ],
+      "expected_results": [
+        "An error message is shown indicating a required field is missing.",
+        "The user remains on the information step and does not reach the overview page."
+      ],
+      "status": "approved"
+    }
+  ]
+}

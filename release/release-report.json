@@ -1,29 +1,29 @@
 {
   "schema_version": "1.0",
-  "run_id": "2026-06-04T16-00-00Z-sk13",
-  "story_id": "SK-13",
-  "report_date": "2026-06-04T17:05:00Z",
-  "summary": "SK-13 (sort products by name and price, Jira Mode B) — E2E-only slice against Saucedemo (sorting is client-side; no backend sort API). Five tests covering the four sort modes (Name A->Z, Name Z->A, Price low->high, Price high->low) plus the active-selection-visible check all passed live: 0 failures, 0 bug drafts. The price-sort assertions compare prices as NUMBERS to guard against string-based ordering (RISK-002). Sort behaviour and the active-option locator were verified live via the playwright-test MCP before authoring.",
+  "run_id": "2026-06-04T18-00-00Z-sk16",
+  "story_id": "SK-16",
+  "report_date": "2026-06-04T19:05:00Z",
+  "summary": "SK-16 (complete checkout successfully, Jira Mode B) — E2E-only multi-step slice against Saucedemo (cart -> information -> overview -> complete; front-end-only app, no order API). Three tests — full checkout to the confirmation, overview shows the correct item, and missing-required-field validation — all passed live: 0 failures, 0 bug drafts. The whole flow (including the validation error and the 'Thank you for your order!' confirmation) was verified live via the playwright-test MCP before authoring.",
   "coverage_by_risk": [
     {
       "risk_id": "RISK-001",
-      "covered_by_tcs": ["TC-001", "TC-002", "TC-003", "TC-004"],
+      "covered_by_tcs": ["TC-001"],
       "status": "covered_passing"
     },
     {
       "risk_id": "RISK-002",
-      "covered_by_tcs": ["TC-003", "TC-004"],
+      "covered_by_tcs": ["TC-002"],
       "status": "covered_passing"
     },
     {
       "risk_id": "RISK-003",
-      "covered_by_tcs": ["TC-005"],
+      "covered_by_tcs": ["TC-003"],
       "status": "covered_passing"
     }
   ],
   "execution_summary": {
-    "total": 5,
-    "passed": 5,
+    "total": 3,
+    "passed": 3,
     "failed": 0,
     "skipped": 0,
     "pass_rate": 1
@@ -31,7 +31,7 @@
   "blocking_failures": [],
   "non_blocking_failures": [],
   "release_recommendation": "pass",
-  "release_recommendation_reasoning": "All three risks are covered_passing. RISK-001 (wrong sort order) is covered by TC-001..TC-004, all passing — each sort mode produces the correct rendered order. RISK-002 (price sorted as strings, e.g. $10 before $9) is specifically guarded by TC-003/TC-004, which parse prices numerically and passed (verified live: lohi -> 7.99..49.99). RISK-003 (active selection not shown) is covered by TC-005 (the control reflects the chosen option). No blocking failures, no flakes, no skipped or unexecuted cases. E2E-only story (Saucedemo sorts client-side), so the flat execution_summary form is used.",
+  "release_recommendation_reasoning": "All three risks are covered_passing. RISK-001 (checkout cannot complete) is covered by TC-001, which walked cart -> information -> overview -> Finish and reached /checkout-complete.html with the 'Thank you for your order!' confirmation. RISK-002 (overview shows wrong items) is covered by TC-002, which asserts the overview lists exactly the added product. RISK-003 (missing required field accepted) is covered by TC-003, which confirmed an empty postal code is rejected with 'Error: Postal Code is required' and the overview is not reached. No blocking failures, no flakes, no skipped or unexecuted cases. E2E-only story (front-end-only checkout, no order API), so the flat execution_summary form is used.",
   "bug_drafts": [],
   "evidence_paths": [
     "reports/html",

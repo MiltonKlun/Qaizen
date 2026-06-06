@@ -1,19 +1,19 @@
-# SK-13 — As a user I want to sort products by name and price
+# SK-16 — As a user I want to complete checkout successfully
 
 > Jira-mode story fetched READ-ONLY by scripts/fetch-jira-story.js for the
 > Phase 2 vertical slice. The Analyst treats this as source: "jira",
-> story.id = "SK-13", story.jira_issue_key = "SK-13".
+> story.id = "SK-16", story.jira_issue_key = "SK-16".
 
 **Issue type:** Task · **Status:** To Do · **Component:** (none)
 
 ## Description / Acceptance criteria (verbatim from Jira)
 
 Work type: Story
-Priority: Medium
+Priority: High
 Initial status: To Do
-Area / Component: Catalog
+Area / Component: Checkout
 
-Acceptance criteria: sorting A to Z, Z to A, low to high, and high to low works correctly; selected option remains visible.
+Acceptance criteria: user can enter first name, last name, and postal code; overview page shows correct items; finish displays confirmation message.
 
 ## Notes for the QA pipeline
 
