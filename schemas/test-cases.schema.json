@@ -133,6 +133,11 @@
           "type": "string",
           "enum": ["draft", "approved", "rejected"]
         },
+        "design_stage": {
+          "type": "string",
+          "description": "OPTIONAL (Phase 2.6 TG2.6-4, shift-left). The lifecycle stage at which this case was designed. 'pre_development' = produced during refinement, before code exists (acts as a shared acceptance contract); 'ready_for_qa' = revisited/validated once the implementation exists. Absent => treated as ready_for_qa (the single-entry-point default). Orthogonal to 'status' (the Gate-2 approval state).",
+          "enum": ["pre_development", "ready_for_qa"]
+        },
         "qmetry_fields": {
           "type": "object",
           "description": "Reserved forward-compatibility slot. Phase 1 leaves this empty; future phases may bind a schema."
