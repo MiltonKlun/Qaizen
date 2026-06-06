@@ -95,6 +95,75 @@
       "minimum": 0,
       "description": "OPTIONAL (Phase 2.6). Count of uncovered_risks whose severity in context.json.risks[] is 'high'. When > 0 the release_recommendation should not be 'pass' (a high-severity risk with no test is a coverage gap)."
     },
+    "summary_by_risk_level": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "OPTIONAL (Phase 3 TG12). Per-severity rollup of coverage_by_risk, so a reviewer reads the release at a glance: how many high/medium/low risks are passing, failing, or uncovered. Derived deterministically from coverage_by_risk + context.json.risks[].severity; no LLM.",
+      "properties": {
+        "high": { "$ref": "#/definitions/riskLevelRollup" },
+        "medium": { "$ref": "#/definitions/riskLevelRollup" },
+        "low": { "$ref": "#/definitions/riskLevelRollup" }
+      }
+    },
+    "untested_high_risk_items": {
+      "type": "array",
+      "description": "OPTIONAL (Phase 3 TG12). The high-severity risks with NO covering test (the named version of uncovered_high_severity_count). 'No hidden untested risks' — the report must surface these, never omit them.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["risk_id"],
+        "properties": {
+          "risk_id": { "type": "string", "pattern": "^RISK-[0-9]+$" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "flaky_tests": {
+      "type": "array",
+      "description": "OPTIONAL (Phase 3 TG12). Tests that passed on retry / showed instability, IF flakiness is tracked for this run. Empty or omitted when not tracked — never fabricated.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["test_id"],
+        "properties": {
+          "test_id": { "type": "string", "minLength": 1 },
+          "branch": { "type": "string", "enum": ["e2e", "api"] },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "open_bugs_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "OPTIONAL (Phase 3 TG12). Rollup of bug_drafts[] for the release decision: how many open bugs, by severity, and how many have / lack a Jira key.",
+      "required": ["total"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "red": { "type": "integer", "minimum": 0 },
+        "yellow": { "type": "integer", "minimum": 0 },
+        "with_jira": { "type": "integer", "minimum": 0 },
+        "without_jira": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "conditional_pass_criteria": {
+      "type": "array",
+      "description": "OPTIONAL (Phase 3 TG12). When release_recommendation is 'conditional_pass', the explicit, checkable conditions that must hold before release — the structured form of what release_recommendation_reasoning states in prose. The rule 'conditional_pass MUST list its conditions' is satisfied by either; this field makes them machine-checkable.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "external_links": {
+      "type": "array",
+      "description": "OPTIONAL (Phase 3 TG12). Links to external systems for this release: TestLink test plan, Jira issues/epics, dashboards. Tool-agnostic { system, label, url } so the project stays generic (TestLink + Jira today, others later). URLs only — never embed credentials.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["system", "url"],
+        "properties": {
+          "system": { "type": "string", "minLength": 1 },
+          "label": { "type": "string" },
+          "url": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "blocking_failures": {
       "type": "array",
       "description": "FAIL-XXX ids whose presence flips the release recommendation to fail/conditional_pass/blocked.",
@@ -163,6 +232,20 @@
     }
   },
   "definitions": {
+    "riskLevelRollup": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Counts of risks at one severity level, by coverage status. total = covered_passing + covered_failing + covered_partial + accepted_without_test + uncovered.",
+      "required": ["total"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "covered_passing": { "type": "integer", "minimum": 0 },
+        "covered_failing": { "type": "integer", "minimum": 0 },
+        "covered_partial": { "type": "integer", "minimum": 0 },
+        "accepted_without_test": { "type": "integer", "minimum": 0 },
+        "uncovered": { "type": "integer", "minimum": 0 }
+      }
+    },
     "executionCounts": {
       "type": "object",
       "additionalProperties": false,
