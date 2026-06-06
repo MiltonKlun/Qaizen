@@ -17,7 +17,8 @@
     "validate:all": "node scripts/validate-all.js",
     "ci:summary": "node scripts/ci-summary.js",
     "evaluate": "node scripts/evaluate-agents.js",
-    "fetch-story": "node scripts/fetch-jira-story.js"
+    "fetch-story": "node scripts/fetch-jira-story.js",
+    "export:jira": "node scripts/export-to-jira.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
