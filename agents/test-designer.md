@@ -148,6 +148,18 @@ before Gate 2 and they agree on scope.
      `api_metadata` unset / empty in Phase 1. `external_ids` (Phase 2.6)
      and `testlink_id` are written back later by the test-management
      adapters (TestLink / Jira), not by the Test Designer.
+   - **(Phase 2.6, shift-left, optional)** If this is a _refinement_ run
+     (design before code exists), set `design_stage: "pre_development"`.
+     Otherwise leave it unset (treated as `ready_for_qa`). See
+     `docs/review-gates.md` "Two entry points".
+
+   **Refinement re-entry (Phase 2.6).** If `test-cases/[story-id].json`
+   already exists with `pre_development` cases from a prior refinement
+   run, **refine those cases in place** — update details, keep their
+   `test_case_id`s, flip `design_stage` to `ready_for_qa`. Do NOT
+   regenerate from scratch or duplicate. This is the only case where the
+   Test Designer reads its own prior output as input.
+
 5. **Walk the risks.** For each `RISK-XXX` in `context.json.risks`,
    confirm at least one TC references it. If a high-severity risk
    has no TC and you cannot honestly justify accepting it without
