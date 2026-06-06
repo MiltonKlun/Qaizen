@@ -1,17 +1,322 @@
 {
-  "generated_at": "2026-06-04T19:12:06.328Z",
-  "mode": "candidate:C:/tmp/cand2",
-  "story_count": 1,
-  "scored_count": 1,
+  "generated_at": "2026-06-06T22:06:50.560Z",
+  "mode": "expected-dataset",
+  "story_count": 5,
+  "scored_count": 5,
   "overall_match_pct": 100,
   "results": [
     {
-      "story": "(candidate run)",
+      "story": "api-create-user",
       "scored": true,
       "has_test_cases": true,
       "sources": {
-        "context": "C:/tmp/cand2/context.json",
-        "test_cases": "C:/tmp/cand2/test-cases/STORY-001.json"
+        "context": "examples/expected/api-create-user.expected-context.json",
+        "test_cases": "examples/expected/api-create-user.expected-test-cases.json"
+      },
+      "checks": [
+        {
+          "name": "context.schema_version present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.run_id present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.story present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.acceptance_criteria present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.ambiguities present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.risks present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.artifact_paths present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.review_gates present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.status present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "story.id matches pattern",
+          "pass": true,
+          "detail": "API-001"
+        },
+        {
+          "name": "story.source is manual|jira",
+          "pass": true,
+          "detail": "manual"
+        },
+        {
+          "name": "jira source has jira_issue_key == id",
+          "pass": true,
+          "detail": "(n/a)"
+        },
+        {
+          "name": "acceptance_criteria non-empty",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "at least one risk",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "risks well-formed (id, severity, related_acs in range)",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "test_cases array present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "at least one test case",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "story_id matches context.story.id",
+          "pass": true,
+          "detail": "API-001 vs API-001"
+        },
+        {
+          "name": "all test_case_id match TC-XXX",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "every TC links to a real RISK",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "every TC has a decision + non-empty reason",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "every context risk is covered by a TC",
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "failed_checks": [],
+      "passed": 22,
+      "total": 22,
+      "match_pct": 100
+    },
+    {
+      "story": "cart-badge-count-bugfix",
+      "scored": true,
+      "has_test_cases": false,
+      "sources": {
+        "context": "examples/expected/cart-badge-count-bugfix.expected-context.json",
+        "test_cases": null
+      },
+      "checks": [
+        {
+          "name": "context.schema_version present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.run_id present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.story present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.acceptance_criteria present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.ambiguities present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.risks present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.artifact_paths present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.review_gates present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.status present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "story.id matches pattern",
+          "pass": true,
+          "detail": "STORY-003"
+        },
+        {
+          "name": "story.source is manual|jira",
+          "pass": true,
+          "detail": "manual"
+        },
+        {
+          "name": "jira source has jira_issue_key == id",
+          "pass": true,
+          "detail": "(n/a)"
+        },
+        {
+          "name": "acceptance_criteria non-empty",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "at least one risk",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "risks well-formed (id, severity, related_acs in range)",
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "failed_checks": [],
+      "passed": 15,
+      "total": 15,
+      "match_pct": 100
+    },
+    {
+      "story": "checkout-expired-card",
+      "scored": true,
+      "has_test_cases": false,
+      "sources": {
+        "context": "examples/expected/checkout-expired-card.expected-context.json",
+        "test_cases": null
+      },
+      "checks": [
+        {
+          "name": "context.schema_version present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.run_id present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.story present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.acceptance_criteria present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.ambiguities present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.risks present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.artifact_paths present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.review_gates present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.status present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "story.id matches pattern",
+          "pass": true,
+          "detail": "QA-1042"
+        },
+        {
+          "name": "story.source is manual|jira",
+          "pass": true,
+          "detail": "jira"
+        },
+        {
+          "name": "jira source has jira_issue_key == id",
+          "pass": true,
+          "detail": "QA-1042"
+        },
+        {
+          "name": "acceptance_criteria non-empty",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "at least one risk",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "risks well-formed (id, severity, related_acs in range)",
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "failed_checks": [],
+      "passed": 15,
+      "total": 15,
+      "match_pct": 100
+    },
+    {
+      "story": "login-success",
+      "scored": true,
+      "has_test_cases": true,
+      "sources": {
+        "context": "examples/expected/login-success.expected-context.json",
+        "test_cases": "examples/expected/login-success.expected-test-cases.json"
       },
       "checks": [
         {
@@ -128,6 +433,96 @@
       "failed_checks": [],
       "passed": 22,
       "total": 22,
+      "match_pct": 100
+    },
+    {
+      "story": "sort-products-enhancement",
+      "scored": true,
+      "has_test_cases": false,
+      "sources": {
+        "context": "examples/expected/sort-products-enhancement.expected-context.json",
+        "test_cases": null
+      },
+      "checks": [
+        {
+          "name": "context.schema_version present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.run_id present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.story present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.acceptance_criteria present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.ambiguities present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.risks present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.artifact_paths present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.review_gates present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "context.status present",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "story.id matches pattern",
+          "pass": true,
+          "detail": "STORY-004"
+        },
+        {
+          "name": "story.source is manual|jira",
+          "pass": true,
+          "detail": "manual"
+        },
+        {
+          "name": "jira source has jira_issue_key == id",
+          "pass": true,
+          "detail": "(n/a)"
+        },
+        {
+          "name": "acceptance_criteria non-empty",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "at least one risk",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "risks well-formed (id, severity, related_acs in range)",
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "failed_checks": [],
+      "passed": 15,
+      "total": 15,
       "match_pct": 100
     }
   ]
