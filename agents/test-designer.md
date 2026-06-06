@@ -144,8 +144,10 @@ before Gate 2 and they agree on scope.
      `expected_results`.
    - Set `status: "draft"`. The human flips it to `approved` or
      `rejected` at Gate 2.
-   - Leave `qmetry_fields`, `testlink_id`, and `api_metadata`
-     unset / empty in Phase 1.
+   - Leave `qmetry_fields`, `testlink_id`, `external_ids`, and
+     `api_metadata` unset / empty in Phase 1. `external_ids` (Phase 2.6)
+     and `testlink_id` are written back later by the test-management
+     adapters (TestLink / Jira), not by the Test Designer.
 5. **Walk the risks.** For each `RISK-XXX` in `context.json.risks`,
    confirm at least one TC references it. If a high-severity risk
    has no TC and you cannot honestly justify accepting it without
