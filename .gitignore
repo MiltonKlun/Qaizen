@@ -26,3 +26,8 @@ runs/**/screenshots/
 # patches in a throwaway copy; the reviewable output is release/healer-patches/
 # + analysis/healer-validation/, which ARE versioned. The workspace is not.
 .healer-workspace/
+
+# Phase 3 TG6 metrics outputs are regenerable from runs/ — keep the dir
+# (metrics/.gitkeep), not the generated files.
+metrics/pipeline-metrics.json
+metrics/pipeline-metrics.md
