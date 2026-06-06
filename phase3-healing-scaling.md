@@ -514,6 +514,82 @@ Correr el pipeline completo con Phase 3 capabilities activas:
 
 ---
 
+## 4.5 Enhancement cross-references (from IMPROVEMENTS.md, approved 2026-06-04)
+
+These vetted enhancements attach to existing Phase 3 Task Groups (or add one
+new item). They are **additions, not redesigns** — see `phase2.6-enhancements.md`
+for the companion Phase-2 items and the shared discipline rule. This project is
+generic/reusable; keep these tool-agnostic and configurable.
+
+### 4.5.a — Spec Reviewer uncovered-risk coverage (folds into TG4)
+
+Improvement 3 (full). The Phase 2.6 partial version surfaces uncovered risks
+in the **release report**; here the **Spec Reviewer** (TG4) surfaces them at
+**Gate 3**, before tests are generated. Extend the spec-review output
+(`analysis/spec-reviews/[story-id].spec-review.json` + `.md`) with:
+
+```
+risk_coverage (array): { risk_id, severity, covering_test_case_ids[], covered (bool) }
+uncovered_risks (array of risk_id)
+uncovered_high_severity_count (number)
+```
+
+Computed deterministically from the `RISK → TC` chain — **no LLM call by
+default**. The Spec Reviewer's `auto_approval_eligible` hint MUST be `false`
+when `uncovered_high_severity_count > 0`. The human at Gate 3 reviews the
+uncovered list before approving (Gate 3 stays human; `CLAUDE.md` §3.5). Only
+add a second-model semantic-coverage pass if retrospectives prove the
+deterministic check misses real gaps — and then as an addition, not a
+replacement.
+
+### 4.5.b — `runs/` layout (this is TG5; raise its priority)
+
+The Phase 2 retrospective flagged single-occupancy artifacts
+(`context.json`, `analysis/`, `release/` each hold one run) as the top pain —
+a story overwrites the previous one. **TG5 (`runs/[story-id]/[run-id]/`) is
+the fix; prioritize it early in Phase 3.** It also becomes more necessary once
+Phase 2.6's `design_stage` exists (a story can have a `pre_development` run and
+a `ready_for_qa` run).
+
+### 4.5.c — Code-change awareness via GitHub MCP (NEW Task Group — see below)
+
+Improvement 1. No existing TG covers it; added as TG15.
+
+---
+
+### Task Group 15 — Code-change awareness (Improvement 1)
+
+Optional, PR-dependent. When a Jira story has a linked PR, the Analyst fetches
+the diff (deployed/base SHA → PR head SHA) via a **read-only GitHub MCP** and
+records it as **secondary context** in `context.json`. The diff sharpens risk
+prioritization and regression scope; **it never defines expected behavior** —
+acceptance criteria remain the source of truth (reinforces `CLAUDE.md` §3.8).
+
+- [ ] Add the official **GitHub MCP** (read-only) to `.mcp.json`. Do NOT write
+      a custom diff engine; do NOT add ECR/AWS/deploy-tracking infra
+      ("deployed SHA" = a configured branch like `main`).
+- [ ] **Schema change** (`schemas/context.schema.json`, Architecture Stability
+      Rule): add optional `code_change_context` { linked_pr, base_sha,
+      head_sha, changed_files[ {path, change_type, related_risk_ids[]} ],
+      summary, fetched_at }. Optional ⇒ backward-compatible, existing artifacts
+      still validate.
+- [ ] `agents/analyst.md` Mode B: if a linked PR exists, fetch the diff and
+      write `code_change_context`; if not, skip silently (no error, no block).
+- [ ] `agents/test-designer.md`: use `code_change_context` for regression
+      prioritization + file→risk linkage only; still anchor primary design on
+      ACs/risks. The diff never generates expected-behavior assertions.
+- [ ] Incompatible-by-design with shift-left (`design_stage: pre_development`):
+      no code/PR exists yet, so no diff — confirms requirement-anchoring is the
+      primary path and diff is the optional enhancement.
+
+**Definition of Done:**
+- [ ] GitHub MCP configured read-only; `code_change_context` optional + valid.
+- [ ] Story with a linked PR produces it; story without one runs identically.
+- [ ] Diff used for regression scope, never expected behavior.
+- [ ] Architecture Stability Rule satisfied in one PR.
+
+---
+
 ## 5. Phase 3 completion criteria
 
 Phase 3 está completa cuando:
