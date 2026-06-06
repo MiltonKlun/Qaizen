@@ -97,10 +97,22 @@ Optimización del Failure Classifier: clasificar primero con reglas determiníst
   - Exit non-zero si product_bug failures existen y se corre en modo blocking.
 
 **Definition of Done:**
-- [ ] Script existe y valida outputs.
-- [ ] Falla obvia clasifica sin costo de LLM.
-- [ ] Falla ambigua escala a LLM.
-- [ ] Output valida contra `schemas/failure-analysis.schema.json`.
+- [x] Script existe y valida outputs. (`scripts/run-failure-classifier.js`,
+      `npm run classify`; output verified against the schema incl. all 4
+      conditional rules.)
+- [x] Falla obvia clasifica sin costo de LLM. (locator→green, timeout→green,
+      assertion-mismatch→product_bug/red, connection→environment, etc.)
+- [x] Falla ambigua escala. (→ `unknown_needs_human_review`/yellow; a headless
+      script has no LLM to call, so escalation = flag-for-human; the Failure
+      Classifier Agent / human resolves it — documented in the script header.)
+- [x] Output valida contra `schemas/failure-analysis.schema.json`.
+- [x] Gate 4 precondition enforced (refuses unless code_reviewed passed);
+      `--blocking` exits 1 on product_bug.
+
+> **Honest scope:** the deterministic pre-classifier maps obvious failures and
+> escalates ambiguous ones; it does NOT resolve TC-XXX linkage (sets
+> traceability_unresolved) — the Failure Classifier Agent finishes that from
+> test metadata. Pre-classifier + agent together = the hybrid TG1 intent.
 
 ---
 

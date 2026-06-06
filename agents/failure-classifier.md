@@ -384,6 +384,14 @@ with a non-empty key is skipped on re-run).
 ## References
 
 - `skills/analyzing-logs/SKILL.md` — the skill this agent executes.
+- `scripts/run-failure-classifier.js` — Phase 3 TG1 rule-based
+  PRE-classifier. It produces a first-pass `analysis/failure-analysis.json`
+  by deterministic signal rules (locator→green, assertion→product_bug, …)
+  and escalates ambiguous failures to `unknown_needs_human_review`. It does
+  NOT resolve TC linkage (sets `traceability_unresolved`); this agent
+  finishes the job — confirming/overriding classifications and resolving
+  each `FAIL-XXX` to its `TC-XXX`. The script is an optimization, not a
+  replacement for the agent.
 - `docs/bug-draft-format.md` — the canonical bug-draft layout (the
   format in section 11 is the same contract, documented in full there;
   the Phase 2 promotion script parses it).
