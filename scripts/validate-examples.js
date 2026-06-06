@@ -15,6 +15,7 @@
 //   *.expected-collection.json       schemas/postman-collection.schema.json
 //                                    (Phase 1.5+; skipped if the schema
 //                                    file does not yet exist)
+//   *.expected-spec-review.json      schemas/spec-review.schema.json (Phase 3)
 //
 // Files in examples/expected/ that do not match any pattern are flagged
 // as warnings — not failures — so the team can land a file before
@@ -51,6 +52,10 @@ const PATTERNS = [
   {
     suffix: '.expected-collection.json',
     schema: 'schemas/postman-collection.schema.json',
+  },
+  {
+    suffix: '.expected-spec-review.json',
+    schema: 'schemas/spec-review.schema.json',
   },
 ];
 

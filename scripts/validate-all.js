@@ -40,6 +40,11 @@ const TARGETS = [
     schema: 'schemas/failure-analysis.schema.json',
   },
   {
+    dir: 'analysis/spec-reviews',
+    suffix: '.json',
+    schema: 'schemas/spec-review.schema.json',
+  },
+  {
     files: ['release/release-report.json'],
     schema: 'schemas/release-report.schema.json',
   },

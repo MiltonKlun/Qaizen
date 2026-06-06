@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0",
+  "story_id": "STORY-006",
+  "reviewed_at": "2026-06-06T13:00:00Z",
+  "findings": [
+    {
+      "type": "uncovered_high_risk",
+      "risk_id": "RISK-002",
+      "severity": "blocker",
+      "description": "RISK-002 (high) has no covering test case at all; the spec cannot exercise it. A high-severity risk with zero coverage blocks auto-approval and should be sent back to Gate 2 to add a case."
+    },
+    {
+      "type": "missing_negative_case",
+      "tc_id": "TC-001",
+      "severity": "warning",
+      "description": "TC-001 covers the happy path for RISK-001 but the spec has no negative scenario, though the risk implies one."
+    },
+    {
+      "type": "low_value_visual_e2e",
+      "tc_id": "TC-003",
+      "severity": "info",
+      "description": "TC-003 is a styling-only check; consider marking it manual rather than automating it as E2E."
+    }
+  ],
+  "recommendations": [
+    "Re-open Gate 2 to add a test case covering RISK-002 (or record an explicit accept-without-test decision).",
+    "Add a negative scenario for TC-001.",
+    "Move TC-003 (visual styling) to manual."
+  ],
+  "risk_coverage": [
+    {
+      "risk_id": "RISK-001",
+      "severity": "high",
+      "covering_test_case_ids": ["TC-001"],
+      "covered": true
+    },
+    {
+      "risk_id": "RISK-002",
+      "severity": "high",
+      "covering_test_case_ids": [],
+      "covered": false
+    },
+    {
+      "risk_id": "RISK-003",
+      "severity": "low",
+      "covering_test_case_ids": ["TC-002", "TC-003"],
+      "covered": true
+    }
+  ],
+  "uncovered_risks": ["RISK-002"],
+  "uncovered_high_severity_count": 1,
+  "auto_approval_eligible": false
+}
