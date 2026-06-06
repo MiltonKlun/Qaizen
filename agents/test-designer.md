@@ -66,6 +66,13 @@ Optional inputs the agent may read for context but does not write:
   anchors.
 - `examples/stories/*.md` — examples of stories that have already
   been designed against.
+- _(Phase 3 TG15)_ `context.json.code_change_context` — when the Analyst
+  fetched a linked PR's diff. **Secondary context only:** use the
+  `changed_files[]` to weight regression scope (give extra attention to
+  test cases covering touched modules) and to populate a changed-file →
+  `RISK-XXX` mapping. It does **NOT** generate expected-behavior
+  assertions — those come from the ACs and risks (`CLAUDE.md` §3.8). If
+  absent, design exactly as before.
 
 ---
 

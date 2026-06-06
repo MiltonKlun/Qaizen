@@ -380,12 +380,12 @@ per-schema scripts, by deliberate design (Phase 1 TG8).
 
 ## 8. Phase-specific extensions
 
-| Phase | Adds                                                                                                            | Doc                                   |
-| ----- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| 1     | This baseline.                                                                                                  | This file.                            |
-| 1.5   | _(none — `context.json` itself is unchanged; only the test-cases schema gets an optional `api_metadata` block)_ | `phase1.5-api-branch.md` TG3.         |
-| 2     | `review_gates.*` may be objects with audit fields.                                                              | `phase2-integrations.md` TG6.         |
-| 3     | `prompt_versions` map (each agent's version used in this run); token-efficient context handling rules.          | `phase3-healing-scaling.md` TG7, TG8. |
+| Phase | Adds                                                                                                                                                                           | Doc                                         |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| 1     | This baseline.                                                                                                                                                                 | This file.                                  |
+| 1.5   | _(none — `context.json` itself is unchanged; only the test-cases schema gets an optional `api_metadata` block)_                                                                | `phase1.5-api-branch.md` TG3.               |
+| 2     | `review_gates.*` may be objects with audit fields.                                                                                                                             | `phase2-integrations.md` TG6.               |
+| 3     | Optional `code_change_context` (linked-PR diff as SECONDARY context; Analyst Mode B only, when a PR is linked). `prompt_versions` map; token-efficient context handling rules. | `phase3-healing-scaling.md` TG15, TG7, TG8. |
 
 All extensions are backward-compatible. Files written under earlier
 phases continue to validate.

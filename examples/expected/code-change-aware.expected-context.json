@@ -1,0 +1,75 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-06T12-00-00Z-ccaware",
+  "story": {
+    "id": "QA-2050",
+    "title": "Reject expired credit card at checkout",
+    "source": "jira",
+    "path": "story.md",
+    "jira_issue_key": "QA-2050",
+    "description": "Demonstrates the Phase 3 TG15 code-change awareness: a Jira-mode story whose linked PR diff was fetched (read-only) and recorded as SECONDARY context. The acceptance criteria still come only from the story; the diff sharpens regression scope and maps changed files to risks."
+  },
+  "acceptance_criteria": [
+    "Given a card whose expiry month is in the past, when the customer submits payment, then the payment is rejected before any processor call.",
+    "Given the rejection, then the customer sees the message 'This card has expired. Please use a different card.'"
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "A borderline-expired card is charged because the expiry check runs after the processor call (the regression this PR fixes).",
+      "severity": "high",
+      "related_acs": [0]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "The error message is generic, not the specific copy the AC requires, hurting actionability.",
+      "severity": "medium",
+      "related_acs": [1]
+    }
+  ],
+  "code_change_context": {
+    "linked_pr": "https://github.com/example-org/shop/pull/482",
+    "base_sha": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+    "head_sha": "0fedcba987654321fedcba9876543210fedcba98",
+    "changed_files": [
+      {
+        "path": "src/checkout/payment.ts",
+        "change_type": "modified",
+        "related_risk_ids": ["RISK-001"]
+      },
+      {
+        "path": "src/checkout/messages.ts",
+        "change_type": "modified",
+        "related_risk_ids": ["RISK-002"]
+      },
+      {
+        "path": "src/checkout/legacy-validator.ts",
+        "change_type": "deleted"
+      }
+    ],
+    "summary": "Moves the card-expiry check ahead of the processor call in payment.ts and updates the rejection copy in messages.ts; removes the old downstream validator. SECONDARY context: it confirms where the regression risk concentrates (payment.ts -> RISK-001) but does not define the expected behaviour, which comes from the ACs.",
+    "fetched_at": "2026-06-06T12:00:00Z"
+  },
+  "artifact_paths": {
+    "test_cases": "test-cases/QA-2050.json",
+    "planner_brief": "planner-input/QA-2050.planner-brief.md",
+    "playwright_spec": "",
+    "generated_test": "",
+    "execution_results": "",
+    "html_report": "",
+    "traces": "",
+    "screenshots": "",
+    "failure_analysis": "",
+    "release_report_md": "",
+    "release_report_json": "",
+    "bug_drafts_dir": "release/bug-drafts"
+  },
+  "review_gates": {
+    "requirements_reviewed": false,
+    "test_scope_reviewed": false,
+    "specs_reviewed": false,
+    "code_reviewed": false
+  },
+  "status": "draft"
+}
