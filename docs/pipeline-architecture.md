@@ -326,7 +326,7 @@ to `main` / `develop` and on manual dispatch. Four jobs:
 
 | Job               | Blocking?                                    | What it does                                                                                                                                                                                                                                                                                                   |
 | ----------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `quality-checks`  | **Required / blocking**                      | `npm ci`, then typecheck + lint + format check + `validate:all` (committed artifacts) + `validate:examples`. Fails the run on any error.                                                                                                                                                                       |
+| `quality-checks`  | **Required / blocking**                      | `npm ci`, then typecheck + lint + format check + `validate:all` (committed artifacts) + `validate:examples` + the pipeline's own **unit tests** (`test:unit` — Healer guardrails) and **smoke tests** (`test:smoke` — scripts run + behave). Fails the run on any error.                                       |
 | `playwright-full` | Informational (`continue-on-error`)          | Installs browsers, runs `npm test`, uploads `reports/html` + `results.json` as an artifact.                                                                                                                                                                                                                    |
 | `newman-api`      | Informational (`continue-on-error`)          | Runs Newman for each `api-tests/collections/*.json` (skipped if none), uploads the Newman report.                                                                                                                                                                                                              |
 | `healer`          | Informational (`continue-on-error`, PR-only) | Runs only when the Playwright report shows failures (TG3). Runs the TG1 classifier + TG2 Green-only healer harness, uploads a `healer-patches` artifact, posts a green/yellow/red PR comment. **Never commits, never merges** (CLAUDE.md §3.6); in CI without a Gate-4 context it reports rather than patches. |
@@ -334,10 +334,29 @@ to `main` / `develop` and on manual dispatch. Four jobs:
 | `ci-summary`      | Always runs (`if: always()`)                 | Downloads both report artifacts and runs `npm run ci:summary` to post a pass/fail table to the PR step summary.                                                                                                                                                                                                |
 
 **Why `quality-checks` is always blocking.** It validates the contracts
-the whole system rests on — schemas, types, lint, format. A PR that
-breaks a schema or a type is broken regardless of whether a browser test
-passed; this is the cheapest, most deterministic gate, so it guards
-`main`.
+the whole system rests on — schemas, types, lint, format, **and the
+pipeline's own unit + smoke tests**. A PR that breaks a schema, a type, or
+a core script is broken regardless of whether a browser test passed; this
+is the cheapest, most deterministic gate, so it guards `main`.
+
+**Two layers of tests — don't confuse them.** This repo is a tool that
+_produces_ tests, so "tests" means two different things:
+
+| Layer                          | What it guards                 | Where                           | Gates merge?                                                         |
+| ------------------------------ | ------------------------------ | ------------------------------- | -------------------------------------------------------------------- |
+| **Pipeline tests** (this repo) | The pipeline's OWN code        | `test/*.test.js` (`node:test`)  | **Yes** — inside `quality-checks`                                    |
+| **Product tests** (generated)  | The app under test (SauceDemo) | `tests/*.spec.ts`, `api-tests/` | No — informational (`playwright-full` / `newman-api`) until promoted |
+
+The pipeline tests are: **`test:unit`** — the Healer guardrails (the
+safety-critical pure logic: a locator-only fix is allowed; changing an
+expected value / adding `.skip` / deleting a test / weakening an assertion /
+adding a snapshot is rejected); and **`test:smoke`** — black-box subprocess
+checks that the core scripts run and behave (demo:healer boundary,
+validate-examples, evaluate 100%, metrics, list-runs, the migrations'
+backfill + idempotency, validate-json rejects bad input). `npm run
+test:pipeline` runs both locally. They are the regression net for _this
+codebase_ — schema validation + the evaluation dataset cover the contracts;
+these cover the executable logic.
 
 **Why the test jobs are informational at first.** Generated E2E/API
 suites stabilize over the first runs (flake, environment, timing). A
