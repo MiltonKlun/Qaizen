@@ -1,0 +1,128 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-06T12-00-00Z-enhrep",
+  "story_id": "STORY-006",
+  "report_date": "2026-06-06T12:30:00Z",
+  "summary": "Demonstrates the Phase 3 (TG12) enhanced release report: per-risk-level rollup, explicit untested-high-risk items, an open-bug rollup, flaky-test summary, structured conditional-pass criteria, and external (Jira/TestLink) links. Three risks (2 high, 1 medium): RISK-001 covered passing, RISK-002 (high) covered failing with a Red bug, RISK-003 (medium) uncovered. Recommendation is conditional_pass with explicit, checkable conditions.",
+  "coverage_by_risk": [
+    {
+      "risk_id": "RISK-001",
+      "covered_by_tcs": ["TC-001"],
+      "status": "covered_passing"
+    },
+    {
+      "risk_id": "RISK-002",
+      "covered_by_tcs": ["TC-002", "API-001"],
+      "status": "covered_failing"
+    },
+    {
+      "risk_id": "RISK-003",
+      "covered_by_tcs": [],
+      "status": "uncovered"
+    }
+  ],
+  "execution_summary": {
+    "e2e": {
+      "total": 2,
+      "passed": 1,
+      "failed": 1,
+      "skipped": 0,
+      "pass_rate": 0.5
+    },
+    "api": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "pass_rate": 1
+    },
+    "combined": {
+      "total": 3,
+      "passed": 2,
+      "failed": 1,
+      "skipped": 0,
+      "pass_rate": 0.6667
+    }
+  },
+  "uncovered_risks": ["RISK-003"],
+  "uncovered_high_severity_count": 0,
+  "summary_by_risk_level": {
+    "high": {
+      "total": 2,
+      "covered_passing": 1,
+      "covered_failing": 1,
+      "covered_partial": 0,
+      "accepted_without_test": 0,
+      "uncovered": 0
+    },
+    "medium": {
+      "total": 1,
+      "covered_passing": 0,
+      "covered_failing": 0,
+      "covered_partial": 0,
+      "accepted_without_test": 0,
+      "uncovered": 1
+    },
+    "low": {
+      "total": 0,
+      "covered_passing": 0,
+      "covered_failing": 0,
+      "covered_partial": 0,
+      "accepted_without_test": 0,
+      "uncovered": 0
+    }
+  },
+  "untested_high_risk_items": [],
+  "flaky_tests": [
+    {
+      "test_id": "TC-001",
+      "branch": "e2e",
+      "note": "Passed on first retry; intermittent timeout on the inventory load step."
+    }
+  ],
+  "blocking_failures": ["FAIL-001"],
+  "non_blocking_failures": [],
+  "release_recommendation": "conditional_pass",
+  "release_recommendation_reasoning": "RISK-001 (high) is covered_passing. RISK-002 (high) is covered_failing with a Red bug (FAIL-001 / BUG-001) — but a Jira issue exists to track it, so it is a known, triaged defect rather than an unhandled blocker. RISK-003 (medium) is uncovered. No HIGH-severity risk is uncovered (uncovered_high_severity_count = 0), so this is conditional_pass, not fail. Conditions are listed in conditional_pass_criteria.",
+  "conditional_pass_criteria": [
+    "BUG-001 (RISK-002, Red) is fixed or formally accepted by the product owner before release.",
+    "A test case is added for RISK-003 (medium, uncovered) or the risk is explicitly accepted at Gate 2.",
+    "The TC-001 flakiness (intermittent inventory-load timeout) is investigated; if it recurs, stabilize before promoting the suite to blocking."
+  ],
+  "bug_drafts": [
+    {
+      "bug_id": "BUG-001",
+      "severity": "red",
+      "path": "release/bug-drafts/BUG-001.md",
+      "jira_key_if_exists": "SK-101"
+    }
+  ],
+  "open_bugs_summary": {
+    "total": 1,
+    "red": 1,
+    "yellow": 0,
+    "with_jira": 1,
+    "without_jira": 0
+  },
+  "external_links": [
+    {
+      "system": "jira",
+      "label": "BUG-001 tracked as SK-101",
+      "url": "https://example.atlassian.net/browse/SK-101"
+    },
+    {
+      "system": "testlink",
+      "label": "Test plan: STORY-006 regression",
+      "url": "https://testlink.example.com/lib/plan/planView.php?plan_id=42"
+    }
+  ],
+  "evidence_paths": [
+    "reports/html",
+    "reports/traces",
+    "analysis/failure-analysis.json"
+  ],
+  "open_questions": [
+    "Is the RISK-003 (medium) coverage gap acceptable for this release, or should a case be added?"
+  ],
+  "status": "draft"
+}
