@@ -11,6 +11,8 @@
     "format:check": "prettier --check .",
     "format:write": "prettier --write .",
     "test": "playwright test",
+    "test:e2e:smoke": "playwright test --grep @smoke",
+    "test:e2e:regression": "playwright test --grep @regression",
     "test:api": "node scripts/run-newman.js",
     "test:unit": "node --test test/healer-guardrails.test.js",
     "test:smoke": "node --test test/scripts-smoke.test.js",

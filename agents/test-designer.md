@@ -10,9 +10,11 @@ description: |
   becomes enforceable in code.
 phase_introduced: 1
 phase_active: 1+
-version: 1.1.0
+version: 1.2.0
 changed_in_run: null
 changelog: |
+  - 1.2.0: Note that "smoke / regression critical" criticality feeds the
+    @smoke / @regression test tag (docs/test-tagging.md). Additive.
   - 1.1.0: Added the "Loads only" token-efficient context declaration
     (Phase 3 TG7). Additive, no output-shape change.
   - 1.0.0: Initial versioned baseline (Phase 3 TG8). Paired test-cases
@@ -162,7 +164,10 @@ before Gate 2 and they agree on scope.
    - Apply the **Automation Decision Model** from
      `docs/automation-decision-model.md`. Set
      `automation_decision` and `automation_decision_reason` (the
-     reason is mandatory; the schema enforces non-empty).
+     reason is mandatory; the schema enforces non-empty). When the reason
+     is "smoke / regression critical", note it — that criticality is the
+     input to the `@smoke` / `@regression` tag the Generator puts on the
+     test (`docs/test-tagging.md`).
    - Fill `preconditions`, `steps` (each with a stable `step_id`
      and a clear `action`; `data` is optional), and
      `expected_results`.
