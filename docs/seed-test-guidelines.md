@@ -196,7 +196,10 @@ Reasons that are NOT legitimate:
   Planner and Generator follow when producing test code from the
   seed onward. The policy is "most robust locator wins", not
   "always semantic" — see Gate 4 + the dedicated section.
-- `tests/seed.spec.ts` — the actual file.
+- `tests/seed.spec.ts` — the actual file. It is tagged `@smoke` as the
+  worked example of the test-tagging convention.
+- `docs/test-tagging.md` — the `@smoke` / `@regression` tagging convention
+  for generated product tests, and the smoke-gating graduation path.
 - `tests/fixtures/README.md` — the placeholder note for fixtures
   (created in Phase 1 TG11).
 - `.claude/agents/playwright-test-planner.md` — the Native Agent that
