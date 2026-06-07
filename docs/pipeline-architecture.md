@@ -366,6 +366,15 @@ unrelated PR. So `playwright-full` and `newman-api` carry
 branch protection. They still upload full reports as artifacts, and
 `ci-summary` surfaces the tally on the PR.
 
+**Smoke vs regression subsets.** Generated tests are tagged `@smoke`
+(critical "is it alive" paths) and/or `@regression` (the full safety net) —
+see `docs/test-tagging.md`. Locally: `npm run test:e2e:smoke` /
+`npm run test:e2e:regression`. The documented **graduation path** is to add a
+`playwright-smoke` job (`--grep @smoke`) and make _that_ required first — a
+broken core path should block, a flaky edge case should not — keeping the full
+suite informational until it is consistently green. Not enabled yet; gated on
+the suite proving stable.
+
 **The no-contradiction rule.** A job is never "informational but
 required". Either a job blocks (no `continue-on-error`, listed as a
 required check) or it is informational (`continue-on-error: true`, not
