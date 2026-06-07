@@ -22,7 +22,9 @@ import { test, expect } from '@playwright/test';
  * and the test executes normally.
  */
 test.describe('Seed: Environment Setup', () => {
-  test('app loads at BASE_URL', async ({ page }) => {
+  // Tagged @smoke: "the app loads" is the canonical smoke check. See
+  // docs/test-tagging.md for the @smoke / @regression convention.
+  test('app loads at BASE_URL', { tag: ['@smoke'] }, async ({ page }) => {
     const baseURL = process.env.BASE_URL ?? '';
     // eslint-disable-next-line playwright/no-skipped-test -- environmental skip with explicit reason, not a hidden failure
     test.skip(baseURL === '', 'BASE_URL env var not set');
