@@ -10,9 +10,12 @@ description: |
   stays human.
 phase_introduced: 3
 phase_active: 3+
-version: 1.1.0
+version: 1.2.0
 changed_in_run: null
 changelog: |
+  - 1.2.0: Note the optional context.gate_decisions[] log (continuous
+    improvement) — a Gate 3 decision SHOULD be recorded so the per-run
+    rejection metric is meaningful. Additive; the agent still sets no gates.
   - 1.1.0: Added the "Loads only" token-efficient context declaration
     (Phase 3 TG7). Additive, no output-shape change.
   - 1.0.0: Initial versioned baseline (Phase 3 TG8 / introduced TG4).
@@ -87,6 +90,16 @@ passed — it runs _to inform_ Gate 3.
 The agent does NOT update `context.json` (it owns no `artifact_paths`
 slot in Phase 1–2; Phase 3 may add one, which is a schema change under
 the Architecture Stability Rule). It does NOT set any `review_gates`.
+
+> **Gate-decision log (continuous improvement).** The Spec Reviewer assists
+> Gate 3 but never decides it. When the human acts on the review, the decision
+> SHOULD be appended to the optional `context.json.gate_decisions[]` log —
+> `{ gate: "specs_reviewed", decision: "approved" | "rejected", decided_at,
+reviewer, notes }`. A rejection here (e.g. an uncovered high-severity risk the
+> review surfaced) is exactly what makes the per-run Gate 3 rejection metric
+> meaningful (`docs/review-gates.md`, `docs/pipeline-architecture.md` §8.2). The
+> Spec Reviewer does not write this itself — the human/orchestrator records the
+> decision — but the reviewer's findings are the input to it.
 
 ---
 

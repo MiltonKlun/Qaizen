@@ -22,6 +22,7 @@
     "sync:jira-testcases": "node scripts/create-jira-testcases.js",
     "migrate:external-ids": "node scripts/migrate-testcases-external-ids.js",
     "migrate:release-report-tg12": "node scripts/migrate-release-report-tg12.js",
+    "migrate:gate-decisions": "node scripts/migrate-context-gate-decisions.js",
     "new-run": "node scripts/new-run.js",
     "list-runs": "node scripts/list-runs.js",
     "classify": "node scripts/run-failure-classifier.js",

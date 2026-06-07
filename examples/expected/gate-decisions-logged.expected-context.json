@@ -1,0 +1,89 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-06T13-00-00Z-gatelog",
+  "story": {
+    "id": "STORY-001",
+    "title": "Login — Successful sign-in (gate-decision log)",
+    "source": "manual",
+    "path": "story.md",
+    "description": "Same login slice, showing the optional gate_decisions[] log (continuous improvement). Gate 3 was rejected once (Planner explored the wrong flow), then approved after the brief was fixed. review_gates holds the FINAL state (all passed); gate_decisions holds the HISTORY, so metrics can count the one Gate 3 rejection for this run. Optional + append-only ⇒ backward-compatible."
+  },
+  "acceptance_criteria": [
+    "Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",
+    "Given an invalid password, when the user submits the form, then they remain on the login page and an error message explains the credentials were not accepted. No partial session is created.",
+    "Given a locked user, when they submit valid credentials, then they remain on the login page and an error message explains the account is locked. No session is created."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "A partial session is created on failed login, leaving the user in an ambiguous authenticated state.",
+      "severity": "high",
+      "related_acs": [1, 2]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "Locked-account check is enforced only in the UI, allowing API-level bypass.",
+      "severity": "high",
+      "related_acs": [2]
+    }
+  ],
+  "artifact_paths": {
+    "test_cases": "test-cases/STORY-001.json",
+    "planner_brief": "planner-input/STORY-001.planner-brief.md",
+    "playwright_spec": "specs/STORY-001.md",
+    "generated_test": "tests/STORY-001.spec.ts",
+    "execution_results": "reports/results.json",
+    "html_report": "reports/html",
+    "traces": "reports/traces",
+    "screenshots": "reports/screenshots",
+    "failure_analysis": "analysis/failure-analysis.json",
+    "release_report_md": "release/release-report.md",
+    "release_report_json": "release/release-report.json",
+    "bug_drafts_dir": "release/bug-drafts"
+  },
+  "review_gates": {
+    "requirements_reviewed": true,
+    "test_scope_reviewed": true,
+    "specs_reviewed": true,
+    "code_reviewed": true
+  },
+  "gate_decisions": [
+    {
+      "gate": "requirements_reviewed",
+      "decision": "approved",
+      "decided_at": "2026-06-06T13-05-00Z",
+      "reviewer": "alice@example.com",
+      "notes": "AC accurate; both high-severity risks captured."
+    },
+    {
+      "gate": "test_scope_reviewed",
+      "decision": "approved",
+      "decided_at": "2026-06-06T13-15-00Z",
+      "reviewer": "alice@example.com",
+      "notes": null
+    },
+    {
+      "gate": "specs_reviewed",
+      "decision": "rejected",
+      "decided_at": "2026-06-06T13-30-00Z",
+      "reviewer": "bob@example.com",
+      "notes": "Planner explored the password-reset flow, not the login flow. Fix the planner brief and re-run."
+    },
+    {
+      "gate": "specs_reviewed",
+      "decision": "approved",
+      "decided_at": "2026-06-06T13-50-00Z",
+      "reviewer": "bob@example.com",
+      "notes": "Re-run after brief fix; spec now matches the approved scope."
+    },
+    {
+      "gate": "code_reviewed",
+      "decision": "approved",
+      "decided_at": "2026-06-06T14-10-00Z",
+      "reviewer": "bob@example.com",
+      "notes": "Locators stable + semantic; assertions test the right behavior."
+    }
+  ],
+  "status": "completed"
+}

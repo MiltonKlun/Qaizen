@@ -208,6 +208,41 @@
         }
       }
     },
+    "gate_decisions": {
+      "type": "array",
+      "description": "OPTIONAL (continuous improvement). An append-only LOG of gate decision events for this run — both approvals AND rejections. review_gates holds the final state; this holds the history, so metrics can count rejections per run (the Phase 3 retro gap: Gate 3/4 rejection rate was 'not tracked'). A rejection is recorded, then a later approval is appended when the human re-approves after rework. Absent on older runs; the pipeline runs identically without it.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gate", "decision", "decided_at"],
+        "properties": {
+          "gate": {
+            "type": "string",
+            "description": "Which gate. Matches a review_gates key.",
+            "enum": [
+              "requirements_reviewed",
+              "test_scope_reviewed",
+              "specs_reviewed",
+              "code_reviewed",
+              "qa_scope_approved"
+            ]
+          },
+          "decision": {
+            "type": "string",
+            "enum": ["approved", "rejected"]
+          },
+          "decided_at": {
+            "type": "string",
+            "description": "ISO 8601 timestamp of the decision."
+          },
+          "reviewer": { "type": ["string", "null"] },
+          "notes": {
+            "type": ["string", "null"],
+            "description": "Why — especially for a rejection (what must change before re-review)."
+          }
+        }
+      }
+    },
     "status": {
       "type": "string",
       "enum": ["draft", "in_progress", "completed", "blocked"]
