@@ -1,0 +1,166 @@
+// Smoke tests for the pipeline's own scripts — black-box: run each script as a
+// subprocess and assert its exit code + observable output. No refactoring of the
+// scripts; this is the fast "does the machinery still work" net that catches a
+// broken script before CI's heavier jobs do. Run with `npm run test:smoke`.
+//
+// These run from the repo root, against the real committed fixtures (the 5
+// archived runs, the expected examples). Migration tests use a temp copy so
+// nothing in the repo is mutated.
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { readFileSync, writeFileSync, rmSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+// Run a node script from the repo root; return { code, out }.
+function run(args) {
+  const r = spawnSync('node', args, { encoding: 'utf8' });
+  return { code: r.status, out: (r.stdout || '') + (r.stderr || '') };
+}
+
+test('demo:healer — Green/Red boundary holds (exit 0)', () => {
+  const r = run(['scripts/demo-healer-green-red.js']);
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /GREEN[\s\S]*SAFE/);
+  assert.match(r.out, /RED[\s\S]*REJECTED/);
+});
+
+test('validate:examples — every gold example validates (exit 0)', () => {
+  const r = run(['scripts/validate-examples.js']);
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /\d+ passed, 0 failed/);
+});
+
+test('evaluate — agent dataset scores 100% (exit 0)', () => {
+  const r = run(['scripts/evaluate-agents.js']);
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /Overall: 100%/);
+});
+
+test('metrics — runs and reports gate-rejection honesty (exit 0)', () => {
+  const r = run(['scripts/pipeline-metrics.js']);
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /Gate rejections/);
+});
+
+test('list-runs — finds the archived runs as JSON (exit 0)', () => {
+  const r = run(['scripts/list-runs.js', '--json']);
+  assert.equal(r.code, 0, r.out);
+  const rows = JSON.parse(r.out);
+  assert.ok(
+    Array.isArray(rows) && rows.length >= 1,
+    'expected >=1 archived run'
+  );
+  assert.ok(
+    rows.every((x) => x.story_id && x.run_id),
+    'rows need story_id+run_id'
+  );
+});
+
+test('validate-json — rejects an invalid artifact (exit non-zero)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'aiqa-smoke-'));
+  try {
+    const bad = join(dir, 'bad-context.json');
+    writeFileSync(bad, JSON.stringify({ not: 'a valid context' }));
+    const r = run([
+      'scripts/validate-json.js',
+      'schemas/context.schema.json',
+      bad,
+    ]);
+    assert.notEqual(r.code, 0, 'invalid artifact must fail validation');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('migrate:gate-decisions — idempotent backfill of empty log', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'aiqa-smoke-'));
+  try {
+    const ctx = join(dir, 'context.json');
+    // start from a valid committed example, strip gate_decisions if present
+    const src = JSON.parse(
+      readFileSync(
+        'examples/expected/login-success.expected-context.json',
+        'utf8'
+      )
+    );
+    delete src.gate_decisions;
+    writeFileSync(ctx, JSON.stringify(src, null, 2));
+
+    const first = run([
+      'scripts/migrate-context-gate-decisions.js',
+      ctx,
+      '--apply',
+    ]);
+    assert.equal(first.code, 0, first.out);
+    const after = JSON.parse(readFileSync(ctx, 'utf8'));
+    assert.ok(Array.isArray(after.gate_decisions), 'should seed an empty log');
+
+    // still valid against the schema
+    const v = run([
+      'scripts/validate-json.js',
+      'schemas/context.schema.json',
+      ctx,
+    ]);
+    assert.equal(v.code, 0, v.out);
+
+    // idempotent: second run reports "left untouched", exit 0
+    const second = run([
+      'scripts/migrate-context-gate-decisions.js',
+      ctx,
+      '--apply',
+    ]);
+    assert.equal(second.code, 0, second.out);
+    assert.match(second.out, /left untouched/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('migrate:release-report-tg12 — backfills open_bugs_summary, idempotent', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'aiqa-smoke-'));
+  try {
+    const rep = join(dir, 'report.json');
+    const src = JSON.parse(
+      readFileSync(
+        'examples/expected/uncovered-risk.expected-release-report.json',
+        'utf8'
+      )
+    );
+    delete src.open_bugs_summary;
+    writeFileSync(rep, JSON.stringify(src, null, 2));
+
+    const first = run([
+      'scripts/migrate-release-report-tg12.js',
+      rep,
+      '--apply',
+    ]);
+    assert.equal(first.code, 0, first.out);
+    const after = JSON.parse(readFileSync(rep, 'utf8'));
+    assert.ok(after.open_bugs_summary, 'should backfill open_bugs_summary');
+    const v = run([
+      'scripts/validate-json.js',
+      'schemas/release-report.schema.json',
+      rep,
+    ]);
+    assert.equal(v.code, 0, v.out);
+
+    const second = run([
+      'scripts/migrate-release-report-tg12.js',
+      rep,
+      '--apply',
+    ]);
+    assert.equal(second.code, 0, second.out);
+    assert.match(second.out, /Nothing to backfill/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('session-summary — refuses with no content (exit 2)', () => {
+  const r = run(['scripts/session-summary.js']);
+  assert.equal(r.code, 2, r.out);
+  assert.match(r.out, /Nothing to record/);
+});
