@@ -591,8 +591,26 @@ Soporte para múltiples stories en paralelo, **sin** autonomía de batch.
   - `conditional_pass` debe listar conditions explícitas.
 
 **Definition of Done:**
-- [ ] Reports útiles para decisiones de release reales.
-- [ ] Schema y prompt actualizados juntos (Architecture Stability).
+- [x] Reports útiles para decisiones de release reales. (Added optional
+      `summary_by_risk_level` (high/med/low rollup), `untested_high_risk_items`
+      (named list), `flaky_tests`, `open_bugs_summary`,
+      `conditional_pass_criteria` (structured conditions), `external_links`
+      (tool-agnostic Jira/TestLink). Rules: no `pass` with unresolved high-risk
+      Red bugs (pre-existing), **no hidden untested risks** (new), no fabricated
+      flakiness/links (new), conditional_pass criteria must match the prose.)
+- [x] Schema y prompt actualizados juntos (Architecture Stability). (One PR:
+      `schemas/release-report.schema.json` + `agents/reporter.md` (v1.2.0,
+      step 8.5 + new rules) + docs (`pipeline-architecture.md`) + new example
+      `examples/expected/enhanced-report.expected-release-report.json` +
+      backward-compatible migration `scripts/migrate-release-report-tg12.js`
+      (`npm run migrate:release-report-tg12`, idempotent backfill — both
+      pre-TG12 examples still validate unchanged).)
+
+> **Honest scope:** all new fields are OPTIONAL ⇒ every existing report stays
+> valid; the migration is a safe idempotent backfill of the derivable fields
+> (open_bugs_summary always; risk-level rollups when a context.json is findable).
+> flaky_tests/external_links/conditional_pass_criteria are judgment/observation,
+> left to the Reporter, never fabricated by the migration.
 
 ---
 

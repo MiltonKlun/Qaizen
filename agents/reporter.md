@@ -11,9 +11,13 @@ description: |
   completed.
 phase_introduced: 1
 phase_active: 1+
-version: 1.1.0
+version: 1.2.0
 changed_in_run: null
 changelog: |
+  - 1.2.0: Enhanced release reporting (Phase 3 TG12) — emit optional
+    summary_by_risk_level, untested_high_risk_items, flaky_tests,
+    open_bugs_summary, conditional_pass_criteria, external_links. All
+    additive + deterministic; new "no hidden untested risks" rule.
   - 1.1.0: Added the "Loads only" token-efficient context declaration
     (Phase 3 TG7) — consumes summarized failure-analysis + evidence_paths,
     never raw reports/traces. Additive, no output-shape change.
@@ -237,11 +241,43 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
    - `jira_key_if_exists` — read from the draft's "## Jira Issue
      Key" line. Empty in Phase 1; populated in Phase 2+ after
      `scripts/create-jira-bugs.js --apply` has run.
+     8.5. **Build the Phase 3 (TG12) enhanced-report fields** — all
+     OPTIONAL in the schema, all derived deterministically (no LLM), all
+     additive. Emit them so the report reads as a release decision, not a
+     raw dump:
+   - `summary_by_risk_level` — roll up `coverage_by_risk` by the risk's
+     `severity` (from `context.json.risks[]`). For each of `high` /
+     `medium` / `low`: `total` and the per-status counts
+     (`covered_passing`, `covered_failing`, `covered_partial`,
+     `accepted_without_test`, `uncovered`). Counts must sum to `total`.
+   - `untested_high_risk_items` — the named list behind
+     `uncovered_high_severity_count`: each high-severity risk whose status
+     is `uncovered`, as `{ risk_id, description }`. **Never omit a real
+     gap** — "no hidden untested risks" is a hard rule (§6).
+   - `flaky_tests` — only if flakiness is tracked for this run (e.g. a
+     test that passed on retry). Each `{ test_id, branch?, note? }`. If
+     not tracked, omit or use `[]` — **never fabricate** flakiness.
+   - `open_bugs_summary` — roll up `bug_drafts[]`: `total`, `red`,
+     `yellow`, `with_jira`, `without_jira` (the last two from whether each
+     draft has a `jira_key_if_exists`).
+   - `conditional_pass_criteria` — when (and only when)
+     `release_recommendation` is `conditional_pass`, the explicit,
+     checkable conditions (the structured form of what
+     `release_recommendation_reasoning` says in prose). This satisfies the
+     "conditional_pass MUST list its conditions" rule in machine-readable
+     form.
+   - `external_links` — tool-agnostic `{ system, label?, url }` entries:
+     the Jira issue(s) bugs were promoted to, the TestLink test plan, any
+     dashboard. URLs only — **never embed a credential** in a link
+     (`docs/security-and-data-safety.md`). Keep `system` a plain string
+     (`"jira"`, `"testlink"`, ...) so the project stays generic.
 9. **Build `evidence_paths`** — a small curated list of file paths
    the human will likely want to open: `reports/html` (the
    Playwright HTML report), key traces, the failure analysis. Do
    NOT inline contents. The path-not-content rule from
-   `docs/context-json-guide.md` applies here.
+   `docs/context-json-guide.md` applies here. The Markdown report SHOULD
+   render `evidence_paths` + `external_links` as a small table for the
+   reviewer.
 10. **List `open_questions`** — things the human needs to answer
     before the run can move to `status: "finalized"`. Empty array
     is fine.
@@ -292,7 +328,18 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
 - **`conditional_pass` requires conditions.** It cannot mean "I
   don't know". List the conditions: which TCs were skipped, which
   manual checks are pending, which environment caveats apply. A
-  reviewer should be able to read the conditions and decide.
+  reviewer should be able to read the conditions and decide. When you
+  emit `conditional_pass_criteria` (Phase 3 TG12), it must say the same
+  thing as `release_recommendation_reasoning` — the structured list and
+  the prose cannot disagree.
+- **No hidden untested risks (Phase 3 TG12).** `untested_high_risk_items`
+  and `summary_by_risk_level` must reflect reality. Never omit, downplay,
+  or zero-out a real coverage gap to make a report look cleaner. A
+  high-severity uncovered risk is surfaced even when everything that ran
+  passed.
+- **Don't fabricate flakiness or links.** `flaky_tests` is empty unless
+  flakiness was actually observed/tracked; `external_links` contains only
+  real URLs, never a credential.
 - **The two report files agree.** A `pass` in the JSON next to a
   worried Markdown summary is unacceptable. Keep them in sync.
 - **`status: "completed"` is binding.** Once set, the run is over.

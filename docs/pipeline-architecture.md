@@ -192,6 +192,9 @@ story.md (manual) ─or─ Jira issue (mcp-atlassian read-only)
         ├──► release/release-report.md
         └──► release/release-report.json
               (validates against schemas/release-report.schema.json)
+              (Phase 3 TG12: optional per-risk-level rollup,
+               untested-high-risk list, flaky/open-bug summaries,
+               conditional-pass criteria, external links — all additive)
         │
         ▼
   PHASE1-RETROSPECTIVE.md
