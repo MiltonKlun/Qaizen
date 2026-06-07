@@ -28,6 +28,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { argv, exit } from 'node:process';
+import { guardrailViolations } from './healer-guardrails.js';
 
 const APPLY = argv.includes('--apply');
 const FA = 'analysis/failure-analysis.json';
@@ -45,60 +46,10 @@ if (!existsSync(FA)) {
 const fa = JSON.parse(readFileSync(FA, 'utf8'));
 const failures = fa.failures || [];
 
-// --- Guardrail: forbidden operations on a candidate patch ----------------
-// Returns a list of violations (empty = safe). This is the heart of the
-// harness: even if a future agent proposes a patch, it is REJECTED if it does
-// any of these. (CLAUDE.md §3.6 hard stops.)
-function guardrailViolations(originalSource, patchedSource) {
-  const v = [];
-  const addedLines = patchedSource
-    .split('\n')
-    .filter((l) => !originalSource.includes(l.trim()) && l.trim());
-
-  // Never add .skip / .fixme / .only-as-skip or xfail.
-  if (
-    /\.(skip|fixme)\s*\(|test\.skip|describe\.skip/.test(patchedSource) &&
-    !/\.(skip|fixme)\s*\(|test\.skip|describe\.skip/.test(originalSource)
-  ) {
-    v.push('adds .skip/.fixme (test suppression is forbidden)');
-  }
-  // Never delete a test (fewer test( / it( calls than before).
-  const countTests = (s) => (s.match(/\b(test|it)\s*\(/g) || []).length;
-  if (countTests(patchedSource) < countTests(originalSource)) {
-    v.push('removes a test (deleting tests is forbidden)');
-  }
-  // Never weaken an assertion to a trivially-true form.
-  if (
-    /toBeTruthy\(\)|toBeDefined\(\)|\.not\.toThrow\(\)/.test(
-      addedLines.join('\n')
-    )
-  ) {
-    v.push('weakens an assertion (e.g. toBeTruthy) — forbidden');
-  }
-  // Never touch snapshots.
-  if (
-    /toMatchSnapshot|toHaveScreenshot|updateSnapshot/.test(patchedSource) &&
-    !/toMatchSnapshot|toHaveScreenshot/.test(originalSource)
-  ) {
-    v.push('introduces/updates a snapshot — needs explicit human approval');
-  }
-  // Never change an expected value: heuristic — flag changes inside
-  // toEqual/toBe/toHaveText/toHaveValue/toHaveURL argument literals.
-  const expectedLiterals = (s) =>
-    (
-      s.match(
-        /\.(toEqual|toBe|toHaveText|toHaveValue|toHaveURL|toHaveCount)\(([^)]*)\)/g
-      ) || []
-    )
-      .sort()
-      .join('|');
-  if (expectedLiterals(originalSource) !== expectedLiterals(patchedSource)) {
-    v.push(
-      'changes an expected value/assertion target — forbidden (business meaning must not change)'
-    );
-  }
-  return v;
-}
+// The guardrail check (forbidden operations on a candidate patch) lives in
+// scripts/healer-guardrails.js — imported above — so the harness and the TG14
+// demonstration share one source of truth. Empty result = safe; any violation
+// means REJECT (CLAUDE.md §3.6 hard stops).
 
 // --- Agent/LLM hook: produce a candidate patch for a Green failure -------
 // In this harness it is a NO-OP that returns null (no candidate). A Healer

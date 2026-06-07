@@ -26,6 +26,7 @@
     "list-runs": "node scripts/list-runs.js",
     "classify": "node scripts/run-failure-classifier.js",
     "heal": "node scripts/run-healer.js",
+    "demo:healer": "node scripts/demo-healer-green-red.js",
     "metrics": "node scripts/pipeline-metrics.js",
     "evolve": "node scripts/evolve.js",
     "session-summary": "node scripts/session-summary.js"
