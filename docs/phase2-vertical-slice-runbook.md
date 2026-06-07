@@ -246,6 +246,26 @@ node scripts/sync-testlink-execution.js SK-10 --apply-testlink-execution # real 
 After `quality-checks` is green and you've reviewed, merge. CI never merges
 for you.
 
+### Step 15 — [YOU] Post-run habits (continuous improvement)
+
+Two cheap habits that keep the system's own feedback loop honest — do them
+right after the run, while it's fresh:
+
+- **Record the gate decisions.** Append each Gate 1–4 approval/rejection to
+  `context.json.gate_decisions[]` (especially a _rejection_ and why). This is
+  what makes the per-run Gate 3/4 rejection metric — and the prompt-stability
+  signal — real (`docs/review-gates.md`). `npm run migrate:gate-decisions`
+  seeds an empty log if the context lacks one.
+- **Write a session summary.** One line about what rubbed:
+  ```bash
+  npm run session-summary -- --friction "…" --timesink "…" --note "…"
+  ```
+  It writes a versioned `session-summaries/<date>.md` — the highest-signal
+  source `/evolve` mines (`docs/evolve-loop.md`).
+
+Then archive the run with `npm run new-run <story-id>` so `runs/` keeps the
+history (and `gate_decisions` + `prompt_versions` travel with it).
+
 ---
 
 ## 2. Repeat for stories 2 and 3
