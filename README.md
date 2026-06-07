@@ -2,6 +2,12 @@
 
 [![QA Pipeline](https://github.com/MiltonKlun/AI-Assisted-QA/actions/workflows/qa-pipeline.yml/badge.svg)](https://github.com/MiltonKlun/AI-Assisted-QA/actions/workflows/qa-pipeline.yml)
 
+> **Estado:** Phases 1, 1.5, 2 y 3 **completas**. El sistema está en **modo de
+> mejora continua** (no hay Phase 4 planificada). Ver `PHASE3-RETROSPECTIVE.md`
+> §10 para la cadencia (`/evolve` cada 90 días o 10 runs, métricas cada 5 runs,
+> evaluación de prompts en cada cambio mayor). Las cuatro retrospectivas
+> (`PHASE1`/`PHASE1.5`/`PHASE2`/`PHASE3-RETROSPECTIVE.md`) registran el camino.
+
 > **Para Claude Code (IDE agent):** este documento es el índice maestro del proyecto. Contiene la visión completa, decisiones arquitecturales, y el orden de los planes de fase. Antes de empezar a trabajar, leé este archivo completo y luego el archivo de la fase que estés ejecutando.
 
 ---
@@ -140,14 +146,18 @@ Confirmado: **TestLink se incluye** porque `dogkeeper886/testlink-mcp` está mad
 
 ## 3. Plan general de fases
 
-| Fase | Objetivo | Duración estimada | Documento |
+| Fase | Objetivo | Estado | Documento |
 |---|---|---|---|
-| **Phase 1** | Foundation + vertical slice E2E con MCP Atlassian read-only | 3-4 semanas | `phase1-foundation-e2e.md` |
-| **Phase 1.5** | Rama API completa con Postman MCP | 1-2 semanas | `phase1.5-api-branch.md` |
-| **Phase 2** | Writes habilitados (Jira bugs, TestLink sync) + GitHub Actions CI | 3-4 semanas | `phase2-integrations.md` |
-| **Phase 3** | Controlled healing + dual-judge optional + métricas + /evolve | 4-6 semanas | `phase3-healing-scaling.md` |
+| **Phase 1** | Foundation + vertical slice E2E con MCP Atlassian read-only | ✅ Completa | `phase1-foundation-e2e.md` |
+| **Phase 1.5** | Rama API completa con Postman MCP | ✅ Completa | `phase1.5-api-branch.md` |
+| **Phase 2** | Writes habilitados (Jira bugs, TestLink sync) + GitHub Actions CI | ✅ Completa | `phase2-integrations.md` |
+| **Phase 3** | Controlled healing + dual-judge optional + métricas + /evolve | ✅ Completa | `phase3-healing-scaling.md` |
 
-**Reglas de avance entre fases (hard):**
+Las cuatro fases están completas; el sistema entró en mejora continua (ver el
+encabezado de Estado y `PHASE3-RETROSPECTIVE.md` §10). Las reglas de avance
+abajo se preservan como registro de cómo se construyó.
+
+**Reglas de avance entre fases (hard) — cumplidas:**
 - Phase 1.5 no comienza hasta Phase 1 vertical slice E2E funcionando.
 - Phase 2 no comienza hasta Phase 1 + 1.5 completas y `PHASE1-RETROSPECTIVE.md` revisado.
 - Phase 3 no comienza hasta 3+ runs completos de Phase 2 y `PHASE2-RETROSPECTIVE.md` revisado.
@@ -346,8 +356,25 @@ Cuando trabajes en este proyecto:
 
 ---
 
-## 12. Próximo paso
+## 12. Próximo paso — mejora continua
 
-Abrí `phase1-foundation-e2e.md` y empezá por el Task Group 1.
+Las cuatro fases están completas. El sistema ya no avanza por fases; opera en
+**modo de mejora continua** (`PHASE3-RETROSPECTIVE.md` §10):
 
-No empieces nada de Phase 1.5, 2 o 3 hasta que Phase 1 esté completa.
+- **Cada 90 días o cada 10 runs** (lo que venga primero): `npm run evolve` →
+  revisar `evolve/evolve-proposal.md`, aceptar/diferir/rechazar cada hallazgo.
+- **Cada 5 runs:** `npm run metrics`.
+- **Cada cambio de prompt mayor:** la evaluación corre sola en CI (`prompt-eval`
+  cuando el PR toca `agents/`); ver `docs/prompt-versioning.md`.
+- **Después de cada run:** `npm run session-summary -- --friction "…"` para que
+  `/evolve` tenga la señal más alta (ver `docs/evolve-loop.md`).
+- **Registrar las decisiones de gate** en `context.gate_decisions[]` para que la
+  métrica de estabilidad de prompts (rechazos de Gate 3/4) sea real
+  (`docs/review-gates.md`).
+- **Cada trimestre:** revisar docs vs. realidad; corregir drift.
+
+Para retomar trabajo de funcionalidad sobre una historia nueva, el flujo es el
+de siempre (Analyst → 4 gates → Reporter); ver `docs/phase2-vertical-slice-runbook.md`.
+
+Rechazado permanentemente por diseño: batch agéntico sin gates (contradice el
+principio fundacional human-in-the-loop en Gate 4).
