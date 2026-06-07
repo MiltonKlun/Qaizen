@@ -476,7 +476,7 @@ rule).
 | Healer patch validation rate          | Of Green patches the Healer proposed, how many validated — confidence in auto-fix. |
 | Product bugs found by generated tests | The pipeline's core value signal — is it catching real bugs?                       |
 | Untested high-risk items              | High-severity risks with no covering TC — the coverage gap to close first.         |
-| Gate 3 / Gate 4 rejection rate        | **Prompt quality signals** (see below). Not tracked per-run yet.                   |
+| Gate 3 / Gate 4 rejection rate        | **Prompt quality signals** (see below). Counted from `context.gate_decisions[]`.   |
 
 **Interpreting gate rejection rates:**
 
@@ -489,9 +489,14 @@ rule).
   spike above it is the cue to revisit the prompt (and, in Phase 3 TG10, to
   run `/evolve`).
 
-(Gate rejection counts are not recorded per-run in the current schema; when
-the review audit-field notes start carrying rejection history, the metrics
-script surfaces them. Today it reports them as "not tracked".)
+Gate rejection counts are now recorded per-run in the optional
+`context.gate_decisions[]` log (an append-only list of approval/rejection
+events; see `docs/review-gates.md`). `npm run metrics` counts the `rejected`
+events for `specs_reviewed` (Gate 3) and `code_reviewed` (Gate 4), and once
+**10+ runs carry the log** it computes the `< 10%` prompt-stability signal
+(`prompt_stability_met`). Until then it reports the counts honestly over the
+subset of runs that have a log, and notes that `0` means "unrecorded", not
+"never happened".
 
 ---
 

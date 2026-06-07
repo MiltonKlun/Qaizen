@@ -77,8 +77,13 @@ const flakyCounts = {}; // PW/REQ id -> flaky count (from failure classification
 let productBugsFound = 0;
 let healerTotal = 0;
 let healerValidated = 0;
-let gate3Rejections = 0; // not tracked per-run today; reported as n/a
+// Gate rejections per run come from context.gate_decisions[] (the optional
+// append-only log). gate3 = specs_reviewed, gate4 = code_reviewed. A run with
+// no gate_decisions contributes nothing (older runs) — we track how many runs
+// actually carry the log so the metric is honest about its sample.
+let gate3Rejections = 0;
 let gate4Rejections = 0;
+let runsWithGateLog = 0;
 const untestedHighRisk = []; // {story, risk_id}
 
 for (const run of runs) {
@@ -137,8 +142,15 @@ for (const run of runs) {
     }
   }
 
-  // gate rejection counts: not recorded per-run in the current schema; the
-  // audit-field notes could carry them in future. Report as not-tracked.
+  // gate rejection counts from the optional gate_decisions[] log.
+  if (Array.isArray(ctx?.gate_decisions)) {
+    runsWithGateLog += 1;
+    for (const d of ctx.gate_decisions) {
+      if (d.decision !== 'rejected') continue;
+      if (d.gate === 'specs_reviewed') gate3Rejections += 1;
+      if (d.gate === 'code_reviewed') gate4Rejections += 1;
+    }
+  }
 }
 
 const avg = (arr) =>
@@ -167,10 +179,27 @@ const metrics = {
     validated: healerValidated,
     success_rate: healerTotal ? healerValidated / healerTotal : null,
   },
-  gate3_rejections: gate3Rejections || 'not_tracked_per_run',
-  gate4_rejections: gate4Rejections || 'not_tracked_per_run',
+  gate_rejections: {
+    runs_with_gate_log: runsWithGateLog,
+    total_runs: totalRuns,
+    gate3_specs_rejections: gate3Rejections,
+    gate4_code_rejections: gate4Rejections,
+    note:
+      runsWithGateLog === 0
+        ? 'No run carries a gate_decisions log yet — counts are 0 because none is recorded, not because none happened. Record gate decisions to make this meaningful.'
+        : `Counted over ${runsWithGateLog}/${totalRuns} run(s) that carry a gate_decisions log.`,
+  },
   untested_high_risk_items: untestedHighRisk,
 };
+
+// Prompt-stability signal (Phase 3 §6: <10% gate rejection over 10 runs).
+// Only meaningful once runs carry gate logs; computed over those that do.
+const gateDecisionRuns = runsWithGateLog;
+const promptStabilityMet =
+  gateDecisionRuns >= 10
+    ? (gate3Rejections + gate4Rejections) / gateDecisionRuns < 0.1
+    : null; // null = not enough logged runs to judge
+metrics.prompt_stability_met = promptStabilityMet;
 
 // ---- markdown ------------------------------------------------------------
 const pct = (r) => (r === null ? 'n/a' : `${Math.round(r * 100)}%`);
@@ -218,9 +247,11 @@ const md = [
   '',
   '## Gate rejections',
   '',
-  '- Gate 3 / Gate 4 rejection counts are not recorded per-run in the current',
-  '  schema (the TG6 wish-list item). When gate audit-field notes start carrying',
-  '  rejection history, surface them here. For now: not tracked.',
+  `- Gate 3 (specs) rejections: ${gate3Rejections} · Gate 4 (code) rejections: ${gate4Rejections}`,
+  `- Counted over ${runsWithGateLog}/${totalRuns} run(s) carrying a gate_decisions log.`,
+  runsWithGateLog === 0
+    ? '- No run records gate_decisions yet — record them (a rejection event when a gate is sent back) to make this real. 0 here means "unrecorded", not "never happened".'
+    : `- Prompt-stability (<10% rejection over 10+ logged runs): ${promptStabilityMet === null ? 'not enough logged runs yet' : promptStabilityMet ? 'MET' : 'NOT met'}.`,
   '',
   '> Metrics guide improvement; they never rewrite prompts or contracts',
   '> automatically. See docs/pipeline-architecture.md "Metrics and Monitoring".',

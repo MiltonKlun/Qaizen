@@ -5,7 +5,9 @@
 > extends `review_gates` from booleans to optional `{ status, reviewer,
 reviewed_at, notes }` objects via `oneOf`. Phase 3 (TG8) adds a
 > `prompt_versions` map tying each agent's run-time version to the
-> `run_id` (see `docs/prompt-versioning.md`). Both later changes are
+> `run_id` (see `docs/prompt-versioning.md`). Continuous-improvement adds
+> an optional append-only `gate_decisions[]` log (per-run gate
+> approvals/rejections; see `docs/review-gates.md`). All later changes are
 > backward-compatible.
 
 `context.json` is the **manifest** of a pipeline run. It sits at the

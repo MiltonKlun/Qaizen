@@ -7,7 +7,9 @@
 > `{ status, reviewer, reviewed_at, notes }` object via `oneOf`; the
 > boolean form remains valid. Phase 2 (TG7) adds the optional
 > `qa_scope_approved` gate that consolidates Gates 1 and 2. Phase 1
-> sticks to the booleans.
+> sticks to the booleans. Continuous-improvement: an optional
+> `context.json.gate_decisions[]` log records each decision event
+> (approval AND rejection), so metrics can count rejections per run.
 
 The pipeline has four hard checkpoints between agents. Each one is a
 **human review**, with explicit criteria. A gate that has not been
@@ -630,6 +632,29 @@ In Phase 1, a rejection is informal: the reviewer says no, the agent
 re-runs the relevant step. From Phase 2 onward, the `reviewer` and
 `notes` audit fields let the team see who rejected what and why,
 without losing it to chat history.
+
+**Recording the decision (continuous improvement).** `review_gates` holds the
+**final state** of each gate; it does not remember that a gate was _rejected
+once and approved later_. To keep that history — so metrics can compute a
+per-run gate-rejection rate (the Phase 3 retro gap) — append an event to the
+optional `context.json.gate_decisions[]` log at each decision:
+
+```jsonc
+"gate_decisions": [
+  { "gate": "specs_reviewed", "decision": "rejected", "decided_at": "2026-06-06T10:00:00Z",
+    "reviewer": "alice@example.com", "notes": "Planner explored the wrong flow; fix the brief." },
+  { "gate": "specs_reviewed", "decision": "approved", "decided_at": "2026-06-06T11:00:00Z",
+    "reviewer": "alice@example.com", "notes": "Re-run after brief fix; scope now matches." }
+]
+```
+
+The log is **append-only** and **optional** — older runs omit it and validate
+fine; the pipeline runs identically without it. `npm run metrics` reads it and,
+once enough runs carry the log, computes the `<10% rejection over 10 runs`
+prompt-stability signal (`docs/pipeline-architecture.md` §8.2). A high Gate 3
+rejection rate points at the Planner/spec prompt; a high Gate 4 rate points at
+the Generator prompt — both are signals to version and re-evaluate that prompt
+(`docs/prompt-versioning.md`), never to weaken the gate.
 
 Rejections at any gate may cascade upstream:
 
