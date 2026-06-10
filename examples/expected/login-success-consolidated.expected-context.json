@@ -47,6 +47,7 @@
       "status": true,
       "reviewer": "alice@example.com",
       "reviewed_at": "2026-06-04T11-05-00Z",
+      "opened_at": "2026-06-04T10-51-00Z",
       "notes": "G1 and G2 consolidated after 12 runs with no requirements/scope discrepancy. Single QA-scope sign-off: AC accurate, risk coverage complete, automation decisions justified."
     },
     "requirements_reviewed": true,

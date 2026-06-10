@@ -66,6 +66,7 @@
     {
       "gate": "specs_reviewed",
       "decision": "rejected",
+      "opened_at": "2026-06-06T13-22-00Z",
       "decided_at": "2026-06-06T13-30-00Z",
       "reviewer": "bob@example.com",
       "notes": "Planner explored the password-reset flow, not the login flow. Fix the planner brief and re-run."
@@ -73,6 +74,7 @@
     {
       "gate": "specs_reviewed",
       "decision": "approved",
+      "opened_at": "2026-06-06T13-44-00Z",
       "decided_at": "2026-06-06T13-50-00Z",
       "reviewer": "bob@example.com",
       "notes": "Re-run after brief fix; spec now matches the approved scope."
