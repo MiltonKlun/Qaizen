@@ -10,7 +10,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync, rmSync, mkdtempSync } from 'node:fs';
+import {
+  readFileSync,
+  writeFileSync,
+  rmSync,
+  mkdtempSync,
+  mkdirSync,
+  copyFileSync,
+  readdirSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -163,4 +171,70 @@ test('session-summary — refuses with no content (exit 2)', () => {
   const r = run(['scripts/session-summary.js']);
   assert.equal(r.code, 2, r.out);
   assert.match(r.out, /Nothing to record/);
+});
+
+// --- thin gated runner: CI safety net (IMPROVEMENT-PLAN IP-2.6) ------------
+// Proves BY CONSTRUCTION that no CI job can ever pass a gate: (a) the runner
+// refuses gate decisions when stdin is not a TTY (and every CI stdin is a
+// pipe), (b) it refuses gate-deciding flags outright, and (c) no workflow
+// invokes the runner at all.
+
+test('run-pipeline — non-TTY gate refusal (no CI job can approve a gate)', () => {
+  // Mini-repo INSIDE the project root so the spawned validator resolves ajv.
+  const dir = mkdtempSync(join(process.cwd(), '.tmp-runner-'));
+  try {
+    mkdirSync(join(dir, 'scripts'), { recursive: true });
+    mkdirSync(join(dir, 'schemas'), { recursive: true });
+    for (const f of [
+      'run-pipeline.js',
+      'pipeline-state.js',
+      'gate-briefs.js',
+      'validate-json.js',
+    ]) {
+      copyFileSync(join('scripts', f), join(dir, 'scripts', f));
+    }
+    copyFileSync(
+      join('schemas', 'context.schema.json'),
+      join(dir, 'schemas', 'context.schema.json')
+    );
+    // A context sitting at Gate 1.
+    writeFileSync(
+      join(dir, 'context.json'),
+      readFileSync(
+        'examples/expected/login-success.expected-context.json',
+        'utf8'
+      ).replace(
+        /"requirements_reviewed": true/,
+        '"requirements_reviewed": false'
+      )
+    );
+    const r = spawnSync('node', ['scripts/run-pipeline.js'], {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    assert.notEqual(r.status, 0, 'gate with piped stdin must exit non-zero');
+    assert.match(
+      (r.stdout || '') + (r.stderr || ''),
+      /GATE PENDING: requirements_reviewed/
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('run-pipeline — gate-deciding flags are refused (exit 2)', () => {
+  const r = run(['scripts/run-pipeline.js', '--approve']);
+  assert.equal(r.code, 2, r.out);
+  assert.match(r.out, /interactive-only/);
+});
+
+test('no CI workflow invokes the pipeline runner', () => {
+  for (const f of readdirSync('.github/workflows')) {
+    const body = readFileSync(join('.github/workflows', f), 'utf8');
+    assert.ok(
+      !/run-pipeline|npm run pipeline\b/.test(body),
+      `${f} must never invoke the runner — gates are human, local, TTY-only`
+    );
+  }
 });
