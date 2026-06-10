@@ -252,7 +252,9 @@ Two cheap habits that keep the system's own feedback loop honest — do them
 right after the run, while it's fresh:
 
 - **Record the gate decisions.** Append each Gate 1–4 approval/rejection to
-  `context.json.gate_decisions[]` (especially a _rejection_ and why). This is
+  `context.json.gate_decisions[]` (especially a _rejection_ and why — and, if
+  you noted when the review started, the optional `opened_at` so gate cost in
+  minutes is measurable; see `docs/review-gates.md` "Gate telemetry"). This is
   what makes the per-run Gate 3/4 rejection metric — and the prompt-stability
   signal — real (`docs/review-gates.md`). `npm run migrate:gate-decisions`
   seeds an empty log if the context lacks one.

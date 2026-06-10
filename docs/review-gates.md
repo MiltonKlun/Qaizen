@@ -91,7 +91,9 @@ following `phase1-foundation-e2e.md` Task Group 13) checks the relevant
 flag before invoking the next agent.
 
 **Phase 2 enhancement (TG6):** any gate's value may also be an object
-`{ status: boolean, reviewer: string, reviewed_at: ISO_DATE, notes: string }`.
+`{ status: boolean, reviewer: string, reviewed_at: ISO_DATE, notes: string }`,
+plus an optional `opened_at: ISO_DATE | null` (gate telemetry — when the
+review _started_; see "Gate telemetry" below).
 The boolean form continues to validate (it's a `oneOf` —
 `gateValue` in `schemas/context.schema.json`). Phase 1 uses booleans
 only; Phase 2 may use either, per gate, in the same file (a context can
@@ -641,12 +643,24 @@ optional `context.json.gate_decisions[]` log at each decision:
 
 ```jsonc
 "gate_decisions": [
-  { "gate": "specs_reviewed", "decision": "rejected", "decided_at": "2026-06-06T10:00:00Z",
+  { "gate": "specs_reviewed", "decision": "rejected",
+    "opened_at": "2026-06-06T09:45:00Z", "decided_at": "2026-06-06T10:00:00Z",
     "reviewer": "alice@example.com", "notes": "Planner explored the wrong flow; fix the brief." },
-  { "gate": "specs_reviewed", "decision": "approved", "decided_at": "2026-06-06T11:00:00Z",
+  { "gate": "specs_reviewed", "decision": "approved",
+    "opened_at": "2026-06-06T10:50:00Z", "decided_at": "2026-06-06T11:00:00Z",
     "reviewer": "alice@example.com", "notes": "Re-run after brief fix; scope now matches." }
 ]
 ```
+
+**Gate telemetry (`opened_at`, optional).** Each decision event — and the
+`gateValue` audit object — may carry an `opened_at` timestamp: the moment the
+gate review **started**, i.e. when the gate brief / artifacts were first
+presented to the reviewer (not when the agent finished producing them). With
+it, gate cost becomes measurable: `decided_at − opened_at` per event
+(`reviewed_at − opened_at` in the audit object). This is the number that turns
+"the gates are worth it" into a measured claim — "the four gates cost a median
+of X minutes per story." Optional and backward-compatible: older runs omit it
+and validate fine; recording `decided_at` without `opened_at` remains valid.
 
 The log is **append-only** and **optional** — older runs omit it and validate
 fine; the pipeline runs identically without it. `npm run metrics` reads it and,

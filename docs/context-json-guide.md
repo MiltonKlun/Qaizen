@@ -7,8 +7,9 @@ reviewed_at, notes }` objects via `oneOf`. Phase 3 (TG8) adds a
 > `prompt_versions` map tying each agent's run-time version to the
 > `run_id` (see `docs/prompt-versioning.md`). Continuous-improvement adds
 > an optional append-only `gate_decisions[]` log (per-run gate
-> approvals/rejections; see `docs/review-gates.md`). All later changes are
-> backward-compatible.
+> approvals/rejections; see `docs/review-gates.md`) and an optional
+> `opened_at` gate-telemetry timestamp on the log events and the gate
+> audit objects. All later changes are backward-compatible.
 
 `context.json` is the **manifest** of a pipeline run. It sits at the
 project root, evolves throughout a single story's pass through the
@@ -290,6 +291,7 @@ Phase 2 (TG6) extended form, backward-compatible via `oneOf`:
     "status": true,
     "reviewer": "alice@example.com",
     "reviewed_at": "2026-05-28T15:01:00Z",
+    "opened_at": "2026-05-28T14:49:00Z",
     "notes": "AC #3 was clarified with PM."
   },
   "test_scope_reviewed": true,
@@ -299,6 +301,15 @@ Phase 2 (TG6) extended form, backward-compatible via `oneOf`:
 ```
 
 The schema accepts either form per field. Phase 1 uses booleans only.
+
+**Gate telemetry (`opened_at`, optional — continuous improvement).** The
+audit object and each `gate_decisions[]` event (see below) accept an
+optional `opened_at` timestamp: when the gate review **started** — the
+moment the gate brief / artifacts were first presented to the reviewer.
+It makes gate cost measurable (`reviewed_at − opened_at` here;
+`decided_at − opened_at` in the log). Semantics and rationale:
+`docs/review-gates.md` ("Gate telemetry"). Backward-compatible: absent on
+older runs, never required.
 
 ### `status`
 
