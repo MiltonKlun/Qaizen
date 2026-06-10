@@ -375,6 +375,13 @@ Las cuatro fases están completas. El sistema ya no avanza por fases; opera en
 
 Para retomar trabajo de funcionalidad sobre una historia nueva, el flujo es el
 de siempre (Analyst → 4 gates → Reporter); ver `docs/phase2-vertical-slice-runbook.md`.
+La forma más cómoda de recorrerlo es el **runner delgado con gates**:
+`npm run pipeline -- --story <archivo|JIRA-KEY>` — secuencia los pasos, se
+detiene en **cada** gate (interactivo, sin flags de aprobación; en CI o con
+stdin no-TTY se niega con `GATE PENDING`), registra cada decisión con
+telemetría (`opened_at`/`decided_at`) y nunca commitea ni escribe en
+Jira/TestLink. Ver `docs/pipeline-runner.md`. La secuencia manual sigue
+siendo válida.
 
 Rechazado permanentemente por diseño: batch agéntico sin gates (contradice el
 principio fundacional human-in-the-loop en Gate 4).

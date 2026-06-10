@@ -37,3 +37,6 @@ metrics/pipeline-metrics.md
 # session-summaries/ ARE versioned (durable human input /evolve reads).
 evolve/evolve-proposal.json
 evolve/evolve-proposal.md
+
+# Throwaway mini-repos created by the runner black-box tests (test/run-pipeline.test.js)
+.tmp-runner-*/

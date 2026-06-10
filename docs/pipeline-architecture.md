@@ -217,6 +217,29 @@ convention + one optional schema field — not trigger automation (this
 pipeline's orchestration is human-driven). See `docs/review-gates.md`
 ("Two entry points") and `phase2.6-enhancements.md` TG2.6-4.
 
+### 4.2 Orchestration convenience — the thin gated runner (continuous improvement)
+
+`npm run pipeline` (`scripts/run-pipeline.js`, IMPROVEMENT-PLAN Phase 2 /
+PFI-2) is the single entry point that sequences the chain above. It is
+**thin by design** — a pure state machine (`scripts/pipeline-state.js`)
+deriving the next step from `context.json`, a one-screen gate-brief
+renderer (`scripts/gate-briefs.js`), and an interactive decision recorder:
+
+- **Guide steps** (analyst, test-designer, planner, api, generator,
+  report): prints the exact agent instruction and exits — it never invokes
+  an LLM.
+- **Gate steps**: halts, renders the brief, records the human decision as
+  a `gateValue` audit object + a `gate_decisions[]` telemetry event
+  (`opened_at`/`decided_at`). **Interactive-only**: no approval flags
+  exist, and a non-TTY stdin gets `GATE PENDING` + non-zero exit — so no
+  CI job or agent can ever pass a gate (asserted by smoke tests).
+- **Exec steps** (execute, classify): runs `npx playwright test` and the
+  rule-based classifier directly — deterministic, no judgment involved.
+
+It never commits, merges, or performs Jira/TestLink writes. Orchestration
+stays human-driven; the runner only removes the clerical "what do I run
+next" lookup. Full doc: `docs/pipeline-runner.md`.
+
 ---
 
 ## 5. API branch — Phase 1.5+
