@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "story_id": "SAMPLE-001",
+  "arm": "pipeline",
+  "recorded_at": "2026-06-11T18:30:00Z",
+  "model": "claude-opus-4-8",
+  "operator": "alice@example.com",
+  "track": "standard",
+  "metrics": {
+    "time_to_first_green_test_min": 14.5,
+    "gate4_corrections": 1,
+    "fictional_test_rate": 0,
+    "selector_survival_rate": 1,
+    "known_bug_catch_rate": 1,
+    "traceability_coverage": 1
+  },
+  "notes": "Illustrative example only (not real benchmark data). Shows the pipeline-arm shape: full traceability, zero fictional assertions (tests were written against the running app per CLAUDE.md §3.8), one Gate-4 correction. A raw-arm record for the same story would typically show traceability_coverage near 0 and is recorded separately (one JSONL line per story x arm). Real records live in evidence/benchmark.jsonl; see docs/benchmark-protocol.md."
+}

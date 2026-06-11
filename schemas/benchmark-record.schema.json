@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ai-qa-pipeline/schemas/benchmark-record.schema.json",
+  "title": "Benchmark Measurement Record",
+  "description": "One measurement of ONE story under ONE arm of the pipeline-vs-raw-prompting benchmark (IMPROVEMENT-PLAN Phase 5, docs/benchmark-protocol.md). Records are appended as JSONL to evidence/benchmark.jsonl by scripts/benchmark-capture.js; each LINE validates against this schema. Arm A = raw prompting; Arm B = the pipeline via the runner. Metrics are defined in the protocol doc; absent metrics are recorded as null (not omitted) so a gap is explicit, never silently a zero.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "story_id", "arm", "recorded_at", "metrics"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+    },
+    "story_id": {
+      "type": "string",
+      "description": "The benchmarked story. Matches the id used in docs/benchmark-protocol.md's selection table; not necessarily a live context.json story.",
+      "minLength": 1
+    },
+    "arm": {
+      "type": "string",
+      "description": "Which arm produced this measurement. 'raw' = a single model prompted directly ('write Playwright tests for this story') with reasonable follow-ups, timeboxed. 'pipeline' = the full gated pipeline via npm run pipeline.",
+      "enum": ["raw", "pipeline"]
+    },
+    "recorded_at": {
+      "type": "string",
+      "description": "ISO 8601 timestamp when this measurement was recorded."
+    },
+    "model": {
+      "type": "string",
+      "description": "Optional. The model id used for this arm, so a later reader can attribute results to a model version."
+    },
+    "operator": {
+      "type": ["string", "null"],
+      "description": "Who ran this arm (the human doing the benchmark). Null if not recorded."
+    },
+    "track": {
+      "type": "string",
+      "description": "Optional. For the pipeline arm, the track the story ran on (lite/standard/full); lets results be sliced by ceremony level.",
+      "enum": ["lite", "standard", "full"]
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The measured outcomes. Every field is nullable: null means 'not measured / not applicable for this arm', which is an HONEST gap — never coerce it to 0. Definitions and formulas live in docs/benchmark-protocol.md.",
+      "required": [
+        "time_to_first_green_test_min",
+        "gate4_corrections",
+        "fictional_test_rate",
+        "selector_survival_rate",
+        "known_bug_catch_rate",
+        "traceability_coverage"
+      ],
+      "properties": {
+        "time_to_first_green_test_min": {
+          "type": ["number", "null"],
+          "description": "Wall-clock minutes from starting the arm to the first test that runs green against the app. Lower is better.",
+          "minimum": 0
+        },
+        "gate4_corrections": {
+          "type": ["integer", "null"],
+          "description": "Pipeline arm: count of Gate-4 corrections before the code was acceptable. Raw arm: corrections-to-acceptable judged against the SAME §4 Gate-4 checklist. Lower is better.",
+          "minimum": 0
+        },
+        "fictional_test_rate": {
+          "type": ["number", "null"],
+          "description": "Fraction (0..1) of assertions about behavior never observed in the running app — the rule-8 signal. Lower is better; the pipeline's no-tests-from-text-alone rule should drive this toward 0.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "selector_survival_rate": {
+          "type": ["number", "null"],
+          "description": "Fraction (0..1) of locators that still resolve after replay against >=2 later app versions (scripts/selector-survival.js). Higher is better. Null when app history is unavailable — record the justification in docs/evidence.md, do not fake a number.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "known_bug_catch_rate": {
+          "type": ["number", "null"],
+          "description": "Fraction (0..1) of the story's known post-ship bugs that this arm's tests would have caught. Higher is better.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "traceability_coverage": {
+          "type": ["number", "null"],
+          "description": "Fraction (0..1) of produced tests that carry a resolvable STORY->RISK->TC->test link. Expected ~0 for the raw arm (it produces no traceability chain) — say so rather than treating it as a defect of the measurement.",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "notes": {
+      "type": ["string", "null"],
+      "description": "Free text: where this arm struggled or surprised, anything the numbers don't capture. Feeds docs/evidence.md, including where raw prompting WON."
+    }
+  }
+}

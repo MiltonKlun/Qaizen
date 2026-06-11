@@ -285,3 +285,57 @@ test('metrics skips DEMO_RUN-sentinel runs (IP-3.3)', () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// --- benchmark evidence tooling (IMPROVEMENT-PLAN Phase 5) -----------------
+
+test('benchmark:capture --dry-run builds a valid record; null for omitted metrics', () => {
+  const r = run([
+    'scripts/benchmark-capture.js',
+    '--story',
+    'SK-1',
+    '--arm',
+    'raw',
+    '--time-to-green',
+    '9',
+    '--dry-run',
+  ]);
+  assert.equal(r.code, 0, r.out);
+  const json = JSON.parse(r.out.split('\n').filter(Boolean).pop());
+  assert.equal(json.arm, 'raw');
+  assert.equal(json.metrics.time_to_first_green_test_min, 9);
+  // Omitted metrics are explicit nulls, never coerced to 0.
+  assert.equal(json.metrics.traceability_coverage, null);
+  assert.equal(json.metrics.fictional_test_rate, null);
+});
+
+test('benchmark:capture rejects an out-of-range metric (exit 1, nothing appended)', () => {
+  const r = run([
+    'scripts/benchmark-capture.js',
+    '--story',
+    'SK-1',
+    '--arm',
+    'raw',
+    '--fictional-rate',
+    '5',
+    '--dry-run',
+  ]);
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /failed schema validation/);
+});
+
+test('benchmark:capture requires --arm (usage error, exit 2)', () => {
+  const r = run(['scripts/benchmark-capture.js', '--story', 'SK-1']);
+  assert.equal(r.code, 2, r.out);
+});
+
+test('selector-survival extracts locators incl. inner quotes; honest no-versions exit', () => {
+  const r = run([
+    'scripts/selector-survival.js',
+    '--tests',
+    'examples/demo-run/tests/demo-login.spec.ts',
+  ]);
+  // Exit 3 = qualitative-only (no app versions) — an honest gap, not failure.
+  assert.equal(r.code, 3, r.out);
+  assert.match(r.out, /\[data-test="username"\]/);
+  assert.match(r.out, /QUALITATIVE ONLY/);
+});
