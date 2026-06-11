@@ -9,7 +9,9 @@ reviewed_at, notes }` objects via `oneOf`. Phase 3 (TG8) adds a
 > an optional append-only `gate_decisions[]` log (per-run gate
 > approvals/rejections; see `docs/review-gates.md`) and an optional
 > `opened_at` gate-telemetry timestamp on the log events and the gate
-> audit objects. All later changes are backward-compatible.
+> audit objects. IMPROVEMENT-PLAN Phase 4 adds an optional `track`
+> (`lite`/`standard`/`full`) and `track_floor` (the lowest track this story
+> may use). All later changes are backward-compatible.
 
 `context.json` is the **manifest** of a pipeline run. It sits at the
 project root, evolves throughout a single story's pass through the
@@ -325,6 +327,40 @@ One of `"draft"` / `"in_progress"` / `"completed"` / `"blocked"`.
 - `"blocked"` — At least one `ambiguities[]` entry has
   `blocking: true`. The agent that detected the blocker sets this
   and stops.
+
+### `track` and `track_floor` (optional — Phase 4, lite track)
+
+`track` declares how much ceremony a story needs: `"lite"`, `"standard"`,
+or `"full"`. **Absent ⇒ `"standard"`** — the historical four-gate default,
+so every pre-Phase-4 file behaves exactly as before (the default is
+documented here, not baked into the schema).
+
+- **`lite`** — routine, low-risk work. Thins **artifacts, never decisions**:
+  schema validation, traceability, and the automation-decision requirement
+  all still apply, and gate decisions are still recorded. Gates 1+2
+  consolidate into a single `review_gates.qa_scope_approved` audit decision;
+  Gates 3 and 4 stay **two distinct recorded decisions**. See
+  `docs/review-gates.md`.
+- **`standard`** — the four gates as always.
+- **`full`** — everything, for the highest-risk features.
+
+`track_floor` is the **lowest** track a story may use, computed by
+`scripts/track-floor.js` from the Healer Red taxonomy
+(`docs/healer-guardrails.md` §4 — business logic, permissions, security,
+pricing, payment, compliance, data integrity) plus size heuristics. It is
+`{ minimum, reasons[] }`. The runner refuses to record a `track` below
+`minimum`. The floor is **conservative by design**: a keyword false positive
+only ever _adds_ ceremony (raises lite→standard), never removes it, so the
+safe failure mode is the default. A `lite` story carries
+`track_floor.minimum: "lite"` with empty `reasons`.
+
+```json
+"track": "lite",
+"track_floor": { "minimum": "lite", "reasons": [] }
+```
+
+See `examples/expected/lite-track.expected-context.json` for a complete lite
+run (consolidated `qa_scope_approved`, the floor at lite).
 
 ---
 

@@ -74,6 +74,8 @@ function makeMiniRepo() {
     'pipeline-state.js',
     'gate-briefs.js',
     'validate-json.js',
+    'track-floor.js',
+    'red-domains.js',
   ]) {
     copyFileSync(join('scripts', f), join(dir, 'scripts', f));
   }
@@ -290,6 +292,75 @@ test('agent step guidance — gate passed leads to the next agent instruction', 
     assert.match(r.out, /TEST DESIGNER/);
     assert.match(r.out, /agents\/test-designer\.md/);
     assert.match(r.out, /--resume/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// --- track floor enforcement (IMPROVEMENT-PLAN Phase 4, IP-4.6) -----------
+
+test('runner REFUSES track:lite when the floor is higher (red domain)', () => {
+  const dir = makeMiniRepo();
+  try {
+    const ctx = freshContext({
+      track: 'lite',
+      story: {
+        id: 'STORY-001',
+        title: 'Process a refund payment to the card on file',
+        source: 'manual',
+        path: 'story.md',
+      },
+    });
+    const before = JSON.stringify(ctx, null, 2);
+    writeFileSync(join(dir, 'context.json'), before);
+
+    const r = runPipeline(dir, []);
+    assert.equal(r.code, 2, r.out);
+    assert.match(r.out, /Refusing track "lite"/);
+    assert.match(r.out, /floor for this story is "standard"/);
+    assert.match(r.out, /red-domain/i);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('runner ALLOWS track:lite for a benign story (reaches the qa_scope gate)', () => {
+  const dir = makeMiniRepo();
+  try {
+    // Benign, routine story: no red keywords, one low AC, no risks.
+    const ctx = freshContext({
+      track: 'lite',
+      story: {
+        id: 'STORY-001',
+        title: 'Footer shows the current year',
+        source: 'manual',
+        path: 'story.md',
+      },
+      acceptance_criteria: ['The footer shows the current four-digit year.'],
+      // cases already written so the next step is the consolidated gate
+      artifact_paths: {
+        test_cases: 'test-cases/STORY-001.json',
+        planner_brief: '',
+        playwright_spec: '',
+        generated_test: '',
+        execution_results: '',
+        html_report: '',
+        traces: '',
+        screenshots: '',
+        failure_analysis: '',
+        release_report_md: '',
+        release_report_json: '',
+        bug_drafts_dir: '',
+      },
+    });
+    writeFileSync(join(dir, 'context.json'), JSON.stringify(ctx, null, 2));
+
+    const r = runPipeline(dir, []);
+    // Not refused (would be exit 2 with "Refusing"); instead it reaches the
+    // consolidated lite gate and halts there because stdin is piped.
+    assert.ok(!/Refusing track/.test(r.out), r.out);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /GATE PENDING: qa_scope_approved/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
