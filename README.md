@@ -201,6 +201,7 @@ Ningún agente o tool escribe fuera de su carpeta sin permiso explícito del pro
 | `examples/expected/` | Human/team | 1 | Expected outputs (validan vs schemas) |
 | `examples/evaluation/` | Human/team | 2 | Evaluation dataset extendido |
 | `examples/demo-run/` | Human/team | IP3 | Fixtures replayed por la demo offline (`npm run demo:pipeline`): story, snapshots, app+config+tests, bug draft, release report |
+| `evidence/` | Human/team (vía `scripts/benchmark-capture.js`) | IP5 | Mediciones del benchmark (`benchmark.jsonl`) detrás de `docs/evidence.md`; ver `docs/benchmark-protocol.md` |
 | `agents/` | Human/team | 1 | Agent prompt files (no generan artefactos acá) |
 | `skills/` | Human/team | 1 | Skills lifecycle adaptados de ai-qa-workflow |
 | `test-cases/` | Test Designer Agent | 1 | Business test cases JSON |
@@ -392,6 +393,14 @@ tocar nada). Reproduce fixtures de `examples/demo-run/` en un workspace
 descartable `runs/DEMO-1/`; los gates siguen siendo interactivos (esa es la
 gracia). La app demo trae un bug plantado contra AC-2 que se convierte en
 `BUG-001`. Ver `docs/pipeline-runner.md` §8.
+
+**¿Vale la pena la ceremonia vs. pedirle a una IA directamente?** Esa es la
+pregunta central del proyecto (`PROJECT-BRIEF.md` §2). El **benchmark** la
+responde con datos medidos —incluyendo dónde gana el prompting crudo—: el
+protocolo y las herramientas están en `docs/benchmark-protocol.md`,
+`scripts/benchmark-capture.js` y `scripts/selector-survival.js`; los resultados
+se escriben en `docs/evidence.md` tras una serie de corridas (lideradas por un
+humano). Hasta entonces el veredicto es, honestamente, "aún no medido".
 
 Rechazado permanentemente por diseño: batch agéntico sin gates (contradice el
 principio fundacional human-in-the-loop en Gate 4).

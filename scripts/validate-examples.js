@@ -16,6 +16,7 @@
 //                                    (Phase 1.5+; skipped if the schema
 //                                    file does not yet exist)
 //   *.expected-spec-review.json      schemas/spec-review.schema.json (Phase 3)
+//   *.expected-benchmark-record.json schemas/benchmark-record.schema.json (Phase 5)
 //
 // Files in examples/expected/ that do not match any pattern are flagged
 // as warnings — not failures — so the team can land a file before
@@ -56,6 +57,10 @@ const PATTERNS = [
   {
     suffix: '.expected-spec-review.json',
     schema: 'schemas/spec-review.schema.json',
+  },
+  {
+    suffix: '.expected-benchmark-record.json',
+    schema: 'schemas/benchmark-record.schema.json',
   },
 ];
 
