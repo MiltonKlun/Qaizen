@@ -22,6 +22,12 @@ runs/**/reports/
 runs/**/traces/
 runs/**/screenshots/
 
+# Demo workspaces (scripts/demo-pipeline.js, IMPROVEMENT-PLAN Phase 3). The
+# demo creates a throwaway, DEMO-sentinel-marked run under runs/DEMO-1/; it is
+# replayed from examples/demo-run/ on every `npm run demo:pipeline` and is
+# never a versioned artifact.
+runs/DEMO-1/
+
 # Healer isolated workspace (Phase 3 TG2). The Healer validates candidate
 # patches in a throwaway copy; the reviewable output is release/healer-patches/
 # + analysis/healer-validation/, which ARE versioned. The workspace is not.

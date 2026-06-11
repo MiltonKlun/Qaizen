@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.0",
+  "run_id": "DEMO-RUN",
+  "story_id": "DEMO-1",
+  "report_date": "2026-06-10T12:30:00Z",
+  "summary": "DEMO-1 login slice. The happy path (TC-001) passes. TC-002 found a real product bug: the invalid-password error shows \"Wrong password!\" instead of the agreed \"Invalid credentials\" (RISK-002, high) — BUG-001 drafted. RISK-003 (logout clears the session) has no test case in this run and is surfaced as uncovered. Recommendation: fail — a high-severity risk has a confirmed product bug.",
+  "coverage_by_risk": [
+    {
+      "risk_id": "RISK-001",
+      "covered_by_tcs": ["TC-001"],
+      "status": "covered_passing"
+    },
+    {
+      "risk_id": "RISK-002",
+      "covered_by_tcs": ["TC-002"],
+      "status": "covered_failing"
+    },
+    {
+      "risk_id": "RISK-003",
+      "covered_by_tcs": [],
+      "status": "uncovered"
+    }
+  ],
+  "execution_summary": {
+    "total": 2,
+    "passed": 1,
+    "failed": 1,
+    "skipped": 0,
+    "pass_rate": 0.5
+  },
+  "uncovered_risks": ["RISK-003"],
+  "uncovered_high_severity_count": 0,
+  "blocking_failures": ["FAIL-001"],
+  "non_blocking_failures": [],
+  "release_recommendation": "fail",
+  "release_recommendation_reasoning": "TC-002 confirmed a product bug on a high-severity risk (RISK-002): the invalid-password error copy is wrong (\"Wrong password!\" vs the agreed \"Invalid credentials\"). A confirmed product bug on a high-severity risk is release-blocking, so this is a fail, not a conditional_pass. Separately, RISK-003 (logout clears the session) is uncovered (medium) and should get a test case, but the blocking reason is the confirmed bug. Fix BUG-001 (correct the error copy), re-run, and re-evaluate.",
+  "bug_drafts": [
+    {
+      "bug_id": "BUG-001",
+      "severity": "red",
+      "path": "release/bug-drafts/BUG-001.md"
+    }
+  ],
+  "evidence_paths": [
+    "reports/results.json",
+    "reports/html",
+    "analysis/failure-analysis.json"
+  ],
+  "open_questions": [
+    "RISK-003 (logout) is uncovered (medium) — add a test case or formally accept the risk.",
+    "Is \"Invalid credentials\" the final, localized copy, or a placeholder? (Recorded as a non-blocking ambiguity at Gate 1.)"
+  ],
+  "status": "draft"
+}

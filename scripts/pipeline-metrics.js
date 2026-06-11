@@ -65,6 +65,10 @@ for (const story of readdirSync(RUNS)) {
       !existsSync(join(base, 'context.json'))
     )
       continue;
+    // Skip demo runs (scripts/demo-pipeline.js). A DEMO_RUN sentinel file in
+    // the run folder marks a replayed demo — it must never count toward
+    // pass rate, gate-cost, or the prompt_stability threshold (IP-3.3).
+    if (existsSync(join(base, 'DEMO_RUN'))) continue;
     runs.push({ story, runId, base });
   }
 }

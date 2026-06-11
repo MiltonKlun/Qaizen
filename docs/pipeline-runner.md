@@ -128,12 +128,58 @@ file behind it still routes to `execute`). Facts outside the manifest — the
 passed to the pure state machine as hints, so the module stays I/O-free and
 unit-testable.
 
-## 7. References
+## 7. The ten-minute offline demo (`npm run demo:pipeline`)
+
+`scripts/demo-pipeline.js` (IMPROVEMENT-PLAN Phase 3) drives this same runner
+through a complete story so a skeptic can experience all four gates end to
+end in under ten minutes — **fully offline** (no Jira, no MCPs, no network).
+
+```bash
+npm run demo:pipeline             # the full interactive demo
+npm run demo:pipeline -- --dry-run  # list the stages; touch nothing
+```
+
+What it does:
+
+- Creates a throwaway workspace `runs/DEMO-1/<run-id>/` with a `DEMO_RUN`
+  sentinel file. `npm run metrics` skips any run carrying that sentinel, so a
+  demo never pollutes the real pass-rate / gate-cost / prompt-stability
+  numbers (asserted by a smoke test).
+- Serves a tiny static app (`examples/demo-run/app/`) from a **separate
+  process** on an ephemeral port (it must be separate — the driver advances
+  the runner with synchronous `spawnSync`, which would block an in-process
+  server while Playwright runs).
+- Replays prefilled fixtures from `examples/demo-run/` for the agent stages
+  (analyst, test-designer, planner, generator, reporter) — **nothing is
+  generated**, so the "don't write tests from text alone" rule (`CLAUDE.md`
+  §3.8) is not in play; the demo specs were authored against the real app.
+- Runs the **real** execute + classify stages: Playwright actually runs (via
+  the in-place `examples/demo-run/playwright.demo.config.ts`, whose `testDir`
+  is pinned to the fixtures so demo specs never enter the repo-root `tests/`
+  owned by the Generator), and the rule-based classifier actually classifies.
+- The demo app has a **planted bug** against AC-2 (it shows "Wrong password!"
+  instead of the agreed "Invalid credentials"). The honest test asserts the
+  agreed copy, fails, and becomes `FAIL-001 → product_bug (red) → BUG-001
+draft → a "fail" release report` — the full traceability chain, lived.
+
+The four gates stay **interactive** — experiencing them is the entire point.
+A rejected gate stops the demo (correctly), leaving the workspace for
+inspection.
+
+> **Why Playwright runs with `cwd` = repo root.** Playwright resolves
+> `@playwright/test` from its working directory upward, so it must run where
+> `node_modules` lives. The runner honors two env vars for this:
+> `PIPELINE_PW_CONFIG` (point at a non-root config) and `PIPELINE_REPORT_DIR`
+> (where the demo config writes its report, i.e. back into the workspace the
+> classifier then reads). Both are absent in a normal run.
+
+## 8. References
 
 - `scripts/pipeline-state.js` — the pure state machine (IP-2.1).
 - `scripts/gate-briefs.js` — checklist data + brief renderer (IP-2.2).
 - `scripts/run-pipeline.js` — the CLI (IP-2.3).
+- `scripts/demo-pipeline.js` + `examples/demo-run/` — the offline demo (IP-3).
 - `docs/review-gates.md` — gate criteria, telemetry, rejection flow.
 - `docs/phase2-vertical-slice-runbook.md` — the manual sequence the runner
   automates the clerical parts of.
-- `IMPROVEMENT-PLAN.md` Phase 2 — the design constraints this implements.
+- `IMPROVEMENT-PLAN.md` Phases 2–3 — the design constraints this implements.

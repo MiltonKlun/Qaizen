@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>DemoShop</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 28rem;
+        margin: 4rem auto;
+      }
+      .error {
+        color: #b00020;
+        font-weight: 600;
+      }
+      li {
+        margin: 0.25rem 0;
+      }
+      button {
+        padding: 0.4rem 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <section id="login-form">
+      <h1>DemoShop — Sign in</h1>
+      <label>Username <input id="user-name" data-test="username" /></label
+      ><br /><br />
+      <label
+        >Password
+        <input id="password" data-test="password" type="password" /></label
+      ><br /><br />
+      <button id="login-button" data-test="login-button">Login</button>
+      <p id="error" data-test="error" class="error" hidden></p>
+    </section>
+
+    <section id="inventory" hidden>
+      <h1 data-test="title">Products</h1>
+      <ul data-test="inventory-list">
+        <li data-test="item">Sauce Labs Backpack — $29.99</li>
+        <li data-test="item">Demo Bike Light — $9.99</li>
+        <li data-test="item">Demo T-Shirt — $15.99</li>
+      </ul>
+      <button id="logout-button" data-test="logout-button">Logout</button>
+    </section>
+
+    <script>
+      // Fully client-side demo app. Deterministic, offline.
+      // PLANTED BUG (violates AC-2 of DEMO-1): the error copy below says
+      // "Wrong password!" but the agreed copy is "Invalid credentials".
+      // tests/demo-broken.spec.ts asserts the agreed copy and fails — that
+      // failure feeds the classifier (product_bug, red) -> BUG-001 draft.
+      const login = document.getElementById('login-form');
+      const inventory = document.getElementById('inventory');
+      const error = document.getElementById('error');
+      document.getElementById('login-button').addEventListener('click', () => {
+        const u = document.getElementById('user-name').value;
+        const p = document.getElementById('password').value;
+        if (u === 'demo' && p === 'demo123') {
+          login.hidden = true;
+          inventory.hidden = false;
+          sessionStorage.setItem('demo-session', '1');
+        } else {
+          error.textContent = 'Wrong password!';
+          error.hidden = false;
+        }
+      });
+      document.getElementById('logout-button').addEventListener('click', () => {
+        sessionStorage.removeItem('demo-session');
+        inventory.hidden = true;
+        login.hidden = false;
+        error.hidden = true;
+      });
+    </script>
+  </body>
+</html>
