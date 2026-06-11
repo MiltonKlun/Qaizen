@@ -46,6 +46,7 @@ import {
   GATE_KEYS,
 } from './pipeline-state.js';
 import { GATE_BRIEFS, renderGateBrief } from './gate-briefs.js';
+import { trackAllowed } from './track-floor.js';
 
 // Sibling scripts / schemas resolve against THIS file's location, not the
 // CWD — so the runner works when driven from an isolated run workspace
@@ -161,6 +162,21 @@ export function applyGateDecision(
     opened_at: openedAt,
     notes: notes || null,
   };
+  // The lite consolidated gate (qa_scope_approved) ALSO sets the two
+  // underlying gates so a tool that only knows the four-gate model still
+  // sees Gates 1+2 as passed (docs/review-gates.md "How to consolidate").
+  // Only on approval — a rejection leaves them untouched.
+  if (gateKey === 'qa_scope_approved' && approved) {
+    for (const k of ['requirements_reviewed', 'test_scope_reviewed']) {
+      context.review_gates[k] = {
+        status: true,
+        reviewer: reviewer || null,
+        reviewed_at: decidedAt,
+        opened_at: openedAt,
+        notes: `Consolidated via qa_scope_approved (lite track).`,
+      };
+    }
+  }
   if (!Array.isArray(context.gate_decisions)) context.gate_decisions = [];
   context.gate_decisions.push({
     gate: gateKey,
@@ -186,6 +202,8 @@ const REDO_AFTER_REJECT = {
   gate1: 'Re-run agents/analyst.md with the correction notes, then --resume.',
   gate2:
     'Re-run agents/test-designer.md (fix the named TCs / the planner brief), then --resume.',
+  qa_scope:
+    'Lite consolidated gate: re-run agents/analyst.md and/or agents/test-designer.md per the notes, then --resume. (Or raise the track to standard if the story is not routine.)',
   gate3:
     'Fix planner-input/<story>.planner-brief.md and re-run the Playwright Planner, then --resume.',
   gate4:
@@ -456,6 +474,28 @@ async function main() {
       'Resolve with the human, update context.json, then --resume.'
     );
     exit(1);
+  }
+
+  // Track-floor enforcement (Phase 4, lite track). A story may not run `lite`
+  // when its floor is higher: Red-taxonomy exposure or size pushes it to
+  // standard (scripts/track-floor.js, docs/healer-guardrails.md §4). The floor
+  // is computed live and is read-only here — the runner never rewrites
+  // context.json just to advance, preserving the "a refusal writes nothing"
+  // guarantee. The analyst records track_floor in the manifest (IP-4.5).
+  if (context && context.track === 'lite') {
+    const { allowed, minimum, reasons } = trackAllowed(context, 'lite');
+    if (!allowed) {
+      console.error(
+        `Refusing track "lite": the floor for this story is "${minimum}".`
+      );
+      console.error('Reasons the floor is higher than lite:');
+      for (const r of reasons) console.error(`  - ${r}`);
+      console.error(
+        'High-consequence or non-routine stories keep the four gates. Set\n' +
+          '`track` to "standard" (or remove it) in context.json, then --resume.'
+      );
+      exit(2);
+    }
   }
 
   // Advance: exec steps run and continue; gates are decided interactively

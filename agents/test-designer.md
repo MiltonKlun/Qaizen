@@ -10,9 +10,14 @@ description: |
   becomes enforceable in code.
 phase_introduced: 1
 phase_active: 1+
-version: 1.2.0
+version: 1.3.0
 changed_in_run: null
 changelog: |
+  - 1.3.0: Added the lite output profile (IMPROVEMENT-PLAN Phase 4, lite
+    track): on context.track == "lite", trim narrative prose but keep every
+    required field — automation_decision + reason, schema validation, and
+    traceability are unconditional in every track. Absent/other track ⇒
+    unchanged. Additive, backward-compatible.
   - 1.2.0: Note that "smoke / regression critical" criticality feeds the
     @smoke / @regression test tag (docs/test-tagging.md). Additive.
   - 1.1.0: Added the "Loads only" token-efficient context declaration
@@ -109,6 +114,27 @@ After both files exist and the JSON validates, the agent updates
 `context.json.artifact_paths.test_cases` and
 `context.json.artifact_paths.planner_brief` to the relative paths,
 then re-validates `context.json`.
+
+### Lite output profile (Phase 4, when `context.track == "lite"`)
+
+When the run is on the `lite` track (`docs/context-json-guide.md`), the Test
+Designer produces a **trimmed** version of the same two outputs — less prose,
+identical rigor:
+
+- Keep every **required** `test-cases` field, unchanged: `test_case_id`,
+  `risk_ids`, `acceptance_criteria_refs`, `priority`, `steps`,
+  `expected_results`, `status`, and crucially **`automation_decision` +
+  `automation_decision_reason`** — the decision and a _real_ reason are
+  mandatory in every track (`docs/automation-decision-model.md`). Lite never
+  drops them.
+- Trim narrative prose: shorter `description`s, a tighter planner brief
+  (the brief's required sections still all appear, just terser). Do not
+  invent extra cases to look thorough; lite is for genuinely small stories.
+- The gate path differs (Gates 1+2 are one `qa_scope_approved` decision; see
+  `docs/review-gates.md`) but the Test Designer's contract does not: schema
+  validation and traceability are unconditional.
+
+Absent `track`, or `track` other than `lite`, behave exactly as before.
 
 ---
 

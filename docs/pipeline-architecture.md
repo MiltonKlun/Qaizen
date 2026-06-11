@@ -240,6 +240,29 @@ It never commits, merges, or performs Jira/TestLink writes. Orchestration
 stays human-driven; the runner only removes the clerical "what do I run
 next" lookup. Full doc: `docs/pipeline-runner.md`.
 
+### 4.3 Track-aware ceremony — lite / standard / full (Phase 4, PFI-1)
+
+`context.track` lets a story declare how much ceremony it needs, so a routine
+change isn't forced through the full machinery (`docs/context-json-guide.md`).
+The state machine is **track-aware**:
+
+- **`standard`** (the default; absent ⇒ standard) and **`full`** run the four
+  gates in the chain above — Gate 1 → Gate 2 → Gate 3 → Gate 4.
+- **`lite`** consolidates Gates 1+2 into a single `qa_scope_approved` decision,
+  then runs Gate 3 and Gate 4 as usual:
+  `analyst → qa_scope_approved → planner/api → gate3 → generator → gate4 →
+execute → classify → report`. Gates 3 and 4 are still **separate recorded
+  decisions** (`docs/review-gates.md`).
+
+Lite is **constrained, not free**: `scripts/track-floor.js` computes a
+`track_floor` from the Healer Red taxonomy (`docs/healer-guardrails.md` §4)
+plus size heuristics, and the runner **refuses** to record `track: lite` when
+the floor is higher — high-consequence stories (business logic, permissions,
+security, pricing, payment, compliance, data integrity) always get the four
+gates. The floor only ever adds ceremony, never removes it. Lite thins
+**artifacts, not decisions**: schema validation, traceability, and the
+automation-decision requirement hold in every track.
+
 ---
 
 ## 5. API branch — Phase 1.5+

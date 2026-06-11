@@ -154,6 +154,28 @@
         "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
       }
     },
+    "track": {
+      "type": "string",
+      "description": "OPTIONAL (IMPROVEMENT-PLAN Phase 4, lite track / PFI-1). How much ceremony this story needs. ABSENT => 'standard' (the four gates; the historical default — documented here, NOT schema-defaulted, so existing files behave unchanged). 'lite' thins ARTIFACTS, never decisions: schema validation, traceability, the automation-decision requirement, and auditable gate records all survive; Gates 1+2 consolidate via review_gates.qa_scope_approved while Gates 3 and 4 stay two distinct recorded decisions. 'full' is everything (highest-risk features). A story may NOT declare 'lite' below its track_floor.minimum (scripts/track-floor.js); see docs/review-gates.md and docs/pipeline-architecture.md.",
+      "enum": ["lite", "standard", "full"]
+    },
+    "track_floor": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "OPTIONAL (Phase 4). The LOWEST track this story is allowed to use, computed by scripts/track-floor.js from the Red-taxonomy domains (docs/healer-guardrails.md §4) plus size heuristics. The runner refuses to record a `track` below `minimum`. Advisory metadata: absent on older runs and on runs that never considered lite.",
+      "required": ["minimum", "reasons"],
+      "properties": {
+        "minimum": {
+          "type": "string",
+          "enum": ["lite", "standard", "full"]
+        },
+        "reasons": {
+          "type": "array",
+          "description": "Why the floor is what it is (e.g. 'red-domain: Payment flow', '6 acceptance criteria (> 4)'). Empty when the floor is 'lite' (nothing raised it).",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "artifact_paths": {
       "type": "object",
       "additionalProperties": false,

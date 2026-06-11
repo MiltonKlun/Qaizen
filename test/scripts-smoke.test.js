@@ -190,6 +190,8 @@ test('run-pipeline — non-TTY gate refusal (no CI job can approve a gate)', () 
       'pipeline-state.js',
       'gate-briefs.js',
       'validate-json.js',
+      'track-floor.js',
+      'red-domains.js',
     ]) {
       copyFileSync(join('scripts', f), join(dir, 'scripts', f));
     }

@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-11T09-00-00Z-liteex",
+  "story": {
+    "id": "STORY-010",
+    "title": "Inventory page footer shows the current year",
+    "source": "manual",
+    "path": "story.md",
+    "description": "A small, routine UI tweak: the footer on the inventory page should display the current calendar year next to the company name. A textbook lite-track story — a cosmetic, low-risk display change."
+  },
+  "track": "lite",
+  "track_floor": {
+    "minimum": "lite",
+    "reasons": []
+  },
+  "acceptance_criteria": [
+    "The inventory page footer shows the current four-digit year.",
+    "The year updates automatically when the calendar year changes (no code edit needed)."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "A stale or wrong year makes the site look unmaintained.",
+      "severity": "low",
+      "related_acs": [0, 1]
+    }
+  ],
+  "artifact_paths": {
+    "test_cases": "test-cases/STORY-010.json",
+    "planner_brief": "planner-input/STORY-010.planner-brief.md",
+    "playwright_spec": "",
+    "generated_test": "",
+    "execution_results": "",
+    "html_report": "",
+    "traces": "",
+    "screenshots": "",
+    "failure_analysis": "",
+    "release_report_md": "",
+    "release_report_json": "",
+    "bug_drafts_dir": "release/bug-drafts"
+  },
+  "review_gates": {
+    "qa_scope_approved": {
+      "status": true,
+      "reviewer": "alice@example.com",
+      "reviewed_at": "2026-06-11T09-12-00Z",
+      "opened_at": "2026-06-11T09-08-00Z",
+      "notes": "Lite track: Gates 1+2 consolidated. AC accurate, the single low risk is covered, the one test case is a justified automate_e2e smoke check. No red-domain exposure; track_floor is lite."
+    },
+    "requirements_reviewed": true,
+    "test_scope_reviewed": true,
+    "specs_reviewed": false,
+    "code_reviewed": false
+  },
+  "gate_decisions": [
+    {
+      "gate": "qa_scope_approved",
+      "decision": "approved",
+      "opened_at": "2026-06-11T09-08-00Z",
+      "decided_at": "2026-06-11T09-12-00Z",
+      "reviewer": "alice@example.com",
+      "notes": "Lite consolidation of Gates 1 and 2 in one sitting; Gates 3 and 4 will still be recorded separately."
+    }
+  ],
+  "status": "in_progress"
+}
