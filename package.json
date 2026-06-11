@@ -36,6 +36,8 @@
     "demo:healer": "node scripts/demo-healer-green-red.js",
     "demo:pipeline": "node scripts/demo-pipeline.js",
     "metrics": "node scripts/pipeline-metrics.js",
+    "benchmark:capture": "node scripts/benchmark-capture.js",
+    "benchmark:survival": "node scripts/selector-survival.js",
     "evolve": "node scripts/evolve.js",
     "session-summary": "node scripts/session-summary.js"
   },
