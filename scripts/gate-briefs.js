@@ -50,6 +50,24 @@ export const GATE_BRIEFS = {
       'Are the manual/skip calls genuinely low-value, or convenient?',
     ],
   },
+  qa_scope: {
+    name: 'QA Scope — Gates 1+2 consolidated (lite track)',
+    artifacts: (ctx) => [
+      'context.json',
+      ctx?.artifact_paths?.test_cases,
+      ctx?.artifact_paths?.planner_brief,
+    ],
+    checklist: [
+      'Requirements (Gate 1): ACs match the story, ambiguities explicit, risks meaningful, no invented rules',
+      'Scope (Gate 2): every RISK-XXX covered or justified; automation_decision + a real reason on every TC',
+      'Lite is justified: this story carries no Red-taxonomy exposure and is genuinely routine (track_floor.minimum is lite)',
+      'Not E2E-heavy; low-value cases marked manual/skip with a real reason',
+    ],
+    judgment: [
+      'Are the requirements AND the scope both right — would you sign off on both in one sitting here?',
+      'Is lite genuinely appropriate, or is something here consequential enough to deserve the full four gates?',
+    ],
+  },
   gate3: {
     name: 'Gate 3 — Specs Review',
     artifacts: (ctx) => [

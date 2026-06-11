@@ -19,10 +19,12 @@ function ctx({
   paths = {},
   status = 'draft',
   ambiguities = [],
+  track = undefined,
 } = {}) {
   return {
     schema_version: '1.0',
     run_id: 'test-run',
+    ...(track ? { track } : {}),
     story: { id: 'STORY-001', title: 't', source: 'manual', path: 'story.md' },
     acceptance_criteria: ['AC'],
     ambiguities,
@@ -270,11 +272,78 @@ test('blockingAmbiguities — only blocking ones halt', () => {
   );
 });
 
-test('GATE_KEYS maps the four runner gates to review_gates keys', () => {
+test('GATE_KEYS maps the runner gates to review_gates keys (incl. lite qa_scope)', () => {
   assert.deepEqual(GATE_KEYS, {
     gate1: 'requirements_reviewed',
     gate2: 'test_scope_reviewed',
+    qa_scope: 'qa_scope_approved',
     gate3: 'specs_reviewed',
     gate4: 'code_reviewed',
   });
+});
+
+test('lite track — sequencing uses one consolidated qa_scope gate (Phase 4)', () => {
+  const cases = [
+    [
+      'lite, fresh: analyst first (no qa_scope before cases exist)',
+      ctx({ track: 'lite' }),
+      {},
+      'test-designer',
+    ],
+    [
+      'lite, cases written, scope not yet approved -> qa_scope (not gate1/gate2)',
+      ctx({ track: 'lite', paths: { test_cases: ALL_PATHS.test_cases } }),
+      {},
+      'qa_scope',
+    ],
+    [
+      'lite, qa_scope approved -> planner (Gates 1+2 satisfied by consolidation)',
+      ctx({
+        track: 'lite',
+        gates: { qa_scope_approved: true },
+        paths: { test_cases: ALL_PATHS.test_cases },
+      }),
+      {},
+      'planner',
+    ],
+    [
+      'lite, spec written -> gate3 stays a separate gate even in lite',
+      ctx({
+        track: 'lite',
+        gates: { qa_scope_approved: true },
+        paths: {
+          test_cases: ALL_PATHS.test_cases,
+          playwright_spec: ALL_PATHS.playwright_spec,
+        },
+      }),
+      {},
+      'gate3',
+    ],
+    [
+      'lite, through gate3, code written -> gate4 stays separate too',
+      ctx({
+        track: 'lite',
+        gates: { qa_scope_approved: true, specs_reviewed: true },
+        paths: {
+          test_cases: ALL_PATHS.test_cases,
+          playwright_spec: ALL_PATHS.playwright_spec,
+          generated_test: ALL_PATHS.generated_test,
+        },
+      }),
+      {},
+      'gate4',
+    ],
+    [
+      'a passed qa_scope makes a standard-track run follow the lite path too',
+      ctx({
+        gates: { qa_scope_approved: true },
+        paths: { test_cases: ALL_PATHS.test_cases },
+      }),
+      {},
+      'planner',
+    ],
+  ];
+  for (const [name, context, hints, expected] of cases) {
+    assert.equal(nextStep(context, hints), expected, `case: ${name}`);
+  }
 });
