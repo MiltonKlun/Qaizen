@@ -200,6 +200,7 @@ Ningún agente o tool escribe fuera de su carpeta sin permiso explícito del pro
 | `examples/stories/` | Human/team | 1 | Story examples para evaluation |
 | `examples/expected/` | Human/team | 1 | Expected outputs (validan vs schemas) |
 | `examples/evaluation/` | Human/team | 2 | Evaluation dataset extendido |
+| `examples/demo-run/` | Human/team | IP3 | Fixtures replayed por la demo offline (`npm run demo:pipeline`): story, snapshots, app+config+tests, bug draft, release report |
 | `agents/` | Human/team | 1 | Agent prompt files (no generan artefactos acá) |
 | `skills/` | Human/team | 1 | Skills lifecycle adaptados de ai-qa-workflow |
 | `test-cases/` | Test Designer Agent | 1 | Business test cases JSON |
@@ -382,6 +383,15 @@ stdin no-TTY se niega con `GATE PENDING`), registra cada decisión con
 telemetría (`opened_at`/`decided_at`) y nunca commitea ni escribe en
 Jira/TestLink. Ver `docs/pipeline-runner.md`. La secuencia manual sigue
 siendo válida.
+
+**Demo de 10 minutos (offline).** Para ver el pipeline completo —los cuatro
+gates, una corrida real de Playwright, y la cadena
+`FAIL → clasificación → bug draft → release report`— sin Jira, sin MCPs y sin
+red: `npm run demo:pipeline` (o `-- --dry-run` para listar las etapas sin
+tocar nada). Reproduce fixtures de `examples/demo-run/` en un workspace
+descartable `runs/DEMO-1/`; los gates siguen siendo interactivos (esa es la
+gracia). La app demo trae un bug plantado contra AC-2 que se convierte en
+`BUG-001`. Ver `docs/pipeline-runner.md` §8.
 
 Rechazado permanentemente por diseño: batch agéntico sin gates (contradice el
 principio fundacional human-in-the-loop en Gate 4).
