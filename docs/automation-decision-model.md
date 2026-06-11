@@ -21,6 +21,12 @@ enforced at three places:
 - `docs/review-gates.md` Gate 2 rejects E2E-heavy lists and generic
   reasons.
 
+The model is **track-independent**: `automation_decision` and a real
+`automation_decision_reason` are mandatory on every test case in **every**
+track, including `lite` (`docs/context-json-guide.md`). Lite trims narrative
+_prose_, never this decision — choosing the right test level is a judgment
+lite must still make.
+
 ---
 
 ## 1. The five decisions

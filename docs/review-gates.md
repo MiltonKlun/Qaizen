@@ -151,7 +151,35 @@ QA-scope sign-off in place of the two separate ones.
 (boolean `true`, or `{ status, reviewer, reviewed_at, notes }`), and is
 _passed_ by the same rule (boolean `true` or object `status: true`).
 
-### When it's worth consolidating
+### The lite track uses this consolidation (Phase 4)
+
+The `lite` track (`context.track == "lite"`; `docs/context-json-guide.md`,
+`docs/pipeline-architecture.md`) is the standing case for consolidation. A
+lite run's gate path is:
+
+```
+Analyst → qa_scope_approved (Gates 1+2 in one decision) → Planner/API
+        → Gate 3 (specs_reviewed) → Generator → Gate 4 (code_reviewed) → ...
+```
+
+Two rules make this a thinning of _ceremony_, never of _review_:
+
+- **Gates 3 and 4 stay two distinct recorded decisions even in lite.** A
+  reviewer may look at the spec and the code in one sitting, but they record
+  `specs_reviewed` and `code_reviewed` separately (two `gate_decisions[]`
+  events). Gate 4 is permanently its own human gate in every track.
+- **Lite is gated by the track floor.** A story may only run lite if
+  `track_floor.minimum` is `lite` — `scripts/track-floor.js` raises the floor
+  to `standard` whenever the story touches a Red-taxonomy domain
+  (`docs/healer-guardrails.md` §4) or is too large to be routine. So a
+  consolidated lite sign-off can never apply to high-consequence behavior;
+  those stories keep the four separate gates.
+
+Unlike the team-wide opt-in below, lite consolidation is a **per-story**
+choice the analyst proposes and the floor constrains — the two mechanisms
+share the same `qa_scope_approved` field but answer different questions.
+
+### When it's worth consolidating (team-wide, all tracks)
 
 - [ ] **10+ runs** have gone through Gates 1 and 2 with **no
       discrepancy** — there was never a run where one passed and the

@@ -9,9 +9,13 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 1.1.0
+version: 1.2.0
 changed_in_run: null
 changelog: |
+  - 1.2.0: Added the optional `track` proposal + `track_floor` (IMPROVEMENT-PLAN
+    Phase 4, lite track). The Analyst may propose lite/standard/full and never
+    below the Red-taxonomy + size floor; omitting track ⇒ standard (unchanged
+    behavior). Additive, backward-compatible — no change to any existing field.
   - 1.1.0: Added the "Loads only" token-efficient context declaration
     (Phase 3 TG7) — names exactly what the agent loads; large source is
     summarized, never pasted. Additive, no output-shape change.
@@ -146,6 +150,26 @@ The Analyst writes the file in `status: "draft"` with all four
 `review_gates.*` booleans set to `false`. The human flips
 `requirements_reviewed` to `true` (or to the audit-field object form
 in Phase 2+) at Gate 1.
+
+### Track proposal (optional — Phase 4, lite track)
+
+The Analyst MAY propose a `track` (`lite` / `standard` / `full`) and SHOULD
+record the `track_floor` it implies (`docs/context-json-guide.md`):
+
+- Compute the floor the way `scripts/track-floor.js` does: if the story,
+  any AC, or any risk touches a Red-taxonomy domain
+  (`docs/healer-guardrails.md` §4 — business logic, permissions, security,
+  pricing, payment, compliance, data integrity), or there are many ACs/risks,
+  or any risk is high-severity, the floor is `standard`; otherwise `lite`.
+- **Never propose a `track` below the floor.** A high-consequence story is
+  never `lite`. When unsure, omit `track` (⇒ `standard`) — the safe default.
+- Propose `lite` only for genuinely routine, low-risk work (a cosmetic UI
+  change, a copy tweak). The reduced ceremony thins prose, never decisions:
+  the Test Designer still classifies every case and gives a real reason.
+- The runner enforces the floor and will refuse a `lite` below it; proposing
+  it correctly here just saves a round trip.
+
+When `track` is omitted the pipeline behaves exactly as before (standard).
 
 ---
 
