@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0",
+  "run_id": "DEMO-RUN",
+  "story": {
+    "id": "DEMO-1",
+    "title": "User can log in and see the product inventory",
+    "source": "manual",
+    "path": "story.md",
+    "description": "Demo fixture story (examples/demo-run/). A returning customer logs in to see the inventory. The demo app plants one bug against AC-2 (wrong error copy) so the full FAIL -> classify -> bug-draft -> report chain is experienced."
+  },
+  "acceptance_criteria": [
+    "Given valid credentials (demo / demo123), when the user submits the login form, then they see the inventory page with the heading \"Products\" and at least one product listed.",
+    "Given an invalid password, when the user submits the login form, then they remain on the login form and see the error message exactly \"Invalid credentials\", and no session is created.",
+    "Given a logged-in user, when they press Logout, then they return to the login form and the session is cleared."
+  ],
+  "ambiguities": [
+    {
+      "description": "The story does not say whether the error copy is localized; the demo assumes the exact English string \"Invalid credentials\".",
+      "blocking": false
+    }
+  ],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "A broken login flow blocks every shopping journey (total loss of funnel entry).",
+      "severity": "medium",
+      "related_acs": [0]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "Wrong or missing invalid-login feedback misleads users and support; a partial session after a failed login would be a security exposure.",
+      "severity": "high",
+      "related_acs": [1]
+    },
+    {
+      "risk_id": "RISK-003",
+      "description": "Logout failing to clear the session leaves the account usable on shared devices.",
+      "severity": "medium",
+      "related_acs": [2]
+    }
+  ],
+  "artifact_paths": {
+    "test_cases": "",
+    "planner_brief": "",
+    "playwright_spec": "",
+    "generated_test": "",
+    "execution_results": "",
+    "html_report": "",
+    "traces": "",
+    "screenshots": "",
+    "failure_analysis": "",
+    "release_report_md": "",
+    "release_report_json": "",
+    "bug_drafts_dir": ""
+  },
+  "review_gates": {
+    "requirements_reviewed": false,
+    "test_scope_reviewed": false,
+    "specs_reviewed": false,
+    "code_reviewed": false
+  },
+  "status": "draft"
+}

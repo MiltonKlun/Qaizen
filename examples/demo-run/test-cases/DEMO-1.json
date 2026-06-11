@@ -1,0 +1,88 @@
+{
+  "schema_version": "1.0",
+  "run_id": "DEMO-RUN",
+  "story_id": "DEMO-1",
+  "generated_at": "2026-06-10T12:00:00Z",
+  "test_cases": [
+    {
+      "test_case_id": "TC-001",
+      "title": "Valid login shows the inventory",
+      "description": "A user with valid credentials lands on the inventory page and sees the product list.",
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [0],
+      "priority": "P0",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Funnel-entry user journey across form, navigation and rendered inventory — the cross-page behavior only an E2E exercise verifies; this is the canonical smoke path.",
+      "preconditions": [
+        "Demo app is being served locally (the demo driver starts it)."
+      ],
+      "steps": [
+        { "step_id": "S-01", "action": "Open the app at BASE_URL." },
+        {
+          "step_id": "S-02",
+          "action": "Fill username and password.",
+          "data": { "username": "demo", "password": "demo123" }
+        },
+        { "step_id": "S-03", "action": "Press Login." }
+      ],
+      "expected_results": [
+        "The inventory section is shown with the heading \"Products\".",
+        "At least one product is listed."
+      ],
+      "status": "draft"
+    },
+    {
+      "test_case_id": "TC-002",
+      "title": "Invalid password shows the exact error copy and no session",
+      "description": "An invalid password keeps the user on the login form with the agreed error message \"Invalid credentials\".",
+      "risk_ids": ["RISK-002"],
+      "acceptance_criteria_refs": [1],
+      "priority": "P1",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "The error feedback is user-visible UI behavior tied to a high-severity risk; the exact copy is a business contract with support, so it must be asserted in the rendered page, not at a lower seam.",
+      "preconditions": ["Demo app is being served locally."],
+      "steps": [
+        { "step_id": "S-01", "action": "Open the app at BASE_URL." },
+        {
+          "step_id": "S-02",
+          "action": "Fill username and a wrong password.",
+          "data": { "username": "demo", "password": "nope" }
+        },
+        { "step_id": "S-03", "action": "Press Login." }
+      ],
+      "expected_results": [
+        "The user remains on the login form.",
+        "The error message reads exactly \"Invalid credentials\"."
+      ],
+      "status": "draft"
+    },
+    {
+      "test_case_id": "TC-003",
+      "title": "Error presentation is readable and appropriately styled",
+      "description": "Subjective visual review of the error state (contrast, placement, tone of the copy).",
+      "risk_ids": ["RISK-002"],
+      "acceptance_criteria_refs": [1],
+      "priority": "P2",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "manual",
+      "automation_decision_reason": "Visual judgment (readability, contrast, tone) is subjective and cheap to eyeball; automating a pixel/style assertion here would be brittle and add no risk coverage beyond TC-002.",
+      "preconditions": ["Demo app is being served locally."],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Trigger the invalid-password error (TC-002 steps)."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Review the error visually on a normal viewport."
+        }
+      ],
+      "expected_results": [
+        "The error is immediately noticeable, readable, and clearly associated with the form."
+      ],
+      "status": "draft"
+    }
+  ]
+}

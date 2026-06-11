@@ -34,6 +34,7 @@
     "classify": "node scripts/run-failure-classifier.js",
     "heal": "node scripts/run-healer.js",
     "demo:healer": "node scripts/demo-healer-green-red.js",
+    "demo:pipeline": "node scripts/demo-pipeline.js",
     "metrics": "node scripts/pipeline-metrics.js",
     "evolve": "node scripts/evolve.js",
     "session-summary": "node scripts/session-summary.js"

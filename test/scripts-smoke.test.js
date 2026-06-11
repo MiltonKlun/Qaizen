@@ -238,3 +238,48 @@ test('no CI workflow invokes the pipeline runner', () => {
     );
   }
 });
+
+// --- demo pipeline (IMPROVEMENT-PLAN Phase 3) -----------------------------
+
+test('demo:pipeline --dry-run lists stages and touches no network', () => {
+  const r = run(['scripts/demo-pipeline.js', '--dry-run']);
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /stage plan/i);
+  // The four gates and the two REAL stages are all named.
+  for (const s of ['gate1', 'gate4', 'execute', 'classify']) {
+    assert.match(r.out, new RegExp(s));
+  }
+  assert.match(r.out, /no workspace created, no server started, no network/i);
+});
+
+test('metrics skips DEMO_RUN-sentinel runs (IP-3.3)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'aiqa-demo-metrics-'));
+  try {
+    // One real archived run + one demo run under the same story.
+    const real = join(dir, 'runs', 'STORY-9', 'r1');
+    const demo = join(dir, 'runs', 'STORY-9', 'd1');
+    mkdirSync(real, { recursive: true });
+    mkdirSync(demo, { recursive: true });
+    const ctx = JSON.parse(
+      readFileSync(
+        'examples/expected/login-success.expected-context.json',
+        'utf8'
+      )
+    );
+    writeFileSync(join(real, 'context.json'), JSON.stringify(ctx));
+    writeFileSync(join(demo, 'context.json'), JSON.stringify(ctx));
+    // The sentinel that marks the demo run.
+    writeFileSync(join(demo, 'DEMO_RUN'), 'demo');
+
+    const metricsAbs = join(process.cwd(), 'scripts', 'pipeline-metrics.js');
+    const r = spawnSync('node', [metricsAbs, '--dry-run'], {
+      cwd: dir,
+      encoding: 'utf8',
+    });
+    assert.equal(r.status, 0, (r.stdout || '') + (r.stderr || ''));
+    // Only the one real run is counted; the demo run is skipped.
+    assert.match(r.stdout, /Runs analyzed \(from runs\/\): \*\*1\*\*/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

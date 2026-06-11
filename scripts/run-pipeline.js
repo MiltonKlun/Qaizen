@@ -37,7 +37,8 @@ import { readFileSync, writeFileSync, existsSync, copyFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
 import { argv, env, exit, stdin, stdout } from 'node:process';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import {
   nextStep,
   gatePassed,
@@ -46,8 +47,18 @@ import {
 } from './pipeline-state.js';
 import { GATE_BRIEFS, renderGateBrief } from './gate-briefs.js';
 
+// Sibling scripts / schemas resolve against THIS file's location, not the
+// CWD — so the runner works when driven from an isolated run workspace
+// (the demo, IMPROVEMENT-PLAN Phase 3) as well as from the repo root. The
+// run's mutable state (context.json, artifacts) is CWD-relative as before.
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+const REPO_DIR = dirname(SCRIPT_DIR);
+const VALIDATOR = join(SCRIPT_DIR, 'validate-json.js');
+const CLASSIFIER = join(SCRIPT_DIR, 'run-failure-classifier.js');
+const JIRA_FETCH = join(SCRIPT_DIR, 'fetch-jira-story.js');
 const CONTEXT_PATH = 'context.json';
-const CONTEXT_SCHEMA = 'schemas/context.schema.json';
+const CONTEXT_SCHEMA = join(REPO_DIR, 'schemas', 'context.schema.json');
+const TEST_CASES_SCHEMA = join(REPO_DIR, 'schemas', 'test-cases.schema.json');
 
 // ---------------------------------------------------------------- safety --
 // No flag may ever decide a gate. Reject anything that smells like one, so
@@ -83,11 +94,9 @@ function loadContext() {
 function writeContext(context) {
   writeFileSync(CONTEXT_PATH, JSON.stringify(context, null, 2) + '\n');
   // Always re-validate through the single generic validator (CLAUDE.md §3.3).
-  const r = spawnSync(
-    'node',
-    ['scripts/validate-json.js', CONTEXT_SCHEMA, CONTEXT_PATH],
-    { encoding: 'utf8' }
-  );
+  const r = spawnSync('node', [VALIDATOR, CONTEXT_SCHEMA, CONTEXT_PATH], {
+    encoding: 'utf8',
+  });
   if (r.status !== 0) {
     console.error(
       `context.json failed schema validation after the update:\n${r.stdout}${r.stderr}`
@@ -97,13 +106,9 @@ function writeContext(context) {
 }
 
 function validateJson(schemaPath, dataPath) {
-  const r = spawnSync(
-    'node',
-    ['scripts/validate-json.js', schemaPath, dataPath],
-    {
-      encoding: 'utf8',
-    }
-  );
+  const r = spawnSync('node', [VALIDATOR, schemaPath, dataPath], {
+    encoding: 'utf8',
+  });
   return r.status === 0;
 }
 
@@ -213,7 +218,7 @@ async function runGateInteractive(step, context) {
           p === CONTEXT_PATH
             ? CONTEXT_SCHEMA
             : p === context.artifact_paths?.test_cases
-              ? 'schemas/test-cases.schema.json'
+              ? TEST_CASES_SCHEMA
               : null;
         if (schema) valid = validateJson(schema, p);
       }
@@ -327,11 +332,30 @@ const GUIDE_STEPS = {
 
 function execStep(step, context) {
   if (step === 'execute') {
-    console.log('Executing: npx playwright test  (failures are DATA for the');
+    // PIPELINE_PW_CONFIG lets a caller point Playwright at a non-root config
+    // (the demo uses examples/demo-run/playwright.demo.config.ts so its specs
+    // never touch the root tests/ folder owned by the Generator, CLAUDE.md
+    // §3.2). Absent => the repo-root playwright.config.ts as usual.
+    //
+    // Playwright resolves @playwright/test from its CWD upward, so it must run
+    // where node_modules lives (the repo root). When a custom config is set
+    // (the demo, driven from a workspace), we run Playwright with cwd=repo and
+    // tell the config where to write reports via PIPELINE_REPORT_DIR — so the
+    // report lands in the workspace the classifier then reads.
+    const pwArgs = ['playwright', 'test'];
+    const customConfig = env.PIPELINE_PW_CONFIG;
+    if (customConfig) pwArgs.push('--config', customConfig);
+    const cwd = customConfig ? REPO_DIR : process.cwd();
+    const reportDir = customConfig ? join(process.cwd(), 'reports') : 'reports';
+    console.log(
+      `Executing: npx ${pwArgs.join(' ')}  (failures are DATA for the`
+    );
     console.log('classifier, not a runner error)\n');
-    spawnSync('npx', ['playwright', 'test'], {
+    spawnSync('npx', pwArgs, {
+      cwd,
       stdio: 'inherit',
       shell: process.platform === 'win32',
+      env: { ...env, PIPELINE_REPORT_DIR: reportDir },
     });
     const p = context.artifact_paths;
     if (!p.execution_results) p.execution_results = 'reports/results.json';
@@ -342,10 +366,8 @@ function execStep(step, context) {
     return true;
   }
   if (step === 'classify') {
-    console.log(
-      'Classifying failures: node scripts/run-failure-classifier.js\n'
-    );
-    const r = spawnSync('node', ['scripts/run-failure-classifier.js'], {
+    console.log('Classifying failures: the rule-based pre-classifier\n');
+    const r = spawnSync('node', [CLASSIFIER], {
       stdio: 'inherit',
     });
     if (r.status !== 0) {
@@ -402,7 +424,7 @@ async function main() {
   if (STORY_ARG) {
     if (/^[A-Z][A-Z0-9_]*-\d+$/.test(STORY_ARG) && !existsSync(STORY_ARG)) {
       console.log(`Fetching ${STORY_ARG} from Jira (read-only)...`);
-      const r = spawnSync('node', ['scripts/fetch-jira-story.js', STORY_ARG], {
+      const r = spawnSync('node', [JIRA_FETCH, STORY_ARG], {
         stdio: 'inherit',
       });
       if (r.status !== 0) exit(r.status ?? 2);
