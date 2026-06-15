@@ -1,5 +1,14 @@
 # IMPROVEMENT-PLAN.md — AI-Assisted QA Pipeline
 
+> **Status (2026-06-15): all coded phases complete.** Phases 1–8 shipped one
+> PR off `main` at a time (#34 telemetry, #35 runner, #36 demo, #37 lite track,
+> #38 evidence tooling, #40 Gate 3/4 assist, #41 when-to-use docs + deferred
+> ledger; #39 tracked these planning docs in-repo). What remains is **human-led
+> and cannot be done by an agent**: IP-0.1 (rotate API tokens) and the Phase-5
+> benchmark **run series** (IP-5.1/5.4/5.7) — running real stories through both
+> arms to turn `docs/evidence.md` from skeleton into measured results. Those
+> four boxes are intentionally left `[ ]`.
+
 > **Purpose.** Executable improvement plan derived from `PROJECT-BRIEF.md` §18.
 > Written so an agent (e.g., Claude Code) can work through it **in order and
 > atomically**: one phase = one PR off `main` (anti-stacking rule), one task =
@@ -384,7 +393,7 @@ scan in the guardrails' one-source-of-truth style. The scan **informs and
 never fixes** — Gate 4 stays permanently human; this makes the human faster,
 not optional.
 
-- [ ] **IP-6.1 Additive-only guardrails extraction.** In
+- [x] **IP-6.1 Additive-only guardrails extraction.** In
       `scripts/healer-guardrails.js`, the suppression/weak-assertion patterns are
       currently **inline regex literals** — extract them into named exported
       constants (e.g. `SKIP_PATTERN`, `WEAK_ASSERTION_PATTERN`) used by
@@ -392,25 +401,25 @@ not optional.
       existing 10/10 guardrail unit tests pass unmodified; `guardrailViolations`
       output is byte-identical on the demo fixtures (`npm run demo:healer` exits
       0 unchanged).
-- [ ] **IP-6.2 Scanner.** `scripts/gate4-scan.js`: pure `gate4Findings(source)`
+- [x] **IP-6.2 Scanner.** `scripts/gate4-scan.js`: pure `gate4Findings(source)`
   - CLI over given test files. Checks: hard waits (`waitForTimeout`, bare
     `setTimeout`); `.skip` / `.fixme` / `.only`; fragile locators (`nth-child`,
     `.nth(`, index-based XPath, long CSS chains); missing `TC-`/`SPEC-`
     traceability comment; weak assertions (reuse IP-6.1 constants — do not
     duplicate the regexes). Output: findings list + a "judgment items for the
     human" footer (the §4 Gate-4 questions). The scanner never edits files.
-- [ ] **IP-6.3 Tests + script.** `test/gate4-scan.test.js` (table-driven;
+- [x] **IP-6.3 Tests + script.** `test/gate4-scan.test.js` (table-driven;
       `tests/seed.spec.ts` as the known-clean fixture; appended to the `test:unit`
       file list). npm script `"scan:gate4"`.
-- [ ] **IP-6.4 Runner integration.** The Gate-4 brief embeds scan findings as
+- [x] **IP-6.4 Runner integration.** The Gate-4 brief embeds scan findings as
       its "auto-checks" section, so the reviewer opens the gate with the
       mechanical checks pre-answered.
-- [ ] **IP-6.5 Gate-3 sharpening.** `agents/spec-reviewer.md` version bump:
+- [x] **IP-6.5 Gate-3 sharpening.** `agents/spec-reviewer.md` version bump:
       tighten the checklist (negative-case presence per TC priority,
       unrelated-flow detection, spec→TC traceability echo). If Phase-1/5 telemetry
       exists, let the most-frequent Gate-3 rejection reasons drive the checklist
       order; otherwise refine from brief §4. `prompt-eval` delta ≤10%.
-- [ ] **IP-6.6 Optional CI job.** `gate4-scan` (informational,
+- [x] **IP-6.6 Optional CI job.** `gate4-scan` (informational,
       `continue-on-error`) on PRs touching `tests/`: posts a findings summary
       comment. Never blocking, never editing — mirrors the existing informational
       CI posture.
@@ -423,12 +432,12 @@ not optional.
 nobody is oversold (weakness #5). The standalone wedges lead with the two
 zero-ceremony tools.
 
-- [ ] **IP-7.1 Fit guide.** `docs/when-to-use.md`: _fit_ (multi-AC features,
+- [x] **IP-7.1 Fit guide.** `docs/when-to-use.md`: _fit_ (multi-AC features,
       red-domain stories, anything needing an audit trail) / _don't-fit_ (one-off
       scripts, throwaway spikes, sub-lite work). For sub-lite work, state plainly:
       "prompt the AI directly; here is exactly what you forfeit — traceability and
       the audit trail." Honesty in docs; **no bypass is added to the tool**.
-- [ ] **IP-7.2 Three standalone one-pagers.**
+- [x] **IP-7.2 Three standalone one-pagers.**
       `docs/standalone-failure-classifier.md` (works on any existing Playwright
       JSON report — zero ceremony, the easiest first taste);
       `docs/standalone-healer.md` (guardrailed healing on any Playwright repo;
@@ -436,11 +445,11 @@ zero-ceremony tools.
       `docs/standalone-test-designer.md` (story → prioritized cases with
       automation decisions). Each: prerequisites, a ≤5-command quickstart, what
       you get, hard limits.
-- [ ] **IP-7.3 README restructure (Spanish).** Index around three doors:
+- [x] **IP-7.3 README restructure (Spanish).** Index around three doors:
       "demo de 10 minutos" → `demo:pipeline`; "usa una sola pieza" → the
       one-pagers; "ejecuta el pipeline" → `docs/pipeline-runner.md`. Link
       `docs/evidence.md`.
-- [ ] **IP-7.4 (optional, cheap) `STRATEGY.md` anchor (CE-3).** One page: the
+- [x] **IP-7.4 (optional, cheap) `STRATEGY.md` anchor (CE-3).** One page: the
       §2 tension, the answer this plan gives it, a pointer to the evidence doc.
 
 ---
@@ -449,7 +458,7 @@ zero-ceremony tools.
 
 **Goal:** deferrals are decisions with triggers, not forgotten items.
 
-- [ ] **IP-8.1 `docs/deferred.md`.** Entries with explicit re-evaluation
+- [x] **IP-8.1 `docs/deferred.md`.** Entries with explicit re-evaluation
       triggers: **PFI-3** (story-source/CI ports) and **PFI-4**
       (`TestRunnerAdapter` for Cypress/k6) — deferred until `docs/evidence.md` is
       published **and** a concrete non-Playwright adopter exists; **CE-2/4/5/6** —
