@@ -22,7 +22,7 @@ The system is built by combining mature open-source pieces (Playwright Native Ag
 ## 2. How to use this file
 
 1. Read this `CLAUDE.md` first. Every session, every task.
-2. Read `README.md` for the full architectural picture (traceability chain, folder ownership table, stack versions, the n8n decision, the full forbidden-work list).
+2. Read `STRATEGY.md` for the one-page "what this is and the question it answers" (the ceremony-vs-raw-AI tension, the tiered answer, the non-negotiables). Then `README.md` for the full architectural picture (traceability chain, folder ownership table, stack versions, the n8n decision, the full forbidden-work list).
 3. Open the phase plan file for the phase you are currently in. Phase plans contain the Task Groups with their Definitions of Done.
 4. Do not jump between phases. Each phase has hard prerequisites at the top and completion criteria at the bottom.
 
