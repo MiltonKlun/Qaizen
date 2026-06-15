@@ -76,6 +76,8 @@ function makeMiniRepo() {
     'validate-json.js',
     'track-floor.js',
     'red-domains.js',
+    'gate4-scan.js',
+    'healer-guardrails.js',
   ]) {
     copyFileSync(join('scripts', f), join(dir, 'scripts', f));
   }
