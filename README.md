@@ -16,6 +16,28 @@
 
 Sistema de QA asistido con IA que automatiza el ciclo completo desde una user story en Jira hasta un release report con bugs creados, validando E2E vía Playwright y APIs vía Postman, manteniendo trazabilidad estricta y human gates.
 
+### Cómo empezar — tres puertas
+
+No hace falta adoptar todo el pipeline para sacarle valor. Elegí tu puerta:
+
+1. **Demo de 10 minutos** → `npm run demo:pipeline`. Recorré los cuatro gates
+   y la cadena `FAIL → bug draft → release report` de punta a punta, offline y
+   determinista. Es la forma más rápida de _ver_ qué hace el sistema
+   (`docs/pipeline-runner.md` §7).
+2. **Usá una sola pieza** → los _one-pagers_ à-la-carte: el clasificador de
+   fallos (`docs/standalone-failure-classifier.md`), el healer con guardrails
+   (`docs/standalone-healer.md`), o el Automation Decision Model del test
+   designer (`docs/standalone-test-designer.md`). Adoptás una capacidad sin el
+   flujo completo.
+3. **Ejecutá el pipeline** → `npm run pipeline -- --story <archivo|JIRA-KEY>`.
+   El flujo completo con los cuatro gates (`docs/pipeline-runner.md`).
+
+**¿Cuál corresponde a tu historia?** `docs/when-to-use.md` es la guía honesta
+de _fit / no-fit_ (incluye cuándo conviene **no** usar el pipeline y promptear
+la IA directamente). **¿Vale la pena la ceremonia?** Los datos van en
+`docs/evidence.md` (benchmark pipeline vs. prompting crudo). El ancla de
+estrategia de una página es `STRATEGY.md`.
+
 **Fuente del diseño:** fusión de dos sistemas previos —
 - "Pipeline 3-fases" (disciplina, contratos JSON, gates, traceability, healer guardrails).
 - "Guía v2" (reuso de MCPs oficiales, skills de `ai-qa-workflow`, dual-judge, `/evolve`).
