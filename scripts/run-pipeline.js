@@ -47,6 +47,7 @@ import {
 } from './pipeline-state.js';
 import { GATE_BRIEFS, renderGateBrief } from './gate-briefs.js';
 import { trackAllowed } from './track-floor.js';
+import { gate4Findings, renderGate4Scan } from './gate4-scan.js';
 
 // Sibling scripts / schemas resolve against THIS file's location, not the
 // CWD — so the runner works when driven from an isolated run workspace
@@ -243,6 +244,21 @@ async function runGateInteractive(step, context) {
       return { path: p, exists, valid };
     });
   console.log(renderGateBrief({ step, context, artifacts }));
+
+  // Gate 4: run the static pre-Gate-4 scan on the generated test and surface
+  // its mechanical findings as the "auto-checks" half of the review, so the
+  // human opens the gate with the mechanical questions pre-answered and can
+  // spend their attention on business correctness (IP-6.4). Informational —
+  // it never decides the gate.
+  if (step === 'gate4') {
+    const testPath = context.artifact_paths?.generated_test;
+    if (testPath && existsSync(testPath)) {
+      console.log('');
+      console.log(
+        renderGate4Scan(testPath, gate4Findings(readFileSync(testPath, 'utf8')))
+      );
+    }
+  }
 
   const rl = createInterface({ input: stdin, output: stdout });
   try {

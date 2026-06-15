@@ -445,6 +445,19 @@ independently.
 
 ## Gate 4 — Code Review **(PERMANENTLY HUMAN)**
 
+> **Pre-Gate-4 static scan (assist, IMPROVEMENT-PLAN Phase 6 / PFI-5).**
+> `scripts/gate4-scan.js` (`npm run scan:gate4 -- <file>`) does the
+> _mechanical_ half of this checklist for the reviewer: it flags hard waits,
+> `.skip`/`.fixme`/`.only`, fragile locators (nth-child / `.nth()` / index
+> XPath / long CSS chains), weakened assertions (reusing the Healer's
+> `WEAK_ASSERTION_PATTERN` — one source of truth), and missing `TC-`/`SPEC-`/
+> `PW-` traceability. The thin gated runner shows this output inside the
+> Gate-4 brief, and an informational CI job posts it on PRs touching `tests/`.
+> It is **confirm-or-dismiss input, never a verdict**: it informs, never
+> fixes, never decides, and never changes the approval bar. Gate 4 stays the
+> human's. A flagged line may be perfectly fine (e.g. the seed test's
+> environmental `test.skip` with a written reason) — the reviewer decides.
+
 **When it runs:** After the Playwright Generator Native Agent
 produces `tests/[story-id].spec.ts` (Phase 1 TG13 step 13).
 
