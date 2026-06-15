@@ -110,6 +110,13 @@ At each gate the runner prints a one-screen brief:
 3. **Judgment questions** — the things only a human can answer (why the gate
    exists).
 
+At **Gate 4** the brief also embeds the pre-Gate-4 **static scan**
+(`scripts/gate4-scan.js`, IMPROVEMENT-PLAN Phase 6): the mechanical findings
+on the generated test (hard waits, `.skip`/`.only`, fragile locators, weak
+assertions, missing traceability) plus the same judgment questions. It is
+informational — it answers the mechanical half so you can spend your attention
+on business correctness; it never decides the gate.
+
 Then it asks: decision (`a`/`r`/`q`), reviewer (defaults to
 `git config user.name`, confirm or override), notes (**required** for a
 rejection). On approval it continues; on rejection it records the event,

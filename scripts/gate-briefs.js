@@ -102,12 +102,20 @@ export const GATE_BRIEFS = {
       'Code readable — a future reader can tell what is exercised',
       'Approved scope covered — every approved automate_e2e TC has a test()',
     ],
-    judgment: [
-      'Would you let this test block a release — do you trust a red AND a green from it?',
-      'Does any assertion quietly test less than the TC expected_results?',
-    ],
+    judgment: GATE4_JUDGMENT_QUESTIONS(),
   },
 };
+
+// The Gate-4 judgment questions — the things only a human can decide. Exported
+// (via the function below) so the pre-Gate-4 scanner (scripts/gate4-scan.js)
+// prints the SAME footer it reuses here, no drift. Defined as a function so the
+// GATE_BRIEFS literal above can reference it before the const is initialized.
+export function GATE4_JUDGMENT_QUESTIONS() {
+  return [
+    'Would you let this test block a release — do you trust a red AND a green from it?',
+    'Does any assertion quietly test less than the TC expected_results?',
+  ];
+}
 
 function fmtArtifact(a) {
   const exist = a.exists ? 'found' : 'MISSING';

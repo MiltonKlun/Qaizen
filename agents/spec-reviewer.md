@@ -10,9 +10,15 @@ description: |
   stays human.
 phase_introduced: 3
 phase_active: 3+
-version: 1.2.0
+version: 1.3.0
 changed_in_run: null
 changelog: |
+  - 1.3.0: Sharpened the Gate-3 checklist (IMPROVEMENT-PLAN Phase 6 / PFI-5):
+    negative-case findings are now weighted by TC priority + risk severity;
+    unrelated-flow detection keys on the brief's out-of-scope list and
+    pre-existing behavior; the traceability check now echoes the resolved
+    scenario→TC→RISK chain. Clarifying/additive — the finding type set and
+    output shape are unchanged; the agent still sets no gates.
   - 1.2.0: Note the optional context.gate_decisions[] log (continuous
     improvement) — a Gate 3 decision SHOULD be recorded so the per-run
     rejection metric is meaningful. Additive; the agent still sets no gates.
@@ -137,17 +143,28 @@ The Spec Reviewer does NOT write into `specs/`, `tests/`,
    - Each spec scenario should have a clear expected outcome
      (`missing_expected_outcome`).
    - Negative cases present where a risk implies one
-     (`missing_negative_case`).
+     (`missing_negative_case`). **Prioritize by TC priority and risk
+     severity:** a `P0`/`P1` case or a `high`-severity risk with NO
+     negative/boundary scenario is a strong finding; for a `P3` /
+     `low`-risk case a missing negative case is at most a recommendation.
+     State the priority/severity you keyed on in the finding text.
    - Every approved `automate_e2e` TC is represented in the spec
      (`approved_tc_not_in_spec`).
    - Low-value visual-only E2E scenarios flagged as manual candidates
      (`low_value_visual_e2e`).
    - Spec scope matches `planner-input/` — no scenarios outside the
      brief's in-scope list (`scope_mismatch_with_brief`).
-   - No unsupported/unapproved flows introduced
-     (`unsupported_flow_introduced`).
-   - Traceability preserved: each spec scenario references its `TC-XXX`
-     (and thus `RISK-XXX`); a missing reference is a `traceability_gap`.
+   - **Unrelated-flow detection (sharper):** flag any scenario that
+     navigates into a page or flow the brief's "Out-of-scope for the
+     Planner" section names, or that touches pre-existing behavior the
+     story did not introduce, as `unsupported_flow_introduced`. "While I
+     was in there…" additions are exactly this finding — name the
+     out-of-scope item the scenario strayed into.
+   - **Traceability echo (every scenario):** confirm each spec scenario
+     references its `TC-XXX` (and thus `RISK-XXX`). Echo the resolved
+     `scenario → TC → RISK` chain back in the finding/recommendation text
+     so the human can verify it at a glance; a missing or unresolvable
+     reference is a `traceability_gap`.
 5. **Write `recommendations`** — short, actionable suggestions
    (e.g. "add a negative case for TC-003", "move the styling scenario to
    manual").
