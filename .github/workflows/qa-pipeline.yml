@@ -120,6 +120,66 @@ jobs:
         if: steps.detect.outputs.agents_changed == 'true'
         run: npm run evaluate
 
+  gate4-scan:
+    name: Gate-4 static scan (informational)
+    runs-on: ubuntu-latest
+    # Only on PRs that touch tests/. IMPROVEMENT-PLAN Phase 6 / PFI-5: run the
+    # pre-Gate-4 mechanical scanner over the changed test files and post a
+    # findings summary so the human reviewer opens Gate 4 with the mechanical
+    # checks pre-answered. INFORMATIONAL (continue-on-error) — it NEVER blocks
+    # merge, NEVER edits a test, and NEVER decides the gate; Gate 4 is the human
+    # (CLAUDE.md §3.5). Findings are confirm-or-dismiss prompts, not failures.
+    if: github.event_name == 'pull_request'
+    continue-on-error: true
+    permissions:
+      contents: read
+      pull-requests: write # only to POST a findings comment — never edits code
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Scan changed test files
+        id: scan
+        shell: bash
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          mapfile -t files < <(git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -E '^tests/.*\.spec\.ts$' || true)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No changed tests/*.spec.ts in this PR; gate-4 scan not applicable."
+            echo "ran=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "ran=true" >> "$GITHUB_OUTPUT"
+          node scripts/gate4-scan.js "${files[@]}" | tee gate4-scan-output.txt
+      - name: Post Gate-4 scan summary comment
+        if: steps.scan.outputs.ran == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '';
+            try { body = fs.readFileSync('gate4-scan-output.txt', 'utf8'); } catch {}
+            const comment = [
+              '## Gate-4 static scan (informational)',
+              '',
+              'Mechanical pre-Gate-4 findings on the changed test files. These are',
+              '**confirm-or-dismiss** prompts for the human reviewer — the scan never',
+              'blocks merge, never edits a test, and never decides Gate 4 (CLAUDE.md §3.5).',
+              '',
+              '```',
+              body.trim() || '(no output)',
+              '```',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment,
+            });
+
   playwright-full:
     name: Playwright E2E (informational)
     runs-on: ubuntu-latest
