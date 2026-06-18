@@ -53,9 +53,37 @@ history, not opinion. Selection criteria:
 > what's being measured; do not add or drop stories mid-series without noting
 > it in `docs/evidence.md`.
 
-| Story id | Size | Red-domain? | Lite-eligible? | Ground truth (bug / broken selector) | Why chosen |
-| -------- | ---- | ----------- | -------------- | ------------------------------------ | ---------- |
-| _(TBD)_  |      |             |                |                                      |            |
+### Proposed candidate slate (confirm / replace before running)
+
+The rows below are a **starting slate drawn from the stories that already exist
+in this repo** (`examples/stories/` + their expected-context fixtures), so they
+are real and present, not invented. The Red-domain / size columns were computed
+by running each story's context through the actual `scripts/track-floor.js`
+(`minimumTrack`) — not eyeballed. **Replace any row with one of your own
+already-shipped stories where you have better ground truth; this is your
+registration, not mine.**
+
+| Story id (fixture)                               | Size (AC/risk)     | Red-domain? (floor)                          | Lite-eligible?       | Ground truth — _you supply_                                         | Why chosen                                                                                                                            |
+| ------------------------------------------------ | ------------------ | -------------------------------------------- | -------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `login-success` (STORY-001)                      | 3 AC / 2 risk      | **Yes** — security/auth                      | no (floor=standard)  | _e.g. a real post-ship auth bug or a login selector that broke_     | Canonical auth happy+negative path; high-severity session risk                                                                        |
+| `cart-badge-count-bugfix` (STORY-003)            | 3 AC / 2 risk      | **Yes** — pricing                            | no                   | _the stale-badge bug this story fixed_                              | A real **bugfix** story — ground truth is the bug itself                                                                              |
+| `sort-products-enhancement` (STORY-004)          | 4 AC / 3 risk      | **Yes** — pricing                            | no                   | _e.g. sort-order regression / a `.nth()` selector that later broke_ | A mid-size **enhancement**; good selector-survival candidate                                                                          |
+| `checkout-expired-card` (QA-1042)                | 4 AC / 3 risk      | **Yes** — payment + pricing + business-logic | no                   | _expired-card handling bug / declined-payment edge_                 | The strongest **red-domain** case (money) — floor cites 3 domains                                                                     |
+| `api-create-user` (API-001)                      | 2 AC / 1 risk      | **Yes** — security                           | no                   | _a validation gap on registration_                                  | API-branch coverage (Newman), not just E2E                                                                                            |
+| **`STORY-010` (footer year) or YOUR lite story** | ≤2 AC / 1 low risk | **No**                                       | **YES** (floor=lite) | _trivial cosmetic change_                                           | **Required ≥1 lite-eligible** — the only lite candidate in-repo is the synthetic footer fixture; prefer a real routine story of yours |
+
+> **Honest gap (found while scaffolding this):** every _real_ example story in
+> this repo floors to `standard` — they're all SauceDemo commerce/auth stories,
+> which legitimately touch pricing/security/payment. The repo has **no genuine
+> lite-eligible real story**; the only `lite` candidate is the synthetic
+> `STORY-010` footer-year fixture. The protocol requires **≥1 lite-eligible**
+> story, so **you must supply at least one real routine story** for the last
+> row, or the lite-track arm of the comparison rests on a synthetic fixture
+> (acceptable for a first pass, but say so in `docs/evidence.md`).
+>
+> Also: all five candidates are **SauceDemo-derived**, so they share an app and
+> a locator style. For selector-survival (§3) that's fine if you have ≥2 app
+> versions; if not, record `selector_survival_rate: null` per story and explain.
 
 ---
 
@@ -142,7 +170,101 @@ exploit. `docs/evidence.md` reports the split, per story class.
 
 ---
 
-## 7. References
+## 7. Ready-to-run capture commands (per the candidate slate)
+
+Exact `benchmark:capture` command lines for the §2 candidate slate — **two
+records per story (raw + pipeline)**. The metric values below are
+**placeholders (`0`/`?`-style)**: replace each with what you actually measured
+while running the arm. **`--dry-run` first** on each (it validates and prints
+without appending), then re-run without `--dry-run` to write the line.
+
+> Flag → metric: `--time-to-green` → time_to_first_green_test_min ·
+> `--gate4-corrections` → gate4_corrections (raw arm: read as
+> "corrections-to-acceptable" vs the same §4 checklist) · `--fictional-rate` ·
+> `--selector-survival` (omit ⇒ `null`; do **not** pass a made-up number) ·
+> `--known-bug-catch` · `--traceability` (raw arm is ~0 by construction).
+> Always add `--model <id>`, `--operator <you>`, and a `--note`.
+
+```bash
+# ── login-success (red: security; standard) ──────────────────────────────
+npm run benchmark:capture -- --story login-success --arm raw \
+  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
+  --known-bug-catch ? --traceability 0 \
+  --model claude-opus-4-8 --operator you@example.com --note "raw arm" --dry-run
+npm run benchmark:capture -- --story login-success --arm pipeline --track standard \
+  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
+  --known-bug-catch ? --traceability ? \
+  --model claude-opus-4-8 --operator you@example.com --note "pipeline arm" --dry-run
+
+# ── cart-badge-count-bugfix (red: pricing; standard; a real bugfix) ───────
+npm run benchmark:capture -- --story cart-badge-count-bugfix --arm raw \
+  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
+  --known-bug-catch ? --traceability 0 \
+  --model claude-opus-4-8 --operator you@example.com --note "raw arm" --dry-run
+npm run benchmark:capture -- --story cart-badge-count-bugfix --arm pipeline --track standard \
+  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
+  --known-bug-catch ? --traceability ? \
+  --model claude-opus-4-8 --operator you@example.com --note "pipeline arm" --dry-run
+
+# ── sort-products-enhancement (red: pricing; standard) ────────────────────
+npm run benchmark:capture -- --story sort-products-enhancement --arm raw \
+  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
+  --known-bug-catch ? --traceability 0 \
+  --model claude-opus-4-8 --operator you@example.com --note "raw arm" --dry-run
+npm run benchmark:capture -- --story sort-products-enhancement --arm pipeline --track standard \
+  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
+  --known-bug-catch ? --traceability ? \
+  --model claude-opus-4-8 --operator you@example.com --note "pipeline arm" --dry-run
+
+# ── checkout-expired-card (red: payment+pricing+business-logic; standard) ─
+npm run benchmark:capture -- --story checkout-expired-card --arm raw \
+  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
+  --known-bug-catch ? --traceability 0 \
+  --model claude-opus-4-8 --operator you@example.com --note "raw arm" --dry-run
+npm run benchmark:capture -- --story checkout-expired-card --arm pipeline --track standard \
+  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
+  --known-bug-catch ? --traceability ? \
+  --model claude-opus-4-8 --operator you@example.com --note "pipeline arm" --dry-run
+
+# ── api-create-user (red: security; standard; API branch) ─────────────────
+npm run benchmark:capture -- --story api-create-user --arm raw \
+  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
+  --known-bug-catch ? --traceability 0 \
+  --model claude-opus-4-8 --operator you@example.com --note "raw arm; API/Newman" --dry-run
+npm run benchmark:capture -- --story api-create-user --arm pipeline --track standard \
+  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
+  --known-bug-catch ? --traceability ? \
+  --model claude-opus-4-8 --operator you@example.com --note "pipeline arm; API/Newman" --dry-run
+
+# ── YOUR lite story (required ≥1 lite-eligible — supply a real routine one) ─
+npm run benchmark:capture -- --story <your-lite-story> --arm raw \
+  --time-to-green ? --fictional-rate ? --known-bug-catch ? --traceability 0 \
+  --model claude-opus-4-8 --operator you@example.com --note "raw arm; lite-eligible" --dry-run
+npm run benchmark:capture -- --story <your-lite-story> --arm pipeline --track lite \
+  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
+  --known-bug-catch ? --traceability ? \
+  --model claude-opus-4-8 --operator you@example.com --note "pipeline arm; lite track" --dry-run
+```
+
+Selector survival is **not** a capture flag you guess — produce it with the
+replay harness when you have ≥2 app versions, then pass the result:
+
+```bash
+# Replay one arm's tests against later app versions to get the rate:
+npm run benchmark:survival -- --tests <that-arm's-spec.ts> \
+  --version http://localhost:PORT_v2 --version http://localhost:PORT_v3
+# …then add --selector-survival <rate> to that story×arm's capture line.
+# With <2 versions the harness refuses to invent a number; leave the flag off
+# (=> null) and explain in docs/evidence.md.
+```
+
+After the series: `npm run metrics` (does `prompt_stability_met` now compute at
+≥10 logged runs?), then write `docs/evidence.md` against the §5 thresholds —
+**including where raw prompting won.**
+
+---
+
+## 8. References
 
 - `schemas/benchmark-record.schema.json` — the record contract.
 - `scripts/benchmark-capture.js` — the validated write path.
