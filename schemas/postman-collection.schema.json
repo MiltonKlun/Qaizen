@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://ai-qa-pipeline/schemas/postman-collection.schema.json",
+  "$id": "https://qaizen/schemas/postman-collection.schema.json",
   "title": "Postman Collection (minimal coherence schema)",
   "description": "api-tests/collections/[story-id].postman_collection.json. This is NOT the full Postman Collection v2.1 schema (that is huge). It is a minimal schema that guarantees what the API Agent generates is structurally coherent: a named collection in the v2.1 format, a non-empty item array, every request-item carrying a request, and any test scripts being well-formed. Traceability IDs (COL-XXX in info.name, REQ-XXX + the originating TC in each item) are enforced by agents/api-agent.md and the human at Gate 3/4, not by this schema.",
   "type": "object",

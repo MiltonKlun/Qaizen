@@ -6,7 +6,7 @@ This file gives Claude Code its operating instructions for this project. Read it
 
 ## 1. What this project is
 
-An AI-assisted QA pipeline that takes a user story (from Jira via MCP, or manual `story.md`), runs it through a chain of human-gated steps, and produces:
+Qaizen is an AI-assisted QA pipeline that takes a user story (from Jira via MCP, or manual `story.md`), runs it through a chain of human-gated steps, and produces:
 
 - Validated business test cases (with an Automation Decision Model: E2E / API / component / manual / skip).
 - Playwright E2E specs and generated tests, via Playwright Native Agents (Planner / Generator / Healer).

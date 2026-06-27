@@ -36,7 +36,7 @@ compromised: rotate it immediately and scrub it from history.
 ### Jira / Confluence (Atlassian API token)
 
 1. Sign in at `https://id.atlassian.com/manage-profile/security/api-tokens`.
-2. **Create API token**, label it (e.g. "ai-qa-pipeline"), copy it once.
+2. **Create API token**, label it (e.g. "qaizen"), copy it once.
 3. Put it in `.env`:
    - `JIRA_URL` — e.g. `https://your-domain.atlassian.net`
    - `JIRA_USERNAME` — the Atlassian account email
