@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://ai-qa-pipeline/schemas/spec-review.schema.json",
+  "$id": "https://qaizen/schemas/spec-review.schema.json",
   "title": "Spec Review",
   "description": "analysis/spec-reviews/[story-id].spec-review.json. Produced by the Spec Reviewer Agent (Phase 3 TG4) to ASSIST the human at Gate 3 — it never approves or rejects. Combines a checklist-driven findings list with deterministic risk-coverage (Improvement 3 / §4.5.a). auto_approval_eligible is only a hint; the human always decides (CLAUDE.md §3.5).",
   "type": "object",

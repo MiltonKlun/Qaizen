@@ -1,7 +1,7 @@
 # Ambiguities and Open Questions
 
 This file collects ambiguities, conflicts, or open decisions surfaced during the
-build of the AI QA pipeline. Each entry includes context, options, and a
+build of the Qaizen QA pipeline. Each entry includes context, options, and a
 `blocking` flag. Items resolved by the project owner are moved to a
 `## Resolved` section with the decision.
 

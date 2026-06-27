@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://ai-qa-pipeline/schemas/test-cases.schema.json",
+  "$id": "https://qaizen/schemas/test-cases.schema.json",
   "title": "Test Cases for a Story",
   "description": "test-cases/[story-id].json. The Test Designer's primary output. Every TC carries an Automation Decision with a non-empty reason; see docs/automation-decision-model.md. Risk linkage is mandatory; see docs/traceability.md.",
   "type": "object",

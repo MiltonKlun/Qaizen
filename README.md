@@ -1,11 +1,15 @@
-# AI-Assisted QA Pipeline
+# Qaizen
 
-[![QA Pipeline](https://github.com/MiltonKlun/AI-Assisted-QA/actions/workflows/qa-pipeline.yml/badge.svg)](https://github.com/MiltonKlun/AI-Assisted-QA/actions/workflows/qa-pipeline.yml)
+[![QA Pipeline](https://github.com/MiltonKlun/Qaizen/actions/workflows/qa-pipeline.yml/badge.svg)](https://github.com/MiltonKlun/Qaizen/actions/workflows/qa-pipeline.yml)
 
-Turn a user story into **reviewed, traceable tests** — with a human in the loop
-at every decision that matters.
+> _Kaizen_ (改善, "change for better"): continuous improvement through small,
+> concrete steps, where people and system are inseparable — neither improves
+> without the other.
 
-This is an AI-assisted QA pipeline. You give it a story (from Jira or a local
+Agile-aligned QA where artificial intelligence and human judgment work in
+balance, assuring quality through an efficient pipeline of gate-controlled steps.
+
+You give it a story (from Jira or a local
 `story.md`); it produces validated test cases, Playwright E2E specs and tests,
 Postman/Newman API checks, a classified failure analysis, a release report, and
 bug drafts ready to file. Four **human gates** sit between the steps. The last

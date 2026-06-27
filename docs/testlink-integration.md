@@ -125,8 +125,8 @@ ask the agent to query it.
 
 ## 5. Recommended project / suite structure
 
-- **One Test Project** for the pipeline (e.g. `AI QA Pipeline`, prefix
-  `AIQA`). All synced cases live here.
+- **One Test Project** for the pipeline (e.g. `Qaizen`, prefix
+  `QAIZEN`). All synced cases live here.
 - **One Test Suite per feature / story area** inside the project. The
   adapter creates a suite named after the story (e.g. `STORY-002 —
 Account access`) and puts that story's approved cases under it. This
@@ -177,7 +177,7 @@ loads, ask the agent:
 
 > List TestLink projects.
 
-Expected: at least the `AI QA Pipeline` (`AIQA`) project comes back.
+Expected: at least the `Qaizen` (`QAIZEN`) project comes back.
 
 Because the MCP needs the live instance + key, **the human runs this
 check** — the agent can't reach your local TestLink container from a

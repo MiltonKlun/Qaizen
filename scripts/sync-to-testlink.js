@@ -239,7 +239,7 @@ async function main() {
   const dk = { devKey: apiKey };
 
   // 1. Resolve the project by PREFIX (TESTLINK_PROJECT_KEY) against the
-  //    full project list. The project's TestLink name ("AI QA Pipeline")
+  //    full project list. The project's TestLink name ("Qaizen")
   //    differs from the story title, so we match on the stable prefix.
   const projectsXml = await tlRaw('tl.getProjects', dk);
   if (/<fault>/.test(projectsXml)) {

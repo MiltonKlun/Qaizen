@@ -12,7 +12,7 @@
     "P2": "Medium",
     "P3": "Low"
   },
-  "labels": ["ai-qa-pipeline", "test-case"],
+  "labels": ["qaizen", "test-case"],
   "_labels_comment": "Static labels added to every created test-case issue, plus the story id and test_case_id are appended automatically for traceability.",
   "link_type": "Relates",
   "_link_comment": "Issue-link type used to link a created test-case issue back to the story issue (only when context.story.jira_issue_key exists). Must match a link type in your Jira instance.",
