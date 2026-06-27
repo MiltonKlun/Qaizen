@@ -1,8 +1,7 @@
 # MCP Setup
 
 This document covers how the MCP (Model Context Protocol) servers used by the
-AI QA pipeline are configured for local development. Each Phase adds new MCPs;
-this file is updated when that happens.
+Qaizen QA pipeline are configured for local development.
 
 ## Current state (Phase 1)
 
@@ -73,7 +72,7 @@ ENABLED_TOOLS=jira_get_issue,jira_search,jira_get_issue_link_types,confluence_ge
 ### Getting an Atlassian API token
 
 1. Sign in to `https://id.atlassian.com/manage-profile/security/api-tokens`.
-2. Click **Create API token**, give it a label (e.g. "ai-qa-pipeline").
+2. Click **Create API token**, give it a label (e.g. "qaizen").
 3. Copy the token immediately — Atlassian shows it once.
 4. Put it in `.env` as `JIRA_API_TOKEN` (and `CONFLUENCE_API_TOKEN` — they're
    the same token if you're on the same Atlassian site).

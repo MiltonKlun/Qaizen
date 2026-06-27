@@ -1,7 +1,7 @@
 {
-  "name": "ai-qa-pipeline",
+  "name": "qaizen",
   "version": "0.1.0",
-  "description": "AI-assisted QA pipeline: user story -> validated test cases -> Playwright E2E + Postman API -> classified failures -> release report.",
+  "description": "Qaizen: AI-assisted, human-gated QA pipeline — user story -> validated test cases -> Playwright E2E + Postman API -> classified failures -> release report.",
   "private": true,
   "type": "module",
   "scripts": {

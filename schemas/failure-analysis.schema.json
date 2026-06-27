@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://ai-qa-pipeline/schemas/failure-analysis.schema.json",
+  "$id": "https://qaizen/schemas/failure-analysis.schema.json",
   "title": "Failure Analysis for a Pipeline Run",
   "description": "analysis/failure-analysis.json. Produced by the Failure Classifier (skills/analyzing-logs). Classification taxonomy is closed (the enum below is canonical). Severity is the Healer guardrails axis (docs/healer-guardrails.md).",
   "type": "object",
