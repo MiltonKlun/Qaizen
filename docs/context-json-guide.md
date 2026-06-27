@@ -468,30 +468,32 @@ per-schema scripts, by deliberate design (Phase 1 TG8).
 
 ---
 
-## 8. Phase-specific extensions
+## 8. Schema extensions (all backward-compatible)
 
-| Phase | Adds                                                                                                                                                                           | Doc                                         |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| 1     | This baseline.                                                                                                                                                                 | This file.                                  |
-| 1.5   | _(none — `context.json` itself is unchanged; only the test-cases schema gets an optional `api_metadata` block)_                                                                | `phase1.5-api-branch.md` TG3.               |
-| 2     | `review_gates.*` may be objects with audit fields.                                                                                                                             | `phase2-integrations.md` TG6.               |
-| 3     | Optional `code_change_context` (linked-PR diff as SECONDARY context; Analyst Mode B only, when a PR is linked). `prompt_versions` map; token-efficient context handling rules. | `phase3-healing-scaling.md` TG15, TG7, TG8. |
+The schema has grown over time; every addition is optional and additive, so
+older files continue to validate:
 
-All extensions are backward-compatible. Files written under earlier
-phases continue to validate.
+- **Baseline** — story, ACs, risks, ambiguities, `artifact_paths`, boolean
+  `review_gates`, `status` (this file describes it).
+- `review_gates.*` may be objects with audit fields (`status`, `reviewer`,
+  `reviewed_at`, `opened_at`, `notes`) instead of bare booleans.
+- Optional `code_change_context` (a linked-PR diff as SECONDARY context;
+  Analyst Mode B only) and a `prompt_versions` map.
+- Optional `gate_decisions[]` log, optional `track` + `track_floor` (the lite
+  track), and the token-efficient context-handling rules (§5.1).
+- _(The API branch leaves `context.json` itself unchanged; it extends the
+  test-cases schema with an optional `api_metadata` block.)_
 
 ---
 
 ## 9. References
 
-- `schemas/context.schema.json` — the binding schema (Phase 1 TG7).
-- `scripts/validate-json.js` — the generic validator (Phase 1 TG8).
+- `schemas/context.schema.json` — the binding schema.
+- `scripts/validate-json.js` — the generic validator.
 - `docs/review-gates.md` — the four gates and their criteria.
 - `docs/traceability.md` — the full ID chain that starts in
   `context.json.story.id` and `risks[]`.
 - `docs/artifact-boundaries.md` — folder ownership for every path
   in `artifact_paths`.
 - `agents/analyst.md` — the agent prompt that initially writes
-  `context.json` (Phase 1 TG10).
-- `phase1-foundation-e2e.md` TG13 — the steps that mutate
-  `context.json` end-to-end.
+  `context.json`.

@@ -1,16 +1,15 @@
 # STRATEGY.md — what this project is, and the question it answers
 
-> One page. The front-of-loop anchor (Compound-Engineering CE-3, adopted via
-> IMPROVEMENT-PLAN Phase 7). `CLAUDE.md` is the binding operating manual and
-> `README.md` is the master index; this is the shorter "why does this exist and
-> what is it betting on" that an agent or a new teammate can read in a minute.
+> One page. `CLAUDE.md` is the binding operating manual and `README.md` is the
+> project overview; this is the shorter "why does this exist and what is it
+> betting on" that an agent or a new teammate can read in a minute.
 
 ## The tension (the reason this project exists)
 
 **Why use this ceremony — schemas, four gates, traceability, versioned prompts
 — instead of just asking an AI to "write Playwright tests for this story"?**
 
-That is the honest, central question (`PROJECT-BRIEF.md` §2). Raw prompting is
+That is the honest, central question. Raw prompting is
 faster to first output. This pipeline is slower but buys **auditability,
 repeatability, traceability, and a guarantee that tests were written against
 the running app, not invented from text.** Whether that trade is worth it is
@@ -51,12 +50,11 @@ These never bend, in any phase (`CLAUDE.md` §3):
 
 ## Status
 
-All foundational phases (1–3) plus 1.5/2 are complete; the system is in
-**continuous improvement** driven by the IMPROVEMENT-PLAN (telemetry, the thin
-gated runner, the offline demo, the lite track, the evidence benchmark
-tooling, the Gate-3/4 assist). What remains is a human-led benchmark run series
-(`docs/benchmark-protocol.md`) and the deferred items with explicit triggers
-(`docs/deferred.md`).
+The core build is complete; the system is in **continuous improvement**
+(gate telemetry, the thin gated runner, the offline demo, the lite track, the
+evidence benchmark tooling, the Gate-3/4 assist). What remains is a human-led
+benchmark run series (`docs/benchmark-protocol.md`) and the deferred items with
+explicit triggers (`docs/deferred.md`).
 
 ## Deliberately out of scope
 

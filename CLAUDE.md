@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file gives Claude Code its operating instructions for this project. Read it in full before doing any work. It stays valid from Phase 1 day-zero through Phase 3 and beyond; phase-specific work lives in the phase plan files.
+This file gives Claude Code its operating instructions for this project. Read it in full before doing any work. The rules here are stable across the project's life; the core build is complete and the system is in continuous-improvement mode.
 
 ---
 
@@ -22,18 +22,10 @@ The system is built by combining mature open-source pieces (Playwright Native Ag
 ## 2. How to use this file
 
 1. Read this `CLAUDE.md` first. Every session, every task.
-2. Read `STRATEGY.md` for the one-page "what this is and the question it answers" (the ceremony-vs-raw-AI tension, the tiered answer, the non-negotiables). Then `README.md` for the full architectural picture (traceability chain, folder ownership table, stack versions, the n8n decision, the full forbidden-work list).
-3. Open the phase plan file for the phase you are currently in. Phase plans contain the Task Groups with their Definitions of Done.
-4. Do not jump between phases. Each phase has hard prerequisites at the top and completion criteria at the bottom.
+2. Read `STRATEGY.md` for the one-page "what this is and the question it answers" (the ceremony-vs-raw-AI tension, the tiered answer, the non-negotiables). Then `README.md` for the architectural picture and the entry points.
+3. Open the doc under `docs/` that matches what you are doing — e.g. `docs/pipeline-runner.md` (driving a story), `docs/review-gates.md` (the gates), `docs/pipeline-architecture.md` (the full flow), `docs/healer-guardrails.md`, `docs/traceability.md`, `docs/automation-decision-model.md`.
 
-| If you are working on | Open this file |
-|---|---|
-| Foundation, schemas, first E2E vertical slice | `phase1-foundation-e2e.md` |
-| Postman MCP + Newman + API Agent | `phase1.5-api-branch.md` |
-| Jira/TestLink writes + GitHub Actions CI | `phase2-integrations.md` |
-| Controlled healing, metrics, `/evolve`, hardening | `phase3-healing-scaling.md` |
-
-If a user asks you to do something that doesn't fit the current phase, stop and ask before executing.
+The core build is complete; the system is in continuous-improvement mode. Work now is feature work on new stories (the runner flow below) and the improvement loop (`/evolve`, metrics), not phased construction. If a request is ambiguous or would violate a rule in section 3, stop and ask before executing.
 
 ---
 
@@ -273,24 +265,23 @@ Each adapted skill declares `adapted_from: dogkeeper886/ai-qa-workflow @ v3.0` i
 
 ---
 
-## 6. Phase-agnostic file layout
+## 6. Top-level file map
 
-These files exist from day one and are touched in every phase:
+The entry points that orient any new session:
 
 ```
-README.md                        Architectural picture, decisions, traceability chain
-CLAUDE.md                        This file. Operating instructions.
-phase1-foundation-e2e.md         Phase 1 task groups
-phase1.5-api-branch.md           Phase 1.5 task groups
-phase2-integrations.md           Phase 2 task groups
-phase3-healing-scaling.md        Phase 3 task groups
-PHASE1-RETROSPECTIVE.md          Written at the end of Phase 1 (input to Phase 1.5)
-PHASE1.5-RETROSPECTIVE.md        Written at the end of Phase 1.5 (input to Phase 2)
-PHASE2-RETROSPECTIVE.md          Written at the end of Phase 2 (input to Phase 3)
-PHASE3-RETROSPECTIVE.md          Written at the end of Phase 3 (input to continuous improvement)
+README.md     Project overview, the three doors, architecture, commands.
+STRATEGY.md   One-page "what this is and the question it answers".
+CLAUDE.md     This file. Operating instructions.
+docs/         Architecture, gates, traceability, integration & fit guides.
+agents/       Custom agent prompts.   skills/   Adapted lifecycle skills.
+schemas/      JSON Schema contracts.  scripts/  Runner, validators, tooling.
+examples/     Example stories, expected outputs, the offline demo fixtures.
 ```
 
-The phase plan files are checklists. The retrospective files are written by the team at the end of each phase and reviewed before the next phase begins. Do not start the next phase if its retrospective prerequisite is missing.
+The build history (phase plans and retrospectives) is preserved in the project's
+git history rather than as top-level files; the system is past phased
+construction and in continuous-improvement mode.
 
 ---
 
@@ -299,9 +290,9 @@ The phase plan files are checklists. The retrospective files are written by the 
 Every time you start a session on this project, run this mental checklist before doing anything:
 
 1. Have I read `CLAUDE.md`? (Yes — you're reading it now.)
-2. Have I read `README.md` for architectural context?
-3. Which phase are we in? Open the matching phase plan.
-4. Which task group am I about to execute? State it out loud at the start of the response.
+2. Have I read `README.md` (and `STRATEGY.md`) for architectural context?
+3. Which doc under `docs/` covers what I'm about to do? Open it first.
+4. What am I about to do? State it out loud at the start of the response, in small steps.
 5. Does this work require schema changes? If yes, do I have time to update schema + agents + docs + examples + migration in the same PR? (Architecture Stability Rule.)
 6. Will this work cross folder ownership boundaries? If yes, stop and ask.
 7. Will this work skip a gate, weaken a Healer guardrail, or introduce a forbidden dependency? If yes, stop and ask.
@@ -311,13 +302,13 @@ When in doubt: smaller steps, more validation, more stop-and-ask. The system is 
 
 ---
 
-## 8. When the human asks you something not in the plan
+## 8. When the human asks for something new
 
-If the human asks for something that is not in any phase plan:
+If the human asks for something not already covered by the docs:
 
 - If it is a clarification or an explanation, answer.
-- If it is a small improvement to docs or a fix that fits within the current phase scope, do it.
-- If it is new functionality, propose it as a future task and ask whether to add it to a phase plan or treat it as out of scope.
+- If it is a small improvement to docs or a contained fix, do it.
+- If it is new functionality, propose it (and, if it's deferred scope, check `docs/deferred.md`) and ask whether to take it on or treat it as out of scope.
 - If it is a request to skip a rule from sections 3–4, refuse and explain which rule it violates and why the rule exists.
 
 Don't be rigid for its own sake. Be rigid about gates, traceability, schemas, folder ownership, healer guardrails, and forbidden dependencies. Everything else is negotiable with the human present.

@@ -237,8 +237,8 @@ does" (that would validate the implementation against itself). This is the
 If a Jira story has **no linked PR**, the Analyst skips the diff entirely and
 the pipeline runs exactly as before — no error, no blocking. So this MCP is
 only exercised when QA-ing a story that points at real code (see
-`agents/analyst.md` Mode B and `phase3-healing-scaling.md` TG15). Shift-left
-`pre_development` runs have no PR by definition, so they never use it.
+`agents/analyst.md` Mode B). Shift-left `pre_development` runs have no PR
+by definition, so they never use it.
 
 ### Setup
 

@@ -129,10 +129,8 @@ Examples:
 - "Adding a comment to an issue triggers a webhook with the comment
   payload."
 
-Phase 1 records these as `automate_api` but does not yet execute them
-— the API branch (Postman + Newman) is built in Phase 1.5 (see
-`phase1.5-api-branch.md`). Recording them now means the Phase 1.5 API
-Agent has a backlog to work from on day one.
+Cases marked `automate_api` are executed by the API branch (Postman +
+Newman) via the API Agent.
 
 Anti-patterns:
 

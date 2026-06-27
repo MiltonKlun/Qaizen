@@ -209,4 +209,3 @@ phase (`docs/healer-guardrails.md`).
 - `docs/ambiguities.md` A3 (API target = reqres.in) and A4 (MCP package name).
 - `docs/mcp-setup.md` — the other MCP servers (playwright-test, atlassian).
 - `docs/automation-decision-model.md` — when a case is `automate_api`.
-- `phase1.5-api-branch.md` — the full Phase 1.5 plan.

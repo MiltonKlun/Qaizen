@@ -351,5 +351,4 @@ human.
 - `docs/traceability.md` — the `RISK → TC` chain this agent reports on.
 - `agents/reporter.md` — runs the same coverage query post-execution
   (`coverage_by_risk` + `uncovered_risks`); this agent runs it at Gate 3.
-- `phase3-healing-scaling.md` TG4 + §4.5.a — the plan.
 - `CLAUDE.md` §3.5 — Gate 3 / Gate 4 stay human.
