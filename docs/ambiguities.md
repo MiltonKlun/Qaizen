@@ -72,15 +72,15 @@ script as a small first-party MCP. Not needed for Phase 2.
 
 **Context:**
 
-- The literal Phase 2 plan (`phase2-integrations.md` TG3/TG4/TG10)
-  hardcodes TestLink as _the_ test-management tool.
+- The original integration plan hardcoded TestLink as _the_
+  test-management tool.
 - The project owner asked (during TG2) for a modular design so future
   tools (Xray, Qase, others) can be added as new modules without
   modifying TestLink's code or the pipeline core — the SOLID
   Open/Closed Principle.
-- README §9 already frames test management as "an adapter, not a
+- The project already frames test management as "an adapter, not a
   hardcoded coupling," so this formalizes an intent the architecture
-  already had rather than contradicting the plan.
+  already had rather than contradicting it.
 
 **Decision (project owner, during TG2):** Introduce a stable
 `TestManagementAdapter` **port** (`agents/test-management-adapter.md`)
@@ -176,9 +176,9 @@ per the TG1 instruction to confirm the package name.
 
 **Context:**
 
-- `phase1.5-api-branch.md` TG1 names the package `@postman/mcp-server` and
-  `README.md` §1.2 names `postmanlabs/postman-mcp-server`. TG1 explicitly
-  says to verify the name since "el nombre puede haber cambiado."
+- Early notes named the package `@postman/mcp-server` while the canonical
+  name is `postmanlabs/postman-mcp-server`. The name had to be verified
+  since it may have changed upstream.
 - `@postman/mcp-server` returns **404** on npm — it does not exist.
 - `postman-mcp-server` (unscoped) exists at v1.2.0 but is published by a
   **third party** (`npmcrafter` / `ankit-roy-0602`), NOT Postman. Using it

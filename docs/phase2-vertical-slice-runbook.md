@@ -1,9 +1,8 @@
-# Phase 2 vertical slice — runbook (TG13)
+# Vertical-slice runbook — running the full pipeline end-to-end
 
-> **Purpose:** a step-by-step guide for running the full Phase 2 pipeline
-> end-to-end across **3+ Jira-sourced stories**, with TestLink sync, Jira
-> bug creation (`--apply`), and CI on every PR — then writing
-> `PHASE2-RETROSPECTIVE.md`. This is the last task group of Phase 2.
+> **Purpose:** a step-by-step guide for running the full pipeline end-to-end
+> on a Jira-sourced story, with TestLink sync, Jira bug creation (`--apply`),
+> and CI on every PR.
 >
 > **Who does what:** the agent (Claude) drives the agent steps and the
 > scripts. **You** approve the four human gates, push branches, open/merge
@@ -281,19 +280,7 @@ Back to Step 1 with `SK-13`, then `SK-16` (each on its own
 
 ---
 
-## 3. After 3 stories — write the retrospective
-
-`PHASE2-RETROSPECTIVE.md` already exists as a skeleton with prompts. Fill
-it in from what you observed: stories processed, CI friction, time per
-story, whether the gates stayed useful (or want consolidating per TG7),
-whether TestLink sync was smooth, whether Jira bug creation duplicated
-anything, and recommendations for Phase 3 (controlled healing).
-
-That file's existence + review is the final Phase 2 completion criterion.
-
----
-
-## 4. Quick reference — the `--apply` operations (all yours to type)
+## 3. Quick reference — the `--apply` operations (all yours to type)
 
 | Operation                     | Command                                                                   | Writes to |
 | ----------------------------- | ------------------------------------------------------------------------- | --------- |
@@ -307,7 +294,7 @@ you type. CI never runs any of these.
 
 ---
 
-## 5. If something goes wrong
+## 4. If something goes wrong
 
 - **A gate isn't satisfied** → reject, tell Claude what's wrong, it re-runs
   that agent. Don't flip the gate to proceed.
@@ -326,7 +313,6 @@ you type. CI never runs any of these.
 
 ## References
 
-- `phase2-integrations.md` TG13 — the plan this runbook executes.
 - `docs/review-gates.md` — the four gate criteria.
 - `docs/pipeline-architecture.md` §6.1 — the CI job model.
 - `docs/testlink-integration.md` — TestLink setup + sync.

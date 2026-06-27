@@ -31,13 +31,12 @@ test-management integration must satisfy. It exists so the project can
 add or swap test-management tools **by extension, not modification** —
 the SOLID Open/Closed Principle applied to integrations.
 
-> **Why this exists / deviation note.** The literal Phase 2 plan
-> (`phase2-integrations.md` TG3/TG4/TG10) hardcodes TestLink. The
-> project owner asked for a modular design so future tools (Xray, Qase)
-> slot in without touching TestLink's code. README §9 already calls test
-> management "an adapter, not a hardcoded coupling," so this formalizes
-> an intent the architecture already had. Logged in `docs/ambiguities.md`
-> A6. TestLink is the first and (for Phase 2) only implemented adapter.
+> **Why this exists / deviation note.** The original integration plan
+> hardcoded TestLink. The project owner asked for a modular design so
+> future tools (Xray, Qase) slot in without touching TestLink's code —
+> test management is "an adapter, not a hardcoded coupling." This
+> formalizes an intent the architecture already had (logged in
+> `docs/ambiguities.md` A6). TestLink is the first implemented adapter.
 
 ---
 
@@ -204,7 +203,6 @@ suit the project.
   bounds when sync may run.
 - `agents/test-designer.md` — owns `test-cases/*.json`, the source of
   truth adapters read.
-- `agents/reporter.md` — owns the release report; Phase 2 TG10 wires
-  result sync through the reporter.
-- README §9 — "adapter, not a hardcoded coupling."
+- `agents/reporter.md` — owns the release report; result sync is wired
+  through the reporter.
 - `docs/ambiguities.md` A6 — the modular-port deviation record.

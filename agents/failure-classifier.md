@@ -427,7 +427,7 @@ with a non-empty key is skipped on re-run).
 - `docs/automation-decision-model.md` — how cases became
   `automate_e2e` vs `automate_api`, which affects whether
   Playwright or Newman produced the failure.
-- `phase2-integrations.md` TG5 — the `scripts/create-jira-bugs.js
---apply` flow that consumes bug drafts.
-- `phase3-healing-scaling.md` TG2 — the separate Healer flow that
-  the Phase 1 classifier explicitly does NOT trigger.
+- `scripts/create-jira-bugs.js` — the `--apply` flow that consumes bug
+  drafts.
+- `docs/healer-guardrails.md` — the separate Healer flow that the
+  classifier explicitly does NOT trigger.

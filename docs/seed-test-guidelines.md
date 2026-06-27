@@ -203,10 +203,7 @@ Reasons that are NOT legitimate:
 - `tests/fixtures/README.md` — the placeholder note for fixtures
   (created in Phase 1 TG11).
 - `.claude/agents/playwright-test-planner.md` — the Native Agent that
-  consumes the seed (scaffolded in Phase 1 TG3).
+  consumes the seed.
 - `docs/mcp-setup.md` — the `playwright-test` MCP that backs the
   Native Agents.
-- `phase1-foundation-e2e.md` TG11 — the Task Group that writes the
-  Phase 1 seed content.
-- `phase1-foundation-e2e.md` TG13 step 8 — where the seed runs as
-  part of the vertical slice.
+- `tests/seed.spec.ts` — the seed test itself.

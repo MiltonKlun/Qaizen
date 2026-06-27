@@ -1,11 +1,10 @@
 # Evidence — pipeline vs. raw prompting
 
 > **Status:** SKELETON — awaiting the run series. The protocol and tooling
-> shipped in IMPROVEMENT-PLAN Phase 5; this document is filled in once a human
-> has run the two arms over the selected stories
-> (`docs/benchmark-protocol.md`). Until then the verdict below is **"not yet
-> measured"**, by design — the project refuses to assert value it hasn't
-> demonstrated (`PROJECT-BRIEF.md` §2, weakness #1).
+> are shipped; this document is filled in once a human has run the two arms
+> over the selected stories (`docs/benchmark-protocol.md`). Until then the
+> verdict below is **"not yet measured"**, by design — the project refuses to
+> assert value it hasn't demonstrated (`STRATEGY.md`).
 
 This is the project's answer to its own central question: **why use this
 ceremony instead of asking an AI directly?** It reports measured results —
@@ -51,7 +50,7 @@ in `docs/benchmark-protocol.md` §5.
 ## 4. Gate cost (from Phase-1 telemetry)
 
 > The adoption argument made concrete. From the `opened_at`/`decided_at`
-> timestamps recorded on gate decisions (IMPROVEMENT-PLAN Phase 1), report the
+> timestamps recorded on gate decisions, report the
 > **median minutes per gate** observed across the pipeline-arm runs:
 >
 > | Gate              | Median minutes |

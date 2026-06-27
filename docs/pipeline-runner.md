@@ -189,4 +189,3 @@ inspection.
 - `docs/review-gates.md` — gate criteria, telemetry, rejection flow.
 - `docs/phase2-vertical-slice-runbook.md` — the manual sequence the runner
   automates the clerical parts of.
-- `IMPROVEMENT-PLAN.md` Phases 2–3 — the design constraints this implements.

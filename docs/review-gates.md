@@ -56,7 +56,7 @@ The design half can be entered at **two points**:
 
 - **Gates 3 and 4 do NOT apply at refinement** — there is no code to write
   a spec or test against. Running the execution half before code exists is
-  forbidden (`phase2.6-enhancements.md` TG2.6-4).
+  forbidden.
 - Test cases produced at refinement carry `design_stage: "pre_development"`.
   At ready-for-QA the Test Designer **refines those existing cases** (and
   flips them to `ready_for_qa`) rather than regenerating from scratch; cases
@@ -86,9 +86,9 @@ All four start as `false` when the Analyst initializes `context.json`.
 Each becomes `true` only after a human signs off per the criteria below.
 
 After each transition, re-validate `context.json` against the schema.
-The pipeline orchestrator (in Phase 1, this is the human operator
-following `phase1-foundation-e2e.md` Task Group 13) checks the relevant
-flag before invoking the next agent.
+The pipeline orchestrator (the human operator, or the thin gated runner —
+`docs/pipeline-runner.md`) checks the relevant flag before invoking the
+next agent.
 
 **Phase 2 enhancement (TG6):** any gate's value may also be an object
 `{ status: boolean, reviewer: string, reviewed_at: ISO_DATE, notes: string }`,
@@ -729,10 +729,7 @@ catching it later.
 ## References
 
 - `CLAUDE.md` section 3.5 — gates as an operating principle.
-- `README.md` section 1.x and section 9 — Gate 4 permanence.
 - `docs/pipeline-architecture.md` — where each gate sits in the flow.
 - `docs/healer-guardrails.md` — Green/Yellow/Red and what auto-fix
   is allowed (never weakens the gates).
-- `phase1-foundation-e2e.md` TG13 — the steps that run each Phase 1
-  gate.
-- `phase2-integrations.md` TG6 — the Phase 2 audit-field extension.
+- `docs/pipeline-runner.md` — the thin gated runner that drives the gates.

@@ -64,5 +64,4 @@ test_case_id for traceability. The created key is recorded at
 - `scripts/create-jira-testcases.js` — the adapter script.
 - `config/jira-testcase-map.json` — the (human-editable) field map.
 - `scripts/create-jira-bugs.js` — sibling write-capable, `--apply`-gated path.
-- `docs/jira-export.md` — the related read-only export (TG2.6-2).
-- `phase2.6-enhancements.md` TG2.6-3 — the plan.
+- `docs/jira-export.md` — the related read-only export.

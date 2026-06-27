@@ -192,7 +192,7 @@ networking) first — those are the usual culprits.
 ## 8. Local-instance gotchas (from standing one up)
 
 These bit us setting up the dev instance; recorded so they don't bite
-again (and noted in `PHASE2-RETROSPECTIVE.md` when written):
+again:
 
 - **Bitnami TestLink images are dead** (removed from Docker Hub in 2025).
   The working image is `imtnd/testlink:latest` (TestLink 1.9.14).
@@ -247,7 +247,5 @@ the XML-RPC API is identical across 1.9.x.
   (TG10), invoked optionally by the Reporter with
   `--apply-testlink-execution`.
 - `config/testlink-field-map.json` / `config/testlink-status-map.json`
-  — the (human-editable) mappings (TG4 / TG10).
+  — the (human-editable) mappings.
 - `docs/secrets-management.md` — TestLink key handling.
-- `docs/ambiguities.md` A6 — the modular-port deviation.
-- `phase2-integrations.md` TG3, TG4, TG10 — the plan.
