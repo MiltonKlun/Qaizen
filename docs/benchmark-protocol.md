@@ -1,9 +1,9 @@
 # Benchmark Protocol — pipeline vs. raw prompting
 
-> **Status:** IMPROVEMENT-PLAN Phase 5 (PR + run series). This is the
+> **Status:** tooling shipped; awaiting the run series. This is the
 > **pre-registered** protocol for the project's central question
-> (`PROJECT-BRIEF.md` §2, weakness #1): _is the ceremony worth it, versus just
-> asking an AI directly?_ The tooling (`scripts/benchmark-capture.js`,
+> (`STRATEGY.md`): _is the ceremony worth it, versus just asking an AI
+> directly?_ The tooling (`scripts/benchmark-capture.js`,
 > `scripts/selector-survival.js`, `schemas/benchmark-record.schema.json`,
 > `evidence/`) ships in the PR; the **measurements** are a human-led run series
 > recorded afterward into `evidence/benchmark.jsonl` and written up in
@@ -271,4 +271,4 @@ After the series: `npm run metrics` (does `prompt_stability_met` now compute at
 - `scripts/selector-survival.js` — the replay harness (honest about gaps).
 - `docs/pipeline-runner.md` — how Arm B is driven.
 - `docs/review-gates.md` §4 — the Gate-4 checklist both arms are judged by.
-- `PROJECT-BRIEF.md` §2, §15 — the question this benchmark exists to answer.
+- `STRATEGY.md` — the question this benchmark exists to answer.

@@ -1,15 +1,11 @@
 # Pipeline Architecture
 
-> **Status:** Phase 1 complete; Phase 1.5 (API branch) in progress. The
-> E2E branch and the dual E2E/API flow (§4–5) are active. Sections marked
-> **Deferred to Phase X** are intentionally not built yet. Do not implement
-> them while in an earlier phase — see the per-phase plan files.
+> **Status:** core build complete (E2E + API branches, integrations, controlled
+> healing, metrics, `/evolve`); the system is in continuous-improvement mode.
 
 This document is the architectural reference for the AI-assisted QA pipeline.
-For binding rules, see `CLAUDE.md` (operating instructions) and the per-phase
-plan files (`phase1-foundation-e2e.md`, `phase1.5-api-branch.md`,
-`phase2-integrations.md`, `phase3-healing-scaling.md`). For the system-level
-overview and decisions, see the project `README.md`.
+For binding rules, see `CLAUDE.md` (operating instructions). For the
+system-level overview and decisions, see the project `README.md`.
 
 ---
 
@@ -41,25 +37,10 @@ section 1:
    from `dogkeeper886/ai-qa-workflow` instead of building equivalents from
    scratch.
 2. **Wrap them in a strict discipline layer.** JSON Schemas + AJV, the
-   Architecture Stability Rule, traceability IDs, folder ownership, and a
-   list of forbidden work per phase.
+   Architecture Stability Rule, traceability IDs, folder ownership, and an
+   explicit forbidden-work list.
 3. **Keep humans in the loop.** Four review gates, with **Gate 4 permanently
    human**, and Healer guardrails that never permit a direct commit to main.
-
----
-
-## 2. Phase scope at a glance
-
-| Phase   | Adds                                                          | Document                    |
-| ------- | ------------------------------------------------------------- | --------------------------- |
-| **1**   | Foundation + vertical E2E slice with MCP Atlassian read-only. | `phase1-foundation-e2e.md`  |
-| **1.5** | Rama API: Postman MCP, Newman, API Agent, schema extensions.  | `phase1.5-api-branch.md`    |
-| **2**   | Writes (Jira bugs, TestLink sync) + GitHub Actions CI.        | `phase2-integrations.md`    |
-| **3**   | Controlled Healer, Spec Reviewer, runs/, metrics, /evolve.    | `phase3-healing-scaling.md` |
-
-Each phase has a Forbidden Work list and explicit completion criteria. The
-next phase does not start until the previous phase's retrospective is
-written and reviewed.
 
 ---
 
@@ -197,11 +178,10 @@ story.md (manual) ─or─ Jira issue (mcp-atlassian read-only)
                conditional-pass criteria, external links — all additive)
         │
         ▼
-  PHASE1-RETROSPECTIVE.md
+  release report + bug drafts
 ```
 
-Phase 1 ends when one story has produced this full chain and the
-retrospective is written.
+A run is complete when one story has produced this full traceability chain.
 
 ### 4.1 Two entry points (Phase 2.6, shift-left)
 
@@ -215,7 +195,7 @@ default). Cases designed at refinement carry `design_stage:
 Gates 3/4 apply only at the execution half. This is a documented
 convention + one optional schema field — not trigger automation (this
 pipeline's orchestration is human-driven). See `docs/review-gates.md`
-("Two entry points") and `phase2.6-enhancements.md` TG2.6-4.
+("Two entry points").
 
 ### 4.2 Orchestration convenience — the thin gated runner (continuous improvement)
 
@@ -278,10 +258,10 @@ For Phase 1.5 the API under test is **reqres.in** (`https://reqres.in/api`),
 because Saucedemo — the E2E target — has no real backend API. See
 `docs/ambiguities.md` A3.
 
-### The dual flow (extends the Phase 1 vertical slice)
+### The dual flow (E2E + API)
 
-The Phase 1 vertical slice (`phase1-foundation-e2e.md` TG13) becomes a
-dual flow. Steps 1–7 and 14–21 are shared; steps 8–13 fork per branch.
+The single-branch vertical slice becomes a dual flow. Steps 1–7 and 14–21
+are shared; steps 8–13 fork per branch.
 
 ```
 Steps 1–7  (shared)  Analyst → Gate 1 → Test Designer → Gate 2
@@ -311,7 +291,6 @@ Steps 15–20 (shared)  Failure Classifier reads BOTH reports → one
                       analysis/failure-analysis.json. Reporter produces a
                       unified release-report with grouped execution_summary
                       { e2e, api, combined }.
-Step 21    PHASE1.5-RETROSPECTIVE.md
 ```
 
 ### What is shared vs forked
@@ -438,22 +417,18 @@ blocking later than a curated smoke subset.
 
 **CI never writes outward.** No commits, no merges, no Jira/TestLink
 writes, no Healer patches. Those are explicit local `--apply` operations
-(`phase2-integrations.md` §3, `CLAUDE.md` §3.6). CI only reads, runs,
-validates, and reports.
+(`CLAUDE.md` §3.6). CI only reads, runs, validates, and reports.
 
 `scripts/ci-summary.js` is a mechanical pass/fail tally for the PR
 surface — it does **not** replace `analysis/failure-analysis.json`,
 which is the Failure Classifier Agent's classified, severity-bearing
 output.
 
-**Forbidden in Phase 1:** any of the above. See
-`phase2-integrations.md` section 3.
-
 ---
 
-## 7. Phase 3 — Healing, metrics, /evolve (Deferred)
+## 7. Healing, metrics, /evolve
 
-Phase 3 adds:
+This layer adds:
 
 - Rule-based Failure Classifier (LLM only on ambiguous cases).
 - `scripts/run-healer.js` that generates `.patch` files for **Green**
@@ -464,9 +439,6 @@ Phase 3 adds:
 - `runs/[story-id]/[run-id]/` history layout, with `scripts/new-run.js`.
 - Pipeline metrics + `/evolve` loop for prompt evolution.
 - Optional dual-judge framework evaluation.
-
-**Forbidden in Phase 1:** any of the above. See
-`phase3-healing-scaling.md` section 3.
 
 ---
 
@@ -506,8 +478,7 @@ previous one. The Phase 2 retrospective flagged this as the top pain (a
 near-miss clobber during the SK-13 slice).
 
 `runs/` is the **immutable history** that fixes it, using the
-**root-is-current / runs-is-history** model (Option A from
-`phase3-healing-scaling.md` TG5):
+**root-is-current / runs-is-history** model:
 
 ```
 runs/<story-id>/<run-id>/context.json

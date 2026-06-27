@@ -154,7 +154,7 @@
         "api_metadata": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Phase 1.5+ extension. Optional. Should be populated only when automation_decision == 'automate_api'. The schema-extension rule (see phase1.5-api-branch.md TG3) is enforced separately; Phase 1 files do not populate this.",
+          "description": "API-branch extension. Optional. Populated only when automation_decision == 'automate_api'; E2E-only cases leave this unset.",
           "properties": {
             "method": {
               "type": "string",

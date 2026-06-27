@@ -217,8 +217,8 @@ emits two derived fields so a zero-coverage risk is impossible to miss:
 `uncovered`) and `uncovered_high_severity_count` (how many of those are
 `high` severity). These are a deterministic query over the chain — no LLM.
 A run with `uncovered_high_severity_count > 0` cannot be a `pass`
-(`agents/reporter.md` §5.5/§6). The Phase 3 Spec Reviewer surfaces the same
-gap earlier, at Gate 3 (`phase3-healing-scaling.md` §4.5.a).
+(`agents/reporter.md` §5.5/§6). The Spec Reviewer surfaces the same
+gap earlier, at Gate 3 (`agents/spec-reviewer.md`).
 
 ### 4.2 AC coverage
 
@@ -301,5 +301,5 @@ unambiguous.
 - `skills/analyzing-logs/SKILL.md` — creates FAIL and BUG IDs.
 - `docs/review-gates.md` — the gates that check traceability at each
   stage.
-- `phase1.5-api-branch.md` TG3 — schema extension for API IDs.
-- `phase3-healing-scaling.md` TG5 — `runs/` history layout.
+- `docs/pipeline-architecture.md` — the API ID extension and the `runs/`
+  history layout.

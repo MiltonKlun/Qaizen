@@ -255,9 +255,9 @@ test that fails almost always means the contract moved (a real change)
 or the assertion was wrong (a Test Designer / Gate 2 concern), neither
 of which the Healer should resolve on its own.
 
-This rule is set in `phase1.5-api-branch.md` TG5, enforced by
-`agents/failure-classifier.md` (which never recommends a Healer action
-for `source: "newman"` failures), and reiterated here.
+This rule is enforced by `agents/failure-classifier.md` (which never
+recommends a Healer action for `source: "newman"` failures), and
+reiterated here.
 
 ---
 
@@ -377,14 +377,13 @@ letter.
 ## 9. References
 
 - `CLAUDE.md` section 3.6 — guardrails as an operating principle.
-- `README.md` section 7 — Green/Yellow/Red overview.
+- `README.md` — Green/Yellow/Red overview.
 - `schemas/failure-analysis.schema.json` — the binding schema for
-  `severity` and `classification` (Phase 1 TG7).
+  `severity` and `classification`.
 - `skills/analyzing-logs/SKILL.md` — how the Failure Classifier
   assigns severity.
 - `docs/review-gates.md` — Gate 4 permanence and why the Healer
   cannot replace human review.
-- `phase3-healing-scaling.md` TG2 — the code that enforces these
-  rules.
+- `scripts/healer-guardrails.js` — the code that enforces these rules.
 - `.claude/agents/playwright-test-healer.md` — the Native Agent
-  definition (scaffolded in Phase 1 TG3; not invoked until Phase 3).
+  definition.

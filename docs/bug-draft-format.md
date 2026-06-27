@@ -153,4 +153,3 @@ that judgment and pollute the tracker with non-bugs.
 - `docs/mcp-setup.md` — the `atlassian-write` entry and the
   "writes are never a side effect" rule.
 - `docs/traceability.md` — where `BUG-XXX` sits in the chain.
-- `phase2-integrations.md` TG5 — the plan.

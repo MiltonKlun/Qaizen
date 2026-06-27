@@ -61,7 +61,6 @@ schemes — consistent with the project's generic/reusable goal.
 ## References
 
 - `scripts/export-to-jira.js` — the helper.
-- `phase2.6-enhancements.md` TG2.6-2 — the plan.
 - `agents/test-management-adapter.md` — the port; the automated Jira adapter
   (TG2.6-3) lives behind it.
 - `scripts/create-jira-bugs.js` — the related (write-capable, `--apply`-gated)
