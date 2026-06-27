@@ -1,4 +1,4 @@
-# Clean, reproducible TestLink image for the AI QA pipeline.
+# Clean, reproducible TestLink image for the Qaizen QA pipeline.
 #
 # Built ourselves because the community TestLink images proved unusable:
 # Bitnami's are removed from Docker Hub; icellmobilsoft hardcodes a broken

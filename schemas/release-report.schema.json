@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://ai-qa-pipeline/schemas/release-report.schema.json",
+  "$id": "https://qaizen/schemas/release-report.schema.json",
   "title": "Release Report",
   "description": "release/release-report.json. Produced by the Reporter Agent from context.json + test-cases + failure-analysis + bug drafts. coverage_by_risk is derived from the traceability chain — see docs/traceability.md.",
   "type": "object",

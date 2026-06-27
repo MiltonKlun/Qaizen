@@ -86,7 +86,7 @@ Agent primarily needs collection + environment read/write.
 
 1. Sign in to Postman and open
    `https://go.postman.co/settings/me/api-keys`.
-2. Click **Generate API Key**, name it (e.g. "ai-qa-pipeline"), copy it.
+2. Click **Generate API Key**, name it (e.g. "qaizen"), copy it.
 3. Put it in `.env` as `POSTMAN_API_KEY`. `.env` is gitignored — never commit
    it.
 4. Restart the MCP client (Claude Code) so it re-reads `.mcp.json` + `.env`.

@@ -3,7 +3,7 @@
 > **Status:** core build complete (E2E + API branches, integrations, controlled
 > healing, metrics, `/evolve`); the system is in continuous-improvement mode.
 
-This document is the architectural reference for the AI-assisted QA pipeline.
+This document is the architectural reference for Qaizen, the AI-assisted QA pipeline.
 For binding rules, see `CLAUDE.md` (operating instructions). For the
 system-level overview and decisions, see the project `README.md`.
 

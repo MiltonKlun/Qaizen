@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://ai-qa-pipeline/schemas/benchmark-record.schema.json",
+  "$id": "https://qaizen/schemas/benchmark-record.schema.json",
   "title": "Benchmark Measurement Record",
   "description": "One measurement of ONE story under ONE arm of the pipeline-vs-raw-prompting benchmark (IMPROVEMENT-PLAN Phase 5, docs/benchmark-protocol.md). Records are appended as JSONL to evidence/benchmark.jsonl by scripts/benchmark-capture.js; each LINE validates against this schema. Arm A = raw prompting; Arm B = the pipeline via the runner. Metrics are defined in the protocol doc; absent metrics are recorded as null (not omitted) so a gap is explicit, never silently a zero.",
   "type": "object",

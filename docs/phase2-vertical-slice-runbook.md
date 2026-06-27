@@ -26,7 +26,7 @@ git add -A
 git status                      # sanity: confirm .env is NOT listed (it's gitignored)
 git commit -m "Phase 2 foundation: integrations, CI, scripts, docs"
 git branch -M main              # the repo's main branch
-git remote add origin https://github.com/MiltonKlun/AI-Assisted-QA.git
+git remote add origin https://github.com/MiltonKlun/Qaizen.git
 git push -u origin main
 ```
 

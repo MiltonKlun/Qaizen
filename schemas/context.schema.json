@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://ai-qa-pipeline/schemas/context.schema.json",
+  "$id": "https://qaizen/schemas/context.schema.json",
   "title": "Pipeline Run Context",
   "description": "Manifest for a single pipeline run. See docs/context-json-guide.md. The boolean form of each review_gates entry is the Phase 1 baseline; the object form is reserved for the Phase 2 audit-field extension (oneOf accepts both, backward-compatible).",
   "type": "object",
