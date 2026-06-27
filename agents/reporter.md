@@ -572,15 +572,11 @@ divergence.
 - `docs/healer-guardrails.md` — Green / Yellow / Red severity
   definitions that drive `blocking_failures` vs
   `non_blocking_failures`.
-- `phase2-integrations.md` TG10 — Phase 2 extends the Reporter
-  with optional TestLink execution sync (still gated by an
-  explicit `--apply-testlink-execution` flag).
 - `scripts/sync-testlink-execution.js` — the optional execution-result
-  sync (step 15); dry-run by default.
+  sync (gated by an explicit `--apply-testlink-execution` flag); dry-run
+  by default.
 - `config/testlink-status-map.json` — the outcome → TestLink status
   mapping the sync uses.
-- `phase1.5-api-branch.md` TG6 — Phase 1.5 extends the Reporter to
-  cover both branches with the grouped `execution_summary`.
-- `phase3-healing-scaling.md` TG12 — Phase 3 enhances release
-  reporting (risk-level breakdown, flaky summary, conditional
-  criteria) but does not change the agent's contract.
+- `schemas/release-report.schema.json` — the report contract (grouped
+  `execution_summary`, risk-level breakdown, flaky/open-bug summaries,
+  conditional-pass criteria).

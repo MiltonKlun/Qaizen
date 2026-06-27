@@ -126,4 +126,3 @@ human decides — no self-rewrite.
 - `scripts/session-summary.js` — capture friction (`npm run session-summary`).
 - `docs/prompt-versioning.md` — discipline for accepting a prompt change.
 - `docs/pipeline-architecture.md` §8.2 — metrics meanings + stability threshold.
-- `phase3-healing-scaling.md` §6 — the continuous-improvement cadence.

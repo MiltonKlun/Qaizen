@@ -183,7 +183,7 @@ touches credentials is added.
 ## 8. References
 
 - `docs/secrets-management.md` — credential handling, CI secrets, rotation.
-- `docs/context-json-guide.md` — manifest rule (paths, not contents).
-- `phase3-healing-scaling.md` TG7 — token-efficient context handling.
+- `docs/context-json-guide.md` — manifest rule (paths, not contents) and
+  token-efficient context handling.
 - `docs/ambiguities.md` A5 — the Newman-results secret-leak follow-up.
 - `playwright.config.ts` — trace/screenshot capture configuration.

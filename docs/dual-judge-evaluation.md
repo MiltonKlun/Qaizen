@@ -96,5 +96,5 @@ adapter behind the existing classification, not a new core.
   `unknown_needs_human_review` escalation path.
 - `agents/spec-reviewer.md` — the Gate-3 semantic-ish assist already in place.
 - `docs/evolve-loop.md` — where a recurring false-negative theme would surface.
-- `phase3-healing-scaling.md` TG13 — the criteria and the 10-run precondition.
+- `docs/deferred.md` — this evaluation layer is deferred, with its trigger.
 - `dogkeeper886/test-framework-template` — the upstream dual-judge concept.

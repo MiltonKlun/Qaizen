@@ -173,9 +173,8 @@ Rotate a credential when:
 - A team member with access leaves.
 - On a routine cadence for production-adjacent tokens.
 
-Rotation is cheap; a leaked long-lived token is not. The reqres.in and
-Postman demo keys used during Phase 1.5 development were exposed in the
-build session and are flagged for rotation in `PHASE1.5-RETROSPECTIVE.md`.
+Rotation is cheap; a leaked long-lived token is not. Any demo keys exposed
+during development are flagged for rotation.
 
 ---
 
@@ -195,6 +194,4 @@ build session and are flagged for rotation in `PHASE1.5-RETROSPECTIVE.md`.
 - `.env.example` — the committed template of every key.
 - `docs/mcp-setup.md` — Atlassian read-only vs write allowlist.
 - `docs/postman-integration.md` — Postman / reqres / Newman secrets.
-- `docs/testlink-integration.md` — TestLink setup (Phase 2 TG3).
-- `docs/ambiguities.md` A5 — the Newman-results secret-leak follow-up.
-- `phase2-integrations.md` TG1, TG5, TG8 — where these secrets are used.
+- `docs/testlink-integration.md` — TestLink setup.
