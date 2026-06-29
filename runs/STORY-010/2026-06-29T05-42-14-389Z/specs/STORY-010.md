@@ -18,6 +18,7 @@
 4. Assert no cart badge is present: `[data-test="shopping-cart-badge"]` is hidden / not attached.
 
 Observed locators (live):
+
 - Add buttons: `[data-test="add-to-cart-sauce-labs-backpack"]`, `[data-test="add-to-cart-sauce-labs-bike-light"]`.
 - Remove buttons (after adding): `[data-test="remove-sauce-labs-backpack"]`, `[data-test="remove-sauce-labs-bike-light"]`.
 - Cart badge (count): `[data-test="shopping-cart-badge"]` — renders the count text; absent when cart is empty.
@@ -29,41 +30,49 @@ Observed locators (live):
 ## Scenario 1 — Badge appears showing "1" after adding one product (TC-001, RISK-001) @smoke
 
 **Steps**
+
 1. From the inventory page (empty cart), click `[data-test="add-to-cart-sauce-labs-backpack"]`.
 
 **Expected**
+
 - `[data-test="shopping-cart-badge"]` becomes visible.
 - Its text equals `"1"`.
 
 ## Scenario 2 — Badge shows "2" after adding two distinct products (TC-002, RISK-001) @regression
 
 **Steps**
+
 1. Click `[data-test="add-to-cart-sauce-labs-backpack"]`.
 2. Click `[data-test="add-to-cart-sauce-labs-bike-light"]`.
 
 **Expected**
+
 - `[data-test="shopping-cart-badge"]` text equals `"2"`.
 
 ## Scenario 3 — Remove decrements; badge disappears at empty (TC-003, RISK-002) @smoke
 
 **Steps**
+
 1. Add Backpack and Bike Light (badge shows "2").
 2. Click `[data-test="remove-sauce-labs-backpack"]`.
 3. Assert badge text equals `"1"`.
 4. Click `[data-test="remove-sauce-labs-bike-light"]`.
 
 **Expected**
+
 - After step 2, badge text equals `"1"`.
 - After step 4, `[data-test="shopping-cart-badge"]` is no longer visible (cart empty) — assert hidden/not attached, NOT a count of "0".
 
 ## Scenario 4 — Count survives navigation to cart and back (TC-004, RISK-003) @regression
 
 **Steps**
+
 1. Add Backpack and Bike Light (badge shows "2").
 2. Click `[data-test="shopping-cart-link"]` to open the cart page.
 3. Click `[data-test="continue-shopping"]` to return to the inventory page.
 
 **Expected**
+
 - On the inventory page, `[data-test="shopping-cart-badge"]` text still equals `"2"`.
 
 ---

@@ -8,12 +8,8 @@
       "test_case_id": "TC-001",
       "title": "Cart badge appears showing 1 after adding a single product",
       "description": "From an empty cart on the inventory page, adding one product makes the cart badge appear with count 1.",
-      "risk_ids": [
-        "RISK-001"
-      ],
-      "acceptance_criteria_refs": [
-        0
-      ],
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [0],
       "priority": "P0",
       "test_level_recommendation": "e2e",
       "automation_decision": "automate_e2e",
@@ -42,12 +38,8 @@
       "test_case_id": "TC-002",
       "title": "Cart badge shows 2 after adding two distinct products",
       "description": "Adding two different products causes the cart badge to show count 2.",
-      "risk_ids": [
-        "RISK-001"
-      ],
-      "acceptance_criteria_refs": [
-        1
-      ],
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [1],
       "priority": "P1",
       "test_level_recommendation": "e2e",
       "automation_decision": "automate_e2e",
@@ -65,21 +57,15 @@
           "action": "Click 'Add to cart' on a second, distinct product (Sauce Labs Bike Light)."
         }
       ],
-      "expected_results": [
-        "The cart badge shows the text '2'."
-      ],
+      "expected_results": ["The cart badge shows the text '2'."],
       "status": "approved"
     },
     {
       "test_case_id": "TC-003",
       "title": "Cart badge decrements on remove and disappears when cart returns to empty",
       "description": "Removing products from the inventory page decrements the badge, and the badge disappears entirely once the cart is empty again.",
-      "risk_ids": [
-        "RISK-002"
-      ],
-      "acceptance_criteria_refs": [
-        2
-      ],
+      "risk_ids": ["RISK-002"],
+      "acceptance_criteria_refs": [2],
       "priority": "P0",
       "test_level_recommendation": "e2e",
       "automation_decision": "automate_e2e",
@@ -112,12 +98,8 @@
       "test_case_id": "TC-004",
       "title": "Cart badge count survives navigation to the cart page and back",
       "description": "Navigating to the cart page and back to the inventory page preserves the badge count.",
-      "risk_ids": [
-        "RISK-003"
-      ],
-      "acceptance_criteria_refs": [
-        3
-      ],
+      "risk_ids": ["RISK-003"],
+      "acceptance_criteria_refs": [3],
       "priority": "P1",
       "test_level_recommendation": "e2e",
       "automation_decision": "automate_e2e",

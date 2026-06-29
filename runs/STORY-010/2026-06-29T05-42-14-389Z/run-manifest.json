@@ -5,10 +5,7 @@
   "archived_at": "2026-06-29T05:42:14.425Z",
   "source_context_run_id": "2026-06-28T12-00-00Z-cartbadge",
   "status_at_archive": "completed",
-  "archived_files": [
-    "context.json",
-    "story.md"
-  ],
+  "archived_files": ["context.json", "story.md"],
   "archived_dirs": [
     "test-cases",
     "planner-input",
