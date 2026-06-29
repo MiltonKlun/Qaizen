@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-28T12-00-00Z-cartbadge",
+  "story_id": "STORY-010",
+  "report_date": "2026-06-29T03:35:00Z",
+  "summary": "STORY-010 (cart badge reflects item count) was driven through all four gates as a system test of the Qaizen pipeline. Four automate_e2e test cases were generated against the running SauceDemo app and all passed; every risk is covered and passing.",
+  "coverage_by_risk": [
+    {
+      "risk_id": "RISK-001",
+      "covered_by_tcs": ["TC-001", "TC-002"],
+      "status": "covered_passing"
+    },
+    {
+      "risk_id": "RISK-002",
+      "covered_by_tcs": ["TC-003"],
+      "status": "covered_passing"
+    },
+    {
+      "risk_id": "RISK-003",
+      "covered_by_tcs": ["TC-004"],
+      "status": "covered_passing"
+    }
+  ],
+  "execution_summary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "pass_rate": 1
+  },
+  "uncovered_risks": [],
+  "uncovered_high_severity_count": 0,
+  "summary_by_risk_level": {
+    "high": {
+      "total": 2,
+      "covered_passing": 2,
+      "covered_failing": 0,
+      "covered_partial": 0,
+      "accepted_without_test": 0,
+      "uncovered": 0
+    },
+    "medium": {
+      "total": 1,
+      "covered_passing": 1,
+      "covered_failing": 0,
+      "covered_partial": 0,
+      "accepted_without_test": 0,
+      "uncovered": 0
+    },
+    "low": {
+      "total": 0,
+      "covered_passing": 0,
+      "covered_failing": 0,
+      "covered_partial": 0,
+      "accepted_without_test": 0,
+      "uncovered": 0
+    }
+  },
+  "untested_high_risk_items": [],
+  "flaky_tests": [],
+  "open_bugs_summary": {
+    "total": 0,
+    "red": 0,
+    "yellow": 0,
+    "with_jira": 0,
+    "without_jira": 0
+  },
+  "blocking_failures": [],
+  "non_blocking_failures": [],
+  "release_recommendation": "pass",
+  "release_recommendation_reasoning": "All four E2E test cases passed against the live application; every risk (RISK-001/002/003) is covered_passing; there are zero uncovered high-severity risks and zero bug drafts. The cart-badge behavior (appear at 1, count distinct items, decrement and disappear at empty, survive navigation) was verified against the running SauceDemo app, satisfying all four acceptance criteria.",
+  "bug_drafts": [],
+  "evidence_paths": [
+    "reports/html",
+    "reports/results.json",
+    "analysis/failure-analysis.json"
+  ],
+  "open_questions": [
+    "Toolchain caveat (not a release blocker): `npm run lint` fails on TypeScript type syntax in the generated test because eslint.config.mjs has no @typescript-eslint parser. The test passes strict typecheck and the Gate-4 static scan. Tracked for a separate config fix; adding the parser is a new dependency requiring human approval (CLAUDE.md §3.11)."
+  ],
+  "status": "draft"
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-28T12-00-00Z-cartbadge",
+  "story_id": "STORY-010",
+  "execution_date": "2026-06-29T03:32:35.076Z",
+  "total_tests": 9,
+  "passed": 9,
+  "failed": 0,
+  "skipped": 0,
+  "failures": [],
+  "status": "draft"
+}

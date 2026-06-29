@@ -23,5 +23,10 @@
     "run_id": "2026-06-06-archived-from-root",
     "label": "archived-from-root",
     "archived_at": "2026-06-06T08:00:20.149Z"
+  },
+  "STORY-010": {
+    "run_id": "2026-06-29T05-42-14-389Z",
+    "label": null,
+    "archived_at": "2026-06-29T05:42:14.425Z"
   }
 }
