@@ -1,15 +1,15 @@
 <div align="center">
 
-# 改善 &nbsp;Qaizen
+# Qaizen
 
-**Agile-aligned QA where artificial intelligence and human judgment work in balance.**
+**Agile-aligned QA where Artificial Intelligence and Human judgment work in balance.**
 
 [![QA Pipeline](https://github.com/MiltonKlun/Qaizen/actions/workflows/qa-pipeline.yml/badge.svg)](https://github.com/MiltonKlun/Qaizen/actions/workflows/qa-pipeline.yml)
 ![Node](https://img.shields.io/badge/node-%E2%89%A520-339933?logo=node.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![Playwright](https://img.shields.io/badge/Playwright-1.56%2B-2EAD33?logo=playwright&logoColor=white)
-![Human gates](https://img.shields.io/badge/human%20gates-4-blue)
-![Gate 4](https://img.shields.io/badge/Gate%204-permanently%20human-critical)
+![Human-in-the-loop gates](https://img.shields.io/badge/Human--in--the--loop%20gates-4-blue)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 </div>
 
@@ -20,33 +20,36 @@
 You give it a story (from Jira or a local `story.md`); it produces validated
 test cases, Playwright E2E specs and tests, Postman/Newman API checks, a
 classified failure analysis, a release report, and bug drafts ready to file.
-**Four human gates** sit between the steps. The last one — code review — is
-permanently human, and no flag, script, or CI job can pass it.
+**Four human-in-the-loop gates** sit between the steps — the human signs off at
+each one, and the final code review is always a human decision that no flag,
+script, or CI job can pass.
 
-> [!IMPORTANT]
-> It is **not** an autonomous agent. It makes a QA engineer faster, not absent.
+> This is **not** an autonomous/vibecoding agent. It makes a QA engineer more agile, not absent.
 
 ---
 
-## 🤔 Why it exists
+## ❓ Why it exists
 
-You could just ask an AI to "write Playwright tests for this story." That's
-faster to a first result. This pipeline is slower, but it buys four things raw
-prompting doesn't:
+Asking an AI to "write Playwright tests for this story" gets you a plausible
+answer fast. Qaizen gets you a _trustworthy_ one — and turns that trust into
+artifacts you can ship, audit, and hand to your board. Four things you get that
+raw prompting doesn't:
 
-| | Guarantee | What it means |
+| | You gain | What it means |
 | --- | --- | --- |
-| 🧾 | **Auditability** | Every artifact is schema-validated; every gate decision is recorded with telemetry. |
-| 🔗 | **Traceability** | An unbroken chain from story → risk → test case → test → failure → bug. |
-| 🎭 | **No fictional tests** | Tests are written against the _running app_ (via Playwright MCP), never invented from story text. |
-| 🛡️ | **Guardrails** | The auto-healer can fix a broken selector but can never weaken, skip, or delete a test. |
+| 🧾 | **Auditability** | Every artifact is schema-validated and every gate decision is recorded with telemetry — you can prove _why_ a release was signed off. |
+| 🔗 | **Traceability** | An unbroken chain from story → risk → test case → test → failure → bug, so nothing tested is unexplained and nothing important is silently untested. |
+| 🎭 | **Tests you can trust** | Tests are written against the _running app_ (via Playwright MCP), so a green run means the feature actually works — not that the AI guessed well from the story text. |
+| 🛡️ | **Guardrails that hold** | The auto-healer fixes a broken selector for you, but can never weaken, skip, or delete a test — your suite only gets stronger, never quietly hollowed out. |
 
-When that trade isn't worth it (a throwaway script, a one-line tweak), the
-honest answer is "prompt the AI directly" — see [docs/when-to-use.md](docs/when-to-use.md).
+The payoff is confidence: faster test creation _and_ a paper trail that stands
+up to review. When a change is too small to deserve it (a throwaway script, a
+one-line tweak), prompting the AI directly is the honest call —
+see [docs/when-to-use.md](docs/when-to-use.md).
 
 ---
 
-## 🚪 Quickstart — three doors
+## 🚪 Quickstart — 3 Doors
 
 You don't need the whole pipeline to get value. Pick a door:
 
@@ -57,8 +60,8 @@ npm install
 #    four gates and the FAIL → bug-draft → release-report chain.
 npm run demo:pipeline
 
-# 2. USE ONE PIECE — adopt a single capability (no full flow). See the
-#    standalone one-pagers under docs/standalone-*.md.
+# 2. USE ONE PIECE — adopt a single capability (no full flow). 
+# - See the standalone one-pagers under docs/standalone-*.md.
 
 # 3. RUN THE PIPELINE — drive a real story through the four gates.
 npm run pipeline -- --story <path-to-story.md | JIRA-KEY>
@@ -83,7 +86,7 @@ flowchart TD
 
     split -->|E2E branch| planner[Planner<br/><i>spec.md</i>]
     planner -- "🟢 Gate 3<br/>Specs" --> generator[Generator<br/><i>Playwright tests</i>]
-    generator -- "🔒 Gate 4<br/>Code · permanently human" --> execute
+    generator -- "🔒 Gate 4<br/>Code review · human sign-off" --> execute
 
     split -->|API branch| apiagent[API Agent<br/><i>Postman collection</i>]
     apiagent -- "🟢 Gate 3'/4'<br/>Collection + assertions" --> execute
@@ -97,21 +100,25 @@ flowchart TD
     classDef human fill:#cf222e,stroke:#cf222e,color:#fff;
 ```
 
-> 🟢 = recorded human gate · 🔒 = **permanently** human (never automatable)
+> 🟢 = recorded human gate · 🔒 = always a human decision (never automatable)
 
-### The four gates
+---
 
-| Gate | After | The human checks |
+### The 4 Gates
+
+| Gate | After | Human checks |
 | --- | --- | --- |
-| **1 — Requirements** | Analyst | ACs accurate, risks meaningful, no invented rules |
-| **2 — Test scope** | Test Designer | Coverage, priorities, automation decisions justified |
-| **3 — Specs** | Planner | Specs match scope, negative cases present |
-| 🔒 **4 — Code** _(permanent)_ | Generator | Stable locators, real assertions, no skipped/weakened tests |
+| **1. Requirements** | Analyst | ACs accurate, risks meaningful, no invented rules |
+| **2. Test scope** | Test Designer | Coverage, priorities, automation decisions justified |
+| **3. Specs** | Planner | Specs match scope, negative cases present |
+| **4. Code** | Generator | Stable locators, real assertions, no skipped/weakened tests — always a human sign-off |
+
+---
 
 ### Traceability chain
 
 Every artifact locates itself here; a link that can't be made is recorded as
-`traceability_unresolved`, never faked:
+\`traceability_unresolved\`, never faked:
 
 ```mermaid
 flowchart LR
@@ -125,7 +132,9 @@ flowchart LR
     class API,COL,REQ api;
 ```
 
-### The tech stack
+---
+
+### Tech stack
 
 | Layer | Pieces |
 | --- | --- |
@@ -141,15 +150,15 @@ flowchart LR
 
 | Command | What it does |
 | --- | --- |
-| `npm run pipeline -- --story <ref>` | Drive a story through the four gates (the runner) |
-| `npm run demo:pipeline` | Offline 10-minute demo of the full flow |
-| `npm test` | Run the generated Playwright E2E suite |
-| `npm run test:api` | Run the Postman collections via Newman |
-| `npm run classify` | Rule-based failure classification (🟩 / 🟨 / 🟥) |
-| `npm run heal` | Guardrailed healer — produces reviewable patches, never commits |
-| `npm run metrics` | Aggregate pipeline metrics from run history |
-| `npm run validate:all` | Validate every committed artifact against its schema |
-| `npm run scan:gate4 -- <spec>` | Static pre-Gate-4 scan (assists review) |
+| `npm run pipeline -- --story <ref>\` | Drive a story through the four gates (the runner) |
+| `npm run demo:pipeline\` | Offline 10-minute demo of the full flow |
+| `npm test\` | Run the generated Playwright E2E suite |
+| `npm run test:api\` | Run the Postman collections via Newman |
+| `npm run classify\` | Rule-based failure classification (🟩 / 🟨 / 🟥) |
+| `npm run heal\` | Guardrailed healer — produces reviewable patches, never commits |
+| `npm run metrics\` | Aggregate pipeline metrics from run history |
+| `npm run validate:all\` | Validate every committed artifact against its schema |
+| `npm run scan:gate4 -- <spec>\` | Static pre-Gate-4 scan (assists review) |
 
 Standalone capabilities (adopt one piece without the whole pipeline):
 [failure classifier](docs/standalone-failure-classifier.md) ·
@@ -162,15 +171,15 @@ Standalone capabilities (adopt one piece without the whole pipeline):
 
 | Path | Contents |
 | --- | --- |
-| `agents/` | Custom agent prompts (analyst, test-designer, reporter, …) |
-| `skills/` | Lifecycle skills adapted from `dogkeeper886/ai-qa-workflow` |
-| `schemas/` | JSON Schema contracts for every artifact (AJV-validated) |
-| `scripts/` | The runner, validators, classifier, healer, metrics, demo |
-| `docs/` | Architecture, gates, traceability, integration & fit guides |
-| `examples/` | Example stories, expected outputs, the offline demo fixtures |
-| `tests/` · `api-tests/` | Generated Playwright tests · Postman collections |
-| `runs/` | Archived run history (one snapshot per story run) |
-| `.github/workflows/` | CI: quality gate (blocking) + informational jobs |
+| `agents` | Custom agent prompts (analyst, test-designer, reporter, …) |
+| `skills` | Lifecycle skills adapted from \`dogkeeper886/ai-qa-workflow\` |
+| `schemas` | JSON Schema contracts for every artifact (AJV-validated) |
+| `scripts` | The runner, validators, classifier, healer, metrics, demo |
+| `docs` | Architecture, gates, traceability, integration & fit guides |
+| `examples` | Example stories, expected outputs, the offline demo fixtures |
+| `tests` · `api-tests` | Generated Playwright tests · Postman collections |
+| `runs` | Archived run history (one snapshot per story run) |
+| `.github/workflows` | CI: quality gate (blocking) + informational jobs |
 
 ---
 
@@ -182,9 +191,9 @@ Standalone capabilities (adopt one piece without the whole pipeline):
   docs, and examples in one PR (the _Architecture Stability Rule_).
 - **Healer guardrails** — 🟩 Green (auto-fix as a reviewable patch) / 🟨 Yellow
   (suggest only) / 🟥 Red (bug draft only, never touched). Always: never change
-  an expected value, delete a test, or add `.skip`.
-- **Tiered ceremony** — a `lite` track for routine work, with a principled floor
-  that refuses `lite` for money/security/permissions/data stories.
+  an expected value, delete a test, or add \`.skip\`.
+- **Tiered ceremony** — a \`lite\` track for routine work, with a principled floor
+  that refuses \`lite\` for money/security/permissions/data stories.
 - **Out of scope by design** — no autonomous gate approval, no n8n, no web
   dashboard, no DB/queue. See [docs/deferred.md](docs/deferred.md) for what's
   deferred (with triggers) vs. permanently rejected.
@@ -201,14 +210,9 @@ Standalone capabilities (adopt one piece without the whole pipeline):
 - **[docs/traceability.md](docs/traceability.md)** · **[docs/healer-guardrails.md](docs/healer-guardrails.md)** · **[docs/automation-decision-model.md](docs/automation-decision-model.md)**
 - **[CLAUDE.md](CLAUDE.md)** — operating instructions for an AI agent working in this repo.
 
-> [!NOTE]
-> **Status:** core build complete; in continuous-improvement mode. The
-> pipeline-vs-raw-prompting benchmark ([docs/evidence.md](docs/evidence.md)) is
-> wired and awaiting its run series, so its verdict is honestly "not yet
-> measured."
-
 ---
 
 ## 📄 License
 
-See `LICENSE` if present; otherwise all rights reserved by the author.
+[MIT](LICENSE) © Milton Klun — free to use, modify, and distribute, for
+commercial and non-commercial purposes alike.
