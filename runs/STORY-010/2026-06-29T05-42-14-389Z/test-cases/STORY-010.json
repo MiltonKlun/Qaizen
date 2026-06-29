@@ -1,0 +1,145 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-28T12-00-00Z-cartbadge",
+  "story_id": "STORY-010",
+  "generated_at": "2026-06-28T12:15:00Z",
+  "test_cases": [
+    {
+      "test_case_id": "TC-001",
+      "title": "Cart badge appears showing 1 after adding a single product",
+      "description": "From an empty cart on the inventory page, adding one product makes the cart badge appear with count 1.",
+      "risk_ids": [
+        "RISK-001"
+      ],
+      "acceptance_criteria_refs": [
+        0
+      ],
+      "priority": "P0",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "The badge's appearance and its rendered count are a visible result of a UI journey (add-to-cart on the inventory page). There is no separate cart API to assert against for SauceDemo, so the only faithful check is the rendered badge after the real interaction. Smoke / regression critical — this is the primary happy path of the feature.",
+      "preconditions": [
+        "Shopper is signed in as standard_user on https://www.saucedemo.com.",
+        "Shopper is on the inventory page with an empty cart (no badge visible)."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Confirm no cart badge is visible on the inventory page."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Click 'Add to cart' on the first product (Sauce Labs Backpack)."
+        }
+      ],
+      "expected_results": [
+        "The cart badge becomes visible.",
+        "The cart badge shows the text '1'."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-002",
+      "title": "Cart badge shows 2 after adding two distinct products",
+      "description": "Adding two different products causes the cart badge to show count 2.",
+      "risk_ids": [
+        "RISK-001"
+      ],
+      "acceptance_criteria_refs": [
+        1
+      ],
+      "priority": "P1",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Verifies the badge counts distinct items correctly, not just toggles between empty and one. The count arithmetic is only observable through the rendered badge after two real add actions; no API surface exists to assert it directly.",
+      "preconditions": [
+        "Shopper is signed in as standard_user on the inventory page with an empty cart."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Click 'Add to cart' on the first product (Sauce Labs Backpack)."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Click 'Add to cart' on a second, distinct product (Sauce Labs Bike Light)."
+        }
+      ],
+      "expected_results": [
+        "The cart badge shows the text '2'."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-003",
+      "title": "Cart badge decrements on remove and disappears when cart returns to empty",
+      "description": "Removing products from the inventory page decrements the badge, and the badge disappears entirely once the cart is empty again.",
+      "risk_ids": [
+        "RISK-002"
+      ],
+      "acceptance_criteria_refs": [
+        2
+      ],
+      "priority": "P0",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "The disappearance of the badge at zero is a state-transition that can only be confirmed visually after a real remove action; an assertion that an element is NOT present is exactly the kind of UI guarantee E2E exists for. High priority because a phantom badge (count stuck above zero) directly misleads the shopper — RISK-002.",
+      "preconditions": [
+        "Shopper is signed in as standard_user on the inventory page.",
+        "Two distinct products have been added (badge shows '2')."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Click 'Remove' on the first added product (Sauce Labs Backpack)."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Confirm the cart badge now shows '1'."
+        },
+        {
+          "step_id": "S-03",
+          "action": "Click 'Remove' on the second added product (Sauce Labs Bike Light)."
+        }
+      ],
+      "expected_results": [
+        "After the first remove the cart badge shows '1'.",
+        "After the second remove the cart badge is no longer visible (cart is empty)."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-004",
+      "title": "Cart badge count survives navigation to the cart page and back",
+      "description": "Navigating to the cart page and back to the inventory page preserves the badge count.",
+      "risk_ids": [
+        "RISK-003"
+      ],
+      "acceptance_criteria_refs": [
+        3
+      ],
+      "priority": "P1",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Navigation persistence is a cross-page journey assertion: only a real round-trip (inventory -> cart -> inventory) exercises whether client state is retained. Cannot be checked at a single page or via a unit test of one component.",
+      "preconditions": [
+        "Shopper is signed in as standard_user on the inventory page.",
+        "Two distinct products have been added (badge shows '2')."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Click the cart icon to navigate to the cart page."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Click 'Continue Shopping' to return to the inventory page."
+        }
+      ],
+      "expected_results": [
+        "On returning to the inventory page the cart badge still shows '2'."
+      ],
+      "status": "approved"
+    }
+  ]
+}
