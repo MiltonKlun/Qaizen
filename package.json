@@ -52,6 +52,7 @@
     "newman": "^6.2.2",
     "newman-reporter-htmlextra": "^1.23.1",
     "prettier": "^3.8.3",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.62.0"
   }
 }
