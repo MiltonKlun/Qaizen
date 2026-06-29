@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "story_id": "STORY-010",
+  "reviewed_at": "2026-06-29T03:05:00Z",
+  "findings": [],
+  "recommendations": [
+    "Scenario 3 already includes the absence assertion (badge not visible at empty) — keep it as an explicit not-attached check, not a count of '0'.",
+    "Consider tagging Scenario 1 and Scenario 3 @smoke (primary paths) and Scenarios 2/4 @regression, matching the test-tagging guidance."
+  ],
+  "risk_coverage": [
+    {
+      "risk_id": "RISK-001",
+      "severity": "high",
+      "covering_test_case_ids": ["TC-001", "TC-002"],
+      "covered": true
+    },
+    {
+      "risk_id": "RISK-002",
+      "severity": "high",
+      "covering_test_case_ids": ["TC-003"],
+      "covered": true
+    },
+    {
+      "risk_id": "RISK-003",
+      "severity": "medium",
+      "covering_test_case_ids": ["TC-004"],
+      "covered": true
+    }
+  ],
+  "uncovered_risks": [],
+  "uncovered_high_severity_count": 0,
+  "auto_approval_eligible": true
+}

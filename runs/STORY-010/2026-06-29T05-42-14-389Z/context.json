@@ -1,0 +1,122 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-28T12-00-00Z-cartbadge",
+  "story": {
+    "id": "STORY-010",
+    "title": "Cart badge reflects item count on the inventory page",
+    "source": "manual",
+    "path": "story.md",
+    "description": "A shopper on the inventory page can add and remove products, and the cart badge on the top navigation always shows the current number of distinct items in the cart."
+  },
+  "acceptance_criteria": [
+    "Given a signed-in shopper on the inventory page with an empty cart, when they add a product to the cart, then the cart badge appears and shows the count \"1\".",
+    "Given a shopper who has added two distinct products, when the inventory page shows the cart badge, then the badge shows the count \"2\".",
+    "Given a shopper with one or more products in the cart, when they remove a product from the inventory page, then the cart badge decrements to reflect the new count, and the badge disappears entirely when the cart returns to empty.",
+    "Given a shopper with items in the cart, when they navigate away to the cart page and back to the inventory page, then the cart badge still shows the correct count (the count is not lost on navigation)."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "The cart badge shows a stale or incorrect count after an add, misrepresenting cart state to the shopper.",
+      "severity": "high",
+      "related_acs": [0, 1]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "Removing a product does not decrement the badge, or the badge fails to disappear when the cart returns to empty, leaving a phantom item indication.",
+      "severity": "high",
+      "related_acs": [2]
+    },
+    {
+      "risk_id": "RISK-003",
+      "description": "The cart count is lost or reset when navigating between the cart page and the inventory page, so the badge no longer reflects the true cart.",
+      "severity": "medium",
+      "related_acs": [3]
+    }
+  ],
+  "track": "standard",
+  "track_floor": {
+    "minimum": "standard",
+    "reasons": ["at least one high-severity risk"]
+  },
+  "artifact_paths": {
+    "test_cases": "test-cases/STORY-010.json",
+    "planner_brief": "planner-input/STORY-010.planner-brief.md",
+    "playwright_spec": "specs/STORY-010.md",
+    "generated_test": "tests/STORY-010.spec.ts",
+    "execution_results": "reports/results.json",
+    "html_report": "reports/html",
+    "traces": "reports/traces",
+    "screenshots": "reports/screenshots",
+    "failure_analysis": "analysis/failure-analysis.json",
+    "release_report_md": "release/release-report.md",
+    "release_report_json": "release/release-report.json",
+    "bug_drafts_dir": "release/bug-drafts"
+  },
+  "review_gates": {
+    "requirements_reviewed": {
+      "status": true,
+      "reviewer": "Milton (SIMULATED — system test)",
+      "opened_at": "2026-06-28T12:05:00Z",
+      "reviewed_at": "2026-06-28T12:08:00Z",
+      "notes": "Gate 1 simulated-approved for system test. ACs match story.md verbatim; 3 risks are real (stale count, phantom item, navigation loss), not rephrased ACs; no invented rules."
+    },
+    "test_scope_reviewed": {
+      "status": true,
+      "reviewer": "Milton (SIMULATED — system test)",
+      "opened_at": "2026-06-28T12:18:00Z",
+      "reviewed_at": "2026-06-28T12:22:00Z",
+      "notes": "Gate 2 simulated-approved. All 3 risks covered; 4 P0/P1 E2E cases with real reasons; E2E-only is justified (no SauceDemo cart API); out-of-scope discipline present in brief. Per-TC statuses set to approved."
+    },
+    "specs_reviewed": {
+      "status": true,
+      "reviewer": "Milton (SIMULATED — system test)",
+      "opened_at": "2026-06-29T03:06:00Z",
+      "reviewed_at": "2026-06-29T03:09:00Z",
+      "notes": "Gate 3 simulated-approved. Spec matches approved scope (4 scenarios = 4 approved TCs); negative/absence case present (badge hidden at empty); no out-of-scope flows; spec grounded in live exploration with real data-test locators. Spec Reviewer found zero blocker findings."
+    },
+    "code_reviewed": {
+      "status": true,
+      "reviewer": "Milton (SIMULATED — system test)",
+      "opened_at": "2026-06-29T03:15:00Z",
+      "reviewed_at": "2026-06-29T03:20:00Z",
+      "notes": "Gate 4 simulated-approved. Locators are stable data-test attributes observed live; assertions test real business behavior incl. the absence assertion at empty (toHaveCount(0), not '0'); no .skip/weakening/hard-waits; all 4 approved TCs have a test(); typecheck (strict) clean; Gate-4 static scan clean. CAVEAT recorded: `npm run lint` fails on TS type syntax because eslint.config.mjs has no @typescript-eslint parser (repo toolchain gap, not a test defect) — tracked separately."
+    }
+  },
+  "gate_decisions": [
+    {
+      "gate": "requirements_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-06-28T12:05:00Z",
+      "decided_at": "2026-06-28T12:08:00Z",
+      "reviewer": "Milton (SIMULATED — system test)",
+      "notes": "Gate 1 simulated-approved for system test."
+    },
+    {
+      "gate": "test_scope_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-06-28T12:18:00Z",
+      "decided_at": "2026-06-28T12:22:00Z",
+      "reviewer": "Milton (SIMULATED — system test)",
+      "notes": "Gate 2 simulated-approved for system test."
+    },
+    {
+      "gate": "specs_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-06-29T03:06:00Z",
+      "decided_at": "2026-06-29T03:09:00Z",
+      "reviewer": "Milton (SIMULATED — system test)",
+      "notes": "Gate 3 simulated-approved for system test."
+    },
+    {
+      "gate": "code_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-06-29T03:15:00Z",
+      "decided_at": "2026-06-29T03:20:00Z",
+      "reviewer": "Milton (SIMULATED — system test)",
+      "notes": "Gate 4 simulated-approved for system test (with the lint-config caveat noted in review_gates.code_reviewed.notes)."
+    }
+  ],
+  "status": "completed"
+}
