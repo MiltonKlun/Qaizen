@@ -119,6 +119,19 @@ function gatherHints(context) {
   const hints = {};
   const paths = context?.artifact_paths || {};
   const tc = paths.test_cases;
+  // Existence overrides for the artifact-producing steps. The Analyst
+  // pre-fills test_cases / planner_brief with conventional paths before the
+  // files exist; without these hints the pure state machine would read those
+  // prefilled strings as "produced" and skip the step that creates them
+  // (pipeline-state.js `produced`). Only set the hint when the path is filled,
+  // so an empty path keeps its plain "not yet produced" meaning.
+  if (tc) hints.testCasesExist = existsSync(tc);
+  if (paths.planner_brief)
+    hints.plannerBriefExists = existsSync(paths.planner_brief);
+  if (paths.playwright_spec)
+    hints.specExists = existsSync(paths.playwright_spec);
+  if (paths.generated_test)
+    hints.generatedTestExists = existsSync(paths.generated_test);
   if (tc && existsSync(tc)) {
     try {
       const parsed = JSON.parse(readFileSync(tc, 'utf8'));

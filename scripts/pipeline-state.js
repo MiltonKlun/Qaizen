@@ -55,9 +55,21 @@ export const GATE_KEYS = {
  * @param {object} [hints]      Optional CLI-gathered facts (all optional):
  *   - hasApiCases:            true if test-cases contains automate_api cases.
  *   - apiCollectionExists:    true if the Postman collection file exists.
+ *   - testCasesExist:         file-existence override for test_cases.
+ *   - plannerBriefExists:     file-existence override for planner_brief.
+ *   - specExists:             file-existence override for playwright_spec.
+ *   - generatedTestExists:    file-existence override for generated_test.
  *   - executionResultsExist:  file-existence override for execution_results.
  *   - failureAnalysisExists:  file-existence override for failure_analysis.
  *   - releaseReportExists:    file-existence override for release_report_json.
+ *
+ * The Analyst pre-fills test_cases / planner_brief with their CONVENTIONAL
+ * paths before those files exist (agents/analyst.md step 5). So a bare
+ * `filled()` check on them is fooled — it reads "produced" off the prefilled
+ * string and skips the step that should create the file. For every
+ * artifact-producing step we therefore use `produced(path, existsHint)`:
+ * filled AND (when the CLI checked) the file actually exists. Absent a hint,
+ * behavior is unchanged (filled-only), so older callers are unaffected.
  * @returns {string} one of: analyst | gate1 | test-designer | gate2 |
  *   qa_scope | planner | api | gate3 | generator | gate4 | execute |
  *   classify | report | done   (qa_scope replaces gate1+gate2 on the lite
@@ -94,18 +106,21 @@ export function nextStep(context, hints = {}) {
     // requirements AND scope) -> planner ... Scope can only be judged once
     // the cases exist, so the single consolidated gate sits after the Test
     // Designer — exactly where standard's Gate 2 sits.
-    if (!filled(paths.test_cases)) return 'test-designer';
+    if (!produced(paths.test_cases, hints.testCasesExist))
+      return 'test-designer';
     if (!consolidated) return 'qa_scope';
   } else {
     if (!g1) return 'gate1';
-    if (!filled(paths.test_cases)) return 'test-designer';
+    if (!produced(paths.test_cases, hints.testCasesExist))
+      return 'test-designer';
     if (!g2) return 'gate2';
   }
-  if (!filled(paths.playwright_spec)) return 'planner';
+  if (!produced(paths.playwright_spec, hints.specExists)) return 'planner';
   if (hints.hasApiCases === true && hints.apiCollectionExists !== true)
     return 'api';
   if (!gatePassed(gates.specs_reviewed)) return 'gate3';
-  if (!filled(paths.generated_test)) return 'generator';
+  if (!produced(paths.generated_test, hints.generatedTestExists))
+    return 'generator';
   if (!gatePassed(gates.code_reviewed)) return 'gate4';
   if (!produced(paths.execution_results, hints.executionResultsExist))
     return 'execute';

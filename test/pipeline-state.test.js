@@ -234,6 +234,57 @@ test('nextStep — sequencing table', () => {
       },
       'done',
     ],
+    // Prefilled-path masking fix: the Analyst pre-fills test_cases /
+    // planner_brief (and conventional spec/test paths can be prefilled too)
+    // before the file exists. With an existence hint of false, the producing
+    // step must NOT be skipped — the runner returns the step that creates it.
+    [
+      'test_cases path prefilled but file absent -> test-designer (not gate2)',
+      ctx({
+        gates: { requirements_reviewed: true },
+        paths: { test_cases: ALL_PATHS.test_cases },
+      }),
+      { testCasesExist: false },
+      'test-designer',
+    ],
+    [
+      'test_cases prefilled+absent on lite track -> test-designer (not qa_scope)',
+      ctx({
+        track: 'lite',
+        paths: { test_cases: ALL_PATHS.test_cases },
+      }),
+      { testCasesExist: false },
+      'test-designer',
+    ],
+    [
+      'spec path prefilled but file absent -> planner (not gate3)',
+      ctx({
+        gates: { requirements_reviewed: true, test_scope_reviewed: true },
+        paths: {
+          test_cases: ALL_PATHS.test_cases,
+          playwright_spec: ALL_PATHS.playwright_spec,
+        },
+      }),
+      { testCasesExist: true, specExists: false },
+      'planner',
+    ],
+    [
+      'generated_test prefilled but file absent -> generator (not gate4)',
+      ctx({
+        gates: {
+          requirements_reviewed: true,
+          test_scope_reviewed: true,
+          specs_reviewed: true,
+        },
+        paths: {
+          test_cases: ALL_PATHS.test_cases,
+          playwright_spec: ALL_PATHS.playwright_spec,
+          generated_test: ALL_PATHS.generated_test,
+        },
+      }),
+      { testCasesExist: true, specExists: true, generatedTestExists: false },
+      'generator',
+    ],
   ];
 
   for (const [name, context, hints, expected] of cases) {

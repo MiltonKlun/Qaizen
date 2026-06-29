@@ -356,6 +356,15 @@ test('runner ALLOWS track:lite for a benign story (reaches the qa_scope gate)', 
       },
     });
     writeFileSync(join(dir, 'context.json'), JSON.stringify(ctx, null, 2));
+    // The test-cases file must ACTUALLY exist for the step to be considered
+    // produced — the runner now checks file existence, not just the prefilled
+    // path (pipeline-state.js `produced`, the prefilled-path masking fix). A
+    // minimal shape is enough; the runner only needs it to exist + parse.
+    mkdirSync(join(dir, 'test-cases'), { recursive: true });
+    writeFileSync(
+      join(dir, 'test-cases', 'STORY-001.json'),
+      JSON.stringify({ test_cases: [] })
+    );
 
     const r = runPipeline(dir, []);
     // Not refused (would be exit 2 with "Refusing"); instead it reaches the
