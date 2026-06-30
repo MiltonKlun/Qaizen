@@ -159,6 +159,8 @@ flowchart LR
 | `npm run metrics\` | Aggregate pipeline metrics from run history |
 | `npm run validate:all\` | Validate every committed artifact against its schema |
 | `npm run scan:gate4 -- <spec>\` | Static pre-Gate-4 scan (assists review) |
+| `npm run evolve\` | Propose scored, evidence-backed improvements (never applies them) |
+| `npm run session-summary -- --friction "..."\` | Capture run friction for the next `/evolve` |
 
 Standalone capabilities (adopt one piece without the whole pipeline):
 [failure classifier](docs/standalone-failure-classifier.md) ·
@@ -200,6 +202,55 @@ Standalone capabilities (adopt one piece without the whole pipeline):
 
 ---
 
+## 🔄 Continuous improvement — `/evolve`
+
+Over time any project drifts from its own design: a step meant to be automatic
+gets done by hand every run, a doc describes a flag the code no longer has, the
+same kind of bug lands three sprints in a row. `/evolve` is the scheduled moment
+to **notice that drift on purpose** and decide what to do about it.
+
+It is a script (`npm run evolve`) that reads signals about how the pipeline is
+really being used, groups them into themes, scores each by how often it
+recurred, and writes a proposal.
+
+> `/evolve` **proposes, it never changes anything.** It will not edit a prompt,
+> schema, doc, or script — a human reads the proposal and decides. Same
+> philosophy as the rest of Qaizen: the machine gathers and scores; the human
+> judges.
+
+**What it reads** _(each source optional, skipped silently if absent)_:
+
+| Source | What it tells `/evolve` |
+| --- | --- |
+| 📈 Git commits/merges (90d) | Where effort concentrated; recurring fix/revert/recover themes (churn) |
+| 📊 `metrics/pipeline-metrics.json` | Untested high-risk items, prompt-stability status (run `npm run metrics` first) |
+| 📝 `session-summaries/*.md` | **Highest signal** — friction in your own words, captured right after a run |
+
+**How it scores** _(deterministic — occurrence counts)_: a theme
+seen **3+ times** is a 🔴 high-confidence finding, 2× is 🟡 medium, 1× is ⚪ low.
+It surfaces _systemic_ friction, not one-offs.
+
+**How to use it:**
+
+```bash
+# 1. Capture fresh friction right after a run (the highest-leverage habit):
+npm run session-summary -- --friction "what rubbed" --note "what worked"
+
+# 2. Refresh metrics (one of evolve's inputs):
+npm run metrics
+
+# 3. Run it, then read evolve/evolve-proposal.md (🔴 findings first):
+npm run evolve
+```
+
+For each finding you **Accept** (make the change at the named target, with the
+right discipline), **Defer** (it resurfaces next run if it's real), or **Reject**
+(note why, so it isn't re-litigated). Run it every ~90 days or ~10 runs, or
+right after a session while friction is fresh. See
+[docs/evolve-loop.md](docs/evolve-loop.md).
+
+---
+
 ## 📚 Documentation
 
 - **[STRATEGY.md](STRATEGY.md)** — one-page "what this is and the question it answers."
@@ -208,6 +259,7 @@ Standalone capabilities (adopt one piece without the whole pipeline):
 - **[docs/review-gates.md](docs/review-gates.md)** — the four gates in detail.
 - **[docs/pipeline-architecture.md](docs/pipeline-architecture.md)** — the full architecture.
 - **[docs/traceability.md](docs/traceability.md)** · **[docs/healer-guardrails.md](docs/healer-guardrails.md)** · **[docs/automation-decision-model.md](docs/automation-decision-model.md)**
+- **[docs/evolve-loop.md](docs/evolve-loop.md)** — the `/evolve` continuous-improvement loop.
 - **[CLAUDE.md](CLAUDE.md)** — operating instructions for an AI agent working in this repo.
 
 ---
