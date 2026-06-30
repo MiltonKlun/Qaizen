@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-30T03-48-00Z-cartbadgefix",
+  "story_id": "STORY-003",
+  "report_date": "2026-06-30T07:30:00Z",
+  "summary": "STORY-003 (cart badge decrement regression fix) was driven through all four gates by the real Playwright Native Agents (Planner, Generator) plus the Healer, as the pipeline arm of the benchmark. Three automate_e2e cases were generated against the running SauceDemo app. TC-003 initially failed on a Green locator ambiguity (getByText matched an item name and its description); the Healer repaired it as a scoped data-test locator within guardrails (no expected values changed). All three cases now pass; every risk is covered and passing.",
+  "coverage_by_risk": [
+    {
+      "risk_id": "RISK-001",
+      "covered_by_tcs": ["TC-001", "TC-003"],
+      "status": "covered_passing"
+    },
+    {
+      "risk_id": "RISK-002",
+      "covered_by_tcs": ["TC-002"],
+      "status": "covered_passing"
+    }
+  ],
+  "execution_summary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "pass_rate": 1
+  },
+  "uncovered_risks": [],
+  "uncovered_high_severity_count": 0,
+  "summary_by_risk_level": {
+    "high": {
+      "total": 1,
+      "covered_passing": 1,
+      "covered_failing": 0,
+      "covered_partial": 0,
+      "accepted_without_test": 0,
+      "uncovered": 0
+    },
+    "medium": {
+      "total": 1,
+      "covered_passing": 1,
+      "covered_failing": 0,
+      "covered_partial": 0,
+      "accepted_without_test": 0,
+      "uncovered": 0
+    },
+    "low": {
+      "total": 0,
+      "covered_passing": 0,
+      "covered_failing": 0,
+      "covered_partial": 0,
+      "accepted_without_test": 0,
+      "uncovered": 0
+    }
+  },
+  "untested_high_risk_items": [],
+  "flaky_tests": [],
+  "open_bugs_summary": {
+    "total": 0,
+    "red": 0,
+    "yellow": 0,
+    "with_jira": 0,
+    "without_jira": 0
+  },
+  "blocking_failures": [],
+  "non_blocking_failures": [],
+  "release_recommendation": "pass",
+  "release_recommendation_reasoning": "All three E2E test cases pass against the live application; both risks (RISK-001 stale-count, RISK-002 empty-badge) are covered_passing; zero uncovered high-severity risks and zero bug drafts. The regression-critical guarantee — the badge decrements in-place without a reload — is pinned by TC-001 and TC-003 (the latter asserts the count in-place before any navigation, so it would catch a reload-only self-correction). The one execution failure was a Green test-bug (ambiguous locator) repaired by the Healer within guardrails, with no change to any expected value; it never reflected a product defect.",
+  "bug_drafts": [],
+  "evidence_paths": [
+    "reports/html",
+    "reports/results.json",
+    "analysis/failure-analysis.json"
+  ],
+  "open_questions": [
+    "Benchmark note (not a release issue): the Generator's first pass had a locator ambiguity that only surfaced in the full-suite run, not in the Generator's own live verification. Captured as a friction point for the benchmark write-up."
+  ],
+  "status": "draft"
+}
