@@ -3,6 +3,7 @@ reports/
 playwright-report/
 test-results/
 traces/
+scratchpad/
 .claude/
 package-lock.json
 

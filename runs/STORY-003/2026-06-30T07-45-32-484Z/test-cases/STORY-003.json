@@ -1,0 +1,112 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-30T03-48-00Z-cartbadgefix",
+  "story_id": "STORY-003",
+  "generated_at": "2026-06-30T03:50:00Z",
+  "test_cases": [
+    {
+      "test_case_id": "TC-001",
+      "title": "Cart badge decrements to N-1 immediately after removing an item (no reload)",
+      "description": "From a cart with multiple items, removing one item on the cart page updates the header badge to N-1 without any page reload — the regression-critical assertion.",
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [0],
+      "priority": "P0",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "This is the exact assertion that would have caught the documented regression: the badge must update in-place after a remove, with no navigation between the remove action and the count check. The 'no reload' guarantee can only be exercised by interacting with the live header and asserting the count WITHOUT navigating — there is no server-side contract for a client-rendered badge. Highest priority because a stale count here directly erodes checkout trust (RISK-001).",
+      "preconditions": [
+        "Shopper is signed in as standard_user on https://www.saucedemo.com.",
+        "Two distinct items have been added to the cart (badge shows '2')."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Open the cart page from the header cart link."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Remove one item using its Remove button on the cart page."
+        },
+        {
+          "step_id": "S-03",
+          "action": "Without navigating or reloading, read the header cart badge."
+        }
+      ],
+      "expected_results": [
+        "Immediately after the remove (no reload, no navigation), the header cart badge shows '1'."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-002",
+      "title": "Cart badge is hidden (not '0') when the cart becomes empty",
+      "description": "Removing the last item makes the header badge disappear entirely rather than render '0'.",
+      "risk_ids": ["RISK-002"],
+      "acceptance_criteria_refs": [1],
+      "priority": "P1",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "The absence of the badge at empty is a state-transition only confirmable by asserting the element is no longer present after a real remove of the last item — an explicit not-attached assertion, not a check for text '0'. This is the second regression-relevant guarantee and cannot be verified at any layer but the rendered UI.",
+      "preconditions": [
+        "Shopper is signed in as standard_user.",
+        "Exactly one item has been added to the cart (badge shows '1')."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Open the cart page from the header cart link."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Remove the only item using its Remove button."
+        },
+        {
+          "step_id": "S-03",
+          "action": "Inspect the header for the cart badge."
+        }
+      ],
+      "expected_results": [
+        "The header cart badge is no longer present (the element is absent, not rendered as '0')."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-003",
+      "title": "Cart badge count is correct after navigating away and back (not reload-dependent)",
+      "description": "After a remove, navigating to another page and back shows the correct count — confirming the fix holds and is not merely 'corrected' by the navigation itself.",
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [2],
+      "priority": "P2",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Cross-page persistence is a journey assertion only a real round-trip exercises. NOTE for the Planner/Generator: this case must FIRST assert the correct count in-place (before any navigation) so it does not accidentally rely on the navigation to mask a stale value — the documented bug 'self-corrects' on reload, so a navigate-then-check alone would pass even on the buggy app. The in-place assertion must precede the round-trip.",
+      "preconditions": [
+        "Shopper is signed in as standard_user.",
+        "Two distinct items have been added (badge shows '2')."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Open the cart page and remove one item."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Assert the badge shows '1' in-place (before navigating)."
+        },
+        {
+          "step_id": "S-03",
+          "action": "Navigate to the inventory page and back to the cart page."
+        },
+        {
+          "step_id": "S-04",
+          "action": "Read the header cart badge again."
+        }
+      ],
+      "expected_results": [
+        "The badge shows '1' in-place immediately after the remove (before navigation).",
+        "After navigating away and back, the badge still shows '1'."
+      ],
+      "status": "approved"
+    }
+  ]
+}

@@ -1,0 +1,115 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-30T03-48-00Z-cartbadgefix",
+  "story": {
+    "id": "STORY-003",
+    "title": "Cart badge shows stale item count after removing an item",
+    "source": "manual",
+    "path": "story.md",
+    "description": "After a user removes an item, the cart badge must decrement immediately without a page reload; a recent refactor cached the count so the header shows a stale value until the next navigation."
+  },
+  "acceptance_criteria": [
+    "Given a cart with N items, when the user removes one item from the cart page, then the header badge updates to N-1 without a page reload.",
+    "Given the user removes the last remaining item, when the cart becomes empty, then the header badge is hidden entirely (not shown as \"0\").",
+    "Given the user removes an item, when they navigate to another page and back, then the badge still shows the correct count (the fix must not depend on a reload to \"correct itself\")."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "The cart badge shows a stale (pre-removal) count after a remove until a reload, misrepresenting cart state at the moment the user decides to check out.",
+      "severity": "high",
+      "related_acs": [0, 2]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "When the cart becomes empty the badge shows \"0\" or remains visible instead of disappearing, indicating a phantom item.",
+      "severity": "medium",
+      "related_acs": [1]
+    }
+  ],
+  "track": "standard",
+  "track_floor": {
+    "minimum": "standard",
+    "reasons": ["at least one high-severity risk"]
+  },
+  "artifact_paths": {
+    "test_cases": "test-cases/STORY-003.json",
+    "planner_brief": "planner-input/STORY-003.planner-brief.md",
+    "playwright_spec": "specs/STORY-003.md",
+    "generated_test": "tests/STORY-003.spec.ts",
+    "execution_results": "reports/results.json",
+    "html_report": "reports/html",
+    "traces": "reports/traces",
+    "screenshots": "reports/screenshots",
+    "failure_analysis": "analysis/failure-analysis.json",
+    "release_report_md": "release/release-report.md",
+    "release_report_json": "release/release-report.json",
+    "bug_drafts_dir": "release/bug-drafts"
+  },
+  "review_gates": {
+    "requirements_reviewed": {
+      "status": true,
+      "reviewer": "y",
+      "reviewed_at": "2026-06-30T06:52:45.009Z",
+      "opened_at": "2026-06-30T06:52:00.629Z",
+      "notes": null
+    },
+    "test_scope_reviewed": {
+      "status": true,
+      "reviewer": "y",
+      "reviewed_at": "2026-06-30T06:57:50.269Z",
+      "opened_at": "2026-06-30T06:56:42.684Z",
+      "notes": null
+    },
+    "specs_reviewed": {
+      "status": true,
+      "reviewer": "y",
+      "reviewed_at": "2026-06-30T07:06:33.052Z",
+      "opened_at": "2026-06-30T07:06:16.323Z",
+      "notes": null
+    },
+    "code_reviewed": {
+      "status": true,
+      "reviewer": "y",
+      "reviewed_at": "2026-06-30T07:17:29.479Z",
+      "opened_at": "2026-06-30T07:15:27.237Z",
+      "notes": null
+    }
+  },
+  "status": "completed",
+  "gate_decisions": [
+    {
+      "gate": "requirements_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-06-30T06:52:00.629Z",
+      "decided_at": "2026-06-30T06:52:45.009Z",
+      "reviewer": "y",
+      "notes": null
+    },
+    {
+      "gate": "test_scope_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-06-30T06:56:42.684Z",
+      "decided_at": "2026-06-30T06:57:50.269Z",
+      "reviewer": "y",
+      "notes": null
+    },
+    {
+      "gate": "specs_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-06-30T07:06:16.323Z",
+      "decided_at": "2026-06-30T07:06:33.052Z",
+      "reviewer": "y",
+      "notes": null
+    },
+    {
+      "gate": "code_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-06-30T07:15:27.237Z",
+      "decided_at": "2026-06-30T07:17:29.479Z",
+      "reviewer": "y",
+      "notes": null
+    }
+  ]
+}

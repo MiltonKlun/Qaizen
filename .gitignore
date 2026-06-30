@@ -46,3 +46,6 @@ evolve/evolve-proposal.md
 
 # Throwaway mini-repos created by the runner black-box tests (test/run-pipeline.test.js)
 .tmp-runner-*/
+
+# Scratchpad — throwaway working area (e.g. the benchmark raw-arm output)
+scratchpad/
