@@ -213,7 +213,6 @@ It is a script (`npm run evolve`) that reads signals about how the pipeline is
 really being used, groups them into themes, scores each by how often it
 recurred, and writes a proposal.
 
-> [!IMPORTANT]
 > `/evolve` **proposes, it never changes anything.** It will not edit a prompt,
 > schema, doc, or script — a human reads the proposal and decides. Same
 > philosophy as the rest of Qaizen: the machine gathers and scores; the human
@@ -227,7 +226,7 @@ recurred, and writes a proposal.
 | 📊 `metrics/pipeline-metrics.json` | Untested high-risk items, prompt-stability status (run `npm run metrics` first) |
 | 📝 `session-summaries/*.md` | **Highest signal** — friction in your own words, captured right after a run |
 
-**How it scores** _(deterministic — occurrence counts, not opinion)_: a theme
+**How it scores** _(deterministic — occurrence counts)_: a theme
 seen **3+ times** is a 🔴 high-confidence finding, 2× is 🟡 medium, 1× is ⚪ low.
 It surfaces _systemic_ friction, not one-offs.
 
