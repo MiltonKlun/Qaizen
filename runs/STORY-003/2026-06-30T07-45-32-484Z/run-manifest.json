@@ -1,0 +1,18 @@
+{
+  "run_id": "2026-06-30T07-45-32-484Z",
+  "story_id": "STORY-003",
+  "label": null,
+  "archived_at": "2026-06-30T07:45:32.538Z",
+  "source_context_run_id": "2026-06-30T03-48-00Z-cartbadgefix",
+  "status_at_archive": "completed",
+  "archived_files": ["context.json", "story.md"],
+  "archived_dirs": [
+    "test-cases",
+    "planner-input",
+    "specs",
+    "tests",
+    "api-tests",
+    "analysis",
+    "release"
+  ]
+}
