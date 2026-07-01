@@ -1,0 +1,156 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-30T21-00-00Z-checkoutsummary",
+  "story_id": "STORY-020",
+  "generated_at": "2026-06-30T21:15:00Z",
+  "test_cases": [
+    {
+      "test_case_id": "TC-001",
+      "title": "Reach the Checkout Overview after submitting valid information",
+      "description": "With two items in the cart, proceeding through checkout and submitting a valid first name, last name, and postal code reaches the Checkout: Overview step showing both items.",
+      "risk_ids": ["RISK-004"],
+      "acceptance_criteria_refs": [0],
+      "priority": "P0",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "This is the multi-step journey that gates the whole checkout: cart -> information form -> overview. It can only be exercised by driving the real two-page form flow and confirming the overview renders both items. No API models this composite navigation. P0 because every other overview assertion depends on reaching this step.",
+      "preconditions": [
+        "Shopper is signed in as standard_user on https://www.saucedemo.com.",
+        "Two distinct items (Sauce Labs Backpack, Sauce Labs Bike Light) have been added to the cart."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Open the cart and click Checkout."
+        },
+        {
+          "step_id": "S-02",
+          "action": "On the Checkout: Your Information step, fill First Name, Last Name, and Zip/Postal Code with valid values."
+        },
+        {
+          "step_id": "S-03",
+          "action": "Click Continue."
+        }
+      ],
+      "expected_results": [
+        "The Checkout: Overview step is reached.",
+        "Both items (Sauce Labs Backpack and Sauce Labs Bike Light) are listed on the overview."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-002",
+      "title": "Order summary Item Total equals the sum of the cart items' unit prices",
+      "description": "On the Checkout: Overview step, the displayed Item Total equals the exact sum of the unit prices of the items in the cart.",
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [1],
+      "priority": "P0",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Money-math regression-critical case. The test MUST read the actual rendered unit prices of the cart items and the rendered 'Item total' from the overview page and assert their equality by computation — it must NOT hard-code a magic number from the story text (prices can change). Only observable on the rendered overview; SauceDemo exposes no order-summary API.",
+      "preconditions": [
+        "Shopper is on the Checkout: Overview step with Sauce Labs Backpack and Sauce Labs Bike Light in the cart (via TC-001 flow)."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Read the rendered unit price of each item on the overview (or the cart)."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Read the rendered 'Item total: $X.XX' value on the overview."
+        },
+        {
+          "step_id": "S-03",
+          "action": "Compute the sum of the unit prices and compare to the Item total."
+        }
+      ],
+      "expected_results": [
+        "The displayed Item total equals the sum of the two items' unit prices (read live, not hard-coded)."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-003",
+      "title": "Order summary Total equals Item Total plus Tax (internally consistent)",
+      "description": "On the Checkout: Overview step, the displayed Total equals the displayed Item Total plus the displayed Tax.",
+      "risk_ids": ["RISK-002"],
+      "acceptance_criteria_refs": [2],
+      "priority": "P0",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "The second money-math guarantee: the on-screen arithmetic must add up. The test MUST read the rendered 'Item total', 'Tax', and 'Total' values and assert Total == Item total + Tax by computation (allowing for cent rounding), never a hard-coded figure. Observable only on the rendered overview.",
+      "preconditions": [
+        "Shopper is on the Checkout: Overview step (via TC-001 flow)."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Read the rendered 'Item total', 'Tax', and 'Total' values from the overview summary."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Assert Total equals Item total + Tax (to the cent)."
+        }
+      ],
+      "expected_results": [
+        "The displayed Total equals the displayed Item total plus the displayed Tax."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-004",
+      "title": "Missing required field keeps the shopper on the Information step with an error",
+      "description": "Submitting the information form with a missing required field (e.g. no postal code) keeps the shopper on the information step and shows an error; they do not advance to the overview.",
+      "risk_ids": ["RISK-003"],
+      "acceptance_criteria_refs": [3],
+      "priority": "P1",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Negative / validation case: form submission with a missing field must be rejected client-side and NOT advance. Only the rendered error message and the fact that the URL stays on the information step confirm it. This guards RISK-003 (incomplete data proceeding).",
+      "preconditions": [
+        "Shopper is on the Checkout: Your Information step with at least one item in the cart."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Fill First Name and Last Name but leave Zip/Postal Code empty."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Click Continue."
+        }
+      ],
+      "expected_results": [
+        "An error message is shown indicating the postal code is required.",
+        "The shopper remains on the Checkout: Your Information step (does not reach the overview)."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-005",
+      "title": "Finish reaches the confirmation and clears the cart badge",
+      "description": "Clicking Finish on the overview reaches the Checkout: Complete! confirmation and the cart badge is cleared.",
+      "risk_ids": ["RISK-004"],
+      "acceptance_criteria_refs": [4],
+      "priority": "P1",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Completes the journey: Finish -> confirmation, and the cart badge must be cleared (order placed). The confirmation text and the badge absence are only observable in the rendered UI after the real Finish action. Guards RISK-004 (order state ambiguity).",
+      "preconditions": [
+        "Shopper is on the Checkout: Overview step (via TC-001 flow)."
+      ],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Click Finish on the overview step."
+        }
+      ],
+      "expected_results": [
+        "The Checkout: Complete! confirmation page is reached (e.g. a 'Thank you for your order' message).",
+        "The cart badge is no longer present (the cart has been cleared)."
+      ],
+      "status": "approved"
+    }
+  ]
+}
