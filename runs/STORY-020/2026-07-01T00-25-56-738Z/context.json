@@ -1,0 +1,133 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-30T21-00-00Z-checkoutsummary",
+  "story": {
+    "id": "STORY-020",
+    "title": "Checkout order summary shows the correct item total, tax, and total",
+    "source": "manual",
+    "path": "story.md",
+    "description": "A shopper completes the two-step checkout (enter information, review order summary, finish). The order-summary step must show the correct item total (sum of cart item prices), the tax, and the total (item total + tax), so the shopper sees an accurate amount before committing."
+  },
+  "acceptance_criteria": [
+    "Given a shopper with two known items in the cart, when they proceed to checkout and submit valid first name, last name, and postal code, then they reach the \"Checkout: Overview\" step showing both items.",
+    "Given the checkout overview step, when the order summary is displayed, then the \"Item total\" equals the exact sum of the unit prices of the items in the cart.",
+    "Given the checkout overview step, when the order summary is displayed, then the \"Total\" equals the displayed \"Item total\" plus the displayed \"Tax\" (the arithmetic on screen is internally consistent).",
+    "Given the checkout information step, when the shopper submits the form with a missing required field (e.g. no postal code), then they remain on the information step and an error message is shown — they do not advance to the overview.",
+    "Given the checkout overview step, when the shopper clicks \"Finish\", then they reach the \"Checkout: Complete!\" confirmation and the cart badge is cleared (the order has been placed)."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "The order summary displays a wrong item total (not the sum of the cart items' unit prices), misrepresenting the amount the shopper is about to pay.",
+      "severity": "high",
+      "related_acs": [1]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "The displayed total is not internally consistent with the shown item total plus tax, so the on-screen arithmetic does not add up.",
+      "severity": "high",
+      "related_acs": [2]
+    },
+    {
+      "risk_id": "RISK-003",
+      "description": "The information form advances to the overview despite a missing required field, letting an order proceed with incomplete shipping data.",
+      "severity": "medium",
+      "related_acs": [3]
+    },
+    {
+      "risk_id": "RISK-004",
+      "description": "Finishing the order does not reach the confirmation or does not clear the cart, leaving the shopper unsure whether the order was placed.",
+      "severity": "medium",
+      "related_acs": [0, 4]
+    }
+  ],
+  "track": "standard",
+  "track_floor": {
+    "minimum": "standard",
+    "reasons": [
+      "red-domain: Pricing / money calculation",
+      "5 acceptance criteria (> 4)",
+      "at least one high-severity risk"
+    ]
+  },
+  "artifact_paths": {
+    "test_cases": "test-cases/STORY-020.json",
+    "planner_brief": "planner-input/STORY-020.planner-brief.md",
+    "playwright_spec": "specs/STORY-020.md",
+    "generated_test": "tests/STORY-020.spec.ts",
+    "execution_results": "reports/results.json",
+    "html_report": "reports/html",
+    "traces": "reports/traces",
+    "screenshots": "reports/screenshots",
+    "failure_analysis": "analysis/failure-analysis.json",
+    "release_report_md": "release/release-report.md",
+    "release_report_json": "release/release-report.json",
+    "bug_drafts_dir": "release/bug-drafts"
+  },
+  "review_gates": {
+    "requirements_reviewed": {
+      "status": true,
+      "reviewer": "Milton",
+      "reviewed_at": "2026-07-01T00:11:05.871Z",
+      "opened_at": "2026-07-01T00:10:52.186Z",
+      "notes": null
+    },
+    "test_scope_reviewed": {
+      "status": true,
+      "reviewer": "Milton",
+      "reviewed_at": "2026-07-01T00:12:45.195Z",
+      "opened_at": "2026-07-01T00:12:41.314Z",
+      "notes": null
+    },
+    "specs_reviewed": {
+      "status": true,
+      "reviewer": "Milton",
+      "reviewed_at": "2026-07-01T00:17:11.827Z",
+      "opened_at": "2026-07-01T00:17:05.714Z",
+      "notes": null
+    },
+    "code_reviewed": {
+      "status": true,
+      "reviewer": "Milton",
+      "reviewed_at": "2026-07-01T00:23:26.375Z",
+      "opened_at": "2026-07-01T00:23:18.873Z",
+      "notes": null
+    }
+  },
+  "status": "completed",
+  "gate_decisions": [
+    {
+      "gate": "requirements_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-07-01T00:10:52.186Z",
+      "decided_at": "2026-07-01T00:11:05.871Z",
+      "reviewer": "Milton",
+      "notes": null
+    },
+    {
+      "gate": "test_scope_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-07-01T00:12:41.314Z",
+      "decided_at": "2026-07-01T00:12:45.195Z",
+      "reviewer": "Milton",
+      "notes": null
+    },
+    {
+      "gate": "specs_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-07-01T00:17:05.714Z",
+      "decided_at": "2026-07-01T00:17:11.827Z",
+      "reviewer": "Milton",
+      "notes": null
+    },
+    {
+      "gate": "code_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-07-01T00:23:18.873Z",
+      "decided_at": "2026-07-01T00:23:26.375Z",
+      "reviewer": "Milton",
+      "notes": null
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-30T21-00-00Z-checkoutsummary",
+  "story_id": "STORY-020",
+  "report_date": "2026-07-01T00:40:00Z",
+  "summary": "STORY-020 (checkout order summary) was driven through all four gates by the real Playwright Native Agents (Planner + Generator). Five automate_e2e cases were generated against the running SauceDemo app: the two-step checkout journey, the two money-math guarantees (item total = sum of unit prices; total = item total + tax), a missing-field validation case, and the finish/confirmation flow. All five pass; every risk is covered and passing. The money-math cases read live rendered values and assert computed relationships in integer cents — no hard-coded price constants.",
+  "coverage_by_risk": [
+    {
+      "risk_id": "RISK-001",
+      "covered_by_tcs": ["TC-002"],
+      "status": "covered_passing"
+    },
+    {
+      "risk_id": "RISK-002",
+      "covered_by_tcs": ["TC-003"],
+      "status": "covered_passing"
+    },
+    {
+      "risk_id": "RISK-003",
+      "covered_by_tcs": ["TC-004"],
+      "status": "covered_passing"
+    },
+    {
+      "risk_id": "RISK-004",
+      "covered_by_tcs": ["TC-001", "TC-005"],
+      "status": "covered_passing"
+    }
+  ],
+  "execution_summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "skipped": 0,
+    "pass_rate": 1
+  },
+  "uncovered_risks": [],
+  "uncovered_high_severity_count": 0,
+  "summary_by_risk_level": {
+    "high": {
+      "total": 2,
+      "covered_passing": 2,
+      "covered_failing": 0,
+      "covered_partial": 0,
+      "accepted_without_test": 0,
+      "uncovered": 0
+    },
+    "medium": {
+      "total": 2,
+      "covered_passing": 2,
+      "covered_failing": 0,
+      "covered_partial": 0,
+      "accepted_without_test": 0,
+      "uncovered": 0
+    },
+    "low": {
+      "total": 0,
+      "covered_passing": 0,
+      "covered_failing": 0,
+      "covered_partial": 0,
+      "accepted_without_test": 0,
+      "uncovered": 0
+    }
+  },
+  "untested_high_risk_items": [],
+  "flaky_tests": [],
+  "open_bugs_summary": {
+    "total": 0,
+    "red": 0,
+    "yellow": 0,
+    "with_jira": 0,
+    "without_jira": 0
+  },
+  "blocking_failures": [],
+  "non_blocking_failures": [],
+  "release_recommendation": "pass",
+  "release_recommendation_reasoning": "All five E2E test cases pass against the live application; all four risks (RISK-001 wrong item total, RISK-002 inconsistent total, RISK-003 missing-field advance, RISK-004 order-state ambiguity) are covered_passing; zero uncovered high-severity risks and zero bug drafts. The two money-math guarantees are pinned by TC-002 and TC-003, which read the rendered prices/tax/total live and assert their arithmetic relationships in integer cents (no hard-coded constants), so a wrong item total or an inconsistent total would fail the run. The run needed no healing — all tests passed on first execution.",
+  "bug_drafts": [],
+  "evidence_paths": [
+    "reports/html",
+    "reports/results.json",
+    "analysis/failure-analysis.json"
+  ],
+  "open_questions": [],
+  "status": "draft"
+}
