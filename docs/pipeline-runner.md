@@ -38,6 +38,10 @@
 
 ## 2. Usage
 
+> Commands in this repo are written for PowerShell; quote multi-word flag
+> values (e.g. `--friction "stacked PRs orphaned again"`) so they arrive as a
+> single argument.
+
 ```bash
 npm run pipeline -- --story story.md     # start from a local story file
 npm run pipeline -- --story SK-10       # start from Jira (read-only fetch)
@@ -92,7 +96,7 @@ test asserts no GitHub workflow invokes the runner at all.
 ### FAQ: "Why is there no `--approve` flag? It would make scripting easier."
 
 Because the flag **is** the vulnerability. The pipeline's entire value rests
-on four human checkpoints (`CLAUDE.md` §3.5; Gate 4 is permanently human). A
+on four human checkpoints (`CLAUDE.md` §3.5; Gate 4 is always a human decision). A
 non-interactive approval path — however convenient — would let an agent or a
 CI job approve gates, and "the agent approved its own work" is precisely the
 failure mode this system exists to prevent. Treat a request to add one as a

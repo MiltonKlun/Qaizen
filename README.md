@@ -37,10 +37,14 @@ raw prompting doesn't:
 
 | | You gain | What it means |
 | --- | --- | --- |
-| 🧾 | **Auditability** | Every artifact is schema-validated and every gate decision is recorded with telemetry — you can prove _why_ a release was signed off. |
 | 🔗 | **Traceability** | An unbroken chain from story → risk → test case → test → failure → bug, so nothing tested is unexplained and nothing important is silently untested. |
-| 🎭 | **Tests you can trust** | Tests are written against the _running app_ (via Playwright MCP), so a green run means the feature actually works — not that the AI guessed well from the story text. |
+| 🧾 | **Auditability** | Every artifact is schema-validated and every gate decision is recorded with telemetry — you can prove _why_ a release was signed off. |
 | 🛡️ | **Guardrails that hold** | The auto-healer fixes a broken selector for you, but can never weaken, skip, or delete a test — your suite only gets stronger, never quietly hollowed out. |
+| 🎭 | **Tests you can trust** | Tests are written against the _running app_ (via Playwright MCP), so a green run means the feature actually works — not that the AI guessed well from the story text. |
+
+Grounding matters most against text-only prompting; a capable agent may ground
+itself — but it will not gate, trace, or record itself. That is what the
+pipeline adds (see [docs/evidence.md](docs/evidence.md) §5b).
 
 The payoff is confidence: faster test creation _and_ a paper trail that stands
 up to review. When a change is too small to deserve it (a throwaway script, a
@@ -118,7 +122,7 @@ flowchart TD
 ### Traceability chain
 
 Every artifact locates itself here; a link that can't be made is recorded as
-\`traceability_unresolved\`, never faked:
+`traceability_unresolved`, never faked:
 
 ```mermaid
 flowchart LR
@@ -150,17 +154,17 @@ flowchart LR
 
 | Command | What it does |
 | --- | --- |
-| `npm run pipeline -- --story <ref>\` | Drive a story through the four gates (the runner) |
-| `npm run demo:pipeline\` | Offline 10-minute demo of the full flow |
-| `npm test\` | Run the generated Playwright E2E suite |
-| `npm run test:api\` | Run the Postman collections via Newman |
-| `npm run classify\` | Rule-based failure classification (🟩 / 🟨 / 🟥) |
-| `npm run heal\` | Guardrailed healer — produces reviewable patches, never commits |
-| `npm run metrics\` | Aggregate pipeline metrics from run history |
-| `npm run validate:all\` | Validate every committed artifact against its schema |
-| `npm run scan:gate4 -- <spec>\` | Static pre-Gate-4 scan (assists review) |
-| `npm run evolve\` | Propose scored, evidence-backed improvements (never applies them) |
-| `npm run session-summary -- --friction "..."\` | Capture run friction for the next `/evolve` |
+| `npm run pipeline -- --story <ref>` | Drive a story through the four gates (the runner) |
+| `npm run demo:pipeline` | Offline 10-minute demo of the full flow |
+| `npm test` | Run the generated Playwright E2E suite |
+| `npm run test:api` | Run the Postman collections via Newman |
+| `npm run classify` | Rule-based failure classification (🟩 / 🟨 / 🟥) |
+| `npm run heal` | Guardrailed healer — produces reviewable patches, never commits |
+| `npm run metrics` | Aggregate pipeline metrics from run history |
+| `npm run validate:all` | Validate every committed artifact against its schema |
+| `npm run scan:gate4 -- <spec>` | Static pre-Gate-4 scan (assists review) |
+| `npm run evolve` | Propose scored, evidence-backed improvements (never applies them) |
+| `npm run session-summary -- --friction "..."` | Capture run friction for the next `/evolve` |
 
 Standalone capabilities (adopt one piece without the whole pipeline):
 [failure classifier](docs/standalone-failure-classifier.md) ·
@@ -174,13 +178,15 @@ Standalone capabilities (adopt one piece without the whole pipeline):
 | Path | Contents |
 | --- | --- |
 | `agents` | Custom agent prompts (analyst, test-designer, reporter, …) |
-| `skills` | Lifecycle skills adapted from \`dogkeeper886/ai-qa-workflow\` |
+| `skills` | Lifecycle skills adapted from `dogkeeper886/ai-qa-workflow` |
 | `schemas` | JSON Schema contracts for every artifact (AJV-validated) |
 | `scripts` | The runner, validators, classifier, healer, metrics, demo |
 | `docs` | Architecture, gates, traceability, integration & fit guides |
 | `examples` | Example stories, expected outputs, the offline demo fixtures |
 | `tests` · `api-tests` | Generated Playwright tests · Postman collections |
+| `test` | Unit tests for the pipeline's own scripts — distinct from `tests`, the generated Playwright suite |
 | `runs` | Archived run history (one snapshot per story run) |
+| `evidence` | Benchmark records — the raw data behind `docs/evidence.md` |
 | `.github/workflows` | CI: quality gate (blocking) + informational jobs |
 
 ---
@@ -193,9 +199,9 @@ Standalone capabilities (adopt one piece without the whole pipeline):
   docs, and examples in one PR (the _Architecture Stability Rule_).
 - **Healer guardrails** — 🟩 Green (auto-fix as a reviewable patch) / 🟨 Yellow
   (suggest only) / 🟥 Red (bug draft only, never touched). Always: never change
-  an expected value, delete a test, or add \`.skip\`.
-- **Tiered ceremony** — a \`lite\` track for routine work, with a principled floor
-  that refuses \`lite\` for money/security/permissions/data stories.
+  an expected value, delete a test, or add `.skip`.
+- **Tiered ceremony** — a `lite` track for routine work, with a principled floor
+  that refuses `lite` for money/security/permissions/data stories.
 - **Out of scope by design** — no autonomous gate approval, no n8n, no web
   dashboard, no DB/queue. See [docs/deferred.md](docs/deferred.md) for what's
   deferred (with triggers) vs. permanently rejected.

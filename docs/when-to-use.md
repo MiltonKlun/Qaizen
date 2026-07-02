@@ -68,7 +68,7 @@ Be honest; don't force these through the machinery:
   Green/Yellow/Red rule, the four-gate checklist) — see the à-la-carte docs.
 - **Expecting autonomy.** If what you actually want is "an agent that writes
   and merges tests while I'm away," this is the wrong tool **on purpose**.
-  Gate 4 is permanently human; the runner refuses non-TTY gate approval. The
+  Gate 4 is always a human decision; the runner refuses non-TTY gate approval. The
   pipeline makes a human _faster_, not _absent_.
 
 ## "Which track for this story?"
