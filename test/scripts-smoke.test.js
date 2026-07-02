@@ -173,6 +173,52 @@ test('session-summary — refuses with no content (exit 2)', () => {
   assert.match(r.out, /Nothing to record/);
 });
 
+// Multi-word flag capture (IMPROVEMENT-PLAN-2 T1.1/T1.3). Run in a temp cwd so
+// the written summary lands in a throwaway dir, not the repo tree.
+test('session-summary — joins multi-word values and rejects placeholders', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'aiqa-summary-'));
+  const script = join(process.cwd(), 'scripts', 'session-summary.js');
+  try {
+    // Unquoted multi-word values (as a shell would split them) must join,
+    // and a repeated --friction must accumulate two separate entries.
+    const ok = spawnSync(
+      'node',
+      [
+        script,
+        '--friction',
+        'first multi word friction',
+        '--friction',
+        'second friction',
+        '--note',
+        'test multi word note',
+      ],
+      { cwd: dir, encoding: 'utf8' }
+    );
+    assert.equal(ok.status, 0, (ok.stdout || '') + (ok.stderr || ''));
+    const date = new Date().toISOString().slice(0, 10);
+    const body = readFileSync(
+      join(dir, 'session-summaries', `${date}.md`),
+      'utf8'
+    );
+    assert.match(body, /- first multi word friction/);
+    assert.match(body, /- second friction/);
+    assert.match(body, /- test multi word note/);
+
+    // A placeholder-only value writes nothing and exits 2 with a warning.
+    const ph = spawnSync('node', [script, '--friction', '...'], {
+      cwd: dir,
+      encoding: 'utf8',
+    });
+    assert.equal(ph.status, 2, (ph.stdout || '') + (ph.stderr || ''));
+    assert.match(
+      (ph.stdout || '') + (ph.stderr || ''),
+      /ignoring placeholder value for --friction/
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // --- thin gated runner: CI safety net (IMPROVEMENT-PLAN IP-2.6) ------------
 // Proves BY CONSTRUCTION that no CI job can ever pass a gate: (a) the runner
 // refuses gate decisions when stdin is not a TTY (and every CI stdin is a
@@ -308,6 +354,24 @@ test('benchmark:capture --dry-run builds a valid record; null for omitted metric
   // Omitted metrics are explicit nulls, never coerced to 0.
   assert.equal(json.metrics.traceability_coverage, null);
   assert.equal(json.metrics.fictional_test_rate, null);
+});
+
+test('benchmark:capture --note joins multi-word values (T1.2)', () => {
+  const r = run([
+    'scripts/benchmark-capture.js',
+    '--story',
+    'x',
+    '--arm',
+    'raw',
+    '--note',
+    'several',
+    'words',
+    'here',
+    '--dry-run',
+  ]);
+  assert.equal(r.code, 0, r.out);
+  const json = JSON.parse(r.out.split('\n').filter(Boolean).pop());
+  assert.equal(json.notes, 'several words here');
 });
 
 test('benchmark:capture rejects an out-of-range metric (exit 1, nothing appended)', () => {

@@ -23,23 +23,51 @@ import { argv, exit } from 'node:process';
 
 const DIR = 'session-summaries';
 
-// Collect all values for a repeatable flag.
+// A "placeholder" value carries no information: empty after trimming, or only
+// dots/whitespace/ellipsis (e.g. a shell-mangled `"..."`). We drop these so
+// garbage never enters the improvement loop /evolve reads.
+const PLACEHOLDER = /^[.\s…]+$/;
+
+// Collect all values for a repeatable flag. Because a flag's value may be an
+// unquoted, shell-split multi-word string, we join every token after the flag
+// up to (but not including) the next `--flag` — so `--friction test multi word`
+// captures "test multi word", not just "test". Repeated flags still accumulate.
 function collect(flag) {
   const out = [];
-  for (let i = 2; i < argv.length - 1; i++) {
-    if (argv[i] === flag) out.push(argv[i + 1]);
+  for (let i = 2; i < argv.length; i++) {
+    if (argv[i] !== flag) continue;
+    const parts = [];
+    let j = i + 1;
+    for (; j < argv.length && !argv[j].startsWith('--'); j++) {
+      parts.push(argv[j]);
+    }
+    out.push(parts.join(' '));
+    i = j - 1; // resume scanning after the consumed value tokens
   }
   return out;
 }
 function one(flag) {
-  const i = argv.indexOf(flag);
-  return i !== -1 ? argv[i + 1] : null;
+  const [v] = collect(flag);
+  return v ?? null;
+}
+
+// Drop placeholder / empty entries, warning once per dropped value.
+function clean(values, flag) {
+  const kept = [];
+  for (const v of values) {
+    if (v.trim() === '' || PLACEHOLDER.test(v)) {
+      console.error(`warning: ignoring placeholder value for ${flag}`);
+      continue;
+    }
+    kept.push(v);
+  }
+  return kept;
 }
 
 const story = one('--story');
-const frictions = collect('--friction');
-const timesinks = collect('--timesink');
-const notes = collect('--note');
+const frictions = clean(collect('--friction'), '--friction');
+const timesinks = clean(collect('--timesink'), '--timesink');
+const notes = clean(collect('--note'), '--note');
 
 if (frictions.length + timesinks.length + notes.length === 0) {
   console.error(

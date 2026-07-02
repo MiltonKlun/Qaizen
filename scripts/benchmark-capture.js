@@ -52,11 +52,26 @@ const OUT = join(REPO, 'evidence', 'benchmark.jsonl');
 const DRY = argv.includes('--dry-run');
 
 // Tiny flag parser: --key value (value-less flags handled explicitly above).
+// Single-token: metadata (--model, --operator, --track) and numeric metrics.
 function flag(name) {
   const i = argv.indexOf(`--${name}`);
   return i !== -1 && argv[i + 1] && !argv[i + 1].startsWith('--')
     ? argv[i + 1]
     : undefined;
+}
+
+// Multi-word reader for free-text flags (--note): join every token after the
+// flag up to the next `--flag`, so unquoted/shell-split multi-word values are
+// not truncated to their first word. Returns undefined if the flag is absent
+// or has no value tokens.
+function textFlag(name) {
+  const i = argv.indexOf(`--${name}`);
+  if (i === -1) return undefined;
+  const parts = [];
+  for (let j = i + 1; j < argv.length && !argv[j].startsWith('--'); j++) {
+    parts.push(argv[j]);
+  }
+  return parts.length ? parts.join(' ') : undefined;
 }
 
 const story = flag('story');
@@ -101,7 +116,7 @@ const record = {
     known_bug_catch_rate: num('known-bug-catch'),
     traceability_coverage: num('traceability'),
   },
-  notes: flag('note') ?? null,
+  notes: textFlag('note') ?? null,
 };
 
 // Validate via the single generic validator against the schema.
