@@ -14,7 +14,9 @@
 //   api-tests/collections/*.json          schemas/postman-collection.schema.json
 //
 // Examples under examples/expected/ are covered by validate-examples.js;
-// this script covers the live, committed run artifacts.
+// this script covers the live, committed run artifacts AT THE ROOT and every
+// archived run under runs/<story-id>/<run-id>/ (IMPROVEMENT-PLAN-2 T3.2) — the
+// archives are what actually ship in the repo, so they are what CI must guard.
 //
 // Exit codes: 0 all present artifacts valid (or none present) · 1 a
 //             validation failure · 2 schema missing / unreadable
@@ -25,34 +27,65 @@ import { exit } from 'node:process';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 
-// Each target: a list of concrete files (or a directory + suffix) and the
-// schema they validate against. Missing files are skipped silently —
-// not every run produces every artifact.
+// The artifact set for ONE run, rooted at `base` (the repo root, or an
+// archived run dir under runs/<story>/<run>/). Each target: a list of concrete
+// files (or a directory + suffix) and the schema they validate against.
+// Missing files are skipped silently — not every run produces every artifact.
+function targetsFor(base = '.') {
+  const at = (p) => join(base, p);
+  return [
+    { files: [at('context.json')], schema: 'schemas/context.schema.json' },
+    {
+      dir: at('test-cases'),
+      suffix: '.json',
+      schema: 'schemas/test-cases.schema.json',
+    },
+    {
+      files: [at('analysis/failure-analysis.json')],
+      schema: 'schemas/failure-analysis.schema.json',
+    },
+    {
+      dir: at('analysis/spec-reviews'),
+      suffix: '.json',
+      schema: 'schemas/spec-review.schema.json',
+    },
+    {
+      files: [at('release/release-report.json')],
+      schema: 'schemas/release-report.schema.json',
+    },
+    {
+      dir: at('api-tests/collections'),
+      suffix: '.json',
+      schema: 'schemas/postman-collection.schema.json',
+    },
+  ];
+}
+
+// Discover every archived run dir: runs/<story-id>/<run-id>/. `latest.json`
+// and any stray files under runs/<story>/ are skipped.
+function archivedRunDirs() {
+  const root = 'runs';
+  if (!existsSync(root)) return [];
+  const dirs = [];
+  for (const story of readdirSync(root)) {
+    const storyDir = join(root, story);
+    let entries;
+    try {
+      entries = readdirSync(storyDir, { withFileTypes: true });
+    } catch {
+      continue; // not a directory (e.g. runs/latest.json)
+    }
+    for (const e of entries) {
+      if (e.isDirectory()) dirs.push(join(storyDir, e.name));
+    }
+  }
+  return dirs;
+}
+
+// Root run (live) + every archived run. A missing artifact anywhere is skipped.
 const TARGETS = [
-  { files: ['context.json'], schema: 'schemas/context.schema.json' },
-  {
-    dir: 'test-cases',
-    suffix: '.json',
-    schema: 'schemas/test-cases.schema.json',
-  },
-  {
-    files: ['analysis/failure-analysis.json'],
-    schema: 'schemas/failure-analysis.schema.json',
-  },
-  {
-    dir: 'analysis/spec-reviews',
-    suffix: '.json',
-    schema: 'schemas/spec-review.schema.json',
-  },
-  {
-    files: ['release/release-report.json'],
-    schema: 'schemas/release-report.schema.json',
-  },
-  {
-    dir: 'api-tests/collections',
-    suffix: '.json',
-    schema: 'schemas/postman-collection.schema.json',
-  },
+  ...targetsFor('.'),
+  ...archivedRunDirs().flatMap((d) => targetsFor(d)),
 ];
 
 const ajv = new Ajv({ allErrors: true, strict: false });

@@ -32,7 +32,8 @@ import {
   cpSync,
   readdirSync,
 } from 'node:fs';
-import { argv, exit } from 'node:process';
+import { spawnSync } from 'node:child_process';
+import { platform, argv, exit } from 'node:process';
 
 const DRY = argv.includes('--dry-run');
 const positional = argv.filter((a, i) => i >= 2 && !a.startsWith('--'));
@@ -148,6 +149,35 @@ if (existsSync(latestPath)) {
 }
 latest[storyId] = { run_id: runId, label, archived_at: manifest.archived_at };
 writeFileSync(latestPath, JSON.stringify(latest, null, 2) + '\n');
+
+// Format the freshly-archived artifacts so `format:check` stays green without a
+// manual step (IMPROVEMENT-PLAN-2 T3.1). Scoped to THIS run dir only. Prettier
+// is a dev dependency, invoked via npx. A formatting failure never aborts the
+// archive — the snapshot is already safe on disk — we just tell the operator
+// how to run it by hand.
+const prettierArgs = [
+  'prettier',
+  '--write',
+  `${runDir}/**/*.{json,md,ts}`,
+  '--ignore-unknown',
+];
+const fmt = spawnSync('npx', prettierArgs, {
+  encoding: 'utf8',
+  shell: platform === 'win32',
+});
+if (fmt.status === 0) {
+  const formatted = (fmt.stdout || '').trim();
+  if (formatted) {
+    console.log(`\nFormatted archived artifacts with Prettier:\n${formatted}`);
+  }
+} else {
+  console.warn(
+    `\nwarning: Prettier did not format the archive (exit ${fmt.status}). ` +
+      'The snapshot is safe; format it by hand with:\n' +
+      `  npx ${prettierArgs.join(' ')}`
+  );
+  if (fmt.stderr) console.warn(fmt.stderr.trim());
+}
 
 const archivedRuns = readdirSync(`runs/${storyId}`).filter(
   (n) => n !== 'latest.json'
