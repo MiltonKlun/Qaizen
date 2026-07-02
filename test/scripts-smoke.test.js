@@ -42,9 +42,17 @@ test('validate:examples — every gold example validates (exit 0)', () => {
 });
 
 test('evaluate — agent dataset scores 100% (exit 0)', () => {
-  const r = run(['scripts/evaluate-agents.js']);
-  assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /Overall: 100%/);
+  // Write results to a temp path via --out so the run never dirties the
+  // committed examples/evaluation/latest-results.json (IMPROVEMENT-PLAN-2 T3.3).
+  const dir = mkdtempSync(join(tmpdir(), 'aiqa-evaluate-'));
+  try {
+    const out = join(dir, 'results.json');
+    const r = run(['scripts/evaluate-agents.js', '--out', out]);
+    assert.equal(r.code, 0, r.out);
+    assert.match(r.out, /Overall: 100%/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('metrics — runs and reports gate-rejection honesty (exit 0)', () => {

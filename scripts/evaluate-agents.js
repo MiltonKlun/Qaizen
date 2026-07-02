@@ -18,8 +18,12 @@
 // Usage:
 //   node scripts/evaluate-agents.js                 # score expected/ (the dataset)
 //   node scripts/evaluate-agents.js --candidate-dir runs/STORY-003  # score a run
+//   node scripts/evaluate-agents.js --out <path>    # write results elsewhere
 //
-// Output: examples/evaluation/latest-results.json + a per-story summary.
+// Output: examples/evaluation/latest-results.json (or --out <path>) + a
+// per-story summary. The default results file carries a `generated_at`
+// timestamp and is committed; tests pass --out <tmp> so a run never dirties the
+// working tree (IMPROVEMENT-PLAN-2 T3.3).
 //
 // Exit codes: 0 every story scored 100% · 1 at least one check failed
 //             · 2 usage / read error
@@ -33,13 +37,24 @@ import {
 } from 'node:fs';
 import { argv, exit } from 'node:process';
 
+import { dirname } from 'node:path';
+
 const STORIES_DIR = 'examples/stories';
 const EXPECTED_DIR = 'examples/expected';
 const OUT_DIR = 'examples/evaluation';
-const OUT_FILE = `${OUT_DIR}/latest-results.json`;
+const DEFAULT_OUT_FILE = `${OUT_DIR}/latest-results.json`;
 
 const candIdx = argv.indexOf('--candidate-dir');
 const candidateDir = candIdx !== -1 ? argv[candIdx + 1] : null;
+
+// --out <path> overrides where results are written (defaults to the committed
+// dataset file). Tests point this at a temp dir so a run never dirties the tree.
+const outIdx = argv.indexOf('--out');
+const OUT_FILE = outIdx !== -1 ? argv[outIdx + 1] : DEFAULT_OUT_FILE;
+if (outIdx !== -1 && !OUT_FILE) {
+  console.error('--out requires a path.');
+  exit(2);
+}
 
 if (!existsSync(STORIES_DIR)) {
   console.error(`Stories dir not found: ${STORIES_DIR}`);
@@ -306,7 +321,8 @@ const out = {
   results,
 };
 
-if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
+const outDir = dirname(OUT_FILE);
+if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
 writeFileSync(OUT_FILE, JSON.stringify(out, null, 2) + '\n');
 
 // Console summary.
