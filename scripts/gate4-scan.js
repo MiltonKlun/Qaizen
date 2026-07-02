@@ -2,8 +2,8 @@
 // Pre-Gate-4 static scan (IMPROVEMENT-PLAN Phase 6, IP-6.2 / PFI-5). Surfaces
 // the MECHANICAL Gate-4 findings so the human reviewer spends judgment, not
 // archaeology. It INFORMS and NEVER fixes: it does not edit files, does not
-// decide the gate, and changes nothing about the approval bar. Gate 4 stays
-// permanently human (CLAUDE.md §3.5) — this just hands the reviewer the
+// decide the gate, and changes nothing about the approval bar. Gate 4 is
+// always a human decision (CLAUDE.md §3.5) — this just hands the reviewer the
 // checklist's mechanical half pre-answered so they can focus on the rest.
 //
 // gate4Findings(source) -> { findings: [{ rule, line, excerpt, note }],

@@ -15,7 +15,7 @@ The pipeline has four hard checkpoints between agents. Each one is a
 **human review**, with explicit criteria. A gate that has not been
 approved blocks the next stage; the orchestrator does not advance.
 
-**Gate 4 is permanently human.** That is a non-negotiable rule, set in
+**Gate 4 is always a human decision.** That is a non-negotiable rule, set in
 the project `README.md` section 9 and enforced in every phase plan.
 
 ---
@@ -215,8 +215,8 @@ agent or script written against the four-gate model breaks. See
 - **Gate 3 (Specs Review)** stays separate — it reviews a different
   artifact (the spec) produced by a different agent.
 - **Gate 4 (Code Review)** is **NEVER** consolidated into
-  `qa_scope_approved` or anything else. It is permanently human and
-  permanently its own gate (`README.md` §9, `CLAUDE.md` §3.5). Folding
+  `qa_scope_approved` or anything else. It is always a human decision and
+  always its own gate (`README.md` §9, `CLAUDE.md` §3.5). Folding
   it into an earlier approval would defeat the one checkpoint the whole
   system is anchored on.
 
@@ -443,7 +443,7 @@ independently.
 
 ---
 
-## Gate 4 — Code Review **(PERMANENTLY HUMAN)**
+## Gate 4 — Code Review **(human sign-off, always)**
 
 > **Pre-Gate-4 static scan (assist, IMPROVEMENT-PLAN Phase 6 / PFI-5).**
 > `scripts/gate4-scan.js` (`npm run scan:gate4 -- <file>`) does the
@@ -511,7 +511,7 @@ etc. all leave Gate 4 human.
    generated artifact are normal.
 3. Repeat the gate.
 
-### Gate 4' — API Assertion Review (Phase 1.5+) **(PERMANENTLY HUMAN)**
+### Gate 4' — API Assertion Review (Phase 1.5+) **(human sign-off, always)**
 
 The API-branch equivalent of Gate 4. Like Gate 4, this is permanently
 human — it is the assertion-level review that decides whether the API

@@ -88,7 +88,7 @@ export const GATE_BRIEFS = {
     ],
   },
   gate4: {
-    name: 'Gate 4 — Code Review (PERMANENTLY HUMAN)',
+    name: 'Gate 4 — Code Review (human sign-off, always)',
     artifacts: (ctx) => [
       ctx?.artifact_paths?.generated_test,
       ctx?.artifact_paths?.playwright_spec,

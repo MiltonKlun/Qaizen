@@ -67,7 +67,7 @@ const STAGES = [
   { step: 'generator', label: 'Generator → tests (replayed fixtures)' },
   {
     step: 'gate4',
-    label: 'GATE 4 — Code Review (you decide; PERMANENTLY HUMAN)',
+    label: 'GATE 4 — Code Review (human sign-off, always)',
   },
   {
     step: 'execute',

@@ -14,6 +14,10 @@ test-results/
 .DS_Store
 .claude/
 
+# Internal planning docs — for the maintainers' eyes only, never published to
+# the public repo (IMPROVEMENT-PLAN-2.md and any successors).
+IMPROVEMENT-PLAN*.md
+
 # Phase 3 run history (scripts/new-run.js). Archived runs under runs/ ARE
 # versioned for their durable artifacts (context.json, test-cases/, specs/,
 # tests/, analysis/, release/, planner-input/, api-tests/, run-manifest.json),

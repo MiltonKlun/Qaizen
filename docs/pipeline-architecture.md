@@ -156,7 +156,7 @@ story.md (manual) ─or─ Jira issue (mcp-atlassian read-only)
   tests/[story-id].spec.ts
         │
         ▼
-  ── GATE 4 — Code Review (human, PERMANENTLY HUMAN) ──
+  ── GATE 4 — Code Review (human sign-off, always) ──
         │
         ▼
   npm run test  → reports/results.json + traces + screenshots

@@ -296,9 +296,19 @@ async function runGateInteractive(step, context) {
       encoding: 'utf8',
     });
     const defaultReviewer = (gitName.stdout || '').trim();
-    const reviewerAnswer = await rl.question(
-      `Reviewer${defaultReviewer ? ` [${defaultReviewer}]` : ''}: `
-    );
+    const enterHint = defaultReviewer
+      ? ` (press Enter for "${defaultReviewer}")`
+      : '';
+    let reviewerAnswer = await rl.question(`Reviewer name${enterHint}: `);
+    // "Reviewer:" was once mistaken for a yes/no prompt (answered "y"), which
+    // put junk in the audit trail. If the answer looks like a yes/no, re-ask
+    // once for the actual name.
+    if (/^(y|n|yes|no)$/i.test(reviewerAnswer.trim())) {
+      reviewerAnswer = await rl.question(
+        `That looks like a yes/no — please type the reviewer's NAME` +
+          `${defaultReviewer ? ` (Enter = ${defaultReviewer})` : ''}: `
+      );
+    }
     const reviewer = reviewerAnswer.trim() || defaultReviewer || null;
 
     let notes = (
