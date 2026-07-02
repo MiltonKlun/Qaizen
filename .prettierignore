@@ -16,11 +16,4 @@ package-lock.json
 # Authoritative planning and instruction docs — owned by the team, not auto-formatted
 CLAUDE.md
 README.md
-phase1-foundation-e2e.md
-phase1.5-api-branch.md
-phase2-integrations.md
-phase3-healing-scaling.md
-PHASE1-RETROSPECTIVE.md
-PHASE1.5-RETROSPECTIVE.md
-PHASE2-RETROSPECTIVE.md
-PHASE3-RETROSPECTIVE.md
+IMPROVEMENT-PLAN-2.md
