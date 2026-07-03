@@ -88,6 +88,10 @@ let healerValidated = 0;
 let gate3Rejections = 0;
 let gate4Rejections = 0;
 let runsWithGateLog = 0;
+// How many runs carry a non-empty prompt_versions map. This is the runtime
+// linkage the prompt-stability signal needs; without it the metric can never
+// leave null, so we surface the count (T4.2).
+let runsWithPromptVersions = 0;
 const untestedHighRisk = []; // {story, risk_id}
 
 for (const run of runs) {
@@ -155,6 +159,15 @@ for (const run of runs) {
       if (d.gate === 'code_reviewed') gate4Rejections += 1;
     }
   }
+
+  // prompt-version linkage: a non-empty prompt_versions map (Analyst v1.3.0+).
+  if (
+    ctx?.prompt_versions &&
+    typeof ctx.prompt_versions === 'object' &&
+    Object.keys(ctx.prompt_versions).length > 0
+  ) {
+    runsWithPromptVersions += 1;
+  }
 }
 
 const avg = (arr) =>
@@ -204,6 +217,16 @@ const promptStabilityMet =
     ? (gate3Rejections + gate4Rejections) / gateDecisionRuns < 0.1
     : null; // null = not enough logged runs to judge
 metrics.prompt_stability_met = promptStabilityMet;
+metrics.runs_with_prompt_versions = runsWithPromptVersions;
+
+// When the signal is null, say WHY in one line (T4.2): the two things it needs
+// are 10 logged runs and runtime prompt-version linkage. Without prompt_versions
+// on runs, the threshold can never be evaluated no matter how many runs accrue.
+const promptStabilityExplainer =
+  promptStabilityMet === null
+    ? `prompt_stability: not computable — ${gateDecisionRuns}/10 runs, ` +
+      `${runsWithPromptVersions} runs carry prompt_versions`
+    : null;
 
 // ---- markdown ------------------------------------------------------------
 const pct = (r) => (r === null ? 'n/a' : `${Math.round(r * 100)}%`);
@@ -256,6 +279,12 @@ const md = [
   runsWithGateLog === 0
     ? '- No run records gate_decisions yet — record them (a rejection event when a gate is sent back) to make this real. 0 here means "unrecorded", not "never happened".'
     : `- Prompt-stability (<10% rejection over 10+ logged runs): ${promptStabilityMet === null ? 'not enough logged runs yet' : promptStabilityMet ? 'MET' : 'NOT met'}.`,
+  '',
+  '## Prompt stability',
+  '',
+  promptStabilityExplainer
+    ? `- ${promptStabilityExplainer}. It needs BOTH: 10+ logged runs AND runs that carry a prompt_versions map (Analyst v1.3.0+). Until archived runs record prompt_versions, this stays null no matter how many runs accrue.`
+    : `- Prompt-stability MET across ${gateDecisionRuns} logged runs (${runsWithPromptVersions} carry prompt_versions).`,
   '',
   '> Metrics guide improvement; they never rewrite prompts or contracts',
   '> automatically. See docs/pipeline-architecture.md "Metrics and Monitoring".',
