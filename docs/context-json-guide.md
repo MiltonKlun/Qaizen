@@ -5,7 +5,8 @@
 > extends `review_gates` from booleans to optional `{ status, reviewer,
 reviewed_at, notes }` objects via `oneOf`. Phase 3 (TG8) adds a
 > `prompt_versions` map tying each agent's run-time version to the
-> `run_id` (see `docs/prompt-versioning.md`). Continuous-improvement adds
+> `run_id` (see `docs/prompt-versioning.md`); as of Analyst v1.3.0 the
+> Analyst is required to write it (Phase 4, T4.1). Continuous-improvement adds
 > an optional append-only `gate_decisions[]` log (per-run gate
 > approvals/rejections; see `docs/review-gates.md`) and an optional
 > `opened_at` gate-telemetry timestamp on the log events and the gate
@@ -361,6 +362,31 @@ safe failure mode is the default. A `lite` story carries
 
 See `examples/expected/lite-track.expected-context.json` for a complete lite
 run (consolidated `qa_scope_approved`, the floor at lite).
+
+### `prompt_versions` (required from Analyst v1.3.0 — Phase 4, T4.1)
+
+A `{ "<agent-name>": "<semver>" }` map pinning the run to the exact agent
+prompt revisions that produced it. Keys are agent `name:` values, values are
+each `agents/<name>.md` frontmatter `version:` (e.g. `"analyst": "1.3.0"`). The
+Analyst writes it after minting `run_id`, reading each version from the file
+rather than guessing (`agents/analyst.md` §5 step 9). Include at minimum
+`analyst`, `test-designer`, `failure-classifier`, and `reporter`; add
+`api-agent` / `spec-reviewer` when the run uses them.
+
+The field is **optional in the schema** (an open map, so new agents register
+without a schema change) but **required by Analyst discipline** — it is what
+lets `npm run metrics` compute `prompt_stability_met`. Runs that omit it (every
+pre-1.3.0 archive) leave that metric `null`; the pipeline otherwise runs
+identically. See `docs/prompt-versioning.md`.
+
+```json
+"prompt_versions": {
+  "analyst": "1.3.0",
+  "test-designer": "1.1.0",
+  "failure-classifier": "1.0.0",
+  "reporter": "1.0.0"
+}
+```
 
 ---
 
