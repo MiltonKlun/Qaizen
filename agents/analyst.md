@@ -9,9 +9,15 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 1.2.0
+version: 1.3.0
 changed_in_run: null
 changelog: |
+  - 1.3.0: Made `prompt_versions` a REQUIRED Analyst output (IMPROVEMENT-PLAN-2
+    Phase 4, T4.1). The Analyst now reads each agent prompt's `version:` and
+    records the map into `context.json`, so `npm run metrics` can link a run to
+    the prompt revisions that drove it (previously 0/8 runs carried it and
+    prompt_stability_met was permanently null). Discipline change only — the
+    field already existed in the schema as optional; no schema change.
   - 1.2.0: Added the optional `track` proposal + `track_floor` (IMPROVEMENT-PLAN
     Phase 4, lite track). The Analyst may propose lite/standard/full and never
     below the Red-taxonomy + size floor; omitting track ⇒ standard (unchanged
@@ -151,6 +157,16 @@ The Analyst writes the file in `status: "draft"` with all four
 `requirements_reviewed` to `true` (or to the audit-field object form
 in Phase 2+) at Gate 1.
 
+### Prompt versions (required — Phase 4, T4.1)
+
+`context.json.prompt_versions` records the `version:` of each agent prompt the
+run uses, keyed by agent name (`{ "analyst": "1.3.0", "test-designer": "…", … }`).
+Read each value from the corresponding `agents/<name>.md` frontmatter — never
+guess. Include at minimum `analyst`, `test-designer`, `failure-classifier`, and
+`reporter`; add `api-agent` / `spec-reviewer` when the run uses them. This is
+what lets metrics attribute a run to the exact prompts that produced it; see §5
+step 9.
+
 ### Track proposal (optional — Phase 4, lite track)
 
 The Analyst MAY propose a `track` (`lite` / `standard` / `full`) and SHOULD
@@ -228,13 +244,24 @@ true`, set `status` to `"blocked"` instead and stop.)
 8. **Generate `run_id`.** Phase 1 convention: ISO timestamp + short
    hash, e.g. `2026-05-28T18-00-00Z-a1b2c3d`. The exact format is
    not strict; what matters is uniqueness across runs.
-9. **Write `context.json`** at the project root.
-10. **Validate** with `node scripts/validate-json.js
+9. **Record `prompt_versions` (required).** Read the `version:`
+   frontmatter of every agent prompt this run will use and write them
+   into `context.json.prompt_versions` as a `{ "<agent>": "<version>" }`
+   map. Include at minimum `analyst`, `test-designer`,
+   `failure-classifier`, and `reporter` (read each from
+   `agents/<name>.md`); add `api-agent` and `spec-reviewer` when the run
+   uses them. This is what lets `npm run metrics` link an archived run to
+   the prompt revisions that produced it (the prompt-stability threshold);
+   without it, `prompt_stability_met` stays `null`. Do not guess a version
+   — read it from the file. The field already exists in the schema, so
+   this is Analyst discipline, not a schema change.
+10. **Write `context.json`** at the project root.
+11. **Validate** with `node scripts/validate-json.js
 schemas/context.schema.json context.json` (or `npm run
 validate:context`). Fix and re-validate until the script exits 0.
-11. **Stop at Gate 1.** Hand off to the human. Do not invoke the
+12. **Stop at Gate 1.** Hand off to the human. Do not invoke the
     Test Designer.
-12. **(Mode B, optional, Phase 2 only) Post the "pipeline started"
+13. **(Mode B, optional, Phase 2 only) Post the "pipeline started"
     comment** — ONLY if the human explicitly requested it on this run
     AND `atlassian-write` is loaded. Use
     `mcp-atlassian:jira_add_comment` with a short note like "QA
