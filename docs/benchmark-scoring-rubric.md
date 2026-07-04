@@ -59,10 +59,31 @@ confirmed against the running app?"**
 
 ## 3. `known_bug_catch_rate` (0..1, higher better)
 
-Scored against the story's **documented** ground-truth bug(s). For a logic
-check (no source access to mutate), use the **would-it-fail test**: _read the
-test against the bug's behavior; if the buggy behavior would make this test
-FAIL, the test catches the bug._
+Scored against the story's **documented** ground-truth bug(s). There are two
+methods; **prefer mutation when the target is the local Bench Shop app**.
+
+### 3a. Mutation (PRIMARY — local Bench Shop app)
+
+When the target is `examples/benchmark-app/`, catching a bug is **executable**,
+not a judgment call: a test catches a bug iff it goes **green on the clean app
+and red on the mutated app**.
+
+- **Inputs:** the arm's test file; the story's bug id(s) the app can inject
+  (`stale-badge`, `wrong-item-total`, `inconsistent-total` — see the app README).
+- **Procedure:** enumerate `B` = the distinct injectable bugs for the story.
+  1. Serve clean (`node examples/benchmark-app/serve.js --version v1 --port P`),
+     run the arm's tests — they must be **green** (a test that is red on the
+     clean app is broken, not a catcher).
+  2. For each bug, serve `--bug <id>` and re-run the tests. The bug is **caught
+     iff ≥1 test fails**. Score = `(bugs caught) / B`.
+- **Verifiable by:** the pass/fail transition is reproducible — anyone can serve
+  with/without `--bug` and re-run. Record which test failed for each bug.
+
+### 3b. Would-it-fail read (FALLBACK — no injectable source, e.g. public SauceDemo)
+
+When the app cannot be mutated, use the **would-it-fail test**: _read the test
+against the bug's behavior; if the buggy behavior would make this test FAIL, the
+test catches the bug._
 
 - **Inputs:** the story's documented bug (e.g. STORY-003 "Background"); the
   arm's test file.
@@ -74,8 +95,6 @@ FAIL, the test catches the bug._
     if it looks related.
 - **Verifiable by:** for each documented bug, name the asserting line that would
   fail, or state "none". A reviewer re-reads those lines against the bug text.
-  (If true mutation testing is available — controllable source — prefer it and
-  say so.)
 
 ## 4. `gate4_corrections` (count, lower better)
 
@@ -106,6 +125,11 @@ FAIL, the test catches the bug._
 - **Procedure:** only via `scripts/selector-survival.js` replaying the arm's
   tests against **≥2 later app versions**. With fewer than 2 versions the
   harness refuses to produce a number ⇒ record `null` and state why.
+- **Now measurable locally:** the Bench Shop app ships `v1` and a drifted `v2`
+  (`examples/benchmark-app/`), so this metric no longer has to be `null` for
+  lack of app history. Serve both and pass each with `--version`; the app
+  README documents the exact v1→v2 drift as ground truth (a login-surface probe
+  yields ~40% survival). Public SauceDemo still has one version ⇒ `null` there.
 - **Verifiable by:** the replay command + its output, or the documented reason
   it is `null`.
 
