@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bench Shop (v1)</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        color: #132;
+      }
+      header {
+        background: #132a13;
+        color: #fff;
+        padding: 12px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .item {
+        border-bottom: 1px solid #ddd;
+        padding: 12px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .item_name {
+        font-weight: 600;
+      }
+      .item_price {
+        color: #2a6;
+      }
+      button {
+        cursor: pointer;
+        padding: 6px 12px;
+        border: 1px solid #132a13;
+        background: #fff;
+        border-radius: 4px;
+      }
+      button.primary {
+        background: #132a13;
+        color: #fff;
+      }
+      input {
+        display: block;
+        width: 100%;
+        padding: 8px;
+        margin: 6px 0;
+        box-sizing: border-box;
+      }
+      .cart_badge {
+        background: #e33;
+        color: #fff;
+        border-radius: 10px;
+        padding: 1px 7px;
+        font-size: 12px;
+      }
+      .summary_row {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+      }
+      .error {
+        color: #c00;
+        min-height: 18px;
+      }
+      .hidden {
+        display: none;
+      }
+      a {
+        color: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <span class="app_title">Bench Shop</span>
+      <a
+        href="#cart"
+        class="shopping_cart_link"
+        data-test="shopping-cart-link"
+        aria-label="cart"
+      >
+        🛒
+        <span class="cart_badge hidden" data-test="shopping-cart-badge"></span>
+      </a>
+    </header>
+    <main id="app"><!-- rendered by app.js --></main>
+
+    <!-- __BENCH_INJECT__ -->
+    <script>
+      // The server replaces the sentinel comment above with
+      // window.__BENCH__ = { version, bugs: [...] }. This fallback keeps the
+      // file working when opened directly from disk (clean, bug-free).
+      window.__BENCH__ = window.__BENCH__ || { version: 'v1', bugs: [] };
+    </script>
+    <script>
+      // ---- Bench Shop: a minimal, self-contained shop that mirrors the
+      // SauceDemo surfaces our benchmark stories exercise (login, inventory
+      // with add/remove + cart badge, cart, two-step checkout with Item total /
+      // Tax / Total). Vanilla JS, no framework, no build. data-test attributes
+      // mirror SauceDemo naming so existing test styles transfer.
+      //
+      // Bug switches (window.__BENCH__.bugs) mutate behavior at RUNTIME — there
+      // is one app, never a buggy copy:
+      //   stale-badge        cart badge does not decrement on remove until a
+      //                      reload (STORY-003's documented bug)
+      //   wrong-item-total   overview item total = sum of prices + 1.00
+      //                      (STORY-020 RISK-001)
+      //   inconsistent-total overview total != item total + tax
+      //                      (STORY-020 RISK-002)
+      const BUGS = new Set(window.__BENCH__.bugs || []);
+      const has = (b) => BUGS.has(b);
+
+      const TAX_RATE = 0.08; // 8% — an app constant, read live by good tests
+      const PRODUCTS = [
+        {
+          id: 'sauce-labs-backpack',
+          name: 'Sauce Labs Backpack',
+          price: 29.99,
+        },
+        {
+          id: 'sauce-labs-bike-light',
+          name: 'Sauce Labs Bike Light',
+          price: 9.99,
+        },
+        {
+          id: 'sauce-labs-bolt-t-shirt',
+          name: 'Sauce Labs Bolt T-Shirt',
+          price: 15.99,
+        },
+      ];
+      const money = (n) => `$${n.toFixed(2)}`;
+      const app = document.getElementById('app');
+
+      const state = {
+        user: null,
+        cart: [], // product ids
+        // badgeCount is what the badge SHOWS; with stale-badge it diverges from
+        // cart.length on remove until a reload re-syncs it.
+        badgeCount: 0,
+        checkout: { firstName: '', lastName: '', postalCode: '' },
+      };
+
+      function renderBadge() {
+        const badge = document.querySelector(
+          '[data-test="shopping-cart-badge"]'
+        );
+        const n = has('stale-badge') ? state.badgeCount : state.cart.length;
+        if (n > 0) {
+          badge.textContent = String(n);
+          badge.classList.remove('hidden');
+        } else {
+          badge.textContent = '';
+          badge.classList.add('hidden');
+        }
+      }
+
+      function go(route) {
+        location.hash = route;
+        render();
+      }
+
+      // ---- views -----------------------------------------------------------
+      function loginView() {
+        app.innerHTML = `
+          <h1 class="title" data-test="title">Login</h1>
+          <input data-test="username" placeholder="Username" />
+          <input data-test="password" type="password" placeholder="Password" />
+          <button class="primary" data-test="login-button">Login</button>
+          <p class="error" data-test="error"></p>
+        `;
+        app.querySelector('[data-test="login-button"]').onclick = () => {
+          const u = app.querySelector('[data-test="username"]').value.trim();
+          const p = app.querySelector('[data-test="password"]').value;
+          if (u === 'standard_user' && p === 'secret_sauce') {
+            state.user = u;
+            go('#inventory');
+          } else {
+            app.querySelector('[data-test="error"]').textContent =
+              'Username and password do not match any user in this service';
+          }
+        };
+      }
+
+      function inventoryView() {
+        app.innerHTML = `
+          <h1 class="title" data-test="title">Products</h1>
+          <div id="list"></div>
+        `;
+        const list = app.querySelector('#list');
+        for (const prod of PRODUCTS) {
+          const inCart = state.cart.includes(prod.id);
+          const row = document.createElement('div');
+          row.className = 'item';
+          row.innerHTML = `
+            <span>
+              <span class="item_name" data-test="inventory-item-name">${prod.name}</span>
+            </span>
+            <span>
+              <span class="item_price" data-test="inventory-item-price">${money(prod.price)}</span>
+              <button data-test="${inCart ? 'remove' : 'add-to-cart'}-${prod.id}">
+                ${inCart ? 'Remove' : 'Add to cart'}
+              </button>
+            </span>
+          `;
+          row.querySelector('button').onclick = () => {
+            if (inCart) removeFromCart(prod.id);
+            else addToCart(prod.id);
+            inventoryView();
+          };
+          list.appendChild(row);
+        }
+      }
+
+      function cartView() {
+        const rows = state.cart
+          .map((id) => {
+            const p = PRODUCTS.find((x) => x.id === id);
+            return `
+              <div class="cart_item item">
+                <span class="item_name" data-test="inventory-item-name">${p.name}</span>
+                <span class="item_price" data-test="inventory-item-price">${money(p.price)}</span>
+                <button data-test="remove-${p.id}">Remove</button>
+              </div>`;
+          })
+          .join('');
+        app.innerHTML = `
+          <h1 class="title" data-test="title">Your Cart</h1>
+          <div id="cartlist">${rows || '<p>Cart is empty.</p>'}</div>
+          <button data-test="continue-shopping" onclick="location.hash='#inventory'">Continue Shopping</button>
+          <button class="primary" data-test="checkout" ${state.cart.length ? '' : 'disabled'}>Checkout</button>
+        `;
+        app.querySelectorAll('[data-test^="remove-"]').forEach((btn) => {
+          btn.onclick = () => {
+            const id = btn.getAttribute('data-test').replace('remove-', '');
+            removeFromCart(id);
+            cartView();
+          };
+        });
+        const co = app.querySelector('[data-test="checkout"]');
+        if (co) co.onclick = () => go('#checkout-step-one');
+      }
+
+      function checkoutStepOneView() {
+        app.innerHTML = `
+          <h1 class="title" data-test="title">Checkout: Your Information</h1>
+          <input data-test="firstName" placeholder="First Name" />
+          <input data-test="lastName" placeholder="Last Name" />
+          <input data-test="postalCode" placeholder="Zip/Postal Code" />
+          <p class="error" data-test="error"></p>
+          <button data-test="cancel" onclick="location.hash='#cart'">Cancel</button>
+          <button class="primary" data-test="continue">Continue</button>
+        `;
+        app.querySelector('[data-test="continue"]').onclick = () => {
+          const fn = app.querySelector('[data-test="firstName"]').value.trim();
+          const ln = app.querySelector('[data-test="lastName"]').value.trim();
+          const zip = app
+            .querySelector('[data-test="postalCode"]')
+            .value.trim();
+          if (!fn || !ln || !zip) {
+            app.querySelector('[data-test="error"]').textContent =
+              'Error: First Name, Last Name and Postal Code are required';
+            return;
+          }
+          state.checkout = { firstName: fn, lastName: ln, postalCode: zip };
+          go('#checkout-step-two');
+        };
+      }
+
+      function overviewView() {
+        // The money-math a good test reads LIVE. All figures are derived here
+        // from PRODUCTS, so a correct test asserts relationships (total ===
+        // itemTotal + tax), not memorized constants.
+        const prices = state.cart.map(
+          (id) => PRODUCTS.find((x) => x.id === id).price
+        );
+        const trueSum = prices.reduce((a, b) => a + b, 0);
+        const itemTotal = has('wrong-item-total') ? trueSum + 1.0 : trueSum;
+        const tax = Math.round(trueSum * TAX_RATE * 100) / 100;
+        const total = has('inconsistent-total')
+          ? itemTotal + tax + 0.5
+          : itemTotal + tax;
+
+        const lines = state.cart
+          .map((id) => {
+            const p = PRODUCTS.find((x) => x.id === id);
+            return `
+              <div class="cart_item item">
+                <span class="item_name" data-test="inventory-item-name">${p.name}</span>
+                <span class="item_price" data-test="inventory-item-price">${money(p.price)}</span>
+              </div>`;
+          })
+          .join('');
+        app.innerHTML = `
+          <h1 class="title" data-test="title">Checkout: Overview</h1>
+          <div id="overview">${lines}</div>
+          <div class="summary_info">
+            <div class="summary_row">
+              <span>Item total:</span>
+              <span data-test="subtotal-label">Item total: ${money(itemTotal)}</span>
+            </div>
+            <div class="summary_row">
+              <span>Tax:</span>
+              <span data-test="tax-label">Tax: ${money(tax)}</span>
+            </div>
+            <div class="summary_row">
+              <span>Total:</span>
+              <span data-test="total-label">Total: ${money(total)}</span>
+            </div>
+          </div>
+          <button data-test="cancel" onclick="location.hash='#inventory'">Cancel</button>
+          <button class="primary" data-test="finish">Finish</button>
+        `;
+        app.querySelector('[data-test="finish"]').onclick = () =>
+          go('#checkout-complete');
+      }
+
+      function completeView() {
+        app.innerHTML = `
+          <h1 class="title" data-test="title">Checkout: Complete!</h1>
+          <h2 class="complete-header" data-test="complete-header">Thank you for your order!</h2>
+          <p>Your order has been dispatched.</p>
+          <button class="primary" data-test="back-to-products" onclick="location.hash='#inventory'">Back Home</button>
+        `;
+        // A finished order empties the cart.
+        state.cart = [];
+        state.badgeCount = 0;
+        renderBadge();
+      }
+
+      // ---- cart ops --------------------------------------------------------
+      function addToCart(id) {
+        if (!state.cart.includes(id)) {
+          state.cart.push(id);
+          state.badgeCount = state.cart.length;
+        }
+        renderBadge();
+      }
+      function removeFromCart(id) {
+        state.cart = state.cart.filter((x) => x !== id);
+        // The bug: badgeCount does NOT follow cart.length on remove, so the
+        // shown badge is stale until a reload re-syncs badgeCount below.
+        if (!has('stale-badge')) state.badgeCount = state.cart.length;
+        renderBadge();
+      }
+
+      // ---- router ----------------------------------------------------------
+      function render() {
+        // On a full load/reload, badgeCount re-syncs to the real cart — which
+        // is exactly why stale-badge "self-heals" on reload.
+        state.badgeCount = state.cart.length;
+        const route = location.hash || '#login';
+        if (!state.user && route !== '#login') return go('#login');
+        if (route === '#login') loginView();
+        else if (route === '#inventory') inventoryView();
+        else if (route === '#cart') cartView();
+        else if (route === '#checkout-step-one') checkoutStepOneView();
+        else if (route === '#checkout-step-two') overviewView();
+        else if (route === '#checkout-complete') completeView();
+        else inventoryView();
+        renderBadge();
+      }
+
+      window.addEventListener('hashchange', render);
+      render();
+    </script>
+  </body>
+</html>

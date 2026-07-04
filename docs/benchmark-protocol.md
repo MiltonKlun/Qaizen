@@ -84,6 +84,16 @@ registration, not mine.**
 > Also: all five candidates are **SauceDemo-derived**, so they share an app and
 > a locator style. For selector-survival (§3) that's fine if you have ≥2 app
 > versions; if not, record `selector_survival_rate: null` per story and explain.
+>
+> **Preferred target for NEW benchmark stories: the local Bench Shop app**
+> (`examples/benchmark-app/`, IMPROVEMENT-PLAN-2 Phase 5). Public SauceDemo has
+> two ceilings it cannot lift: (1) it is in every model's **training data**, so
+> a raw agent can reproduce it from memory (inflating raw's scores — see
+> `docs/evidence.md` §5b); and (2) it has **no bugs to catch and one version**,
+> so `known_bug_catch_rate` ties 1.0/1.0 and `selector_survival_rate` is
+> permanently `null`. Bench Shop fixes both — inject a bug with `--bug`, and
+> serve `v1` vs the drifted `v2`. Existing SauceDemo rows stay valid; use Bench
+> Shop when a story needs a catchable bug or a real survival number.
 
 ---
 
@@ -119,11 +129,18 @@ same reviewer, ideally without knowing which arm produced the file.
    `npm run benchmark:capture -- --story <id> --arm pipeline --track <t> ...`.
 3. After each pipeline run:
    `npm run session-summary -- --friction "<what rubbed>"`.
-4. **Selector survival** (when app history exists): serve ≥2 later app
-   versions and run `npm run benchmark:survival -- --tests <file> --version
-<url> --version <url>` for each arm. If history is unavailable, record
-   `selector_survival_rate: null` and say why in `docs/evidence.md` — **do not
-   fake it** (`scripts/selector-survival.js` refuses to).
+4. **Selector survival.** Preferred (local app): serve Bench Shop `v1` and `v2`
+   and run `npm run benchmark:survival -- --tests <file> --version <v1-url>
+--version <v2-url>` — see `examples/benchmark-app/README.md`. Against public
+   SauceDemo, do this only if you genuinely have ≥2 app versions; otherwise
+   record `selector_survival_rate: null` and say why in `docs/evidence.md` —
+   **do not fake it** (`scripts/selector-survival.js` refuses to).
+5. **Known-bug catch (mutation, local app only).** For a story with a bug the
+   Bench Shop can inject, serve with `--bug <id>` and run the arm's tests: the
+   bug is **caught iff ≥1 test fails** (green on the clean app, red on the
+   mutated one). This replaces the older "would these tests have caught it?"
+   judgment with an executable check. See the rubric §3 and
+   `examples/benchmark-app/README.md` for the bug ids.
 
 ---
 
