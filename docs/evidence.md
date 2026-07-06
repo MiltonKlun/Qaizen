@@ -1,11 +1,13 @@
 # Evidence — pipeline vs. raw prompting
 
 > **Status:** EARLY RESULTS (2 stories). STORY-003 ran through both arms
-> (the pilot, §1–§5); STORY-020 ran through the full pipeline arm solo, and its
-> "raw" attempt surfaced a notable finding (§5b). The protocol's aggregate
-> verdict still awaits the full series (`docs/benchmark-protocol.md`). The
-> project reports only what it has actually measured and does not over-claim
-> from a handful of data points (`STRATEGY.md`).
+> (the pilot, §1–§5); STORY-020 ran through the full pipeline arm solo (§5a),
+> its "explored-but-ungated" attempt surfaced the §5b finding, and its **true
+> text-only raw arm is now complete (§5c)** — where a green run on live
+> SauceDemo turned out to be training-data luck over a hard-coded, ungrounded
+> test. The protocol's aggregate verdict still awaits the full series
+> (`docs/benchmark-protocol.md`). The project reports only what it has actually
+> measured and does not over-claim from a handful of data points (`STRATEGY.md`).
 
 This is the project's answer to its own central question: **why use this
 ceremony instead of asking an AI directly?** It reports measured results —
@@ -116,10 +118,17 @@ latency. (n = 1; it will become a median over the series.)
 - **Timing is the weakest metric here** (see §2 footnotes): raw under-counted
   (AI, one-shot), pipeline inflated by conversational latency. The §4 gate-cost
   telemetry is the reliable timing figure.
-- **Selector survival = null:** only one SauceDemo version available; the replay
-  harness refuses to invent a number (`scripts/selector-survival.js`).
+- **Selector survival = null (for the SauceDemo rows):** only one SauceDemo
+  version is available; the replay harness refuses to invent a number
+  (`scripts/selector-survival.js`). This is now measurable for _new_ stories run
+  against the local Bench Shop app, which ships `v1` and a drifted `v2`
+  (`examples/benchmark-app/`, Phase 5).
 - **Operator was an AI**, not a working QA; both arms share that, but it limits
   external validity. A human-operated series is the next step.
+- **Author and reviewer are currently the same person:** the gates are
+  procedurally real (recorded, non-bypassable) but not epistemically
+  independent. Gate-cost telemetry reflects self-review speed. A run with
+  reviewer ≠ author is future work.
 - **The pipeline's generated test was not flawless:** the Generator emitted an
   ambiguous `getByText` locator that passed its own verification but failed in
   the full-suite run; the Healer fixed it within guardrails (no expected value
@@ -195,23 +204,67 @@ gate, trace, or record itself.
 **Recorded here in prose only, not in `benchmark.jsonl`:** the record schema's
 `arm` enum is `raw | pipeline`; a third value is a schema change under the
 Architecture Stability Rule, deferred until a text-only raw arm proves the
-distinction is worth encoding. A **true text-only raw arm for STORY-020 is still
-owed** (run it with no app access) to complete the intended comparison.
+distinction is worth encoding. A true text-only raw arm for STORY-020 was
+**owed** to complete the intended comparison — now delivered in §5c.
+
+## 5c. The owed text-only raw arm — STORY-020 (delivered)
+
+The genuine raw control §5b lacked: a model given **only the story text** and
+explicitly forbidden to open, navigate, or inspect any app (a fresh subagent
+with no Playwright/MCP tools). It produced
+`STORY-020-textonly.spec.ts` — 5 tests, one per AC — in ~3 min of generation
+(not human-operator time; see the §5 timing caveat). Recorded as the `raw`
+record for `checkout-order-summary` in `evidence/benchmark.jsonl`.
+
+| Metric (raw, text-only)      | Value | Note                                                               |
+| ---------------------------- | ----- | ------------------------------------------------------------------ |
+| fictional_test_rate          | 1.00  | Every assertion written blind; nothing observed in a running app   |
+| known_bug_catch_rate         | 1.00  | AC2 pins the sum, AC3 pins consistency — but see the catch below   |
+| traceability_coverage        | 0.00  | No STORY→RISK→TC ids                                               |
+| gate4_corrections            | 1     | A hard-coded `$39.98` magic number — a Gate-4 defect by the rubric |
+| time_to_first_green_test_min | 3     | Model generation time, not a human operator                        |
+
+**The headline, and it is the sharp one: all 5 tests PASSED against live
+SauceDemo — by training-data luck, not verification.** The agent invented the
+SauceDemo selectors from memory (`.summary_subtotal_label`, `.complete-header`,
+`.inventory_item_name`, …) and hard-coded `$39.98` as the item total; both
+happened to be **correct** because SauceDemo is in the model's training data. So
+on this famous app the text-only arm scores a green run and a 1.00 bug-catch —
+yet it did so with:
+
+- a **hard-coded `$39.98`** (`expect(...).toContainText('$39.98')`) — the exact
+  brittle magic number the pipeline's Generator is forbidden to write. A
+  SauceDemo price change breaks this test with a false failure; the pipeline's
+  live-read money-math (§5a) does not.
+- a **fictional_test_rate of 1.00** — none of it was grounded; it only looked
+  grounded because the guess matched a memorized app.
+
+This is the whole argument in one data point: **on a training-data-famous app,
+text-only raw prompting can pass and even "catch" the bug — while producing
+exactly the brittle, ungrounded, untraceable test the pipeline exists to
+prevent.** The green run flatters raw; the `fictional_rate 1.0`,
+`gate4_corrections 1`, `traceability 0.0`, and the hard-coded money tell the
+real story. It also validates the local Bench Shop app (Phase 5): a target that
+is _not_ in training data (and can be mutated) is what stops raw from getting
+lucky — the honest test of grounding.
 
 ---
 
 ## 6. Next steps
 
-- **Run a true text-only raw arm for STORY-020** (no app/MCP access) to complete
-  the comparison the §5b attempt did not — see that section.
+- **Done:** the text-only raw arm for STORY-020 (§5c) — completed the §5b gap.
+- **Re-run the benchmark against the local Bench Shop app** (§5c, Phase 5) for a
+  target that is _not_ in training data and _can_ be mutated — the honest test
+  of grounding that public SauceDemo cannot give (`--bug` for catch rate, `v1`
+  vs `v2` for selector survival, both now measurable).
 - Add the remaining slate stories (protocol §2) to move toward a real series;
   re-evaluate §5 thresholds once ≥5 stories are in. (Solo single-session runs,
   per §5a, give the cleanest timing.)
 - A lite-eligible story now exists (`examples/stories/footer-social-links.md`,
   STORY-021, verified to floor to `lite`) — run it to exercise the lite track
   and test the "raw wins for routine work" threshold.
-- Consider whether §5b's finding warrants encoding a third `arm` value
-  (schema change) once a text-only raw arm confirms the distinction is stable.
+- Consider whether §5b/§5c's finding warrants encoding a third `arm` value
+  (schema change) now that a text-only raw arm has confirmed the distinction.
 
 ## 7. References
 
