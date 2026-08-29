@@ -320,3 +320,21 @@ Don't be rigid for its own sake. Be rigid about gates, traceability, schemas, fo
 > Reuse before building, validate before saving, stop before guessing.
 
 If you only remember one thing from this file, remember that.
+
+---
+
+## Agent skills
+
+Wayfinding for the external engineering skills (issue tracker, domain docs).
+This adds discovery only — it does not alter any rule in sections 1–9 above,
+which remain binding and outrank it.
+
+### Issue tracker
+
+Issues and specs for this repo live as GitHub issues (`gh` CLI), inferred from
+`git remote`. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root (created lazily
+when terms/decisions get resolved). See `docs/agents/domain.md`.
