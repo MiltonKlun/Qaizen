@@ -164,9 +164,13 @@
         }
       }
 
+      // Navigate. Setting the hash fires `hashchange`, which is what renders —
+      // calling render() here too would render TWICE and re-create the DOM,
+      // wiping input the user had already typed. Only render directly when the
+      // hash is already at the target, since that fires no `hashchange`.
       function go(route) {
-        location.hash = route;
-        render();
+        if (location.hash === route) render();
+        else location.hash = route;
       }
 
       // ---- views -----------------------------------------------------------
