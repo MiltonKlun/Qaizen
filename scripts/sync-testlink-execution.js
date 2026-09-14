@@ -13,8 +13,14 @@
 // (never hardcoded). The outcome for a case is:
 //   - the classification of its failure in analysis/failure-analysis.json
 //     (matched by test_case_id), if it failed;
-//   - "skipped" if the case ran but was skipped;
-//   - "passed" otherwise (has a testlink_id, no failure entry).
+//   - "skipped" if automation_decision is "skip" (an intentional exclusion);
+//   - "not_run" otherwise.
+//
+// "not_run", NOT "passed" (review finding I1, task group 1.2). A linked case
+// with no failure entry is not evidence of a pass: a case that never ran, a
+// manual case, and a case whose result was lost are indistinguishable here.
+// A real Pass needs positive execution evidence from the run-scoped ledger,
+// which Phase 5 (task group 5.3) introduces.
 //
 // Usage:
 //   node scripts/sync-testlink-execution.js <story-id>                          # dry-run
@@ -108,11 +114,27 @@ if (synced.length === 0) {
   exit(0);
 }
 
+// Derive the outcome to report to TestLink.
+//
+// CONSERVATIVE BY CONSTRUCTION (review finding I1, task group 1.2). The absence
+// of a failure entry is NOT evidence that a case executed and passed: a case
+// that never ran, a manual case, and a case whose result was lost all look
+// identical here. Reporting Pass from absence invented execution evidence, so
+// the fallback is now `not_run` (mapped to "Not Run"), never `passed`.
+//
+// A genuine Pass requires positive execution evidence from the run-scoped
+// ledger, which Phase 5 (task group 5.3) introduces. Until then this path can
+// only ever report a real failure, an intentional skip, or Not Run.
+//
+// Note on `skip`: the schema puts `skip` in `automation_decision`, not in
+// `status` (which is draft|approved|rejected). The previous `tc.status ===
+// 'skip'` check was dead code and could never match a schema-valid case.
 function outcomeFor(tc) {
   const f = failureByTc.get(tc.test_case_id);
   if (f) return f.classification || 'unknown_needs_human_review';
-  if (tc.status === 'skip') return 'skipped';
-  return 'passed';
+  if (tc.automation_decision === 'skip') return 'skipped';
+  // No failure entry and not an intentional skip => no evidence of execution.
+  return 'not_run';
 }
 
 const planned = synced.map((tc) => {
