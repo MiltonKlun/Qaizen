@@ -1,28 +1,35 @@
 #!/usr/bin/env node
-// Healer harness with guardrails (Phase 3 TG2). The SAFETY layer around test
-// healing — it enforces every Healer guardrail (CLAUDE.md §3.6,
-// docs/healer-guardrails.md) in code. It NEVER commits, NEVER merges, NEVER
-// touches main, and only ever processes GREEN failures, producing a reviewable
-// .patch file. It does NOT auto-apply to the working tree.
+// Healer harness (Phase 3 TG2) — CLASSIFICATION / TRIAGE SCAFFOLDING ONLY.
 //
-// SCOPE / honesty: a headless script cannot itself LLM-generate a fix for a
-// broken locator. So this harness owns the safe, deterministic parts —
-//   • filter failure-analysis to Green-only,
-//   • set up an isolated workspace copy of the affected test,
-//   • enforce the forbidden-op guardrails on any candidate patch,
-//   • re-run ONLY the affected test to validate,
-//   • emit release/healer-patches/FAIL-XXX.patch + analysis/healer-validation/FAIL-XXX.md,
-//   • cap at 3 attempts.
-// The PATCH-GENERATION step is an explicit agent/LLM hook (see generatePatch
-// below): in this script it is a no-op placeholder that reports "no candidate".
-// A future Healer agent (or the Playwright native healer) supplies candidate
-// patches; this harness decides whether they are SAFE and whether they WORK.
+// WHAT THIS SCRIPT ACTUALLY DOES TODAY (review finding S3, task group 1.2):
+//   • reads analysis/failure-analysis.json,
+//   • partitions failures into Green / Yellow / Red,
+//   • reports what WOULD be eligible for healing, and
+//   • writes Yellow suggestion notes with --apply.
 //
-// Yellow => suggestion file only, never applied. Red => never touched.
+// WHAT IT DOES **NOT** DO YET — do not rely on these:
+//   • it does NOT ingest a candidate patch (generatePatch() returns null
+//     unconditionally, and originalSource is null, so the guardrail/rerun path
+//     below is unreachable),
+//   • it does NOT create an isolated workspace,
+//   • it does NOT re-run the affected test,
+//   • it does NOT emit a validated .patch file,
+//   • it does NOT enforce a 3-attempt cap (nothing consumes attempts).
+//
+// So this harness cannot currently ENFORCE the Healer guardrails, because no
+// candidate ever reaches them. The guardrail function itself
+// (scripts/healer-guardrails.js) is real and is used by the demo and by
+// gate4-scan; it is the INGESTION around it that is missing. Candidate
+// ingestion, isolated rerun, attempt caps and patch output arrive in Phase 6
+// (task groups 6.1 and 6.3).
+//
+// Unchanged safety properties: it NEVER commits, NEVER merges, NEVER touches
+// main, and never edits a live test. Yellow => suggestion note only. Red =>
+// never touched.
 //
 // Usage:
-//   node scripts/run-healer.js                 # dry-run: report what it would heal
-//   node scripts/run-healer.js --apply         # produce patch files (still never commits)
+//   node scripts/run-healer.js                 # report Green/Yellow/Red triage
+//   node scripts/run-healer.js --apply         # also write Yellow suggestion notes
 //
 // Exit codes: 0 ok · 1 a guardrail violation was attempted · 2 usage/file error
 
@@ -109,7 +116,8 @@ for (const f of red) {
 let healed = 0;
 for (const f of green) {
   console.log(
-    `  ${f.failure_id} (green, ${f.classification}): candidate for healing (cap ${MAX_ATTEMPTS} attempts).`
+    `  ${f.failure_id} (green, ${f.classification}): WOULD be eligible for healing ` +
+      `(cap ${MAX_ATTEMPTS} attempts once candidate processing exists in Phase 6).`
   );
 
   // The harness needs the affected test file's source to gate a patch. The
@@ -155,9 +163,12 @@ if (!APPLY)
     'DRY RUN (no files written). Re-run with --apply to write suggestion/validation files.'
   );
 console.log(
-  '\nGuardrails enforced in code: no commit, no merge, Green-only auto-fix, ' +
-    'never change expected values, never add .skip, never delete a test, never ' +
-    'update snapshots, max 3 attempts. Patch generation is an agent hook.'
+  '\nSCOPE: this is triage scaffolding, not a healing pipeline. It classifies ' +
+    'failures and writes Yellow suggestion notes. It does NOT ingest candidate ' +
+    'patches, create an isolated workspace, re-run the affected test, emit a ' +
+    'validated .patch, or consume the attempt cap — so it cannot currently ' +
+    'ENFORCE the guardrails (nothing reaches them). Candidate processing lands ' +
+    'in Phase 6. Unchanged: it never commits, never merges, never edits a live test.'
 );
 
 // A guardrail violation being ATTEMPTED is a failure signal even though the

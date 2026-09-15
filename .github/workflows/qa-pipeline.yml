@@ -250,14 +250,19 @@ jobs:
             echo "::endgroup::"
           done
           exit $status
-      - name: Upload Newman report
+      # Upload ONLY the sanitized summaries under reports/published/.
+      # The raw reporter outputs (reports/newman-results.json, newman-html) are
+      # secret-bearing: Newman records the live x-api-key header and resolved
+      # environment values into them (docs/secrets-management.md section 5).
+      # They stay on the runner and are never published. scripts/run-newman.js
+      # builds reports/published/newman-<story>.json from an allowlist and
+      # refuses to write it if any injected secret survives.
+      - name: Upload sanitized Newman summary
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: newman-report
-          path: |
-            reports/newman-html
-            reports/newman-results.json
+          path: reports/published
           retention-days: 14
           if-no-files-found: ignore
 

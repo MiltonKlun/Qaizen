@@ -114,6 +114,13 @@ violated. Treat every captured artifact as sensitive:
 - **Never paste a trace or screenshot into an LLM prompt.** The Failure
   Classifier and Reporter consume `evidence_paths` and summarized JSON, not the
   raw artifact (§5).
+- **API reports are published only after sanitization.** Newman records the
+  live auth header and resolved environment values into its JSON/HTML output,
+  so CI uploads **only** `reports/published/newman-*.json` — an allowlisted
+  summary built by `scripts/lib/report-sanitization.js`. The raw reporter files
+  never leave the runner. A sanitization failure publishes nothing for that
+  execution rather than falling back to raw output
+  (`docs/secrets-management.md` §5).
 
 ---
 

@@ -18,7 +18,20 @@
 // Usage:
 //   node scripts/evaluate-agents.js                 # score expected/ (the dataset)
 //   node scripts/evaluate-agents.js --candidate-dir runs/STORY-003  # score a run
+//   node scripts/evaluate-agents.js --candidate-dir <dir> --stage analyst
 //   node scripts/evaluate-agents.js --out <path>    # write results elsewhere
+//
+// --stage designer (DEFAULT) requires BOTH a valid context.json and the
+// matching test-cases/<story-id>.json. --stage analyst evaluates the context
+// alone, for a deliberate Analyst-only run.
+//
+// MISSING WORK IS A FAILURE, NOT A HIGH SCORE (review finding I5, task group
+// 1.2). Previously a missing candidate directory scored zero stories and still
+// exited 0, and a candidate with only a context scored 100% because the
+// test-case checks were silently skipped — missing outputs were removed from
+// the denominator. Now: a missing/unreadable candidate directory or context, a
+// missing required test-cases file in designer stage, and a zero-scored cohort
+// all exit non-zero.
 //
 // Output: examples/evaluation/latest-results.json (or --out <path>) + a
 // per-story summary. The default results file carries a `generated_at`
@@ -26,7 +39,7 @@
 // working tree (IMPROVEMENT-PLAN-2 T3.3).
 //
 // Exit codes: 0 every story scored 100% · 1 at least one check failed
-//             · 2 usage / read error
+//             · 2 usage / read error / missing requested candidate work
 
 import {
   readdirSync,
@@ -46,6 +59,26 @@ const DEFAULT_OUT_FILE = `${OUT_DIR}/latest-results.json`;
 
 const candIdx = argv.indexOf('--candidate-dir');
 const candidateDir = candIdx !== -1 ? argv[candIdx + 1] : null;
+// A flag given with no value (or followed by another flag) is a usage error,
+// not an invitation to silently fall back to dataset mode.
+if (candIdx !== -1 && (!candidateDir || candidateDir.startsWith('--'))) {
+  console.error('--candidate-dir requires a directory path.');
+  exit(2);
+}
+
+// --stage selects how much of a candidate run must exist to be scorable.
+const stageIdx = argv.indexOf('--stage');
+const STAGE = stageIdx !== -1 ? argv[stageIdx + 1] : 'designer';
+if (!['analyst', 'designer'].includes(STAGE)) {
+  console.error(
+    `--stage must be "analyst" or "designer" (got ${STAGE ? `"${STAGE}"` : 'no value'}).`
+  );
+  exit(2);
+}
+if (stageIdx !== -1 && !candidateDir) {
+  console.error('--stage applies to --candidate-dir runs only.');
+  exit(2);
+}
 
 // --out <path> overrides where results are written (defaults to the committed
 // dataset file). Tests point this at a temp dir so a run never dirties the tree.
@@ -225,16 +258,38 @@ function checkTestCases(tcDoc, ctx) {
 // a fresh run's context.json + test-cases/<story-id>.json.
 function resolveFor(base) {
   if (candidateDir) {
+    // A requested candidate that does not exist is an ERROR, never an empty
+    // cohort that quietly scores 100% (review finding I5).
+    if (!existsSync(candidateDir)) {
+      console.error(`Candidate directory not found: ${candidateDir}`);
+      exit(2);
+    }
     const ctxPath = `${candidateDir}/context.json`;
-    if (!existsSync(ctxPath)) return null;
+    if (!existsSync(ctxPath)) {
+      console.error(`Candidate has no context.json: ${ctxPath}`);
+      exit(2);
+    }
     const ctx = loadJson(ctxPath);
     const id = (ctx.story || {}).id;
     const tcPath = `${candidateDir}/test-cases/${id}.json`;
+    const tcExists = existsSync(tcPath);
+    // Designer stage (the default) scores the Test Designer's output too, so a
+    // missing test-cases file is missing WORK — not a reason to score only the
+    // context and report a perfect match.
+    if (STAGE === 'designer' && !tcExists) {
+      console.error(
+        `Candidate is missing required test cases for ${STAGE} stage: ${tcPath}\n` +
+          'Pass --stage analyst to evaluate a deliberate Analyst-only run.'
+      );
+      exit(2);
+    }
     return {
       ctx,
       ctxPath,
-      tcDoc: existsSync(tcPath) ? loadJson(tcPath) : null,
-      tcPath: existsSync(tcPath) ? tcPath : null,
+      // Analyst stage deliberately ignores test cases even if present, so the
+      // score reflects exactly the stage that was requested.
+      tcDoc: STAGE === 'designer' && tcExists ? loadJson(tcPath) : null,
+      tcPath: STAGE === 'designer' && tcExists ? tcPath : null,
     };
   }
   const ctxPath = `${EXPECTED_DIR}/${base}.expected-context.json`;
@@ -342,5 +397,21 @@ for (const r of results) {
   }
 }
 console.log(`\nOverall: ${overall}%  ->  wrote ${OUT_FILE}`);
+if (scored.length < stories.length) {
+  console.log(
+    `  (${stories.length - scored.length} story/stories were not scored — see SKIPPED above)`
+  );
+}
+
+// An empty cohort is a failure, not a pass: scoring nothing must never look
+// like scoring everything correctly (review finding I5).
+if (scored.length === 0) {
+  console.error(
+    candidateDir
+      ? `No candidate work was scored in ${candidateDir}.`
+      : 'No stories were scored; the expected dataset produced nothing to evaluate.'
+  );
+  exit(2);
+}
 
 exit(anyFail ? 1 : 0);

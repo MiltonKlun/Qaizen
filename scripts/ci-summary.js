@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // CI summary (Phase 2 TG8). Reads the Playwright JSON report
-// (reports/results.json) and the Newman JSON report
-// (reports/newman-results.json) if present, counts total/passed/failed/
-// skipped per source, and writes a Markdown summary to stdout AND to
+// (reports/results.json) and the SANITIZED Newman summaries
+// (reports/published/newman-*.json, one per collection) if present, counts
+// total/passed/failed/skipped per source, and writes a Markdown summary to
+// stdout AND to
 // $GITHUB_STEP_SUMMARY when that env var points at a file (it does inside
 // GitHub Actions).
 //
@@ -25,13 +26,20 @@
 // Exit codes: 0 ok · 1 only with --fail-on-test-failure and a failed test
 //             · 2 a report file existed but was unreadable/invalid
 
-import { readFileSync, existsSync, appendFileSync } from 'node:fs';
+import { readFileSync, existsSync, appendFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { argv, env, exit } from 'node:process';
 
 const FAIL_ON_TEST_FAILURE = argv.includes('--fail-on-test-failure');
 
 const PW_PATH = 'reports/results.json';
-const NEWMAN_PATH = 'reports/newman-results.json';
+// Sanitized Newman summaries, one per collection (task group 1.1, I3). CI
+// uploads ONLY this subtree; the raw reporter output is secret-bearing and
+// stays on the runner.
+const PUBLISHED_DIR = 'reports/published';
+// Legacy single raw report. Kept as an explicit compatibility read for local
+// runs that predate reports/published/ — never the CI path.
+const LEGACY_NEWMAN_PATH = 'reports/newman-results.json';
 
 function readReport(path) {
   if (!existsSync(path)) return null;
@@ -78,18 +86,64 @@ function summarizeNewman(report) {
   };
 }
 
+// Sanitized published summary (the CI path). Same assertion-level unit as the
+// raw reader, but one row PER COLLECTION so a failing collection is never
+// hidden behind a later passing one.
+function summarizePublishedNewman(view, label) {
+  const a = view?.stats?.assertions ?? {};
+  const total = a.total ?? 0;
+  const failed = (a.failed ?? 0) || (view?.failures?.length ?? 0);
+  const skipped = a.pending ?? 0;
+  return {
+    source: `API (Newman: ${label})`,
+    total,
+    passed: Math.max(total - failed - skipped, 0),
+    failed,
+    skipped,
+    flaky: 0,
+  };
+}
+
+function readPublishedNewman() {
+  if (!existsSync(PUBLISHED_DIR)) return [];
+  return readdirSync(PUBLISHED_DIR, { withFileTypes: true })
+    .filter(
+      (e) =>
+        e.isFile() && e.name.startsWith('newman-') && e.name.endsWith('.json')
+    )
+    .map((e) => e.name)
+    .sort()
+    .map((name) => {
+      const view = readReport(join(PUBLISHED_DIR, name));
+      if (!view) return null;
+      const label =
+        view.collection_id ||
+        name.replace(/^newman-|\.json$/g, '') ||
+        'unknown';
+      return summarizePublishedNewman(view, label);
+    })
+    .filter(Boolean);
+}
+
 const rows = [];
 const pw = readReport(PW_PATH);
 if (pw) rows.push(summarizePlaywright(pw));
-const newman = readReport(NEWMAN_PATH);
-if (newman) rows.push(summarizeNewman(newman));
+
+const published = readPublishedNewman();
+if (published.length > 0) {
+  rows.push(...published);
+} else {
+  // Compatibility: a local run that produced only the legacy raw report.
+  const newman = readReport(LEGACY_NEWMAN_PATH);
+  if (newman) rows.push(summarizeNewman(newman));
+}
 
 let md;
 if (rows.length === 0) {
   md = [
     '## QA Pipeline — CI summary',
     '',
-    '_No execution reports found (`reports/results.json`, `reports/newman-results.json`)._',
+    '_No execution reports found (`reports/results.json`, `reports/published/newman-*.json`)._',
     'Quality checks may still have run; see the `quality-checks` job.',
     '',
   ].join('\n');

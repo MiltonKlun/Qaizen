@@ -17,11 +17,22 @@ that:
 - introduces/updates a snapshot, or
 - changes an expected value / assertion target (business meaning).
 
-`[]` means the candidate is safe (e.g. a locator-only fix); any non-empty
-result means **reject**. The harness `scripts/run-healer.js` wraps this: it
-filters failures to Green-only, sets up an isolated workspace, runs the
-guardrail, re-runs only the affected test, and emits
-`release/healer-patches/FAIL-XXX.patch` + a validation note.
+`[]` means the candidate is eligible under the static check (e.g. a
+locator-only fix); any non-empty result means **reject**. A `[]` result is
+not a statement that the fix is correct — a human still reviews it.
+
+> **Status of the harness (review finding S3).** `scripts/run-healer.js` is
+> currently **triage scaffolding**, not a healing pipeline. It reads
+> `analysis/failure-analysis.json`, partitions failures into Green/Yellow/Red,
+> reports what would be eligible, and writes Yellow suggestion notes with
+> `--apply`.
+>
+> It does **not** yet ingest a candidate patch, create an isolated workspace,
+> re-run the affected test, emit a validated `.patch`, or enforce the 3-attempt
+> cap — `generatePatch()` returns `null` unconditionally, so the guardrail and
+> rerun code inside it is unreachable. **The guardrail function itself is real
+> and usable on its own** (see below); it is the ingestion around it that is
+> missing. Candidate processing arrives in Phase 6.
 
 **You don't get** automatic fix _generation_. By design, the headless harness's
 patch-generation step is a no-op hook (`generatePatch` returns null): a script
@@ -40,9 +51,9 @@ npm run demo:healer            # exits 0; prints SAFE for a locator fix, REJECTE
 node -e "import('./scripts/healer-guardrails.js').then(({guardrailViolations}) => \
   console.log(guardrailViolations(origSource, patchedSource)))"
 
-# Run the harness over a classified failure set (Green-only, patch files):
-node scripts/run-healer.js              # dry-run: what it would heal
-node scripts/run-healer.js --apply      # write patch files (still NEVER commits)
+# Triage a classified failure set (Green/Yellow/Red partition, no patching):
+node scripts/run-healer.js              # report what WOULD be eligible
+node scripts/run-healer.js --apply      # also write Yellow suggestion notes
 ```
 
 ## Hard limits
@@ -51,10 +62,13 @@ node scripts/run-healer.js --apply      # write patch files (still NEVER commits
   (`docs/healer-guardrails.md` — "never touches API").
 - **Green only.** Yellow → suggestion, never applied. Red → bug draft, never
   touched.
-- **Max 3 attempts** per test; low confidence → `unknown_needs_human_review`.
 - **Never commits, never merges, never auto-applies to the working tree.**
-  Every change is a `.patch` a human reviews. Even in CI the healer comments,
-  it does not push.
+  Even in CI the healer comments, it does not push.
+- **Not yet enforced by the harness** (Phase 6): candidate ingestion, the
+  isolated rerun, the `.patch` output, and the **max-3-attempts** cap. Those
+  limits are documented policy today, not code the harness runs — nothing
+  currently reaches the guardrail check inside `run-healer.js`. The guardrail
+  function is separately real: call `guardrailViolations()` directly, as above.
 
 ## Borrowing just the idea
 
