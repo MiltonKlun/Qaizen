@@ -155,11 +155,34 @@ empty in git.
 **Caveat learned in Phase 1.5 (A5):** run-time injection keeps secrets
 out of _committed_ files, but tools may still record them in their
 **output**. Newman writes the live `x-api-key` request header into
-`reports/newman-results.json`. That file is gitignored locally, but in
-CI it would be uploaded as a build artifact. **Before Phase 2 CI uploads
-Newman results, scrub auth headers** (`x-api-key`, `Authorization`) from
-the JSON. Treat any results file that captured a live request as
-secret-bearing until it has been scrubbed.
+`reports/newman-results.json`, and the resolved `api_key` into that
+report's `environment.values`. The HTML report retains them too.
+
+**How this is handled now (review finding I3).** CI no longer uploads the
+raw reporter output at all:
+
+| Path                              | Contains secrets? | Published? |
+| --------------------------------- | ----------------- | ---------- |
+| `reports/newman-results.json`     | **Yes**           | Never      |
+| `reports/newman-html/`            | **Yes**           | Never      |
+| `reports/published/newman-*.json` | No (allowlisted)  | Yes        |
+
+`scripts/run-newman.js` builds `reports/published/newman-<story>.json`
+from an explicit allowlist (`scripts/lib/report-sanitization.js`):
+identity, counts, statuses, timings, and sanitized error summaries only.
+Request/response bodies, environment and collection variables, cookies,
+auth objects, URL userinfo, and raw header **values** are excluded; an
+auth header appears as a name marked `(redacted)`. Injected secret values
+are redacted in every encoded form (raw, URL-, JSON-, HTML-escaped, and
+base64). If any injected secret survives the build, the script **refuses
+to publish** and exits non-zero, and the previous published file for that
+collection is removed first so a failed run cannot leave stale output to
+be uploaded as current.
+
+**The raw reports remain secret-bearing.** They are gitignored and stay
+local/on the runner. Treat any local `reports/` file that captured a live
+request as sensitive: do not attach one to an issue, paste it into a
+prompt, or copy it into an archive.
 
 ---
 
