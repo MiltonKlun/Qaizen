@@ -61,10 +61,12 @@ jobs:
         run: npm run validate:all
       - name: Validate expected examples against schemas
         run: npm run validate:examples
-      - name: Pipeline unit tests (Healer guardrails)
-        run: npm run test:unit
-      - name: Pipeline smoke tests (scripts run + behave)
-        run: npm run test:smoke
+      # One discovered run instead of the old test:unit + test:smoke pair: the
+      # discovery wrapper picks up any new test/*.test.js automatically, so CI
+      # cannot silently omit a regression test. (The wrapper only runs
+      # node:test files; it never drives the gated pipeline runner.)
+      - name: Pipeline tests (all discovered test/*.test.js)
+        run: npm run test:pipeline
 
   contract-stability:
     name: Architecture Stability check (informational)

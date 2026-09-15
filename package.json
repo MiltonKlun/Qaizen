@@ -16,7 +16,7 @@
     "test:api": "node scripts/run-newman.js",
     "test:unit": "node --test test/healer-guardrails.test.js test/pipeline-state.test.js test/track-floor.test.js test/gate4-scan.test.js",
     "test:smoke": "node --test test/scripts-smoke.test.js test/run-pipeline.test.js",
-    "test:pipeline": "node --test test/healer-guardrails.test.js test/pipeline-state.test.js test/track-floor.test.js test/gate4-scan.test.js test/scripts-smoke.test.js test/run-pipeline.test.js",
+    "test:pipeline": "node scripts/run-pipeline-tests.js",
     "pipeline": "node scripts/run-pipeline.js",
     "validate:context": "node scripts/validate-json.js schemas/context.schema.json context.json",
     "validate:examples": "node scripts/validate-examples.js",
