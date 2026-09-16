@@ -27,11 +27,15 @@
 //   1 — at least one file failed validation
 //   2 — usage / read / schema-compile error
 
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
-import { resolve, join } from 'node:path';
+import { readdirSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { exit } from 'node:process';
-import Ajv from 'ajv';
-import addFormats from 'ajv-formats';
+import {
+  compileSchema,
+  readJson,
+  formatErrors,
+  IO_ERROR,
+} from './lib/artifact-io.js';
 
 const EXAMPLES_DIR = 'examples/expected';
 
@@ -69,41 +73,18 @@ if (!existsSync(EXAMPLES_DIR)) {
   exit(2);
 }
 
-const ajv = new Ajv({ allErrors: true, strict: false });
-addFormats(ajv);
-
-// Cache compiled schemas. If a schema file is missing (e.g. the Phase
-// 1.5 postman-collection schema in Phase 1), we record that and skip
-// matching examples with a warning rather than failing.
-const compiledSchemas = new Map();
-const missingSchemas = new Set();
-
+// Compilation + caching live in scripts/lib/artifact-io.js (task group 2.1).
+// This wrapper keeps its OWN policy for an absent schema: a missing schema
+// (e.g. the Phase 1.5 postman-collection schema during Phase 1) is a skip with
+// a warning, not a failure — deliberately different from validate-all.js,
+// which treats the same condition as fatal. The shared module reports absence;
+// each wrapper decides what absence means.
 function compileFor(schemaPath) {
-  if (compiledSchemas.has(schemaPath)) return compiledSchemas.get(schemaPath);
-  if (missingSchemas.has(schemaPath)) return null;
-
-  if (!existsSync(schemaPath)) {
-    missingSchemas.add(schemaPath);
-    return null;
-  }
-
-  let parsed;
-  try {
-    parsed = JSON.parse(readFileSync(resolve(schemaPath), 'utf8'));
-  } catch (err) {
-    console.error(`Schema ${schemaPath} is not valid JSON: ${err.message}`);
-    exit(2);
-  }
-
-  let v;
-  try {
-    v = ajv.compile(parsed);
-  } catch (err) {
-    console.error(`Schema ${schemaPath} failed to compile: ${err.message}`);
-    exit(2);
-  }
-  compiledSchemas.set(schemaPath, v);
-  return v;
+  const compiled = compileSchema(schemaPath);
+  if (compiled.ok) return compiled.validate;
+  if (compiled.kind === IO_ERROR.MISSING_SCHEMA) return null;
+  console.error(compiled.message);
+  exit(2);
 }
 
 function matchPattern(filename) {
@@ -152,28 +133,22 @@ for (const name of entries) {
     continue;
   }
 
-  let data;
-  try {
-    data = JSON.parse(readFileSync(resolve(path), 'utf8'));
-  } catch (err) {
-    console.error(`FAIL ${path} is not valid JSON: ${err.message}`);
+  const read = readJson(path);
+  if (!read.ok) {
+    console.error(`FAIL ${path} is not valid JSON: ${read.message}`);
     fail += 1;
     continue;
   }
 
-  if (validate(data)) {
+  if (validate(read.data)) {
     console.log(`OK   ${path}  (against ${matched.schema})`);
     pass += 1;
     continue;
   }
 
   console.error(`FAIL ${path}  (against ${matched.schema})`);
-  for (const err of validate.errors ?? []) {
-    const where = err.instancePath || '(root)';
-    const params = Object.keys(err.params ?? {}).length
-      ? ' ' + JSON.stringify(err.params)
-      : '';
-    console.error(`  ${where}: ${err.message}${params}`);
+  for (const line of formatErrors(validate.errors)) {
+    console.error(line);
   }
   fail += 1;
 }
