@@ -21,11 +21,10 @@
 // Exit codes: 0 all present artifacts valid (or none present) · 1 a
 //             validation failure · 2 schema missing / unreadable
 
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
-import { resolve, join } from 'node:path';
+import { readdirSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { exit } from 'node:process';
-import Ajv from 'ajv';
-import addFormats from 'ajv-formats';
+import { compileSchema, readJson, formatErrors } from './lib/artifact-io.js';
 
 // The artifact set for ONE run, rooted at `base` (the repo root, or an
 // archived run dir under runs/<story>/<run>/). Each target: a list of concrete
@@ -88,25 +87,16 @@ const TARGETS = [
   ...archivedRunDirs().flatMap((d) => targetsFor(d)),
 ];
 
-const ajv = new Ajv({ allErrors: true, strict: false });
-addFormats(ajv);
-
-const compiledSchemas = new Map();
+// Compilation + caching live in scripts/lib/artifact-io.js (task group 2.1).
+// This wrapper's policy for an absent schema is FATAL: these are committed
+// artifacts that CI must guard, so a schema we cannot load is a broken setup,
+// not something to skip. (validate-examples.js deliberately treats the same
+// condition as a skip — the shared module reports absence without deciding.)
 function compileFor(schemaPath) {
-  if (compiledSchemas.has(schemaPath)) return compiledSchemas.get(schemaPath);
-  if (!existsSync(schemaPath)) {
-    console.error(`Schema not found: ${schemaPath}`);
-    exit(2);
-  }
-  let v;
-  try {
-    v = ajv.compile(JSON.parse(readFileSync(resolve(schemaPath), 'utf8')));
-  } catch (e) {
-    console.error(`Schema ${schemaPath} failed to compile: ${e.message}`);
-    exit(2);
-  }
-  compiledSchemas.set(schemaPath, v);
-  return v;
+  const compiled = compileSchema(schemaPath);
+  if (compiled.ok) return compiled.validate;
+  console.error(compiled.message);
+  exit(2);
 }
 
 // Resolve a target into concrete file paths that actually exist.
@@ -130,22 +120,23 @@ for (const target of TARGETS) {
   if (files.length === 0) continue;
   const validate = compileFor(target.schema);
   for (const file of files) {
-    let data;
-    try {
-      data = JSON.parse(readFileSync(resolve(file), 'utf8'));
-    } catch (e) {
-      console.error(`FAIL ${file} is not valid JSON: ${e.message}`);
+    const read = readJson(file);
+    if (!read.ok) {
+      console.error(`FAIL ${file} is not valid JSON: ${read.message}`);
       fail += 1;
       continue;
     }
-    if (validate(data)) {
+    if (validate(read.data)) {
       console.log(`OK   ${file}  (against ${target.schema})`);
       pass += 1;
     } else {
       console.error(`FAIL ${file}  (against ${target.schema})`);
-      for (const err of validate.errors ?? []) {
-        const where = err.instancePath || '(root)';
-        console.error(`  ${where}: ${err.message}`);
+      // This wrapper prints paths+messages without AJV params (its historical
+      // output shape); formatErrors keeps values out of diagnostics either way.
+      for (const line of formatErrors(validate.errors, {
+        includeParams: false,
+      })) {
+        console.error(line);
       }
       fail += 1;
     }
