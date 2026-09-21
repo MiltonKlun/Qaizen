@@ -1,0 +1,216 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-09-21T10-00-00Z-ledger01",
+  "story_id": "STORY-020",
+  "generated_at": "2026-09-21T10:05:00.000Z",
+  "approved_scope_digest": "3b1f9c2a7d4e5086b1c2d3e4f5061728394a5b6c7d8e9f0a1b2c3d4e5f607182",
+  "source_executions": [
+    {
+      "execution_id": "exec-pw-1",
+      "runner": "playwright",
+      "started_at": "2026-09-21T10:00:00.000Z",
+      "completed_at": "2026-09-21T10:03:20.000Z",
+      "command_identity": "npx playwright test --project=chromium",
+      "config_identity": "playwright.config.ts",
+      "process_status": "completed",
+      "exit_code": 1,
+      "report_reference": "reports/exec-pw-1/playwright/STORY-020.json",
+      "report_digest": "a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d5e6f708192a3b4c5d6e7f809",
+      "source_errors": []
+    },
+    {
+      "execution_id": "exec-newman-1",
+      "runner": "newman",
+      "started_at": "2026-09-21T10:03:30.000Z",
+      "completed_at": "2026-09-21T10:04:10.000Z",
+      "command_identity": "newman run api-tests/collections/STORY-020.postman_collection.json",
+      "config_identity": "api-tests/environments/STORY-020.postman_environment.json",
+      "process_status": "completed",
+      "exit_code": 0,
+      "report_reference": "reports/exec-newman-1/newman/STORY-020/checkout.json",
+      "report_digest": "b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d5e6f708192a3b4c5d6e7f8091a",
+      "source_errors": [
+        {
+          "message": "collection variable 'legacy_base' was not defined; requests using it were not run",
+          "phase": "setup"
+        }
+      ]
+    }
+  ],
+  "units": [
+    {
+      "unit_id": "u-pw-1",
+      "execution_id": "exec-pw-1",
+      "identity": {
+        "kind": "playwright",
+        "test_title": "checkout overview shows the correct item total",
+        "file": "e2e/STORY-020.spec.ts",
+        "project": "chromium",
+        "repeat_index": 0
+      },
+      "domain_links": {
+        "test_case_id": "TC-001",
+        "playwright_test_id": "PW-001",
+        "spec_id": "SPEC-001",
+        "unresolved_reason": null
+      },
+      "outcome": "passed",
+      "attempts": [{ "status": "passed", "duration_ms": 4210 }]
+    },
+    {
+      "unit_id": "u-pw-2",
+      "execution_id": "exec-pw-1",
+      "identity": {
+        "kind": "playwright",
+        "test_title": "total equals item total plus tax",
+        "file": "e2e/STORY-020.spec.ts",
+        "project": "chromium",
+        "repeat_index": 0
+      },
+      "domain_links": {
+        "test_case_id": "TC-002",
+        "playwright_test_id": "PW-002",
+        "spec_id": "SPEC-001",
+        "unresolved_reason": null
+      },
+      "outcome": "failed",
+      "attempts": [
+        {
+          "status": "failed",
+          "duration_ms": 3980,
+          "error_message": "expected 43.18 to equal 43.68"
+        }
+      ]
+    },
+    {
+      "unit_id": "u-pw-3",
+      "execution_id": "exec-pw-1",
+      "identity": {
+        "kind": "playwright",
+        "test_title": "cart badge clears after finish",
+        "file": "e2e/STORY-020.spec.ts",
+        "project": "chromium",
+        "repeat_index": 0
+      },
+      "domain_links": {
+        "test_case_id": "TC-003",
+        "playwright_test_id": "PW-003",
+        "spec_id": "SPEC-001",
+        "unresolved_reason": null
+      },
+      "outcome": "flaky",
+      "attempts": [
+        {
+          "status": "failed",
+          "duration_ms": 30000,
+          "error_message": "timeout waiting for badge to clear"
+        },
+        { "status": "passed", "duration_ms": 2100 }
+      ]
+    },
+    {
+      "unit_id": "u-pw-4",
+      "execution_id": "exec-pw-1",
+      "identity": {
+        "kind": "playwright",
+        "test_title": "seed: app loads at BASE_URL",
+        "file": "e2e/seed.spec.ts",
+        "project": "chromium",
+        "repeat_index": 0
+      },
+      "domain_links": {
+        "test_case_id": null,
+        "playwright_test_id": null,
+        "unresolved_reason": "seed test: documented non-business exception, carries no TC or PW identity"
+      },
+      "outcome": "skipped",
+      "attempts": [{ "status": "skipped" }]
+    },
+    {
+      "unit_id": "u-newman-1",
+      "execution_id": "exec-newman-1",
+      "identity": {
+        "kind": "newman",
+        "collection_id": "STORY-020",
+        "request_name": "POST /checkout",
+        "iteration": 0
+      },
+      "domain_links": {
+        "api_test_case_id": "API-001",
+        "request_id": "REQ-001",
+        "unresolved_reason": null
+      },
+      "outcome": "passed",
+      "assertions": [
+        { "name": "status is 200", "passed": true },
+        { "name": "total equals subtotal plus tax", "passed": true }
+      ]
+    },
+    {
+      "unit_id": "u-newman-2",
+      "execution_id": "exec-newman-1",
+      "identity": {
+        "kind": "newman",
+        "collection_id": "STORY-020",
+        "request_name": "GET /legacy-summary",
+        "iteration": 0
+      },
+      "domain_links": {
+        "api_test_case_id": "API-002",
+        "request_id": null,
+        "unresolved_reason": "request did not execute: collection variable 'legacy_base' undefined, so no REQ identity was produced"
+      },
+      "outcome": "blocked",
+      "assertions": []
+    }
+  ],
+  "case_outcomes": [
+    {
+      "test_case_id": "TC-001",
+      "outcome": "passed",
+      "linked_unit_ids": ["u-pw-1"]
+    },
+    {
+      "test_case_id": "TC-002",
+      "outcome": "failed",
+      "linked_unit_ids": ["u-pw-2"],
+      "reason": "money math mismatch on the overview"
+    },
+    {
+      "test_case_id": "TC-003",
+      "outcome": "blocked",
+      "linked_unit_ids": ["u-pw-3"],
+      "reason": "passed only on retry; flaky evidence is not passing coverage"
+    },
+    {
+      "test_case_id": "TC-004",
+      "outcome": "not_run",
+      "linked_unit_ids": [],
+      "reason": "approved manual case; no executable unit exists for it"
+    },
+    {
+      "test_case_id": "API-001",
+      "outcome": "passed",
+      "linked_unit_ids": ["u-newman-1"]
+    },
+    {
+      "test_case_id": "API-002",
+      "outcome": "blocked",
+      "linked_unit_ids": ["u-newman-2"],
+      "reason": "request never executed; zero business assertions"
+    }
+  ],
+  "totals": {
+    "units": 6,
+    "passed": 2,
+    "failed": 1,
+    "flaky": 1,
+    "skipped": 1,
+    "blocked": 1,
+    "not_run": 0,
+    "expected_failure": 0,
+    "source_error_count": 1,
+    "unit_pass_rate": 0.3333333333333333,
+    "approved_case_coverage": 0.3333333333333333
+  }
+}
