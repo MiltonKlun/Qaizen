@@ -80,6 +80,22 @@ const JSON_SCHEMAS = [
 
 const posix = (p) => p.split(sep).join('/');
 
+/**
+ * Best-effort cleanup that never throws. `rmSync({force: true})` only ignores
+ * ENOENT: on Linux a path under a FILE raises ENOTDIR, which escaped the
+ * archive-failure path as a raw crash and left the transition record behind
+ * (caught by CI; Windows reports the same path as missing). A cleanup failure
+ * must never mask the error that caused it.
+ */
+function removeQuietly(path) {
+  try {
+    rmSync(path, { recursive: true, force: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function sha256Buffer(buf) {
   return createHash('sha256').update(buf).digest('hex');
 }
@@ -290,7 +306,7 @@ export function archiveRun({
 
     return { ok: true, archiveDir: archiveRel, manifest };
   } catch (e) {
-    rmSync(archiveAbs, { recursive: true, force: true });
+    removeQuietly(archiveAbs);
     return {
       ok: false,
       message: `archive failed, nothing at the root was changed: ${e instanceof Error ? e.message : String(e)}`,
@@ -337,8 +353,8 @@ export function writeTransition(root, record) {
 }
 
 export function removeTransition(root = '.') {
-  rmSync(join(root, TRANSITION_FILE), { force: true });
-  rmSync(join(root, STAGING_DIR), { recursive: true, force: true });
+  removeQuietly(join(root, TRANSITION_FILE));
+  removeQuietly(join(root, STAGING_DIR));
 }
 
 /** A task-owned staging directory for one transition. */
@@ -368,7 +384,7 @@ export function recoverTransition(root = '.') {
 
   if (rec.phase === 'staging') {
     if (rec.archive_dir) {
-      rmSync(join(root, rec.archive_dir), { recursive: true, force: true });
+      removeQuietly(join(root, rec.archive_dir));
     }
     removeTransition(root);
     return {
@@ -526,7 +542,7 @@ export function startNewStory({
   if (isJira) {
     const status = fetchJira(ref, join(stageAbs, 'story.md'));
     if (status !== 0 || !existsSync(join(stageAbs, 'story.md'))) {
-      rmSync(stageAbs, { recursive: true, force: true });
+      removeQuietly(stageAbs);
       return {
         ok: false,
         code: 2,
@@ -651,7 +667,7 @@ export function finishTransition(root, rec, action = 'completed') {
     };
   }
 
-  rmSync(join(root, STAGING_DIR), { recursive: true, force: true });
+  removeQuietly(join(root, STAGING_DIR));
   rec.phase = 'installed';
   delete rec.archived_files;
   writeTransition(root, rec);
