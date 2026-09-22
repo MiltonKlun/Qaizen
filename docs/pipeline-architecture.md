@@ -213,8 +213,12 @@ renderer (`scripts/gate-briefs.js`), and an interactive decision recorder:
   (`opened_at`/`decided_at`). **Interactive-only**: no approval flags
   exist, and a non-TTY stdin gets `GATE PENDING` + non-zero exit — so no
   CI job or agent can ever pass a gate (asserted by smoke tests).
-- **Exec steps** (execute, classify): runs `npx playwright test` and the
-  rule-based classifier directly — deterministic, no judgment involved.
+- **Exec steps** (execute, classify): runs `npx playwright test`, then
+  normalizes the reports into the execution ledger
+  (`scripts/normalize-results.js`) and runs the rule-based pre-classifier on
+  that ledger — deterministic, no judgment involved. The pre-classifier
+  writes a **draft** analysis; the Failure Classifier Agent (or a human)
+  finalizes it before the Reporter step.
 
 It never commits, merges, or performs Jira/TestLink writes. Orchestration
 stays human-driven; the runner only removes the clerical "what do I run

@@ -57,6 +57,7 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_DIR = dirname(SCRIPT_DIR);
 const VALIDATOR = join(SCRIPT_DIR, 'validate-json.js');
 const CLASSIFIER = join(SCRIPT_DIR, 'run-failure-classifier.js');
+const NORMALIZER = join(SCRIPT_DIR, 'normalize-results.js');
 const JIRA_FETCH = join(SCRIPT_DIR, 'fetch-jira-story.js');
 const CONTEXT_PATH = 'context.json';
 const CONTEXT_SCHEMA = join(REPO_DIR, 'schemas', 'context.schema.json');
@@ -423,8 +424,35 @@ function execStep(step, context) {
     return true;
   }
   if (step === 'classify') {
-    console.log('Classifying failures: the rule-based pre-classifier\n');
-    const r = spawnSync('node', [CLASSIFIER], {
+    // The classifier reads the normalized execution ledger, never raw reports
+    // (task group 3.3), so the run's reports are normalized first. The run id
+    // is passed through so the classifier can refuse a ledger from another run.
+    const ledgerPath = 'analysis/execution-ledger.json';
+    const normalizeArgs = [
+      NORMALIZER,
+      '--story',
+      storyId(context),
+      '--playwright',
+      context.artifact_paths.execution_results || 'reports/results.json',
+      '--out',
+      ledgerPath,
+    ];
+    if (context.run_id) normalizeArgs.push('--run-id', context.run_id);
+    if (env.QAIZEN_EXECUTION_ID) {
+      normalizeArgs.push('--execution', env.QAIZEN_EXECUTION_ID);
+    }
+    console.log('Normalizing the run into an execution ledger\n');
+    const n = spawnSync('node', normalizeArgs, { stdio: 'inherit' });
+    if (n.status !== 0) {
+      console.error(
+        'Normalization did not complete (see output above). Fix and --resume.'
+      );
+      exit(2);
+    }
+    context.artifact_paths.execution_ledger = ledgerPath;
+
+    console.log('\nClassifying failures: the rule-based pre-classifier\n');
+    const r = spawnSync('node', [CLASSIFIER, '--ledger', ledgerPath], {
       stdio: 'inherit',
     });
     if (r.status !== 0) {

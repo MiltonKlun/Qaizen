@@ -1,0 +1,329 @@
+{
+  "schema_version": "2.0",
+  "run_id": "2026-09-22T12-00-00Z-a1b2c3d",
+  "story_id": "STORY-030",
+  "execution_date": "2026-09-21T23:00:08.396Z",
+  "execution_ledger": "analysis/execution-ledger.json",
+  "total_tests": 13,
+  "passed": 1,
+  "failed": 12,
+  "skipped": 0,
+  "outcome_breakdown": {
+    "units": 13,
+    "passed": 1,
+    "failed": 8,
+    "flaky": 2,
+    "skipped": 0,
+    "blocked": 2,
+    "not_run": 0,
+    "expected_failure": 0,
+    "source_error_count": 0
+  },
+  "source_errors": [],
+  "failures": [
+    {
+      "failure_id": "FAIL-001",
+      "unit_id": "newman:f1x7u2e0-0000-4000-8000-000000000001:Request that cannot connect:0",
+      "execution_outcome": "blocked",
+      "runner_identity": {
+        "kind": "newman",
+        "collection_id": "f1x7u2e0-0000-4000-8000-000000000001",
+        "request_name": "Request that cannot connect",
+        "iteration": 0
+      },
+      "test_case_id": null,
+      "source": "newman",
+      "request_id": null,
+      "classification": "environment_issue",
+      "severity": "yellow",
+      "classification_reason": "request did not complete (ECONNREFUSED); transport failure, not a business assertion",
+      "error_message": "ECONNREFUSED: request to the target host did not complete",
+      "evidence_paths": [
+        "analysis/execution-ledger.json",
+        "reports/newman-results.json"
+      ],
+      "id_unresolved_reason": "Adapter reads the runner report only; domain IDs come from collection metadata resolved by the caller.",
+      "traceability_unresolved": true,
+      "traceability_unresolved_reason": "Adapter reads the runner report only; domain IDs come from collection metadata resolved by the caller."
+    },
+    {
+      "failure_id": "FAIL-002",
+      "unit_id": "newman:f1x7u2e0-0000-4000-8000-000000000001:Request with multiple failing assertions:0",
+      "execution_outcome": "failed",
+      "runner_identity": {
+        "kind": "newman",
+        "collection_id": "f1x7u2e0-0000-4000-8000-000000000001",
+        "request_name": "Request with multiple failing assertions",
+        "iteration": 0
+      },
+      "test_case_id": null,
+      "source": "newman",
+      "request_id": null,
+      "classification": "product_bug",
+      "severity": "red",
+      "classification_reason": "2 of 3 assertion(s) failed: account is active; total is non-negative; the service responded, and its response was wrong",
+      "error_message": "account is active: expected 'suspended' to deeply equal 'active'\ntotal is non-negative: expected -1 to be at least +0",
+      "evidence_paths": [
+        "analysis/execution-ledger.json",
+        "reports/newman-results.json"
+      ],
+      "id_unresolved_reason": "Adapter reads the runner report only; domain IDs come from collection metadata resolved by the caller.",
+      "traceability_unresolved": true,
+      "traceability_unresolved_reason": "Adapter reads the runner report only; domain IDs come from collection metadata resolved by the caller."
+    },
+    {
+      "failure_id": "FAIL-003",
+      "unit_id": "newman:f1x7u2e0-0000-4000-8000-000000000001:Request with zero assertions:0",
+      "execution_outcome": "blocked",
+      "runner_identity": {
+        "kind": "newman",
+        "collection_id": "f1x7u2e0-0000-4000-8000-000000000001",
+        "request_name": "Request with zero assertions",
+        "iteration": 0
+      },
+      "test_case_id": null,
+      "source": "newman",
+      "request_id": null,
+      "classification": "test_bug",
+      "severity": "yellow",
+      "classification_reason": "the request asserted nothing, so it verified nothing",
+      "error_message": "unit outcome: blocked",
+      "evidence_paths": [
+        "analysis/execution-ledger.json",
+        "reports/newman-results.json"
+      ],
+      "id_unresolved_reason": "Adapter reads the runner report only; domain IDs come from collection metadata resolved by the caller.",
+      "traceability_unresolved": true,
+      "traceability_unresolved_reason": "Adapter reads the runner report only; domain IDs come from collection metadata resolved by the caller."
+    },
+    {
+      "failure_id": "FAIL-004",
+      "unit_id": "pw:chromium:classify.spec.ts > computes the order total",
+      "execution_outcome": "failed",
+      "runner_identity": {
+        "kind": "playwright",
+        "test_title": "classify.spec.ts > computes the order total",
+        "file": "classify.spec.ts",
+        "project": "chromium",
+        "repeat_index": 0
+      },
+      "test_case_id": null,
+      "source": "playwright",
+      "playwright_test_id": null,
+      "classification": "product_bug",
+      "severity": "red",
+      "classification_reason": "assertion toBe observed \"2\" where \"3\" was required; a wrong business value is Red: never auto-fixed (healer-guardrails)",
+      "error_message": "Error: order total\n\nexpect(received).toBe(expected) // Object.is equality\n\nExpected: 3\nReceived: 2\n\n  33 | test('computes the order total', async () => {\n  34 |   const total = 1 + 1;\n> 35 |   expect(total, 'order total').toBe(3);\n     |                                ^\n  36 | });\n  37 |\n  38 | test.describe('retried', () => {\n    at <ROOT>\\tests\\classify.spec.ts:35:32",
+      "evidence_paths": [
+        "analysis/execution-ledger.json",
+        "reports/results.json"
+      ],
+      "id_unresolved_reason": "Adapter reads the runner report only; domain IDs come from test metadata resolved by the caller.",
+      "traceability_unresolved": true,
+      "traceability_unresolved_reason": "Adapter reads the runner report only; domain IDs come from test metadata resolved by the caller."
+    },
+    {
+      "failure_id": "FAIL-005",
+      "unit_id": "pw:chromium:classify.spec.ts > finishes the wizard",
+      "execution_outcome": "failed",
+      "runner_identity": {
+        "kind": "playwright",
+        "test_title": "classify.spec.ts > finishes the wizard",
+        "file": "classify.spec.ts",
+        "project": "chromium",
+        "repeat_index": 0
+      },
+      "test_case_id": null,
+      "source": "playwright",
+      "playwright_test_id": null,
+      "classification": "unknown_needs_human_review",
+      "severity": "yellow",
+      "classification_reason": "the whole test timed out without a specific failing operation",
+      "error_message": "Test timeout of 1500ms exceeded.",
+      "evidence_paths": [
+        "analysis/execution-ledger.json",
+        "reports/results.json"
+      ],
+      "id_unresolved_reason": "Adapter reads the runner report only; domain IDs come from test metadata resolved by the caller.",
+      "traceability_unresolved": true,
+      "traceability_unresolved_reason": "Adapter reads the runner report only; domain IDs come from test metadata resolved by the caller."
+    },
+    {
+      "failure_id": "FAIL-006",
+      "unit_id": "pw:chromium:classify.spec.ts > loads the home page",
+      "execution_outcome": "failed",
+      "runner_identity": {
+        "kind": "playwright",
+        "test_title": "classify.spec.ts > loads the home page",
+        "file": "classify.spec.ts",
+        "project": "chromium",
+        "repeat_index": 0
+      },
+      "test_case_id": null,
+      "source": "playwright",
+      "playwright_test_id": null,
+      "classification": "environment_issue",
+      "severity": "yellow",
+      "classification_reason": "page.goto failed with ERR_CONNECTION_REFUSED",
+      "error_message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:39991/\nCall log:\n  - navigating to \"http://127.0.0.1:39991/\", waiting until \"load\"\n\n\n  22 |\n  23 | test('loads the home page', async ({ page }) => {\n> 24 |   await page.goto('http://127.0.0.1:39991/', { timeout: 3000 });\n     |              ^\n  25 | });\n  26 |\n  27 | test('finishes the wizard', async ({ page }) => {\n    at <ROOT>\\tests\\classify.spec.ts:24:14",
+      "evidence_paths": [
+        "analysis/execution-ledger.json",
+        "reports/results.json"
+      ],
+      "id_unresolved_reason": "Adapter reads the runner report only; domain IDs come from test metadata resolved by the caller.",
+      "traceability_unresolved": true,
+      "traceability_unresolved_reason": "Adapter reads the runner report only; domain IDs come from test metadata resolved by the caller."
+    },
+    {
+      "failure_id": "FAIL-007",
+      "unit_id": "pw:chromium:classify.spec.ts > opens the help panel",
+      "execution_outcome": "failed",
+      "runner_identity": {
+        "kind": "playwright",
+        "test_title": "classify.spec.ts > opens the help panel",
+        "file": "classify.spec.ts",
+        "project": "chromium",
+        "repeat_index": 0
+      },
+      "test_case_id": null,
+      "source": "playwright",
+      "playwright_test_id": null,
+      "classification": "locator_or_selector",
+      "severity": "green",
+      "classification_reason": "locator.click timed out waiting for getByTestId('help-toggle'); no assertion failed and no Red domain is involved",
+      "error_message": "TimeoutError: locator.click: Timeout 1000ms exceeded.\nCall log:\n  - waiting for getByTestId('help-toggle')\n\n\n  13 | test('opens the help panel', async ({ page }) => {\n  14 |   await page.setContent('<button data-testid=\"help\">Help</button>');\n> 15 |   await page.getByTestId('help-toggle').click({ timeout: 1000 });\n     |                                         ^\n  16 | });\n  17 |\n  18 | test('submits the payment', async ({ page }) => {\n    at <ROOT>\\tests\\classify.spec.ts:15:41",
+      "evidence_paths": [
+        "analysis/execution-ledger.json",
+        "reports/results.json"
+      ],
+      "id_unresolved_reason": "Adapter reads the runner report only; domain IDs come from test metadata resolved by the caller.",
+      "traceability_unresolved": true,
+      "traceability_unresolved_reason": "Adapter reads the runner report only; domain IDs come from test metadata resolved by the caller."
+    },
+    {
+      "failure_id": "FAIL-008",
+      "unit_id": "pw:chromium:classify.spec.ts > retried > opens the settings menu once rendered",
+      "execution_outcome": "flaky",
+      "runner_identity": {
+        "kind": "playwright",
+        "test_title": "classify.spec.ts > retried > opens the settings menu once rendered",
+        "file": "classify.spec.ts",
+        "project": "chromium",
+        "repeat_index": 0
+      },
+      "test_case_id": null,
+      "source": "playwright",
+      "playwright_test_id": null,
+      "classification": "flaky",
+      "severity": "yellow",
+      "classification_reason": "failed, then passed on retry; no attempt showed a wrong business value",
+      "error_message": "TimeoutError: locator.click: Timeout 1000ms exceeded.\nCall log:\n  - waiting for getByTestId('menu')\n\n\n  48 |     const id = testInfo.retry === 0 ? 'menu-old' : 'menu';\n  49 |     await page.setContent(`<button data-testid=\"${id}\">Menu</button>`);\n> 50 |     await page.getByTestId('menu').click({ timeout: 1000 });\n     |                                    ^\n  51 |   });\n  52 | });\n  53 |\n    at <ROOT>\\tests\\classify.spec.ts:50:36",
+      "evidence_paths": [
+        "analysis/execution-ledger.json",
+        "reports/results.json"
+      ],
+      "id_unresolved_reason": "Adapter reads the runner report only; domain IDs come from test metadata resolved by the caller.",
+      "traceability_unresolved": true,
+      "traceability_unresolved_reason": "Adapter reads the runner report only; domain IDs come from test metadata resolved by the caller."
+    },
+    {
+      "failure_id": "FAIL-009",
+      "unit_id": "pw:chromium:classify.spec.ts > retried > shows the cart total once settled",
+      "execution_outcome": "flaky",
+      "runner_identity": {
+        "kind": "playwright",
+        "test_title": "classify.spec.ts > retried > shows the cart total once settled",
+        "file": "classify.spec.ts",
+        "project": "chromium",
+        "repeat_index": 0
+      },
+      "test_case_id": null,
+      "source": "playwright",
+      "playwright_test_id": null,
+      "classification": "product_bug",
+      "severity": "red",
+      "classification_reason": "assertion toHaveText observed \"$1.00\" where \"$100.00\" was required (on getByTestId('cart-total')); a wrong business value is Red: never auto-fixed (healer-guardrails)",
+      "error_message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByTestId('cart-total')\nExpected: \"$100.00\"\nReceived: \"$1.00\"\nTimeout:  1000ms\n\nCall log:\n  - Expect \"toHaveText\" with timeout 1000ms\n  - waiting for getByTestId('cart-total')\n    11 × locator resolved to <span data-testid=\"cart-total\">$1.00</span>\n       - unexpected value \"$1.00\"\n\n\n  42 |     const shown = testInfo.retry === 0 ? '$1.00' : '$100.00';\n  43 |     await page.setContent(`<span data-testid=\"cart-total\">${shown}</span>`);\n> 44 |     await expect(page.getByTestId('cart-total')).toHaveText('$100.00', { timeout: 1000 });\n",
+      "evidence_paths": [
+        "analysis/execution-ledger.json",
+        "reports/results.json"
+      ],
+      "id_unresolved_reason": "Adapter reads the runner report only; domain IDs come from test metadata resolved by the caller.",
+      "traceability_unresolved": true,
+      "traceability_unresolved_reason": "Adapter reads the runner report only; domain IDs come from test metadata resolved by the caller."
+    },
+    {
+      "failure_id": "FAIL-010",
+      "unit_id": "pw:chromium:classify.spec.ts > shows the grand total",
+      "execution_outcome": "failed",
+      "runner_identity": {
+        "kind": "playwright",
+        "test_title": "classify.spec.ts > shows the grand total",
+        "file": "classify.spec.ts",
+        "project": "chromium",
+        "repeat_index": 0
+      },
+      "test_case_id": null,
+      "source": "playwright",
+      "playwright_test_id": null,
+      "classification": "unknown_needs_human_review",
+      "severity": "yellow",
+      "classification_reason": "assertion toBeVisible found no element for getByTestId('grand-total'); ambiguous: the locator may be stale, or the product may not have rendered it",
+      "error_message": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByTestId('grand-total')\nExpected: visible\nTimeout: 1000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" with timeout 1000ms\n  - waiting for getByTestId('grand-total')\n\n\n   8 | test('shows the grand total', async ({ page }) => {\n   9 |   await page.setContent('<span data-testid=\"total\">$1.00</span>');\n> 10 |   await expect(page.getByTestId('grand-total')).toBeVisible({ timeout: 1000 });\n     |                                                 ^\n  11 | });\n  12 |\n  13 | test('opens the help panel', async ({ page }) => {\n   ",
+      "evidence_paths": [
+        "analysis/execution-ledger.json",
+        "reports/results.json"
+      ],
+      "id_unresolved_reason": "Adapter reads the runner report only; domain IDs come from test metadata resolved by the caller.",
+      "traceability_unresolved": true,
+      "traceability_unresolved_reason": "Adapter reads the runner report only; domain IDs come from test metadata resolved by the caller."
+    },
+    {
+      "failure_id": "FAIL-011",
+      "unit_id": "pw:chromium:classify.spec.ts > shows the order total",
+      "execution_outcome": "failed",
+      "runner_identity": {
+        "kind": "playwright",
+        "test_title": "classify.spec.ts > shows the order total",
+        "file": "classify.spec.ts",
+        "project": "chromium",
+        "repeat_index": 0
+      },
+      "test_case_id": "TC-001",
+      "source": "playwright",
+      "playwright_test_id": "PW-001",
+      "classification": "product_bug",
+      "severity": "red",
+      "classification_reason": "assertion toHaveText observed \"$1.00\" where \"$100.00\" was required (on getByTestId('total')); a wrong business value is Red: never auto-fixed (healer-guardrails)",
+      "error_message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByTestId('total')\nExpected: \"$100.00\"\nReceived: \"$1.00\"\nTimeout:  1000ms\n\nCall log:\n  - Expect \"toHaveText\" with timeout 1000ms\n  - waiting for getByTestId('total')\n    11 × locator resolved to <span data-testid=\"total\">$1.00</span>\n       - unexpected value \"$1.00\"\n\n\n  3 | test('shows the order total', async ({ page }) => {\n  4 |   await page.setContent('<span data-testid=\"total\">$1.00</span>');\n> 5 |   await expect(page.getByTestId('total')).toHaveText('$100.00', { timeout: 1000 });\n    |                                        ",
+      "evidence_paths": [
+        "analysis/execution-ledger.json",
+        "reports/results.json"
+      ]
+    },
+    {
+      "failure_id": "FAIL-012",
+      "unit_id": "pw:chromium:classify.spec.ts > submits the payment",
+      "execution_outcome": "failed",
+      "runner_identity": {
+        "kind": "playwright",
+        "test_title": "classify.spec.ts > submits the payment",
+        "file": "classify.spec.ts",
+        "project": "chromium",
+        "repeat_index": 0
+      },
+      "test_case_id": "TC-004",
+      "source": "playwright",
+      "playwright_test_id": "PW-004",
+      "classification": "locator_or_selector",
+      "severity": "yellow",
+      "classification_reason": "locator.click could not find getByTestId('pay-now'); but the test touches Red domain(s): payment; healing requires human approval",
+      "error_message": "TimeoutError: locator.click: Timeout 1000ms exceeded.\nCall log:\n  - waiting for getByTestId('pay-now')\n\n\n  18 | test('submits the payment', async ({ page }) => {\n  19 |   await page.setContent('<button data-testid=\"pay\">Pay</button>');\n> 20 |   await page.getByTestId('pay-now').click({ timeout: 1000 });\n     |                                     ^\n  21 | });\n  22 |\n  23 | test('loads the home page', async ({ page }) => {\n    at <ROOT>\\tests\\classify.spec.ts:20:37",
+      "evidence_paths": [
+        "analysis/execution-ledger.json",
+        "reports/results.json"
+      ]
+    }
+  ],
+  "status": "draft"
+}

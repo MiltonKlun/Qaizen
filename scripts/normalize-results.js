@@ -12,7 +12,10 @@
 //
 // Usage:
 //   node scripts/normalize-results.js --story QA-1042 \
-//     [--playwright reports/results.json] [--newman reports/newman-results.json] \
+//     [--playwright reports/results.json] \
+//     [--execution <execution-id>]   every Newman report for this story in
+//                                    that execution (task group 3.2 layout)
+//     [--newman <report.json> ...]   repeatable; explicit reports
 //     [--out analysis/execution-ledger.json] [--run-id <id>] [--mapping <file>]
 //
 // Exit codes:
@@ -21,12 +24,14 @@
 //       invariant, or write failure)
 //   2 — usage error, or no execution inputs exist
 
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
+import { basename, join, resolve } from 'node:path';
 import { argv, env, exit } from 'node:process';
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
-import { readJson, writeJsonAtomic } from './lib/artifact-io.js';
+import { readJson, writeJsonAtomic, formatErrors } from './lib/artifact-io.js';
+import { newmanStoryDir } from './lib/execution-paths.js';
 import {
   adaptPlaywrightReport,
   adaptNewmanReport,
@@ -39,6 +44,13 @@ import {
 } from './lib/execution-ledger.js';
 
 const DEFAULT_OUT = 'analysis/execution-ledger.json';
+
+/**
+ * Flags that may be given more than once; every other flag is single-valued.
+ * Before task group 3.3 all flags were single-valued and a repeated `--newman`
+ * silently kept only the LAST report, dropping the other collections.
+ */
+const REPEATABLE = new Set(['newman']);
 
 function parseArgs(args) {
   const out = { flags: {}, errors: [] };
@@ -54,7 +66,13 @@ function parseArgs(args) {
       out.errors.push(`Flag --${key} requires a value`);
       continue;
     }
-    out.flags[key] = value;
+    if (REPEATABLE.has(key)) {
+      (out.flags[key] ??= []).push(value);
+    } else if (key in out.flags) {
+      out.errors.push(`Flag --${key} was given more than once`);
+    } else {
+      out.flags[key] = value;
+    }
     i += 1;
   }
   return out;
@@ -64,9 +82,30 @@ function usage(message) {
   if (message) console.error(`Error: ${message}`);
   console.error(
     'Usage: node scripts/normalize-results.js --story <STORY-ID> ' +
-      '[--playwright <report.json>] [--newman <report.json>] ' +
+      '[--playwright <report.json>] [--execution <id>] [--newman <report.json> ...] ' +
       '[--out <ledger.json>] [--run-id <id>] [--mapping <file>]'
   );
+}
+
+/**
+ * The collection id a Newman report stands for.
+ *
+ * Under the per-execution layout (reports/<exec>/newman/<story>/<collection>.json)
+ * the file name IS the id the runner used, so it wins. Elsewhere -- a legacy
+ * or hand-supplied report -- fall back to the collection's own id.
+ */
+function collectionIdFor(path, report) {
+  const parts = path.split(/[\\/]/);
+  const n = parts.length;
+  const inLayout =
+    n >= 5 &&
+    parts[n - 5] === 'reports' &&
+    parts[n - 4].startsWith('exec-') &&
+    parts[n - 3] === 'newman';
+  const fromName = basename(path, '.json');
+  return inLayout
+    ? fromName
+    : report?.collection?.info?._postman_id || fromName;
 }
 
 /** Read a report, returning null when the path was not supplied. */
@@ -99,13 +138,51 @@ export function main(args = argv.slice(2)) {
   }
 
   const pwPath = flags.playwright;
-  const nmPath = flags.newman;
+
+  // Newman inputs: every report for THIS story in one execution, plus any
+  // explicit paths. Nothing is globbed across executions (finding I4).
+  const nmPaths = [...(flags.newman || [])];
+  if (flags.execution) {
+    const dir = newmanStoryDir(flags.execution, storyId);
+    if (!dir.ok) {
+      usage(dir.message);
+      return 2;
+    }
+    if (!existsSync(dir.value)) {
+      console.error(
+        `Error: execution ${flags.execution} has no Newman reports for ${storyId} (looked in ${dir.value}).`
+      );
+      return 2;
+    }
+    const found = readdirSync(dir.value)
+      .filter((f) => f.endsWith('.json'))
+      .sort()
+      .map((f) => join(dir.value, f));
+    if (found.length === 0) {
+      console.error(
+        `Error: ${dir.value} holds no Newman JSON reports; nothing to normalize.`
+      );
+      return 2;
+    }
+    nmPaths.push(...found);
+  }
+
+  // The same report twice would count every unit in it twice.
+  const seen = new Set();
+  for (const p of nmPaths) {
+    const key = resolve(p).toLowerCase();
+    if (seen.has(key)) {
+      usage(`the Newman report ${p} was supplied more than once`);
+      return 2;
+    }
+    seen.add(key);
+  }
 
   // Neither runner supplied: an empty ledger would be indistinguishable from a
   // clean run, so refuse instead of manufacturing one.
-  if (!pwPath && !nmPath) {
+  if (!pwPath && nmPaths.length === 0) {
     console.error(
-      'Error: no execution inputs. Pass --playwright and/or --newman.'
+      'Error: no execution inputs. Pass --playwright, --execution and/or --newman.'
     );
     console.error(
       '  Manual/external result import is task group 7.x; it is not available yet.'
@@ -143,12 +220,29 @@ export function main(args = argv.slice(2)) {
     units.push(...u);
   }
 
-  if (nmPath) {
+  // Resolve every collection's identity BEFORE counting anything, so two
+  // reports claiming one collection are refused rather than double-counted.
+  const newmanInputs = nmPaths.map((nmPath) => {
     const report = loadReport(nmPath, 'Newman');
+    return { nmPath, report, collectionId: collectionIdFor(nmPath, report) };
+  });
+  const byCollection = new Map();
+  for (const { nmPath, collectionId } of newmanInputs) {
+    if (byCollection.has(collectionId)) {
+      usage(
+        `two reports claim collection "${collectionId}" (${byCollection.get(collectionId)} and ${nmPath}); ` +
+          'each collection must contribute exactly once'
+      );
+      return 2;
+    }
+    byCollection.set(collectionId, nmPath);
+  }
+
+  for (const { nmPath, report, collectionId } of newmanInputs) {
     const executionId = `exec-nm-${randomUUID().slice(0, 8)}`;
     const { units: u, sourceErrors } = adaptNewmanReport(report, {
       executionId,
-      collectionId: report.collection?.info?._postman_id,
+      collectionId,
       secrets,
     });
     sourceExecutions.push({
@@ -201,8 +295,12 @@ export function main(args = argv.slice(2)) {
   const written = writeJsonAtomic(out, ledger, { schemaPath: LEDGER_SCHEMA });
   if (!written.ok) {
     console.error(`Error: ${written.message}`);
-    if (written.errors) {
-      for (const e of written.errors.slice(0, 10)) console.error(`  - ${e}`);
+    // Field paths only, never values (the shared diagnostics rule). Printing
+    // the raw AJV objects rendered as "[object Object]".
+    for (const line of formatErrors(written.errors, {
+      includeParams: false,
+    }).slice(0, 10)) {
+      console.error(line);
     }
     return 1;
   }

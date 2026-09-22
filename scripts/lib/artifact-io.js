@@ -268,10 +268,14 @@ export function writeJsonAtomic(path, value, opts = {}) {
   if (schemaPath) {
     const valid = validateValue(value, schemaPath);
     if (!valid.ok) {
-      return {
-        ...valid,
-        message: `Refusing to write ${path}: it does NOT validate against ${schemaPath}`,
-      };
+      // Only an actual validation failure may say "does NOT validate". A
+      // missing or broken SCHEMA is a different problem, and reporting it as a
+      // bad value sends the reader hunting for a field that is fine.
+      const why =
+        valid.kind === IO_ERROR.SCHEMA_INVALID_DATA
+          ? `it does NOT validate against ${schemaPath}`
+          : `its schema could not be loaded (${valid.message})`;
+      return { ...valid, message: `Refusing to write ${path}: ${why}` };
     }
   }
 
