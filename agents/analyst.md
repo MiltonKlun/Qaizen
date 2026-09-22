@@ -9,9 +9,16 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 1.3.0
+version: 2.0.0
 changed_in_run: null
 changelog: |
+  - 2.0.0: MAJOR (task group 4.1, finding B3). The run id now comes from the
+    runner's staged run when one exists (`npm run pipeline -- --story ...`
+    writes it to .qaizen/transition.json and prints it in the Analyst
+    instruction); the Analyst preserves it instead of minting a new one, and
+    the runner refuses a context.json whose run_id does not match. It still
+    mints one when no run is staged. Previously a new story could inherit the
+    previous run's context; the staged id is how the runner tells them apart.
   - 1.3.0: Made `prompt_versions` a REQUIRED Analyst output (IMPROVEMENT-PLAN-2
     Phase 4, T4.1). The Analyst now reads each agent prompt's `version:` and
     records the map into `context.json`, so `npm run metrics` can link a run to
@@ -241,9 +248,14 @@ high-level steps are:
 6. **Initialize `review_gates`** to all `false`.
 7. **Set `status`** to `"draft"`. (If any ambiguity is `blocking:
 true`, set `status` to `"blocked"` instead and stop.)
-8. **Generate `run_id`.** Phase 1 convention: ISO timestamp + short
-   hash, e.g. `2026-05-28T18-00-00Z-a1b2c3d`. The exact format is
-   not strict; what matters is uniqueness across runs.
+8. **Set `run_id`.** If the runner staged this run (`npm run pipeline --
+--story ...`), **use the run id it printed** — it is also in
+   `.qaizen/transition.json` under `new_story.run_id`. Do not mint a new one:
+   the runner refuses a `context.json` whose `run_id` does not match the
+   staged run, because that id is what separates this story from the
+   previous run. Only when no run is staged, generate one: ISO timestamp +
+   short hash, e.g. `2026-05-28T18-00-00Z-a1b2c3d`. What matters is
+   uniqueness across runs.
 9. **Record `prompt_versions` (required).** Read the `version:`
    frontmatter of every agent prompt this run will use and write them
    into `context.json.prompt_versions` as a `{ "<agent>": "<version>" }`

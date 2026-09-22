@@ -48,6 +48,13 @@ import {
 import { GATE_BRIEFS, renderGateBrief } from './gate-briefs.js';
 import { trackAllowed } from './track-floor.js';
 import { gate4Findings, renderGate4Scan } from './gate4-scan.js';
+import {
+  TRANSITION_FILE,
+  readTransition,
+  recoverTransition,
+  startNewStory,
+  adoptStagedContext,
+} from './lib/run-lifecycle.js';
 
 // Sibling scripts / schemas resolve against THIS file's location, not the
 // CWD — so the runner works when driven from an isolated run workspace
@@ -79,9 +86,34 @@ for (const a of argv.slice(2)) {
 }
 
 const STATUS_MODE = argv.includes('--status');
+const RESUME_MODE = argv.includes('--resume');
 const storyIdx = argv.indexOf('--story');
 const STORY_ARG =
-  storyIdx !== -1 && argv[storyIdx + 1] ? argv[storyIdx + 1] : null;
+  storyIdx !== -1 && argv[storyIdx + 1] && !argv[storyIdx + 1].startsWith('--')
+    ? argv[storyIdx + 1]
+    : null;
+
+// ------------------------------------------------------- flag contract ---
+// `--story` STARTS a new run; `--resume` (or no flag) CONTINUES the current
+// one; `--status` only reads. These are checked before any fetch or write:
+// the old runner staged story.md first and loaded the old context second, so a
+// new story could inherit a completed run's gates (finding B3, task group 4.1).
+if (storyIdx !== -1 && !STORY_ARG) {
+  console.error('--story needs a value: a story file path or a Jira key.');
+  exit(2);
+}
+if (STORY_ARG && RESUME_MODE) {
+  console.error(
+    '--story starts a NEW run and --resume continues the CURRENT one; use one of them.'
+  );
+  exit(2);
+}
+if (STATUS_MODE && (STORY_ARG || RESUME_MODE)) {
+  console.error(
+    '--status is read-only; it cannot be combined with --story or --resume.'
+  );
+  exit(2);
+}
 
 // ------------------------------------------------------------------ I/O ---
 function loadContext() {
@@ -360,6 +392,7 @@ const GUIDE_STEPS = {
   analyst: (ctx) =>
     'Run the ANALYST: agents/analyst.md against story.md.\n' +
     '  It writes context.json (risks, ACs, ambiguities; all gates false).\n' +
+    stagedRunLine() +
     '  Then: node scripts/validate-json.js schemas/context.schema.json context.json\n' +
     '  Then: npm run pipeline -- --resume',
   'test-designer': (ctx) =>
@@ -503,33 +536,93 @@ function printStatus(context, hints) {
   console.log(`Next step: ${nextStep(context, hints)}`);
 }
 
+/** The staged run id the Analyst must preserve, when a run is staged. */
+function stagedRunLine() {
+  const rec = readTransition('.');
+  if (rec?.phase !== 'installed') return '';
+  return (
+    `  Use run_id "${rec.new_story.run_id}" for this run (staged by the runner; ` +
+    `recorded in ${TRANSITION_FILE}). Do not mint a new one.\n`
+  );
+}
+
+/** Has the current run finished? The runner's own definition, or the record. */
+function runIsComplete(context) {
+  if (!context) return false;
+  return (
+    context.status === 'completed' ||
+    nextStep(context, gatherHints(context)) === 'done'
+  );
+}
+
 // ----------------------------------------------------------------- main ---
 async function main() {
-  // --story: stage the story file before the analyst step.
-  if (STORY_ARG) {
-    if (/^[A-Z][A-Z0-9_]*-\d+$/.test(STORY_ARG) && !existsSync(STORY_ARG)) {
-      console.log(`Fetching ${STORY_ARG} from Jira (read-only)...`);
-      const r = spawnSync('node', [JIRA_FETCH, STORY_ARG], {
-        stdio: 'inherit',
-      });
-      if (r.status !== 0) exit(r.status ?? 2);
-    } else if (existsSync(STORY_ARG)) {
-      if (STORY_ARG !== 'story.md') copyFileSync(STORY_ARG, 'story.md');
-      console.log(`Story staged at story.md (from ${STORY_ARG}).`);
-    } else {
-      console.error(
-        `--story "${STORY_ARG}" is neither an existing file nor a Jira key.`
+  // --status reads and reports; it never recovers, stages or writes anything.
+  if (STATUS_MODE) {
+    const context = loadContext();
+    const pending = readTransition('.');
+    if (pending && pending.phase !== 'installed') {
+      console.log(
+        `An interrupted new-story transition is pending (${TRANSITION_FILE}, phase "${pending.phase}").`
       );
-      exit(2);
+      console.log(
+        '  It is finished or undone by: npm run pipeline -- --resume'
+      );
+    } else if (pending?.phase === 'installed' && !context) {
+      console.log(
+        `Staged run ${pending.new_story.run_id} (${pending.new_story.ref}) is waiting for the Analyst.`
+      );
     }
+    printStatus(context, gatherHints(context));
+    exit(0);
+  }
+
+  // An interrupted transition is finished or undone BEFORE anything else
+  // reads the run state (docs/pipeline-runner.md, "Starting a new story").
+  const recovered = recoverTransition('.');
+  if (!recovered.ok) {
+    console.error(recovered.message);
+    exit(2);
+  }
+  if (recovered.message) console.log(recovered.message + '\n');
+
+  // --story: a NEW run. Decided before anything is written.
+  if (STORY_ARG) {
+    const current = loadContext();
+    const started = startNewStory({
+      root: '.',
+      ref: STORY_ARG,
+      context: current,
+      complete: runIsComplete(current),
+      fetchJira: (key, out) => {
+        console.log(`Fetching ${key} from Jira (read-only)...`);
+        const r = spawnSync('node', [JIRA_FETCH, key, '--out', out], {
+          stdio: 'inherit',
+        });
+        return r.status ?? 2;
+      },
+    });
+    if (!started.ok) {
+      console.error(started.message);
+      exit(started.code);
+    }
+    console.log(started.message);
+    console.log(`New run ${started.runId} staged from ${STORY_ARG}.\n`);
   }
 
   let context = loadContext();
-  const hints = gatherHints(context);
 
-  if (STATUS_MODE) {
-    printStatus(context, hints);
-    exit(0);
+  // The Analyst has answered a staged run: accept its context only if it is
+  // that run (same run id, unchanged story).
+  const staged = readTransition('.');
+  if (context && staged?.phase === 'installed') {
+    const adopted = adoptStagedContext('.', context, staged);
+    if (!adopted.ok) {
+      console.error('Refusing to continue with this context.json:');
+      console.error(adopted.message);
+      exit(2);
+    }
+    console.log(adopted.message + '\n');
   }
 
   // Blocking ambiguities halt everything (CLAUDE.md §3.7).
@@ -573,7 +666,9 @@ async function main() {
     if (step === 'done') {
       console.log('Run complete: release report produced, all gates passed.');
       console.log(
-        `Archive it: npm run new-run ${storyId(context)}   ·   then npm run session-summary -- --friction "..."`
+        'Start the next story with: npm run pipeline -- --story <path|JIRA-KEY>\n' +
+          '  (this run is archived automatically and verified before anything is replaced),\n' +
+          `or archive it now: npm run new-run -- ${storyId(context)}   ·   then npm run session-summary -- --friction "..."`
       );
       exit(0);
     }

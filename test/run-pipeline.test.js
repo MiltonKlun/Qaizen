@@ -23,6 +23,7 @@ import {
   mkdtempSync,
   mkdirSync,
   copyFileSync,
+  cpSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { applyGateDecision } from '../scripts/run-pipeline.js';
@@ -81,10 +82,13 @@ function makeMiniRepo() {
   ]) {
     copyFileSync(join('scripts', f), join(dir, 'scripts', f));
   }
-  copyFileSync(
-    join('schemas', 'context.schema.json'),
-    join(dir, 'schemas', 'context.schema.json')
-  );
+  // The runner imports shared modules from scripts/lib/ (the run lifecycle,
+  // artifact I/O) and validates archived artifacts against every schema, so
+  // copy both wholesale rather than a list that drifts.
+  cpSync(join('scripts', 'lib'), join(dir, 'scripts', 'lib'), {
+    recursive: true,
+  });
+  cpSync('schemas', join(dir, 'schemas'), { recursive: true });
   return dir;
 }
 

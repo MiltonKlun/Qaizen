@@ -273,7 +273,9 @@ right after the run, while it's fresh:
   It writes a versioned `session-summaries/<date>.md` — the highest-signal
   source `/evolve` mines (`docs/evolve-loop.md`).
 
-Then archive the run with `npm run new-run <story-id>` so `runs/` keeps the
+Then archive the run with `npm run new-run -- <story-id>` (or just start the
+next story with `npm run pipeline -- --story ...`, which archives a completed
+run automatically) so `runs/` keeps the
 history (and `gate_decisions` + `prompt_versions` travel with it).
 
 ---
