@@ -24,6 +24,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execPath } from 'node:process';
+import { bindGate } from './helpers/valid-run.js';
 
 /** Run a repo script from the repo root; return { code, out }. */
 function run(args, opts = {}) {
@@ -45,6 +46,21 @@ function run(args, opts = {}) {
 
 function scratch(prefix) {
   return mkdtempSync(join(tmpdir(), `qaizen-${prefix}-`));
+}
+
+/**
+ * Replace the workspace's Gate 4 with a real, BOUND approval of what it now
+ * contains (task group 4.3). A bare `code_reviewed: true` is a legacy
+ * approval the TestLink sync now refuses. Call after the workspace is written.
+ */
+function bindGate4(dir) {
+  const p = join(dir, 'context.json');
+  const ctx = bindGate(
+    JSON.parse(readFileSync(p, 'utf8')),
+    'code_reviewed',
+    dir
+  );
+  writeFileSync(p, JSON.stringify(ctx));
 }
 
 // --- I5: the evaluator must not turn missing work into a high score --------
@@ -243,6 +259,7 @@ test('sync-testlink-execution: a linked case with no failure entry is NOT report
       JSON.stringify({ schema_version: '1.0', failures: [] })
     );
 
+    bindGate4(dir);
     const scriptPath = join(
       process.cwd(),
       'scripts',
@@ -306,6 +323,7 @@ function syncTestlinkWith(fa) {
     join(dir, 'analysis', 'failure-analysis.json'),
     JSON.stringify(fa)
   );
+  bindGate4(dir);
   const r = spawnSync(
     execPath,
     [join(process.cwd(), 'scripts', 'sync-testlink-execution.js'), 'STORY-777'],

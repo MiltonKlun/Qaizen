@@ -100,7 +100,7 @@ Gate 4 stays human permanently. Do not propose automating it. Do not skip any ga
 
 If `review_gates.<gate> != true` (or not set), do not execute the next agent. Stop and report.
 
-The orchestration convenience for all of this is the thin gated runner — `npm run pipeline` (`docs/pipeline-runner.md`). It sequences the steps, halts at every gate, and records decisions with telemetry. It has **no** approval flags and refuses gate decisions when stdin is not a TTY, so neither you nor CI can ever pass a gate through it; only a human at a terminal can. Do not add a non-interactive approval path to it — treat such a request as a stop condition (3.11). The manual step sequence remains equally valid.
+The orchestration convenience for all of this is the thin gated runner — `npm run pipeline` (`docs/pipeline-runner.md`). It sequences the steps, halts at every gate, and records decisions with telemetry. It has **no** approval flags and refuses gate decisions when stdin is not a TTY, so it offers no approval path to CI or an agent. That check protects ordinary non-interactive entry; it is not authentication, and `context.json` is not tamper-proof — anyone who can edit it can edit a gate. The rule that agents and CI never approve a gate is therefore a rule of conduct, not only a mechanism: never approve on the human's behalf, by any route. Each approval is bound to a digest of the inputs it reviewed, so a later change to them returns the gate to pending instead of passing silently. Do not add a non-interactive approval path to it — treat such a request as a stop condition (3.11). The manual step sequence remains equally valid.
 
 ### 3.6 Respect Healer guardrails (Green / Yellow / Red)
 

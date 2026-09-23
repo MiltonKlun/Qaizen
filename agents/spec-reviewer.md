@@ -10,9 +10,14 @@ description: |
   stays human.
 phase_introduced: 3
 phase_active: 3+
-version: 1.3.0
+version: 1.4.0
 changed_in_run: null
 changelog: |
+  - 1.4.0: MINOR (task group 4.3). Gate 2 must be current, not only passed. Approvals are now bound
+    to a digest of the inputs they reviewed; a gate whose inputs changed
+    is not passed even if `status` still reads true, so the gate check
+    also requires `npm run pipeline -- --status` to show no stale
+    approval. Precondition only; no output change.
   - 1.3.0: Sharpened the Gate-3 checklist (IMPROVEMENT-PLAN Phase 6 / PFI-5):
     negative-case findings are now weighted by TC priority + risk severity;
     unrelated-flow detection keys on the brief's out-of-scope list and
@@ -127,7 +132,11 @@ The Spec Reviewer does NOT write into `specs/`, `tests/`,
 
 1. **Verify Gate 2.** If `context.json.review_gates.test_scope_reviewed`
    is not passed (`true` or `{ status: true }`), stop — there is no
-   approved scope to review a spec against.
+   approved scope to review a spec against. The approval must also be **current**: `npm run pipeline -- --status` must
+   not report it as a stale approval. An approval is bound to a digest of
+   what it reviewed (task group 4.3); once those inputs change it no longer
+   counts, even though `status` may still read `true` until the next
+   `--resume` returns it to pending.
 2. **Compute `risk_coverage` deterministically — no LLM.** For each
    `RISK-XXX` in `context.json.risks[]`:
    - `covering_test_case_ids` = every `TC-XXX` (or `API-XXX`) in

@@ -29,6 +29,7 @@ import { join } from 'node:path';
 import { applyGateDecision } from '../scripts/run-pipeline.js';
 import { gatePassed } from '../scripts/pipeline-state.js';
 import { validTestCases } from './helpers/valid-run.js';
+import { bindingFor } from '../scripts/lib/approval-binding.js';
 
 // ---------------------------------------------------------------- helpers --
 
@@ -293,6 +294,9 @@ test('agent step guidance — gate passed leads to the next agent instruction', 
       reviewed_at: '2026-06-10T10:07:00Z',
       opened_at: '2026-06-10T10:00:00Z',
       notes: null,
+      // Bound to what exists, as the runner records it at the decision (4.3);
+      // an unbound approval is a legacy one that must be re-reviewed.
+      ...bindingFor('requirements_reviewed', ctx, dir),
     };
     ctx.status = 'in_progress';
     writeFileSync(join(dir, 'context.json'), JSON.stringify(ctx, null, 2));
@@ -371,7 +375,13 @@ test('runner ALLOWS track:lite for a benign story (reaches the qa_scope gate)', 
     mkdirSync(join(dir, 'test-cases'), { recursive: true });
     writeFileSync(
       join(dir, 'test-cases', 'STORY-001.json'),
-      JSON.stringify(validTestCases('STORY-001', 'test-run'))
+      JSON.stringify({
+        ...validTestCases('STORY-001', 'test-run'),
+        // Per-case decisions are made BEFORE the scope approval (4.3).
+        test_cases: validTestCases('STORY-001', 'test-run').test_cases.map(
+          (c) => ({ ...c, status: 'approved' })
+        ),
+      })
     );
     mkdirSync(join(dir, 'planner-input'), { recursive: true });
     writeFileSync(
