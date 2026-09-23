@@ -35,77 +35,23 @@ import {
   writeTransition,
   TRANSITION_FILE,
 } from '../scripts/lib/run-lifecycle.js';
+import { runContext, writeCompletedRun } from './helpers/valid-run.js';
 
 const REPO = process.cwd();
 
 // ---------------------------------------------------------------- fixtures --
 
-const GATE = {
-  status: true,
-  reviewer: 'h',
-  reviewed_at: '2026-09-01T00:00:00Z',
-};
-
-function context({
-  status = 'completed',
-  gates = true,
-  storyId = 'OLD-1',
-} = {}) {
-  const g = gates ? GATE : false;
-  return {
-    schema_version: '1.0',
-    run_id: 'old-run-1',
-    story: { id: storyId, title: 'old', source: 'manual', path: 'story.md' },
-    acceptance_criteria: ['a'],
-    ambiguities: [],
-    risks: [],
-    artifact_paths: {
-      test_cases: `test-cases/${storyId}.json`,
-      planner_brief: `planner-input/${storyId}.planner-brief.md`,
-      playwright_spec: `specs/${storyId}.md`,
-      generated_test: `tests/${storyId}.spec.ts`,
-      execution_results: 'reports/results.json',
-      failure_analysis: 'analysis/failure-analysis.json',
-      release_report_md: 'release/release-report.md',
-      release_report_json: 'release/release-report.json',
-    },
-    review_gates: {
-      requirements_reviewed: g,
-      test_scope_reviewed: g,
-      specs_reviewed: g,
-      code_reviewed: g,
-    },
-    status,
-  };
-}
-
-/** A mini-repo holding a run for OLD-1 plus a new story file. */
-function repo({ ctx = context(), prefix = '.tmp-runner-life-' } = {}) {
+/**
+ * A mini-repo holding a GENUINELY completed run of OLD-1 (valid, owned
+ * artifacts; see test/helpers/valid-run.js) plus a new story file. `run`
+ * overrides the run's state, e.g. { status: 'in_progress', gates: false }.
+ */
+function repo({ run = {}, prefix = '.tmp-runner-life-' } = {}) {
   const dir = mkdtempSync(join(REPO, prefix));
   cpSync(join(REPO, 'scripts'), join(dir, 'scripts'), { recursive: true });
   cpSync(join(REPO, 'schemas'), join(dir, 'schemas'), { recursive: true });
-  const w = (p, c) => {
-    mkdirSync(join(dir, p, '..'), { recursive: true });
-    writeFileSync(join(dir, p), c);
-  };
-  w('story.md', '# OLD-1\nThe old story.\n');
-  // Deliberately NOT Prettier-formatted: the archive must keep these bytes.
-  w(
-    'test-cases/OLD-1.json',
-    '{"schema_version":"1.0","story_id":"OLD-1","test_cases":[]}\n'
-  );
-  w('planner-input/OLD-1.planner-brief.md', '# brief\n');
-  w('specs/OLD-1.md', '# spec\n');
-  w('tests/OLD-1.spec.ts', '// generated\n');
-  w('tests/seed.spec.ts', '// seed: reusable across runs\n');
-  w('tests/fixtures/README.md', 'reusable\n');
-  w('test-cases/.gitkeep', '');
-  w('reports/results.json', '{}\n');
-  w('analysis/failure-analysis.json', '{}\n');
-  w('release/release-report.json', '{}\n');
-  w('release/release-report.md', '# report\n');
-  w('context.json', JSON.stringify(ctx, null, 2));
-  w('new-story.md', '# NEW-2\nA brand new story.\n');
+  writeCompletedRun(dir, run);
+  writeFileSync(join(dir, 'new-story.md'), '# NEW-2\nA brand new story.\n');
   return dir;
 }
 
@@ -177,7 +123,7 @@ test('--story with --resume, and --status with either, are refused before any wr
 test('B3: a new story after a COMPLETED run archives it and reaches the Analyst', () => {
   const dir = repo();
   try {
-    const owned = classifyRootArtifacts(context(), dir).owned;
+    const owned = classifyRootArtifacts(runContext(), dir).owned;
     const digests = Object.fromEntries(
       owned.map((f) => [f, sha256File(join(dir, f))])
     );
@@ -278,7 +224,7 @@ test('the Analyst must keep the staged run id; the matching context is adopted',
     pipeline(dir, '--story', 'new-story.md');
     const rec = readTransition(dir);
     const ctx = {
-      ...context({ status: 'draft', gates: false, storyId: 'NEW-2' }),
+      ...runContext({ status: 'draft', gates: false, storyId: 'NEW-2' }),
     };
 
     writeFileSync(
@@ -309,7 +255,7 @@ test('the Analyst must keep the staged run id; the matching context is adopted',
 // --------------------------------------------- incomplete old, new story --
 
 test('a new story never replaces an INCOMPLETE run, and nothing is written', () => {
-  const dir = repo({ ctx: context({ status: 'in_progress', gates: false }) });
+  const dir = repo({ run: { status: 'in_progress', gates: false } });
   try {
     const before = snapshot(dir);
     const r = pipeline(dir, '--story', 'new-story.md');
@@ -328,7 +274,7 @@ test('a new story never replaces an INCOMPLETE run, and nothing is written', () 
 });
 
 test('repeating the SAME story on an incomplete run is not a silent reset', () => {
-  const dir = repo({ ctx: context({ status: 'in_progress', gates: false }) });
+  const dir = repo({ run: { status: 'in_progress', gates: false } });
   try {
     const before = snapshot(dir);
     const r = pipeline(dir, '--story', 'story.md');
@@ -342,7 +288,7 @@ test('repeating the SAME story on an incomplete run is not a silent reset', () =
 });
 
 test('an incomplete run can be set aside explicitly with new-run --clear', () => {
-  const dir = repo({ ctx: context({ status: 'in_progress', gates: false }) });
+  const dir = repo({ run: { status: 'in_progress', gates: false } });
   try {
     const cleared = run(dir, 'new-run.js', ['OLD-1', '--clear']);
     assert.equal(cleared.code, 0, cleared.out);
@@ -448,7 +394,7 @@ test('a story.md the runner did not stage is never overwritten', () => {
 
 /** Put the mini-repo in the state an interrupted transition leaves behind. */
 function interrupted(dir, phase) {
-  const ctx = context();
+  const ctx = runContext();
   const { owned } = classifyRootArtifacts(ctx, dir);
   mkdirSync(join(dir, '.qaizen', 'staging', 'tx1'), { recursive: true });
   const staged = join(dir, '.qaizen', 'staging', 'tx1', 'story.md');
