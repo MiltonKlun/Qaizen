@@ -171,3 +171,46 @@ appears as a test status, and that Newman's failure count matches its failed
 assertion count. A suite built on invented fixtures would have passed while the
 adapters were wrong. Machine-identifying paths are stripped; the report
 structure is otherwise untouched.
+
+## Report layout (task group 3.2)
+
+Raw reporter output is scoped to one execution:
+
+```
+reports/<execution-id>/newman/<story-id>/<collection-id>.json   # secret-bearing, never uploaded
+reports/<execution-id>/newman/<story-id>/<collection-id>.html   # same
+reports/<execution-id>/published/newman-<story>-<collection>.json  # allowlisted, uploaded
+```
+
+Before this, every Newman run wrote to one constant path,
+`reports/newman-results.json`, regardless of story, collection or run. CI loops
+collections calling `npm run test:api` per collection, so every collection's raw
+evidence but the last was destroyed — and a leftover file from an unrelated
+story counted as current evidence in the CI summary (finding I4).
+
+The execution id comes from `--execution-id`, or `QAIZEN_EXECUTION_ID` when the
+pipeline supplies one, otherwise the runner mints its own. Story and collection
+ids are validated as path components before use: they originate in filenames and
+env vars, and a component containing a separator or `..` would escape the
+execution directory. A rejection names the field without echoing the value.
+
+`ci-summary.js` reads **one** execution — the one named by
+`QAIZEN_EXECUTION_ID`, else the most recent `reports/exec-*` directory — and
+says which one it read. The flat `reports/published/` and
+`reports/newman-results.json` locations remain readable as explicit
+compatibility imports for pre-3.2 local runs; they are never written.
+
+### Zero verified units is never success
+
+Two false greens were live before 3.2, both now closed:
+
+- A published summary of all zeros rendered as
+  `:white_check_mark: No test failures in the executed suites`. Zero counted
+  units means the evidence is missing, so the summary now warns instead.
+- A collection that executed no requests exited 0 and published an all-zeros
+  summary. The runner now exits 1 and publishes nothing, so nothing verified
+  leaves nothing publishable.
+
+Run-level errors (setup/teardown/report) dominate the verdict even when every
+counted unit passed: an incomplete execution understates what was left
+unverified.

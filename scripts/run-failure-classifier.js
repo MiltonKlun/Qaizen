@@ -24,15 +24,61 @@
 //
 // Exit codes: 0 ok · 1 --blocking with product_bug present · 2 usage/gate/file error
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+} from 'node:fs';
+import { join } from 'node:path';
 import { argv, env, exit } from 'node:process';
 
 const BLOCKING = argv.includes('--blocking');
 const DRY = argv.includes('--dry-run');
 
 const PW_PATH = 'reports/results.json';
-const NEWMAN_PATH = 'reports/newman-results.json';
 const OUT = 'analysis/failure-analysis.json';
+
+// Newman reports moved to a per-execution layout in task group 3.2:
+//
+//   reports/<execution-id>/newman/<story-id>/<collection-id>.json
+//
+// Resolve the newest execution's reports, falling back to the legacy constant
+// path as an EXPLICIT compatibility read for pre-3.2 local runs.
+//
+// NOTE: this resolves the INPUT path only. The counting and ID-minting logic
+// below still carries findings B2, B5 and B6, and is replaced wholesale in
+// task group 3.3 — deliberately not touched here.
+const LEGACY_NEWMAN_PATH = 'reports/newman-results.json';
+
+function resolveNewmanReports() {
+  const root = 'reports';
+  if (existsSync(root)) {
+    const executions = readdirSync(root, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && e.name.startsWith('exec-'))
+      .map((e) => e.name)
+      .sort();
+    for (const executionId of executions.reverse()) {
+      const newmanRoot = join(root, executionId, 'newman');
+      if (!existsSync(newmanRoot)) continue;
+      const found = [];
+      for (const story of readdirSync(newmanRoot, { withFileTypes: true })) {
+        if (!story.isDirectory()) continue;
+        const storyDir = join(newmanRoot, story.name);
+        for (const f of readdirSync(storyDir)) {
+          if (f.endsWith('.json')) found.push(join(storyDir, f));
+        }
+      }
+      // Only the newest execution that actually holds reports is used; older
+      // executions are never mixed in (finding I4).
+      if (found.length) return { paths: found.sort(), executionId };
+    }
+  }
+  return existsSync(LEGACY_NEWMAN_PATH)
+    ? { paths: [LEGACY_NEWMAN_PATH], executionId: null }
+    : { paths: [], executionId: null };
+}
 
 if (!existsSync('context.json')) {
   console.error('No context.json at root.');
@@ -55,9 +101,22 @@ if (!existsSync(PW_PATH)) {
   exit(2);
 }
 const pw = JSON.parse(readFileSync(PW_PATH, 'utf8'));
-const newman = existsSync(NEWMAN_PATH)
-  ? JSON.parse(readFileSync(NEWMAN_PATH, 'utf8'))
-  : null;
+
+// Every collection in the current execution contributes; previously only one
+// constant path was read, so a story with several collections lost all but the
+// last (finding I4).
+const newmanResolved = resolveNewmanReports();
+const newmanReports = newmanResolved.paths.map((p) => ({
+  path: p,
+  report: JSON.parse(readFileSync(p, 'utf8')),
+}));
+if (newmanResolved.executionId) {
+  console.log(
+    `Reading ${newmanReports.length} Newman report(s) from execution ${newmanResolved.executionId}.`
+  );
+} else if (newmanReports.length) {
+  console.log(`Reading legacy Newman report ${LEGACY_NEWMAN_PATH}.`);
+}
 
 // ---- deterministic signal rules ----------------------------------------
 // Returns { classification, severity } from an error message + context.
@@ -175,11 +234,18 @@ function walkSuites(suites, titlePath = []) {
 walkSuites(pw.suites);
 
 // ---- Newman failures -----------------------------------------------------
+// Every collection in the current execution contributes; a story with several
+// collections previously lost all but the last (finding I4).
 let apiTotal = 0;
-if (newman?.run) {
-  const a = newman.run.stats?.assertions || {};
-  apiTotal = a.total || 0;
-  for (const failure of newman.run.failures || []) {
+let apiAssertionFailures = 0;
+for (const { path: reportPath, report } of newmanReports) {
+  if (!report?.run) continue;
+  const a = report.run.stats?.assertions || {};
+  apiTotal += a.total || 0;
+  // Counted per report so the pass arithmetic below cannot be skewed by one
+  // collection's transport errors leaking into another's assertion total.
+  apiAssertionFailures += a.failed || 0;
+  for (const failure of report.run.failures || []) {
     const { classification, severity } = classifyNewman(failure);
     failSeq += 1;
     const f = {
@@ -193,7 +259,8 @@ if (newman?.run) {
       classification,
       severity,
       error_message: String(failure.error?.message || '').slice(0, 600),
-      evidence_paths: ['reports/newman-html', 'reports/newman-results.json'],
+      // Evidence now names the actual report this failure came from.
+      evidence_paths: [reportPath],
     };
     if (severity === 'red')
       f.bug_draft_path = `release/bug-drafts/BUG-${String(failSeq).padStart(3, '0')}.md`;
@@ -207,12 +274,11 @@ const doc = {
   story_id: context.story?.id || 'UNKNOWN',
   execution_date: new Date().toISOString(),
   total_tests: total + apiTotal,
-  passed:
-    (stats.expected || 0) +
-    (newman
-      ? (newman.run.stats?.assertions?.total || 0) -
-        (newman.run.failures?.length || 0)
-      : 0),
+  // Uses FAILED ASSERTIONS, not failures[].length: newman's failures[] also
+  // contains transport errors that produced no assertion, so subtracting its
+  // length from the assertion total can go negative (finding B5). Clamped as
+  // well, because this whole tally is replaced by the ledger in task group 3.3.
+  passed: (stats.expected || 0) + Math.max(apiTotal - apiAssertionFailures, 0),
   failed: failures.length,
   skipped: stats.skipped || 0,
   failures,
