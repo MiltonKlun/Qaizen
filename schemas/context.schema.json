@@ -206,7 +206,11 @@
         "failure_analysis": { "type": "string" },
         "release_report_md": { "type": "string" },
         "release_report_json": { "type": "string" },
-        "bug_drafts_dir": { "type": "string" }
+        "bug_drafts_dir": { "type": "string" },
+        "execution_ledger": {
+          "description": "OPTIONAL (task group 2.2a). Path to analysis/execution-ledger.json, the canonical cross-runner counting model for this run (schemas/execution-ledger.schema.json). ADDITIVE and not required: every pre-2.2a context stays valid, and nothing writes this yet — the execution adapters that populate it arrive in Phase 3. The existing report-path fields remain for compatibility; they are PATHS, not substitutes for a valid ledger.",
+          "type": "string"
+        }
       }
     },
     "review_gates": {

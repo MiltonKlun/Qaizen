@@ -11,6 +11,7 @@
 //   *.expected-context.json          schemas/context.schema.json
 //   *.expected-test-cases.json       schemas/test-cases.schema.json
 //   *.expected-failure-analysis.json schemas/failure-analysis.schema.json
+//   *.expected-execution-ledger.json schemas/execution-ledger.schema.json
 //   *.expected-release-report.json   schemas/release-report.schema.json
 //   *.expected-collection.json       schemas/postman-collection.schema.json
 //                                    (Phase 1.5+; skipped if the schema
@@ -49,6 +50,10 @@ const PATTERNS = [
   {
     suffix: '.expected-failure-analysis.json',
     schema: 'schemas/failure-analysis.schema.json',
+  },
+  {
+    suffix: '.expected-execution-ledger.json',
+    schema: 'schemas/execution-ledger.schema.json',
   },
   {
     suffix: '.expected-release-report.json',

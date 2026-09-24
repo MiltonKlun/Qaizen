@@ -1,0 +1,314 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://qaizen/schemas/execution-ledger.schema.json",
+  "title": "Execution Ledger for a Pipeline Run",
+  "description": "analysis/execution-ledger.json. THE canonical cross-runner counting model for one run (IMPLEMENTATION_PLAN task group 2.2a). Raw Playwright/Newman reports are evidence INPUTS, not the source of truth: they disagree about what a 'test' is, they lose timed-out and interrupted results, and they are secret-bearing. The ledger normalizes every runner into one mutually exclusive outcome per unit, keeps approved-case coverage separate from runner-unit totals, and records provenance so an unverified result can never read as a pass. Produced by execution adapters through the shared normalizer; consumed by the Failure Classifier, the Reporter, and the TestLink execution sync. Sanitized: it must never carry raw request/response bodies, headers, or injected secrets (docs/secrets-management.md).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "story_id",
+    "generated_at",
+    "source_executions",
+    "units",
+    "case_outcomes",
+    "totals"
+  ],
+  "properties": {
+    "schema_version": {
+      "description": "This artifact's own version, independent of the context/failure-analysis/release-report versions.",
+      "type": "string",
+      "const": "1.0"
+    },
+    "run_id": { "type": "string", "minLength": 1 },
+    "story_id": {
+      "type": "string",
+      "pattern": "^(STORY-[0-9]+|[A-Z][A-Z0-9_]*-[0-9]+)$"
+    },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "approved_scope_digest": {
+      "description": "Digest of the approved test-case scope this ledger was built against, so a ledger cannot be silently reused for a different scope. Null only when no approved scope existed at generation time; a null digest means coverage claims are unverified.",
+      "oneOf": [
+        { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        { "type": "null" }
+      ]
+    },
+
+    "source_executions": {
+      "description": "One entry per runner invocation. Missing provenance means UNVERIFIED evidence, never a pass.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["execution_id", "runner", "started_at", "process_status"],
+        "properties": {
+          "execution_id": {
+            "description": "Unique within this ledger. Units reference it.",
+            "type": "string",
+            "minLength": 1
+          },
+          "runner": {
+            "type": "string",
+            "enum": ["playwright", "newman", "external"]
+          },
+          "started_at": { "type": "string", "format": "date-time" },
+          "completed_at": {
+            "oneOf": [
+              { "type": "string", "format": "date-time" },
+              { "type": "null" }
+            ]
+          },
+          "command_identity": {
+            "description": "How the runner was invoked, WITHOUT secret values (never the resolved --env-var, never a header value).",
+            "type": "string"
+          },
+          "config_identity": { "type": "string" },
+          "process_status": {
+            "description": "Did the process itself produce trustworthy evidence? 'errored' and 'not_started' mean its units are blocked, not failed.",
+            "type": "string",
+            "enum": ["completed", "errored", "interrupted", "not_started"]
+          },
+          "exit_code": {
+            "oneOf": [{ "type": "integer" }, { "type": "null" }]
+          },
+          "report_reference": {
+            "description": "Path to the sanitized report this was normalized from. The RAW reporter output stays local and is never referenced as published evidence.",
+            "oneOf": [{ "type": "string" }, { "type": "null" }]
+          },
+          "report_digest": {
+            "oneOf": [
+              { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              { "type": "null" }
+            ]
+          },
+          "source_errors": {
+            "description": "Run-level errors (global setup failure, collection load error). These are counted separately and NEVER given invented test identities.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["message"],
+              "properties": {
+                "message": { "type": "string" },
+                "phase": {
+                  "type": "string",
+                  "enum": ["setup", "teardown", "run", "report"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "units": {
+      "description": "One entry per executable unit. Retries are ATTEMPTS of the same unit, never separate units.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["unit_id", "execution_id", "identity", "outcome"],
+        "properties": {
+          "unit_id": { "type": "string", "minLength": 1 },
+          "execution_id": { "type": "string", "minLength": 1 },
+          "identity": {
+            "description": "Runner-native identity. Playwright: reporter test identity + project + repeat index. Newman: collection + request + iteration. External/manual: TC identity + occurrence.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind"],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["playwright", "newman", "external"]
+              },
+              "test_title": { "type": "string" },
+              "file": { "type": "string" },
+              "project": { "type": "string" },
+              "repeat_index": { "type": "integer", "minimum": 0 },
+              "collection_id": { "type": "string" },
+              "request_name": { "type": "string" },
+              "iteration": { "type": "integer", "minimum": 0 },
+              "occurrence": { "type": "integer", "minimum": 0 }
+            }
+          },
+          "domain_links": {
+            "description": "Proven-from-metadata domain IDs. An ID is null WITH a reason when it cannot be proven — IDs are NEVER derived from failure ordering (review finding B6).",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "test_case_id": {
+                "oneOf": [
+                  { "type": "string", "pattern": "^TC-[0-9]+$" },
+                  { "type": "null" }
+                ]
+              },
+              "api_test_case_id": {
+                "oneOf": [
+                  { "type": "string", "pattern": "^API-[0-9]+$" },
+                  { "type": "null" }
+                ]
+              },
+              "playwright_test_id": {
+                "oneOf": [
+                  { "type": "string", "pattern": "^PW-[0-9]+$" },
+                  { "type": "null" }
+                ]
+              },
+              "request_id": {
+                "oneOf": [
+                  { "type": "string", "pattern": "^REQ-[0-9]+$" },
+                  { "type": "null" }
+                ]
+              },
+              "spec_id": {
+                "oneOf": [
+                  { "type": "string", "pattern": "^SPEC-[0-9]+$" },
+                  { "type": "null" }
+                ]
+              },
+              "unresolved_reason": {
+                "description": "REQUIRED whenever any link above is null. Names why the link could not be proven.",
+                "oneOf": [
+                  { "type": "string", "minLength": 1 },
+                  { "type": "null" }
+                ]
+              }
+            }
+          },
+          "outcome": {
+            "description": "Exactly one, mutually exclusive. 'blocked' covers missing trustworthy results, interruptions, and setup errors that prevent a result. 'expected_failure' is a declared expected failure, never passing coverage.",
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed",
+              "flaky",
+              "skipped",
+              "blocked",
+              "not_run",
+              "expected_failure"
+            ]
+          },
+          "attempts": {
+            "description": "Retry attempts of THIS unit. A final success after failure is outcome 'flaky'.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["status"],
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "passed",
+                    "failed",
+                    "timed_out",
+                    "interrupted",
+                    "skipped"
+                  ]
+                },
+                "duration_ms": { "type": "integer", "minimum": 0 },
+                "error_message": {
+                  "description": "Sanitized excerpt only. Never raw request/response data.",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "assertions": {
+            "description": "Newman assertion evidence NESTED in its request unit — never additional units. A request with zero business assertions is 'blocked', even when HTTP transport succeeded.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "passed"],
+              "properties": {
+                "name": { "type": "string" },
+                "passed": { "type": "boolean" },
+                "error_message": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "case_outcomes": {
+      "description": "Approved-scope coverage, kept SEPARATE from runner units (the plan's counting clarification). An approved case with no executable unit is 'not_run' here and does NOT create an invented unit or inflate unit totals.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["test_case_id", "outcome"],
+        "properties": {
+          "test_case_id": {
+            "oneOf": [
+              { "type": "string", "pattern": "^TC-[0-9]+$" },
+              { "type": "string", "pattern": "^API-[0-9]+$" }
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed",
+              "blocked",
+              "not_run",
+              "skipped",
+              "expected_failure"
+            ]
+          },
+          "linked_unit_ids": {
+            "description": "Units that positively link to this case. Coverage is derived ONLY from positive links; an unlinked execution can never supply a pass.",
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+
+    "totals": {
+      "description": "Counts MUST equal the sum of mutually exclusive unit outcomes. Run-level errors are counted separately and never folded into unit totals.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "units",
+        "passed",
+        "failed",
+        "flaky",
+        "skipped",
+        "blocked",
+        "not_run",
+        "expected_failure",
+        "source_error_count",
+        "unit_pass_rate"
+      ],
+      "properties": {
+        "units": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "flaky": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "blocked": { "type": "integer", "minimum": 0 },
+        "not_run": { "type": "integer", "minimum": 0 },
+        "expected_failure": { "type": "integer", "minimum": 0 },
+        "source_error_count": { "type": "integer", "minimum": 0 },
+        "unit_pass_rate": {
+          "description": "Strictly passing units / all units in scope. NULL for zero units — never 0, never 1. Flaky and expected_failure are displayed separately and never counted as passing coverage.",
+          "oneOf": [
+            { "type": "number", "minimum": 0, "maximum": 1 },
+            { "type": "null" }
+          ]
+        },
+        "approved_case_coverage": {
+          "description": "Cases with a positively linked passing outcome / approved cases. Reported SEPARATELY from unit_pass_rate: a nonempty approved scope with zero executed units has no passing coverage even though its unit pass rate is null.",
+          "oneOf": [
+            { "type": "number", "minimum": 0, "maximum": 1 },
+            { "type": "null" }
+          ]
+        }
+      }
+    }
+  }
+}
