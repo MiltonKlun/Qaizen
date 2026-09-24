@@ -124,8 +124,17 @@ export function nextStep(context, hints = {}) {
   if (!gatePassed(gates.code_reviewed)) return 'gate4';
   if (!produced(paths.execution_results, hints.executionResultsExist))
     return 'execute';
+  // An API story has not finished executing until its Newman branch ran
+  // (task group 4.2): a run must not complete on the E2E half alone.
+  if (hints.hasApiCases === true && hints.apiExecuted === false)
+    return 'execute-api';
   if (!produced(paths.failure_analysis, hints.failureAnalysisExists))
     return 'classify';
+  // The pre-classifier writes a DRAFT. The Failure Classifier Agent (or a
+  // human) finalizes it and writes a bug draft for every Red failure before
+  // the Reporter may run on it.
+  if (hints.failureAnalysisFinalized === false || hints.bugDraftsMissing > 0)
+    return 'finalize';
   if (!produced(paths.release_report_json, hints.releaseReportExists))
     return 'report';
   return 'done';

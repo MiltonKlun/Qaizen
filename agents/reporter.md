@@ -7,13 +7,21 @@ description: |
   (human-readable) and release/release-report.json (schema-validated).
   Computes coverage_by_risk by walking the traceability chain. Sets
   the release_recommendation (pass / fail / conditional_pass /
-  blocked) based on Red failures and risk coverage. Marks the run
-  completed.
+  blocked) based on Red failures and risk coverage. Does NOT mark the
+  run completed: the runner does, after validating every artifact.
 phase_introduced: 1
 phase_active: 1+
-version: 2.0.0
+version: 3.0.0
 changed_in_run: null
 changelog: |
+  - 3.0.0: MAJOR (task group 4.2, finding I6). The Reporter no longer sets
+    context.json.status = "completed". It did so when every artifact path
+    "pointed at an existing file" -- existence, the same check that let four
+    `{}` files complete a run. The runner now owns that transition and sets
+    it only after every artifact validates and belongs to the run, the
+    failure analysis is finalized with a bug draft per Red failure, and the
+    release report is valid. The Reporter still writes both release reports
+    and their artifact_paths.
   - 2.0.0: MAJOR (task group 3.3, with failure-analysis schema 2.0).
     execution_summary now comes from the execution ledger
     (failure-analysis.execution_ledger) using the legacy projection defined
@@ -68,8 +76,10 @@ Produce a release report covering the full run:
   only after Phase 2 promotion.
 - Evidence paths and open questions.
 
-At the end of a successful run, the Reporter sets
-`context.json.status = "completed"`.
+The Reporter does **not** set `context.json.status`. The runner marks the
+run `completed` only after validating every artifact (`npm run pipeline --
+--resume`); "pipeline complete" is not "release passed" — the release
+recommendation stays whatever this report says.
 
 ---
 
@@ -126,9 +136,8 @@ After writing, the Reporter:
 
 - Updates `context.json.artifact_paths.release_report_md` and
   `release_report_json`.
-- Sets `context.json.status = "completed"` _only if_ every
-  `artifact_paths` value points at an existing file AND all four
-  `review_gates.*` are `true`.
+- Leaves `context.json.status` alone: the runner sets `completed` after
+  validating (an existing file is not proof; `{}` exists too).
 - Re-validates `context.json`.
 
 ---
@@ -141,7 +150,7 @@ After writing, the Reporter:
 | `release/release-report.json`                      | Created here                                                                  |
 | `context.json.artifact_paths.release_report_md`    | Updated here                                                                  |
 | `context.json.artifact_paths.release_report_json`  | Updated here                                                                  |
-| `context.json.status` (to `"completed"`)           | Updated here                                                                  |
+| `context.json.status`                              | **Not** updated here — the runner sets `completed` after validation           |
 | `release/bug-drafts/BUG-XXX.md` — `Jira Issue Key` | Updated here (Phase 2+ only, after `scripts/create-jira-bugs.js --apply` ran) |
 
 The Reporter is a co-owner of `release/bug-drafts/` (see
@@ -312,13 +321,10 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
 12. **Validate** with
     `node scripts/validate-json.js schemas/release-report.schema.json release/release-report.json`.
 13. **Update `context.json`** with the two new
-    `artifact_paths.release_report_*` values. If every other
-    `artifact_paths` value also points at an existing file AND all
-    four `review_gates.*` are passed (each is `true` or an object with
-    `status: true` — see the precondition note above), set
-    `context.json.status = "completed"`. Otherwise leave the
-    status untouched (Reporter will not silently flip a status
-    when prereqs aren't met).
+    `artifact_paths.release_report_*` values. Do **not** change
+    `status`: the runner marks the run `completed` only after every
+    artifact validates and belongs to this run, the failure analysis is
+    finalized, and every Red failure has its bug draft.
 14. **Re-validate** `context.json`.
 15. **(Optional, Phase 2 only) Sync execution results to TestLink.**
     After the release report is written, the human MAY ask the Reporter
@@ -367,8 +373,8 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
   real URLs, never a credential.
 - **The two report files agree.** A `pass` in the JSON next to a
   worried Markdown summary is unacceptable. Keep them in sync.
-- **`status: "completed"` is binding.** Once set, the run is over.
-  Don't set it if any artifact is missing or any gate is open.
+- **`status: "completed"` belongs to the runner.** It is set only after
+  validation; the Reporter never sets it.
 - **Bug drafts already created stay.** The Reporter does not edit
   the body of an existing draft (only the Jira Issue Key field).
   If the Reporter believes a draft is wrong, that's an
@@ -392,8 +398,8 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
   cannot promote a gate on its own.
 - Inlining large content (HTML reports, traces) into either the
   Markdown or JSON release report. Use paths only.
-- Setting `context.json.status = "completed"` when any prereq is
-  unmet.
+- Setting `context.json.status = "completed"` at all — the runner owns
+  that transition.
 
 ---
 
