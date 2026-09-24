@@ -159,15 +159,18 @@ out of _committed_ files, but tools may still record them in their
 report's `environment.values`. The HTML report retains them too.
 
 **How this is handled now (review finding I3).** CI no longer uploads the
-raw reporter output at all:
+raw reporter output at all. Since task group 3.2 every report is scoped to
+one execution, so a stale report can never be re-uploaded as current
+evidence (finding I4):
 
-| Path                              | Contains secrets? | Published? |
-| --------------------------------- | ----------------- | ---------- |
-| `reports/newman-results.json`     | **Yes**           | Never      |
-| `reports/newman-html/`            | **Yes**           | Never      |
-| `reports/published/newman-*.json` | No (allowlisted)  | Yes        |
+| Path                                                                | Contains secrets? | Published? |
+| ------------------------------------------------------------------- | ----------------- | ---------- |
+| `reports/<execution-id>/newman/<story>/<collection>.json`           | **Yes**           | Never      |
+| `reports/<execution-id>/newman/<story>/<collection>.html`           | **Yes**           | Never      |
+| `reports/<execution-id>/published/newman-<story>-<collection>.json` | No (allowlisted)  | Yes        |
+| `reports/newman-results.json` (legacy, pre-3.2)                     | **Yes**           | Never      |
 
-`scripts/run-newman.js` builds `reports/published/newman-<story>.json`
+`scripts/run-newman.js` builds the published summary
 from an explicit allowlist (`scripts/lib/report-sanitization.js`):
 identity, counts, statuses, timings, and sanitized error summaries only.
 Request/response bodies, environment and collection variables, cookies,
