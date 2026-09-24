@@ -12,7 +12,15 @@ reviewed_at, notes }` objects via `oneOf`. Phase 3 (TG8) adds a
 > `opened_at` gate-telemetry timestamp on the log events and the gate
 > audit objects. IMPROVEMENT-PLAN Phase 4 adds an optional `track`
 > (`lite`/`standard`/`full`) and `track_floor` (the lowest track this story
-> may use). All later changes are backward-compatible.
+> may use). Task group 4.3 adds optional approval binding: an approved gate
+> object carries `input_digest` (SHA-256 over the inputs it reviewed) and
+> `inputs` (the per-input digests), written only by the runner at a human
+> decision; and an optional `gate_invalidations[]` log of approvals returned
+> to pending because what they reviewed changed (separate from
+> `gate_decisions[]`, which holds only human decisions). An approved gate
+> without `input_digest` is a legacy approval and is re-reviewed on the next
+> `--resume`. No agent writes these fields (`docs/pipeline-runner.md` §4).
+> All later changes are backward-compatible.
 
 `context.json` is the **manifest** of a pipeline run. It sits at the
 project root, evolves throughout a single story's pass through the

@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-05-28T18-00-00Z-loginex",
+  "story": {
+    "id": "STORY-001",
+    "title": "Login — Successful sign-in",
+    "source": "manual",
+    "path": "story.md",
+    "description": "A registered, non-locked user can sign in with valid credentials and land on the home page that lists their available inventory."
+  },
+  "acceptance_criteria": [
+    "Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",
+    "Given an invalid password, when the user submits the form, then they remain on the login page and an error message explains the credentials were not accepted. No partial session is created.",
+    "Given a locked user, when they submit valid credentials, then they remain on the login page and an error message explains the account is locked. No session is created."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "A partial session is created on failed login, leaving the user in an ambiguous authenticated state.",
+      "severity": "high",
+      "related_acs": [1, 2]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "Locked-account check is enforced only in the UI, allowing API-level bypass.",
+      "severity": "high",
+      "related_acs": [2]
+    }
+  ],
+  "artifact_paths": {
+    "test_cases": "test-cases/STORY-001.json",
+    "planner_brief": "planner-input/STORY-001.planner-brief.md",
+    "playwright_spec": "specs/STORY-001.md",
+    "generated_test": "",
+    "execution_results": "",
+    "html_report": "",
+    "traces": "",
+    "screenshots": "",
+    "failure_analysis": "",
+    "release_report_md": "",
+    "release_report_json": "",
+    "bug_drafts_dir": "release/bug-drafts"
+  },
+  "review_gates": {
+    "requirements_reviewed": {
+      "status": true,
+      "reviewer": "qa-lead",
+      "reviewed_at": "2026-09-23T01:00:00Z",
+      "opened_at": "2026-09-23T01:00:00Z",
+      "notes": null,
+      "input_digest": "a6a440eb49a59d8ce9329ed6dd9c706300842c72dec4dd020bace435d5bc07a3",
+      "inputs": {
+        "story": "d4e2b63c450179ecafc759fd828e2b766f578c76fb5e8c7bcc6c001fe0ccb7bb",
+        "interpretation": "9bcef9d046b7df8581b45d84dc7fc53a3c407b634eb2addf0819249a3efa72c7"
+      }
+    },
+    "test_scope_reviewed": {
+      "status": true,
+      "reviewer": "qa-lead",
+      "reviewed_at": "2026-09-23T02:00:00Z",
+      "opened_at": "2026-09-23T02:00:00Z",
+      "notes": null,
+      "input_digest": "efb09243b21aaacd1acd58a8eb6d6b51f8aa238769492d47ba76542be109d3e6",
+      "inputs": {
+        "gate:requirements_reviewed": "a6a440eb49a59d8ce9329ed6dd9c706300842c72dec4dd020bace435d5bc07a3",
+        "test_cases": "534f63182ab8649fb12f89374d30ce749803f336248994f8fd1e2ca364e44020",
+        "planner_brief": "a3c6e9797ecd71bcdceabb85dde624b59b5bacfe59445b67b8c78df170c23557"
+      }
+    },
+    "specs_reviewed": {
+      "status": false,
+      "reviewer": null,
+      "reviewed_at": null,
+      "opened_at": null,
+      "notes": null
+    },
+    "code_reviewed": false
+  },
+  "status": "in_progress",
+  "gate_invalidations": [
+    {
+      "gate": "specs_reviewed",
+      "invalidated_at": "2026-09-23T04:00:00.000Z",
+      "reason": "reviewed inputs changed since approval: playwright_spec",
+      "approved_digest": "91c8805883bfbb364da6f918f667a246943841be16885079e98a89037e5993dc",
+      "current_digest": "cf19a34d62493ed474f9fa53b89187a863b6cdebbb66eae035229a18cc5dd174",
+      "changed_inputs": ["playwright_spec"],
+      "previous_reviewer": "qa-lead",
+      "previous_reviewed_at": "2026-09-23T03:00:00Z"
+    }
+  ]
+}

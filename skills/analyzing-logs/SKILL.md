@@ -43,8 +43,12 @@ have shipped.
 
 ## Hard precondition
 
-If `context.json.review_gates.code_reviewed != true`, **stop**. Do not
-classify failures of code that has not been through Gate 4.
+If `context.json.review_gates.code_reviewed` is not passed (`true` or
+`{ status: true }`), **stop**. Do not classify failures of code that has not
+been through Gate 4. The approval must also be current: `npm run pipeline --
+--status` must not report it stale. Approvals are bound to what they reviewed
+(task group 4.3), so code changed after Gate 4 is code that has not been
+reviewed.
 
 ## What this skill produces
 

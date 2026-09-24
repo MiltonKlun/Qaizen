@@ -164,10 +164,44 @@ Gate decisions are captured with `node:readline` on a **real terminal**:
   that looks like one is refused outright (exit 2) before anything runs.
 
 This is enforced by tests (`test/run-pipeline.test.js`,
-`test/scripts-smoke.test.js`) and proves **by construction** that no CI job,
-script, or agent can ever pass a gate: every CI stdin is a pipe, and the
-only path to an approval is a human typing at a terminal. A separate smoke
-test asserts no GitHub workflow invokes the runner at all.
+`test/scripts-smoke.test.js`): the runner offers **no path** for a CI job,
+script, or agent to approve a gate — every CI stdin is a pipe, and a separate
+smoke test asserts no GitHub workflow invokes the runner at all.
+
+**What the TTY check is not.** It protects ordinary non-interactive entry. It
+is **not authentication** (a process can allocate a pseudo-terminal) and
+`context.json` is **not tamper-proof** (anyone who can edit it can edit a gate).
+So "agents and CI never approve a gate" stays a rule of conduct, backed by
+review — and by binding: every approval records a digest of exactly what was
+reviewed (next section), so a change made after it is visible and returns the
+gate to pending rather than passing silently.
+
+### Approvals are bound to what was reviewed (task group 4.3)
+
+At a human approval the runner records `input_digest` (and the per-input
+digests) on the gate:
+
+| Gate                     | Bound to                                                                                                |
+| ------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Gate 1                   | the story file + the interpreted ACs, risks, ambiguities and `track`                                    |
+| Gate 2                   | Gate 1's digest + the test cases (semantic content) + the planner brief                                 |
+| Gate 3                   | Gate 2's digest + the spec + the planner/generator prompt versions                                      |
+| Gate 4                   | Gate 3's digest + the generated test + `tests/fixtures/` + `playwright.config.ts` + `package-lock.json` |
+| lite `qa_scope_approved` | the union of the Gate 1 and Gate 2 inputs                                                               |
+
+On every `--resume`, an approval whose inputs changed — or a legacy approval
+recorded before binding existed — returns to **pending**, together with every
+approval that depended on it. The reason is recorded in `gate_invalidations[]`;
+`gate_decisions[]` (the human history) is never rewritten and no rejection is
+invented. `--status` reports stale approvals without changing anything. The
+digests ignore formatting, line endings, and the ids adapters write back
+(`external_ids`, `testlink_id`): adding a Jira id to a test case does not
+invalidate the approval of its content. The classifier and the TestLink/Jira
+adapters apply the same check, so no entry point acts on a stale approval.
+
+Gate 2 does not prompt while any test case is still `draft`: the per-case
+decisions are part of the scope you approve, so they are made **before** the
+approval rather than after it (which would make it stale at once).
 
 ### FAQ: "Why is there no `--approve` flag? It would make scripting easier."
 

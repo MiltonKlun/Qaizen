@@ -11,6 +11,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { bindingFor } from '../../scripts/lib/approval-binding.js';
+
 const REPO = process.cwd();
 const gold = (p) => JSON.parse(readFileSync(join(REPO, p), 'utf8'));
 
@@ -68,13 +70,7 @@ export function writeCompletedRun(dir, opts = {}, overrides = {}) {
   const ctx = runContext({ ...opts, storyId, runId });
   const own = (doc) => ({ ...doc, story_id: storyId, run_id: runId });
 
-  const tc = own(
-    gold('examples/expected/login-success.expected-test-cases.json')
-  );
-  // E2E-only: an API case would also require a Newman execution.
-  tc.test_cases = tc.test_cases.filter(
-    (c) => c.automation_decision !== 'automate_api'
-  );
+  const tc = validTestCases(storyId, runId);
 
   const ledger = own(
     gold('examples/expected/mixed-run.expected-execution-ledger.json')
@@ -134,6 +130,19 @@ export function writeCompletedRun(dir, opts = {}, overrides = {}) {
   for (const [p, c] of Object.entries(files)) {
     if (c !== null) write(p, typeof c === 'string' ? c : JSON.stringify(c));
   }
+  // Every approved gate is BOUND to what now exists (task group 4.3), exactly
+  // as the runner records it at a human decision. An unbound approval is a
+  // legacy one the runner returns to pending. Computed after the overrides are
+  // written, so an approved run reflects its final inputs; a test that wants
+  // "approved, then changed" makes its change after this returns.
+  for (const gate of Object.keys(ctx.review_gates)) {
+    const v = ctx.review_gates[gate];
+    if (v && typeof v === 'object' && v.status === true) {
+      ctx.review_gates[gate] = { ...v, ...bindingFor(gate, ctx, dir) };
+    }
+  }
+  write('context.json', JSON.stringify(ctx, null, 2));
+
   // Written LAST so it is newer than the generated test it ran.
   if (overrides['reports/results.json'] === undefined) {
     write(
@@ -144,15 +153,30 @@ export function writeCompletedRun(dir, opts = {}, overrides = {}) {
   return ctx;
 }
 
-/** Schema-valid, E2E-only test cases owned by the given story and run. */
+/** Bind one approved gate of a context to what exists under `dir`. */
+export function bindGate(ctx, gate, dir) {
+  ctx.review_gates[gate] = {
+    status: true,
+    reviewer: 'h',
+    reviewed_at: GATE.reviewed_at,
+    ...bindingFor(gate, ctx, dir),
+  };
+  return ctx;
+}
+
+/**
+ * Schema-valid, E2E-only test cases owned by the given story and run, each
+ * DECIDED (`approved`): per-case decisions are part of the scope Gate 2
+ * approves, and `draft` is not valid after it (docs/review-gates.md).
+ */
 export function validTestCases(storyId, runId) {
   const tc = gold('examples/expected/login-success.expected-test-cases.json');
   return {
     ...tc,
     story_id: storyId,
     run_id: runId,
-    test_cases: tc.test_cases.filter(
-      (c) => c.automation_decision !== 'automate_api'
-    ),
+    test_cases: tc.test_cases
+      .filter((c) => c.automation_decision !== 'automate_api')
+      .map((c) => ({ ...c, status: 'approved' })),
   };
 }

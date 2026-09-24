@@ -11,9 +11,14 @@ description: |
   run completed: the runner does, after validating every artifact.
 phase_introduced: 1
 phase_active: 1+
-version: 3.0.0
+version: 3.1.0
 changed_in_run: null
 changelog: |
+  - 3.1.0: MINOR (task group 4.3). Gate 4 must be current, not only passed. Approvals are now bound
+    to a digest of the inputs they reviewed; a gate whose inputs changed
+    is not passed even if `status` still reads true, so the gate check
+    also requires `npm run pipeline -- --status` to show no stale
+    approval. Precondition only; no output change.
   - 3.0.0: MAJOR (task group 4.2, finding I6). The Reporter no longer sets
     context.json.status = "completed". It did so when every artifact path
     "pointed at an existing file" -- existence, the same check that let four
@@ -166,7 +171,11 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
 ## 5. Instructions
 
 1. **Verify Gate 4.** If `code_reviewed` is not passed (neither `true`
-   nor `{ status: true }`), stop.
+   nor `{ status: true }`), stop. The approval must also be **current**: `npm run pipeline -- --status` must
+   not report it as a stale approval. An approval is bound to a digest of
+   what it reviewed (task group 4.3); once those inputs change it no longer
+   counts, even though `status` may still read `true` until the next
+   `--resume` returns it to pending.
 2. **Verify `analysis/failure-analysis.json` exists** and validates.
    If it doesn't, stop and surface — the Reporter cannot fabricate
    the classification. For `schema_version` 2.x it must also have

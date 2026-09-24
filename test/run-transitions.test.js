@@ -29,7 +29,11 @@ import {
 } from 'node:fs';
 import { delimiter, join } from 'node:path';
 
-import { runContext, writeCompletedRun } from './helpers/valid-run.js';
+import {
+  runContext,
+  writeCompletedRun,
+  validTestCases,
+} from './helpers/valid-run.js';
 import { progressGuard } from '../scripts/run-pipeline.js';
 
 const REPO = process.cwd();
@@ -366,11 +370,15 @@ test('a Red failure whose bug draft is missing blocks completion', () => {
 test('an API story is not complete until its Newman branch ran', () => {
   const dir = repo();
   try {
-    writeCompletedRun(dir, { status: 'in_progress' });
-    const p = join(dir, 'test-cases', 'OLD-1.json');
-    const tc = JSON.parse(readFileSync(p, 'utf8'));
+    // The API case is part of the APPROVED scope, so it is written before the
+    // gates are bound (editing it afterwards would make Gate 2 stale).
+    const tc = validTestCases('OLD-1', 'old-run-1');
     tc.test_cases[0].automation_decision = 'automate_api';
-    writeFileSync(p, JSON.stringify(tc));
+    writeCompletedRun(
+      dir,
+      { status: 'in_progress' },
+      { 'test-cases/OLD-1.json': JSON.stringify(tc) }
+    );
     write(dir, 'api-tests/collections/OLD-1.postman_collection.json', '{}');
     const r = pipeline(dir, ['--status']);
     assert.match(r.out, /Next step: execute-api/, r.out);

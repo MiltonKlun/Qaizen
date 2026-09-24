@@ -48,6 +48,7 @@ import {
   UNIT_OUTCOMES,
 } from './lib/execution-ledger.js';
 import { classifyUnit } from './lib/classify-failure.js';
+import { requireCurrentGate } from './lib/approval-binding.js';
 
 const OUT = 'analysis/failure-analysis.json';
 // Resolved from this script's location, not the CWD: the pipeline runner may
@@ -86,12 +87,12 @@ if (!existsSync('context.json')) {
 const context = JSON.parse(readFileSync('context.json', 'utf8'));
 
 // Gate 4 precondition (same rule as the Failure Classifier Agent).
-const g = context.review_gates?.code_reviewed;
-if (!(g === true || (g && g.status === true))) {
-  console.error(
-    'Gate 4 (code_reviewed) is not passed; refusing to classify. Classifying ' +
-      'unreviewed code is forbidden (agents/failure-classifier.md §2).'
-  );
+// An approval counts only while it still matches what was reviewed
+// (task group 4.3): a gate approved before the test cases or code changed
+// is not a licence to classify.
+const gateCheck = requireCurrentGate(context, 'code_reviewed', '.');
+if (!gateCheck.ok) {
+  console.error(`Gate 4: ${gateCheck.reason}. Refusing to classify.`);
   exit(2);
 }
 

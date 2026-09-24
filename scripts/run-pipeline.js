@@ -63,6 +63,12 @@ import {
   latestNewmanExecution,
 } from './lib/run-artifacts.js';
 import { writeJsonAtomic, formatErrors } from './lib/artifact-io.js';
+import {
+  bindingFor,
+  gateDigest,
+  findInvalidations,
+  applyInvalidations,
+} from './lib/approval-binding.js';
 
 // Sibling scripts / schemas resolve against THIS file's location, not the
 // CWD — so the runner works when driven from an isolated run workspace
@@ -257,15 +263,19 @@ function gatherHints(context) {
 export function applyGateDecision(
   context,
   gateKey,
-  { decision, reviewer, notes, openedAt, decidedAt }
+  { decision, reviewer, notes, openedAt, decidedAt, bindings = {} }
 ) {
   const approved = decision === 'approved';
+  // `bindings` is computed by the I/O code at the moment of the human
+  // decision (scripts/lib/approval-binding.js): the digest of exactly what
+  // was reviewed. Recorded on approval only (task group 4.3).
   context.review_gates[gateKey] = {
     status: approved,
     reviewer: reviewer || null,
     reviewed_at: decidedAt,
     opened_at: openedAt,
     notes: notes || null,
+    ...(approved ? (bindings[gateKey] ?? {}) : {}),
   };
   // The lite consolidated gate (qa_scope_approved) ALSO sets the two
   // underlying gates so a tool that only knows the four-gate model still
@@ -279,6 +289,7 @@ export function applyGateDecision(
         reviewed_at: decidedAt,
         opened_at: openedAt,
         notes: `Consolidated via qa_scope_approved (lite track).`,
+        ...(bindings[k] ?? {}),
       };
     }
   }
@@ -344,6 +355,16 @@ async function runGateInteractive(step, context) {
   }
 
   const openedAt = new Date().toISOString();
+  // The inputs this decision will be bound to, as they are while the brief is
+  // on screen. If they change before the decision, the reviewer approved
+  // something that no longer exists, so the approval is refused.
+  const boundGates =
+    gateKey === 'qa_scope_approved'
+      ? ['qa_scope_approved', 'requirements_reviewed', 'test_scope_reviewed']
+      : [gateKey];
+  const reviewedDigests = Object.fromEntries(
+    boundGates.map((g) => [g, gateDigest(g, context, '.')])
+  );
 
   // Gather + validate the artifacts this gate reviews, then render the brief.
   const artifacts = GATE_BRIEFS[step]
@@ -431,12 +452,26 @@ async function runGateInteractive(step, context) {
       ).trim();
     }
 
+    const bindings = Object.fromEntries(
+      boundGates.map((g) => [g, bindingFor(g, context, '.')])
+    );
+    const moved = boundGates.filter(
+      (g) => bindings[g].input_digest !== reviewedDigests[g]
+    );
+    if (decision === 'approved' && moved.length) {
+      console.error(
+        `The inputs of ${moved.join(', ')} changed while the brief was open. ` +
+          'Nothing was recorded; re-run to review what exists now.'
+      );
+      exit(1);
+    }
     applyGateDecision(context, gateKey, {
       decision,
       reviewer,
       notes,
       openedAt,
       decidedAt: new Date().toISOString(),
+      bindings,
     });
     writeContext(context);
 
@@ -445,13 +480,9 @@ async function runGateInteractive(step, context) {
       console.log(`To redo: ${REDO_AFTER_REJECT[step]}`);
       exit(1);
     }
-    console.log(`\n${gateKey}: approved — recorded with telemetry.`);
-    if (step === 'gate2') {
-      console.log(
-        'Reminder: set per-TC status to approved/rejected in the test-cases\n' +
-          'file (Test Designer ownership — the runner does not edit it).'
-      );
-    }
+    console.log(
+      `\n${gateKey}: approved — recorded with telemetry and bound to the reviewed inputs.`
+    );
   } finally {
     rl.close();
   }
@@ -528,6 +559,24 @@ function gateInputProblems(step, context) {
     } else {
       const r = checkArtifact(req, context, '.');
       if (!r.ok) problems.push(`${req} ${r.reason}`);
+      // The per-case decisions are part of the scope being approved, so they
+      // are made BEFORE the approval (task group 4.3). Flipping them after
+      // it would change the reviewed test cases and make the approval stale.
+      if (
+        req === 'test_cases' &&
+        r.ok &&
+        (step === 'gate2' || step === 'qa_scope')
+      ) {
+        const drafts = (r.data.test_cases ?? [])
+          .filter((c) => c.status === 'draft')
+          .map((c) => c.test_case_id);
+        if (drafts.length) {
+          problems.push(
+            `test case(s) ${drafts.join(', ')} are still "draft": set each to "approved" or ` +
+              '"rejected" in the test-cases file first — the per-case decisions are part of the scope you approve'
+          );
+        }
+      }
     }
   }
   return problems;
@@ -658,6 +707,18 @@ function execStep(step, context) {
 }
 
 // --------------------------------------------------------------- status ---
+/**
+ * The run as it stands once stale approvals are taken into account, WITHOUT
+ * writing anything (for --status and completion checks).
+ */
+function currentView(context) {
+  if (!context) return { view: context, invalidations: [] };
+  const invalidations = findInvalidations(context, '.');
+  if (!invalidations.length) return { view: context, invalidations };
+  const view = applyInvalidations(structuredClone(context), invalidations);
+  return { view, invalidations };
+}
+
 function printStatus(context, hints) {
   if (!context) {
     console.log('No run in progress (no context.json).');
@@ -724,7 +785,9 @@ function stagedRunLine() {
  */
 function runIsComplete(context) {
   if (!context || !checkContext(context).ok) return false;
-  return nextStep(context, gatherHints(context)) === 'done';
+  // A stale approval means the run is not complete (task group 4.3).
+  const { view } = currentView(context);
+  return nextStep(view, gatherHints(view)) === 'done';
 }
 
 // ----------------------------------------------------------------- main ---
@@ -745,7 +808,13 @@ async function main() {
         `Staged run ${pending.new_story.run_id} (${pending.new_story.ref}) is waiting for the Analyst.`
       );
     }
-    printStatus(context, gatherHints(context));
+    const { view, invalidations } = currentView(context);
+    for (const inv of invalidations) {
+      console.log(
+        `Stale approval: ${inv.gate} — ${inv.reason} (the next --resume returns it to pending).`
+      );
+    }
+    printStatus(view, gatherHints(view));
     exit(0);
   }
 
@@ -839,6 +908,24 @@ async function main() {
     if (!valid.ok) {
       console.error(`context.json ${valid.reason}; fix it before resuming.`);
       exit(2);
+    }
+  }
+
+  // Approvals are bound to what they reviewed (task group 4.3). One that no
+  // longer matches -- or that predates binding -- returns to pending here,
+  // with a separate invalidation event; the human's decision history in
+  // gate_decisions[] is never rewritten, and no rejection is invented.
+  if (context) {
+    const invalidations = findInvalidations(context, '.');
+    if (invalidations.length) {
+      applyInvalidations(context, invalidations);
+      writeContext(context);
+      console.log(
+        'Approvals returned to pending (they no longer match what they reviewed):'
+      );
+      for (const inv of invalidations)
+        console.log(`  - ${inv.gate}: ${inv.reason}`);
+      console.log('');
     }
   }
 
