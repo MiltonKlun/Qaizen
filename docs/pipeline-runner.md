@@ -56,24 +56,100 @@ A full loop looks like:
 --story → [analyst step: you run the agent] → --resume → GATE 1 (interactive)
 → [test-designer step] → --resume → GATE 2 → [planner step] → --resume
 → [api step, if automate_api cases] → GATE 3 → [generator step] → --resume
-→ GATE 4 → execute (runner runs npx playwright test) → classify (runner runs
-the rule-based classifier) → [reporter step] → --resume → done
+→ GATE 4 → execute (runner runs npx playwright test) → [execute-api step, if
+automate_api cases] → classify (runner normalizes, then runs the rule-based
+pre-classifier) → [finalize step: the Failure Classifier agent] → --resume
+→ [reporter step] → --resume → done (the runner marks the run completed)
 ```
 
 When the run completes the runner reminds you of the two post-run habits:
-`npm run new-run <story-id>` (archive) and `npm run session-summary` (feed
-`/evolve`).
+archiving (automatic when the next story starts, or `npm run new-run -- <story-id>`
+by hand) and `npm run session-summary` (feed `/evolve`).
+
+### Starting a new story, and resuming (task group 4.1)
+
+`--story` **starts a new run**; `--resume` (or no flag) **continues the current
+one**; `--status` only reads. Combining `--story` with `--resume`, or `--status`
+with either, is refused before anything is fetched or written.
+
+What `--story` does depends on the run already at the root, and it decides
+**before writing anything**, so every refusal leaves the root exactly as it was:
+
+| Root state                                     | `--story <ref>`                                                                                                                   |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| No run                                         | Stages the story under a new run id. Next step: Analyst.                                                                          |
+| **Completed** run                              | Archives it to `runs/<story>/<id>/` (every file verified by SHA-256), removes its files from the root, then stages the new story. |
+| **Incomplete** run, different story            | **Refused.** Continue it with `--resume`, or set it aside deliberately with `npm run new-run -- <story-id> --clear`, then retry.  |
+| Incomplete run, the **same** story             | **Refused** — repeating `--story` is not a silent reset. Use `--resume`.                                                          |
+| Files that cannot be attributed to the old run | **Refused**, listing them. Nothing is archived or removed until you move them.                                                    |
+| A `story.md` the runner did not stage          | **Refused** rather than overwritten.                                                                                              |
+
+Only the run's **own** artifacts are archived: `context.json`, `story.md`, the
+files its `artifact_paths` name, files named for the story, and the run-scoped
+singletons (failure analysis, execution ledger, release report, bug drafts,
+healer output). The reusable seed test, `tests/fixtures/`, `.gitkeep` files and
+`reports/` stay where they are. Archives are byte-identical to what the run
+produced — they are evidence, so they are never reformatted.
+
+**The staged run id.** The runner gives each new run a unique id and prints it
+in the Analyst instruction. The Analyst must write that id into
+`context.json.run_id`; the runner refuses a context whose `run_id` does not
+match, or whose `story.md` changed after staging.
+
+**If a transition is interrupted.** The file movement is tracked in
+`.qaizen/transition.json` (local, never committed; staging lives in
+`.qaizen/staging/`). It records file movement only — gates and steps still come
+from `context.json`. **Recovery command: `npm run pipeline -- --resume`**, which
+finishes or undoes it before doing anything else, deterministically:
+
+- interrupted **before** the archive was verified → **rolled back**: nothing at
+  the root had changed, and the previous run is still current;
+- interrupted **after** the archive was verified (while removing old files or
+  installing the new story) → **rolled forward**: the old run is safe in its
+  archive, so the transition is completed.
+
+`--status` reports a pending transition but never touches it.
 
 ## 3. Guide steps vs exec steps
 
-| Kind      | Steps                                                   | Who acts                                                                                            |
-| --------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| **Guide** | analyst, test-designer, planner, api, generator, report | **You + the agent.** The runner prints the exact instruction and exits; it never fakes an LLM step. |
-| **Gate**  | gate1, gate2, gate3, gate4                              | **You, interactively.** Brief rendered, decision captured, audit + telemetry written.               |
-| **Exec**  | execute, classify                                       | **The runner.** Deterministic: `npx playwright test`, then `scripts/run-failure-classifier.js`.     |
+| Kind      | Steps                                                                          | Who acts                                                                                            |
+| --------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| **Guide** | analyst, test-designer, planner, api, generator, execute-api, finalize, report | **You + the agent.** The runner prints the exact instruction and exits; it never fakes an LLM step. |
+| **Gate**  | gate1, gate2, gate3, gate4                                                     | **You, interactively.** Brief rendered, decision captured, audit + telemetry written.               |
+| **Exec**  | execute, classify                                                              | **The runner.** Deterministic: `npx playwright test`, then `normalize-results.js` → the classifier. |
 
 Playwright failures at the execute step are **data for the classifier**, not
-a runner error — the runner continues to `classify` either way. The
+a runner error — a failing suite with a valid report continues to
+`classify`. A test runner that **could not start, or wrote no valid report of
+this code**, is a runner error: the runner stops after that one launch instead
+of relaunching (finding B4 — the old runner ignored the launch result and
+looped).
+
+### What "produced" and "complete" mean (task group 4.2)
+
+An artifact counts as produced only when it **exists, validates against its
+schema, and belongs to this run** (same `story_id` and `run_id`). Text
+artifacts must be non-empty; the Playwright report must be a real report
+written after the generated test last changed and after Gate 4 approved it.
+File existence alone used to be enough, so four `{}` files could make
+`--resume` print "Run complete" (finding I6). Anything not accepted is listed
+with its reason, and the step that produces it comes next. `context.json`
+itself must validate before any step is derived, and it is validated in memory
+**before** each write, so a rejected update never reaches the disk.
+
+A gate does not even prompt while an input it reviews is missing or invalid —
+a broken machine-readable contract is not a judgment call.
+
+The run is **complete** only when every gate is passed, the execution evidence
+is valid (including the Newman branch for a story with API cases), the failure
+analysis is **finalized** with a bug draft on disk for every Red failure, and
+the release report is valid. Only then does the runner set
+`status: "completed"` — the Reporter no longer does. "Pipeline complete" is
+not "release passed": the runner prints the report's recommendation alongside.
+
+Within one invocation the runner never runs the same step twice on unchanged
+state; a step that "succeeds" without changing anything stops with a
+diagnostic instead of looping. The
 classifier itself enforces its own Gate-4 precondition (it refuses to
 classify unreviewed code), which the sequencing already guarantees.
 
@@ -88,10 +164,44 @@ Gate decisions are captured with `node:readline` on a **real terminal**:
   that looks like one is refused outright (exit 2) before anything runs.
 
 This is enforced by tests (`test/run-pipeline.test.js`,
-`test/scripts-smoke.test.js`) and proves **by construction** that no CI job,
-script, or agent can ever pass a gate: every CI stdin is a pipe, and the
-only path to an approval is a human typing at a terminal. A separate smoke
-test asserts no GitHub workflow invokes the runner at all.
+`test/scripts-smoke.test.js`): the runner offers **no path** for a CI job,
+script, or agent to approve a gate — every CI stdin is a pipe, and a separate
+smoke test asserts no GitHub workflow invokes the runner at all.
+
+**What the TTY check is not.** It protects ordinary non-interactive entry. It
+is **not authentication** (a process can allocate a pseudo-terminal) and
+`context.json` is **not tamper-proof** (anyone who can edit it can edit a gate).
+So "agents and CI never approve a gate" stays a rule of conduct, backed by
+review — and by binding: every approval records a digest of exactly what was
+reviewed (next section), so a change made after it is visible and returns the
+gate to pending rather than passing silently.
+
+### Approvals are bound to what was reviewed (task group 4.3)
+
+At a human approval the runner records `input_digest` (and the per-input
+digests) on the gate:
+
+| Gate                     | Bound to                                                                                                |
+| ------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Gate 1                   | the story file + the interpreted ACs, risks, ambiguities and `track`                                    |
+| Gate 2                   | Gate 1's digest + the test cases (semantic content) + the planner brief                                 |
+| Gate 3                   | Gate 2's digest + the spec + the planner/generator prompt versions                                      |
+| Gate 4                   | Gate 3's digest + the generated test + `tests/fixtures/` + `playwright.config.ts` + `package-lock.json` |
+| lite `qa_scope_approved` | the union of the Gate 1 and Gate 2 inputs                                                               |
+
+On every `--resume`, an approval whose inputs changed — or a legacy approval
+recorded before binding existed — returns to **pending**, together with every
+approval that depended on it. The reason is recorded in `gate_invalidations[]`;
+`gate_decisions[]` (the human history) is never rewritten and no rejection is
+invented. `--status` reports stale approvals without changing anything. The
+digests ignore formatting, line endings, and the ids adapters write back
+(`external_ids`, `testlink_id`): adding a Jira id to a test case does not
+invalidate the approval of its content. The classifier and the TestLink/Jira
+adapters apply the same check, so no entry point acts on a stale approval.
+
+Gate 2 does not prompt while any test case is still `draft`: the per-case
+decisions are part of the scope you approve, so they are made **before** the
+approval rather than after it (which would make it stale at once).
 
 ### FAQ: "Why is there no `--approve` flag? It would make scripting easier."
 

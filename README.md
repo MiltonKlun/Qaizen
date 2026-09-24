@@ -158,7 +158,8 @@ flowchart LR
 | `npm run demo:pipeline` | Offline 10-minute demo of the full flow |
 | `npm test` | Run the generated Playwright E2E suite |
 | `npm run test:api` | Run the Postman collections via Newman |
-| `npm run classify` | Rule-based failure classification (🟩 / 🟨 / 🟥) |
+| `npm run normalize -- --story <id> ...` | Normalize runner reports into one execution ledger (the counting model) |
+| `npm run classify` | Rule-based failure pre-classification from the ledger (🟩 / 🟨 / 🟥), written as a draft |
 | `npm run heal` | Guardrailed healer — produces reviewable patches, never commits |
 | `npm run metrics` | Aggregate pipeline metrics from run history |
 | `npm run validate:all` | Validate every committed artifact against its schema |

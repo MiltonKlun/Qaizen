@@ -1,11 +1,22 @@
 #!/usr/bin/env node
-// CI summary (Phase 2 TG8). Reads the Playwright JSON report
-// (reports/results.json) and the SANITIZED Newman summaries
-// (reports/published/newman-*.json, one per collection) if present, counts
-// total/passed/failed/skipped per source, and writes a Markdown summary to
-// stdout AND to
-// $GITHUB_STEP_SUMMARY when that env var points at a file (it does inside
-// GitHub Actions).
+// CI summary (Phase 2 TG8; execution scoping + honest zero from task group
+// 3.2). Reads, in order of preference:
+//
+//   1. a normalized execution ledger (analysis/execution-ledger.json), which
+//      already separates flaky/blocked/expected_failure from passes;
+//   2. the SANITIZED Newman summaries for ONE execution
+//      (reports/<execution-id>/published/newman-*.json);
+//   3. the Playwright JSON report (reports/results.json).
+//
+// It counts total/passed/failed/skipped per source and writes a Markdown
+// summary to stdout AND to $GITHUB_STEP_SUMMARY when that env var points at a
+// file (it does inside GitHub Actions).
+//
+// Two things this must never do (task group 3.2):
+//   * count a report from an unrelated execution as current evidence, which
+//     the old flat reports/published/ glob did (finding I4);
+//   * report zero verified units as success. A published summary of all zeros
+//     used to render as ":white_check_mark: No test failures".
 //
 // This does NOT replace analysis/failure-analysis.json — that is the
 // Failure Classifier Agent's classified, severity-bearing output. This is
@@ -33,13 +44,44 @@ import { argv, env, exit } from 'node:process';
 const FAIL_ON_TEST_FAILURE = argv.includes('--fail-on-test-failure');
 
 const PW_PATH = 'reports/results.json';
-// Sanitized Newman summaries, one per collection (task group 1.1, I3). CI
-// uploads ONLY this subtree; the raw reporter output is secret-bearing and
-// stays on the runner.
-const PUBLISHED_DIR = 'reports/published';
-// Legacy single raw report. Kept as an explicit compatibility read for local
-// runs that predate reports/published/ — never the CI path.
+const LEDGER_PATH = env.QAIZEN_LEDGER || 'analysis/execution-ledger.json';
+// Sanitized Newman summaries live under ONE execution directory (task group
+// 3.2). CI uploads only this subtree; the raw reporter output is
+// secret-bearing and stays on the runner.
+const REPORTS_ROOT = 'reports';
+// Legacy flat locations. Kept as EXPLICIT compatibility reads for local runs
+// that predate the per-execution layout — never the CI write path.
+const LEGACY_PUBLISHED_DIR = 'reports/published';
 const LEGACY_NEWMAN_PATH = 'reports/newman-results.json';
+
+/**
+ * Find the published directory for the execution being summarized.
+ *
+ * An explicit execution id wins. Otherwise the most recent execution
+ * directory is used -- and, crucially, only ONE of them: globbing every
+ * reports/published/*.json let a stale file from an unrelated story
+ * contribute passing assertions to the current run's totals (I4).
+ */
+function resolvePublishedDir() {
+  const explicit = env.QAIZEN_EXECUTION_ID;
+  if (explicit) {
+    const dir = join(REPORTS_ROOT, explicit, 'published');
+    return existsSync(dir)
+      ? { dir, executionId: explicit }
+      : { dir: null, executionId: explicit };
+  }
+  if (!existsSync(REPORTS_ROOT)) return { dir: null, executionId: null };
+  const executions = readdirSync(REPORTS_ROOT, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && e.name.startsWith('exec-'))
+    .map((e) => e.name)
+    .sort();
+  if (executions.length === 0) return { dir: null, executionId: null };
+  const latest = executions[executions.length - 1];
+  const dir = join(REPORTS_ROOT, latest, 'published');
+  return existsSync(dir)
+    ? { dir, executionId: latest }
+    : { dir: null, executionId: latest };
+}
 
 function readReport(path) {
   if (!existsSync(path)) return null;
@@ -104,9 +146,9 @@ function summarizePublishedNewman(view, label) {
   };
 }
 
-function readPublishedNewman() {
-  if (!existsSync(PUBLISHED_DIR)) return [];
-  return readdirSync(PUBLISHED_DIR, { withFileTypes: true })
+function readPublishedFrom(dir) {
+  if (!dir || !existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true })
     .filter(
       (e) =>
         e.isFile() && e.name.startsWith('newman-') && e.name.endsWith('.json')
@@ -114,7 +156,7 @@ function readPublishedNewman() {
     .map((e) => e.name)
     .sort()
     .map((name) => {
-      const view = readReport(join(PUBLISHED_DIR, name));
+      const view = readReport(join(dir, name));
       if (!view) return null;
       const label =
         view.collection_id ||
@@ -125,17 +167,109 @@ function readPublishedNewman() {
     .filter(Boolean);
 }
 
-const rows = [];
-const pw = readReport(PW_PATH);
-if (pw) rows.push(summarizePlaywright(pw));
+/**
+ * Summarize a normalized execution ledger.
+ *
+ * Preferred over raw reports because the ledger already distinguishes the
+ * outcomes the raw reports conflate: flaky is not a pass, a declared expected
+ * failure is not a pass, and a blocked unit is not a skip.
+ */
+function summarizeLedger(ledger) {
+  const t = ledger?.totals ?? {};
+  const n = (k) => t[k] ?? 0;
+  return {
+    source: `Execution ledger (${ledger.story_id ?? 'unknown story'})`,
+    // The projection defined once in scripts/lib/execution-ledger.js.
+    total:
+      n('passed') +
+      n('failed') +
+      n('flaky') +
+      n('skipped') +
+      n('blocked') +
+      n('not_run') +
+      n('expected_failure'),
+    passed: n('passed'),
+    failed: n('failed') + n('blocked') + n('flaky'),
+    skipped: n('skipped') + n('not_run') + n('expected_failure'),
+    flaky: n('flaky'),
+    sourceErrors: n('source_error_count'),
+  };
+}
 
-const published = readPublishedNewman();
-if (published.length > 0) {
-  rows.push(...published);
+/**
+ * The one-line verdict.
+ *
+ * `combined.failed === 0` is NOT sufficient for a green check: a run that
+ * verified nothing also has zero failures. Zero counted units means the
+ * evidence is missing, which is a problem to surface, not a pass.
+ */
+function verdict(combined) {
+  if (combined.sourceErrors > 0) {
+    return (
+      `> :red_circle: **${combined.sourceErrors} run-level error(s)** occurred ` +
+      '(setup/teardown/report). Per-unit results for the affected execution are ' +
+      'incomplete, so this tally understates what was left unverified.'
+    );
+  }
+  if (combined.total === 0) {
+    return (
+      '> :warning: **Zero verified units.** Reports were found but contain no ' +
+      'counted test units, so nothing was verified. This is not a pass — check ' +
+      'that the suites actually ran.'
+    );
+  }
+  if (combined.failed > 0) {
+    return (
+      `> :red_circle: **${combined.failed} failed.** See the uploaded Playwright / ` +
+      'Newman report artifacts. Classification + severity come from the Failure ' +
+      'Classifier (`analysis/failure-analysis.json`), not this tally.'
+    );
+  }
+  return `> :white_check_mark: ${combined.passed} unit(s) passed, no failures.`;
+}
+
+const rows = [];
+const notes = [];
+
+// 1) A normalized ledger is the most trustworthy source: it has already
+//    separated flaky/blocked/expected_failure from real passes.
+const ledger = readReport(LEDGER_PATH);
+if (ledger) {
+  rows.push(summarizeLedger(ledger));
 } else {
-  // Compatibility: a local run that produced only the legacy raw report.
-  const newman = readReport(LEGACY_NEWMAN_PATH);
-  if (newman) rows.push(summarizeNewman(newman));
+  // 2) Otherwise fall back to the raw reports for this execution only.
+  const pw = readReport(PW_PATH);
+  if (pw) rows.push(summarizePlaywright(pw));
+
+  const { dir, executionId } = resolvePublishedDir();
+  const published = readPublishedFrom(dir);
+  if (published.length > 0) {
+    rows.push(...published);
+    if (executionId)
+      notes.push(`Newman summaries from execution \`${executionId}\`.`);
+  } else {
+    if (executionId && !dir) {
+      notes.push(
+        `No published Newman summaries for execution \`${executionId}\`. ` +
+          'A collection that verified nothing publishes nothing, by design.'
+      );
+    }
+    // Compatibility: a local run that predates the per-execution layout.
+    const legacy = readPublishedFrom(LEGACY_PUBLISHED_DIR);
+    if (legacy.length > 0) {
+      rows.push(...legacy);
+      notes.push(
+        'Read legacy `reports/published/` (flat layout). Newer runs write ' +
+          '`reports/<execution-id>/published/`.'
+      );
+    } else {
+      const newman = readReport(LEGACY_NEWMAN_PATH);
+      if (newman) {
+        rows.push(summarizeNewman(newman));
+        notes.push('Read legacy `reports/newman-results.json`.');
+      }
+    }
+  }
 }
 
 let md;
@@ -155,8 +289,9 @@ if (rows.length === 0) {
       failed: acc.failed + r.failed,
       skipped: acc.skipped + r.skipped,
       flaky: acc.flaky + r.flaky,
+      sourceErrors: acc.sourceErrors + (r.sourceErrors ?? 0),
     }),
-    { total: 0, passed: 0, failed: 0, skipped: 0, flaky: 0 }
+    { total: 0, passed: 0, failed: 0, skipped: 0, flaky: 0, sourceErrors: 0 }
   );
   const pct = (p, t) => (t > 0 ? `${Math.round((p / t) * 100)}%` : 'n/a');
   const line = (r) =>
@@ -169,9 +304,9 @@ if (rows.length === 0) {
     ...rows.map(line),
     rows.length > 1 ? line({ source: '**Combined**', ...combined }) : null,
     '',
-    combined.failed > 0
-      ? `> :red_circle: **${combined.failed} failed.** See the uploaded Playwright / Newman report artifacts. Classification + severity come from the Failure Classifier (\`analysis/failure-analysis.json\`), not this tally.`
-      : '> :white_check_mark: No test failures in the executed suites.',
+    verdict(combined),
+    notes.length ? '' : null,
+    ...notes.map((n) => `> _${n}_`),
     '',
   ]
     .filter((l) => l !== null)

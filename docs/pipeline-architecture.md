@@ -211,10 +211,17 @@ renderer (`scripts/gate-briefs.js`), and an interactive decision recorder:
 - **Gate steps**: halts, renders the brief, records the human decision as
   a `gateValue` audit object + a `gate_decisions[]` telemetry event
   (`opened_at`/`decided_at`). **Interactive-only**: no approval flags
-  exist, and a non-TTY stdin gets `GATE PENDING` + non-zero exit — so no
-  CI job or agent can ever pass a gate (asserted by smoke tests).
-- **Exec steps** (execute, classify): runs `npx playwright test` and the
-  rule-based classifier directly — deterministic, no judgment involved.
+  exist, and a non-TTY stdin gets `GATE PENDING` + non-zero exit, so the
+  runner offers no approval path to a CI job or agent (asserted by smoke
+  tests). That is not authentication; each approval is also bound to a
+  digest of what it reviewed, so a later change returns it to pending
+  (`docs/pipeline-runner.md` §4).
+- **Exec steps** (execute, classify): runs `npx playwright test`, then
+  normalizes the reports into the execution ledger
+  (`scripts/normalize-results.js`) and runs the rule-based pre-classifier on
+  that ledger — deterministic, no judgment involved. The pre-classifier
+  writes a **draft** analysis; the Failure Classifier Agent (or a human)
+  finalizes it before the Reporter step.
 
 It never commits, merges, or performs Jira/TestLink writes. Orchestration
 stays human-driven; the runner only removes the clerical "what do I run
@@ -490,13 +497,21 @@ runs/latest.json                      # per-story pointer to the newest run
 - **`scripts/new-run.js <story-id> [label]`** snapshots the current root
   run into `runs/<story-id>/<run-id>/` (timestamp run-id), writes a
   `run-manifest.json` (run id, label, source `context.run_id`, status at
-  archive), and updates `runs/latest.json`. `--dry-run` previews.
-- It **copies, never deletes** the root — the root keeps working exactly as
-  today for the agents, and re-running is safe. You archive _after_ a run
-  completes (or before starting the next story).
-- **Durable artifacts are versioned** per run (`context.json`, `story.md`,
-  `test-cases/`, `planner-input/`, `specs/`, `tests/`, `api-tests/`,
-  `analysis/`, `release/`). **Heavy regenerable outputs are not** —
+  archive, and a SHA-256 per archived file), and updates `runs/latest.json`.
+  `--dry-run` previews.
+- It archives **only the run's own artifacts** (task group 4.1):
+  `context.json`, `story.md`, the files its `artifact_paths` name, files
+  named for the story, and the run-scoped singletons. Never the reusable
+  seed test, fixtures or `.gitkeep` files, never another story's files. A
+  file it cannot attribute stops the archive. Copies are verified
+  byte-for-byte and never reformatted: an archive is evidence.
+- By default it **copies, never deletes** the root. `--clear` removes the
+  archived files from the root afterwards (only those still byte-identical
+  to the archive), which is how an incomplete run is set aside. Starting
+  the next story with `npm run pipeline -- --story ...` archives a
+  completed run automatically (`docs/pipeline-runner.md`).
+- **Durable artifacts are versioned** per run. **Heavy regenerable outputs
+  are not** —
   `runs/**/reports/`, `runs/**/traces/`, `runs/**/screenshots/` are
   gitignored (same rule as the root; they're reproducible by re-running).
 - **Traceability is intact per run:** every archived `context.json` keeps

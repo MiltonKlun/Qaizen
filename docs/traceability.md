@@ -163,6 +163,18 @@ fails), the failure carries `test_case_id: null` AND
 `traceability_unresolved: true` with a human-readable reason. See
 section 5.
 
+**IDs are proven, never minted (failure-analysis 2.x, task group 3.3).** A
+`PW-XXX` / `REQ-XXX` / `TC-XXX` on a failure comes only from exact metadata
+the runner report carries: the test title (`… [TC-002]`), the Newman item
+name (`REQ-001 … (TC-001)`), or a declared mapping. When no id can be proven
+the key is still present with value `null`, plus `id_unresolved_reason` and
+the retained `runner_identity`, so the failure stays traceable to the exact
+test. Two sources that disagree leave the link unresolved rather than picking
+one. An id is **never** derived from the order failures appear: the old
+pre-classifier numbered `PW-001`, `PW-002`, … by failure order, so an id
+depended on which tests happened to fail (review finding B6). 1.x artifacts
+keep their original rule (the id must be present and non-null).
+
 ### 3.9 Every Red failure produces a bug draft
 
 `FAIL-XXX → BUG-XXX` is one-to-one for Red severity failures.

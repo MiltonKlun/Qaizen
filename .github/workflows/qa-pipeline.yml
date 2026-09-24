@@ -238,6 +238,11 @@ jobs:
       - name: Run Newman for each collection
         if: steps.detect.outputs.has_collections == 'true'
         shell: bash
+        env:
+          # One execution id for the whole job, passed explicitly so every
+          # collection's reports land in ONE execution directory and a later
+          # run can never be read as this one (task group 3.2, finding I4).
+          QAIZEN_EXECUTION_ID: exec-ci-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set +e
           status=0
@@ -249,20 +254,25 @@ jobs:
             [ $rc -ne 0 ] && status=$rc
             echo "::endgroup::"
           done
+          echo "QAIZEN_EXECUTION_ID=$QAIZEN_EXECUTION_ID" >> "$GITHUB_ENV"
           exit $status
-      # Upload ONLY the sanitized summaries under reports/published/.
-      # The raw reporter outputs (reports/newman-results.json, newman-html) are
+      # Upload ONLY the sanitized summaries for THIS execution.
+      #
+      # The raw reporter outputs (reports/<execution-id>/newman/**) are
       # secret-bearing: Newman records the live x-api-key header and resolved
       # environment values into them (docs/secrets-management.md section 5).
       # They stay on the runner and are never published. scripts/run-newman.js
-      # builds reports/published/newman-<story>.json from an allowlist and
-      # refuses to write it if any injected secret survives.
+      # builds reports/<execution-id>/published/newman-<story>-<collection>.json
+      # from an allowlist and refuses to write it if any injected secret
+      # survives -- and publishes nothing at all for a collection that
+      # executed no requests, since an all-zeros summary reads as a green
+      # check downstream.
       - name: Upload sanitized Newman summary
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: newman-report
-          path: reports/published
+          path: reports/exec-ci-${{ github.run_id }}-${{ github.run_attempt }}/published
           retention-days: 14
           if-no-files-found: ignore
 
@@ -318,6 +328,10 @@ jobs:
             echo "ran=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # The classifier reads the normalized execution ledger, never raw
+          # reports (task group 3.3), so normalize the run first.
+          story=$(node -e "process.stdout.write(require('./context.json').story.id)")
+          node scripts/normalize-results.js --story "$story" --playwright reports/results.json || true
           node scripts/run-failure-classifier.js || true
           node scripts/run-healer.js --apply || true
           echo "ran=true" >> "$GITHUB_OUTPUT"
@@ -382,11 +396,17 @@ jobs:
           name: playwright-report
           path: reports
         continue-on-error: true
+      # The artifact holds the CONTENTS of one execution's published directory,
+      # so it is restored into that execution's path and the summary is told
+      # which execution to read. Downloading into `reports/` would leave the
+      # files where nothing looks for them.
       - name: Download Newman report
         uses: actions/download-artifact@v4
         with:
           name: newman-report
-          path: reports
+          path: reports/exec-ci-${{ github.run_id }}-${{ github.run_attempt }}/published
         continue-on-error: true
       - name: Write CI summary
+        env:
+          QAIZEN_EXECUTION_ID: exec-ci-${{ github.run_id }}-${{ github.run_attempt }}
         run: npm run ci:summary

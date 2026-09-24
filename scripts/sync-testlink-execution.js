@@ -33,6 +33,7 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { argv, env, exit } from 'node:process';
+import { requireCurrentGate } from './lib/approval-binding.js';
 
 // --- tiny .env loader (CI injects env directly; this only fills gaps) ----
 if (existsSync('.env')) {
@@ -75,12 +76,27 @@ const map = loadJson(mapPath);
 const fa = loadJson(faPath);
 
 // --- Gate 4 precondition (same rule as the Failure Classifier/Reporter) --
-const gate = context.review_gates?.code_reviewed;
-const gateOk = gate === true || (gate && gate.status === true);
-if (!gateOk) {
+// An approval counts only while it still matches what was reviewed
+// (task group 4.3): a gate approved before the test cases or code changed
+// is not a licence to sync execution results.
+const gateCheck = requireCurrentGate(context, 'code_reviewed', '.');
+if (!gateCheck.ok) {
   console.error(
-    'Gate 4 (code_reviewed) is not passed; refusing to sync execution results. ' +
-      'Execution sync runs only after code review, like the Reporter.'
+    `Gate 4: ${gateCheck.reason}. Refusing to sync execution results.`
+  );
+  exit(1);
+}
+
+// --- A draft analysis is not a result to report (task group 3.3) --------
+// A 2.x draft is the rule-based pre-classifier's first pass: its Red
+// failures have no bug drafts yet and its links may be unresolved. Pushing
+// it to TestLink would publish a guess as the verdict. 1.x analyses predate
+// this distinction and keep their previous behaviour.
+if (/^2\./.test(fa.schema_version || '') && fa.status !== 'finalized') {
+  console.error(
+    `${faPath} is a ${fa.status || 'status-less'} ${fa.schema_version} analysis; refusing to sync ` +
+      'execution results. Finalize it first (the Failure Classifier Agent or a human ' +
+      'confirms classifications, writes bug drafts, then sets status "finalized").'
   );
   exit(1);
 }

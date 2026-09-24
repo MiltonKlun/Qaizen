@@ -7,13 +7,35 @@ description: |
   (human-readable) and release/release-report.json (schema-validated).
   Computes coverage_by_risk by walking the traceability chain. Sets
   the release_recommendation (pass / fail / conditional_pass /
-  blocked) based on Red failures and risk coverage. Marks the run
-  completed.
+  blocked) based on Red failures and risk coverage. Does NOT mark the
+  run completed: the runner does, after validating every artifact.
 phase_introduced: 1
 phase_active: 1+
-version: 1.2.0
+version: 3.1.0
 changed_in_run: null
 changelog: |
+  - 3.1.0: MINOR (task group 4.3). Gate 4 must be current, not only passed. Approvals are now bound
+    to a digest of the inputs they reviewed; a gate whose inputs changed
+    is not passed even if `status` still reads true, so the gate check
+    also requires `npm run pipeline -- --status` to show no stale
+    approval. Precondition only; no output change.
+  - 3.0.0: MAJOR (task group 4.2, finding I6). The Reporter no longer sets
+    context.json.status = "completed". It did so when every artifact path
+    "pointed at an existing file" -- existence, the same check that let four
+    `{}` files complete a run. The runner now owns that transition and sets
+    it only after every artifact validates and belongs to the run, the
+    failure analysis is finalized with a bug draft per Red failure, and the
+    release report is valid. The Reporter still writes both release reports
+    and their artifact_paths.
+  - 2.0.0: MAJOR (task group 3.3, with failure-analysis schema 2.0).
+    execution_summary now comes from the execution ledger
+    (failure-analysis.execution_ledger) using the legacy projection defined
+    once in scripts/lib/execution-ledger.js, split by runner kind -- never
+    recomputed from raw reports, which dropped timed-out tests (B2), could
+    produce negative counts (B5), and read the pre-3.2 Newman path.
+    Requires a FINALIZED 2.x analysis: a draft's Red failures have no bug
+    drafts yet. flaky_tests come from ledger units with outcome "flaky".
+    Output shape unchanged; values change where the old counts were wrong.
   - 1.2.0: Enhanced release reporting (Phase 3 TG12) — emit optional
     summary_by_risk_level, untested_high_risk_items, flaky_tests,
     open_bugs_summary, conditional_pass_criteria, external_links. All
@@ -59,8 +81,10 @@ Produce a release report covering the full run:
   only after Phase 2 promotion.
 - Evidence paths and open questions.
 
-At the end of a successful run, the Reporter sets
-`context.json.status = "completed"`.
+The Reporter does **not** set `context.json.status`. The runner marks the
+run `completed` only after validating every artifact (`npm run pipeline --
+--resume`); "pipeline complete" is not "release passed" — the release
+recommendation stays whatever this report says.
 
 ---
 
@@ -82,10 +106,11 @@ At the end of a successful run, the Reporter sets
   context only; the Reporter does not copy from it.
 - _(Optional)_ `specs/[story-id].md` — same.
 - _(Optional)_ `tests/[story-id].spec.ts` — same.
-- `reports/results.json` — Playwright execution output.
-- _(Phase 1.5+)_ `reports/newman-results.json`.
+- `analysis/execution-ledger.json` — the counts, for both branches (named
+  by `failure-analysis.json.execution_ledger`). Raw reports under
+  `reports/` are evidence paths only, never a source of counts.
 - `analysis/failure-analysis.json` — the Failure Classifier's
-  output. **Required.**
+  output. **Required**, and `finalized` when it is schema 2.x.
 - `release/bug-drafts/BUG-XXX.md` — every existing draft.
 
 **Required precondition:** Gate 4 passed —
@@ -116,9 +141,8 @@ After writing, the Reporter:
 
 - Updates `context.json.artifact_paths.release_report_md` and
   `release_report_json`.
-- Sets `context.json.status = "completed"` _only if_ every
-  `artifact_paths` value points at an existing file AND all four
-  `review_gates.*` are `true`.
+- Leaves `context.json.status` alone: the runner sets `completed` after
+  validating (an existing file is not proof; `{}` exists too).
 - Re-validates `context.json`.
 
 ---
@@ -131,7 +155,7 @@ After writing, the Reporter:
 | `release/release-report.json`                      | Created here                                                                  |
 | `context.json.artifact_paths.release_report_md`    | Updated here                                                                  |
 | `context.json.artifact_paths.release_report_json`  | Updated here                                                                  |
-| `context.json.status` (to `"completed"`)           | Updated here                                                                  |
+| `context.json.status`                              | **Not** updated here — the runner sets `completed` after validation           |
 | `release/bug-drafts/BUG-XXX.md` — `Jira Issue Key` | Updated here (Phase 2+ only, after `scripts/create-jira-bugs.js --apply` ran) |
 
 The Reporter is a co-owner of `release/bug-drafts/` (see
@@ -147,19 +171,36 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
 ## 5. Instructions
 
 1. **Verify Gate 4.** If `code_reviewed` is not passed (neither `true`
-   nor `{ status: true }`), stop.
+   nor `{ status: true }`), stop. The approval must also be **current**: `npm run pipeline -- --status` must
+   not report it as a stale approval. An approval is bound to a digest of
+   what it reviewed (task group 4.3); once those inputs change it no longer
+   counts, even though `status` may still read `true` until the next
+   `--resume` returns it to pending.
 2. **Verify `analysis/failure-analysis.json` exists** and validates.
    If it doesn't, stop and surface — the Reporter cannot fabricate
-   the classification.
-3. **Compute `execution_summary`** from `reports/results.json` and
-   (Phase 1.5+) `reports/newman-results.json`.
+   the classification. For `schema_version` 2.x it must also have
+   `status: "finalized"`: a draft is the pre-classifier's first pass, its
+   Red failures have no bug drafts yet, and its links may be unresolved.
+   Stop and ask for the Failure Classifier Agent (or a human) to finalize
+   it.
+3. **Compute `execution_summary`** from the execution ledger named in
+   `failure-analysis.json.execution_ledger` (normally
+   `analysis/execution-ledger.json`). **Never recompute from raw
+   reports**: that dropped timed-out tests (B2) and could produce negative
+   pass counts (B5). Use the legacy projection defined once in
+   `scripts/lib/execution-ledger.js` — `passed = passed`,
+   `failed = failed + blocked + flaky`,
+   `skipped = skipped + not_run + expected_failure`, `total` = all units —
+   computed over the ledger's units, split by `identity.kind`
+   (`playwright` → `e2e`, `newman` → `api`). For a 1.x analysis with no
+   ledger, the legacy raw-report computation below still applies.
    - Phase 1 form (E2E only, no Newman run): the flat
      `{ total, passed, failed, skipped, pass_rate }`.
    - **Phase 1.5+ form (both branches): use the grouped form**
      `{ e2e: {...}, api: {...}, combined: {...} }` whenever a Newman
-     run happened (i.e. `reports/newman-results.json` exists for this
-     run). `e2e` is computed from the Playwright results, `api` from
-     the Newman results, and `combined` is the element-wise sum
+     run happened (i.e. the ledger holds `newman` units). `e2e` is
+     computed from the Playwright units, `api` from the Newman units, and
+     `combined` is the element-wise sum
      (`combined.total = e2e.total + api.total`, etc.; `combined.pass_rate`
      is `combined.passed / combined.total`, not the average of the two
      rates). If only one branch ran, you may still use the grouped form
@@ -254,9 +295,11 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
      `uncovered_high_severity_count`: each high-severity risk whose status
      is `uncovered`, as `{ risk_id, description }`. **Never omit a real
      gap** — "no hidden untested risks" is a hard rule (§6).
-   - `flaky_tests` — only if flakiness is tracked for this run (e.g. a
-     test that passed on retry). Each `{ test_id, branch?, note? }`. If
-     not tracked, omit or use `[]` — **never fabricate** flakiness.
+   - `flaky_tests` — every ledger unit with `outcome: "flaky"` (failed,
+     then passed on retry). Each `{ test_id, branch?, note? }`, where
+     `test_id` is the proven `PW-XXX` / `REQ-XXX` or, when that id is
+     unresolved, the unit's `unit_id`. No ledger (1.x) → omit or use `[]`
+     — **never fabricate** flakiness.
    - `open_bugs_summary` — roll up `bug_drafts[]`: `total`, `red`,
      `yellow`, `with_jira`, `without_jira` (the last two from whether each
      draft has a `jira_key_if_exists`).
@@ -287,13 +330,10 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
 12. **Validate** with
     `node scripts/validate-json.js schemas/release-report.schema.json release/release-report.json`.
 13. **Update `context.json`** with the two new
-    `artifact_paths.release_report_*` values. If every other
-    `artifact_paths` value also points at an existing file AND all
-    four `review_gates.*` are passed (each is `true` or an object with
-    `status: true` — see the precondition note above), set
-    `context.json.status = "completed"`. Otherwise leave the
-    status untouched (Reporter will not silently flip a status
-    when prereqs aren't met).
+    `artifact_paths.release_report_*` values. Do **not** change
+    `status`: the runner marks the run `completed` only after every
+    artifact validates and belongs to this run, the failure analysis is
+    finalized, and every Red failure has its bug draft.
 14. **Re-validate** `context.json`.
 15. **(Optional, Phase 2 only) Sync execution results to TestLink.**
     After the release report is written, the human MAY ask the Reporter
@@ -342,8 +382,8 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
   real URLs, never a credential.
 - **The two report files agree.** A `pass` in the JSON next to a
   worried Markdown summary is unacceptable. Keep them in sync.
-- **`status: "completed"` is binding.** Once set, the run is over.
-  Don't set it if any artifact is missing or any gate is open.
+- **`status: "completed"` belongs to the runner.** It is set only after
+  validation; the Reporter never sets it.
 - **Bug drafts already created stay.** The Reporter does not edit
   the body of an existing draft (only the Jira Issue Key field).
   If the Reporter believes a draft is wrong, that's an
@@ -367,8 +407,8 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
   cannot promote a gate on its own.
 - Inlining large content (HTML reports, traces) into either the
   Markdown or JSON release report. Use paths only.
-- Setting `context.json.status = "completed"` when any prereq is
-  unmet.
+- Setting `context.json.status = "completed"` at all — the runner owns
+  that transition.
 
 ---
 

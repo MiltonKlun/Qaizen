@@ -187,14 +187,23 @@ Writes `testlink_id` back into `test-cases/SK-10.json`. (Needs TestLink up,
 
 ```powershell
 npm test                             # Playwright -> reports/results.json
-$env:STORY_ID="SK-13"; npm run test:api   # Newman (only if API branch) -> reports/newman-results.json
+$env:STORY_ID="SK-13"; npm run test:api   # Newman (only if API branch) -> reports/<execution-id>/newman/SK-13/
 ```
 
 ### Step 9 — [AGENT] Failure Classifier → Reporter
 
-Ask: **"Run the Failure Classifier, then the Reporter, for SK-10."**
-Produces `analysis/failure-analysis.json`, any `release/bug-drafts/BUG-*.md`
-(Red only), and `release/release-report.{md,json}`.
+First normalize the run and pre-classify it (deterministic, no LLM):
+
+```powershell
+npm run normalize -- --story SK-10 --playwright reports/results.json   # add --execution <id> for the API branch
+npm run classify                     # writes a DRAFT analysis/failure-analysis.json
+```
+
+Then ask: **"Run the Failure Classifier, then the Reporter, for SK-10."**
+The agent finalizes the draft — confirms each classification, writes
+`release/bug-drafts/BUG-*.md` for every Red failure, resolves or acknowledges
+unresolved links — and the Reporter produces `release/release-report.{md,json}`.
+The Reporter refuses a draft analysis.
 
 ```powershell
 node scripts/validate-json.js schemas/failure-analysis.schema.json analysis/failure-analysis.json
@@ -264,7 +273,9 @@ right after the run, while it's fresh:
   It writes a versioned `session-summaries/<date>.md` — the highest-signal
   source `/evolve` mines (`docs/evolve-loop.md`).
 
-Then archive the run with `npm run new-run <story-id>` so `runs/` keeps the
+Then archive the run with `npm run new-run -- <story-id>` (or just start the
+next story with `npm run pipeline -- --story ...`, which archives a completed
+run automatically) so `runs/` keeps the
 history (and `gate_decisions` + `prompt_versions` travel with it).
 
 ---

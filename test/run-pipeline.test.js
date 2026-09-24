@@ -23,10 +23,13 @@ import {
   mkdtempSync,
   mkdirSync,
   copyFileSync,
+  cpSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { applyGateDecision } from '../scripts/run-pipeline.js';
 import { gatePassed } from '../scripts/pipeline-state.js';
+import { validTestCases } from './helpers/valid-run.js';
+import { bindingFor } from '../scripts/lib/approval-binding.js';
 
 // ---------------------------------------------------------------- helpers --
 
@@ -81,10 +84,16 @@ function makeMiniRepo() {
   ]) {
     copyFileSync(join('scripts', f), join(dir, 'scripts', f));
   }
-  copyFileSync(
-    join('schemas', 'context.schema.json'),
-    join(dir, 'schemas', 'context.schema.json')
-  );
+  // The runner imports shared modules from scripts/lib/ (the run lifecycle,
+  // artifact I/O) and validates archived artifacts against every schema, so
+  // copy both wholesale rather than a list that drifts.
+  cpSync(join('scripts', 'lib'), join(dir, 'scripts', 'lib'), {
+    recursive: true,
+  });
+  cpSync('schemas', join(dir, 'schemas'), { recursive: true });
+  // Gate 1 reviews the story itself, and a gate no longer prompts when an
+  // input it reviews is missing (task group 4.2).
+  writeFileSync(join(dir, 'story.md'), '# STORY-001\nThe story.\n');
   return dir;
 }
 
@@ -285,6 +294,9 @@ test('agent step guidance — gate passed leads to the next agent instruction', 
       reviewed_at: '2026-06-10T10:07:00Z',
       opened_at: '2026-06-10T10:00:00Z',
       notes: null,
+      // Bound to what exists, as the runner records it at the decision (4.3);
+      // an unbound approval is a legacy one that must be re-reviewed.
+      ...bindingFor('requirements_reviewed', ctx, dir),
     };
     ctx.status = 'in_progress';
     writeFileSync(join(dir, 'context.json'), JSON.stringify(ctx, null, 2));
@@ -342,7 +354,7 @@ test('runner ALLOWS track:lite for a benign story (reaches the qa_scope gate)', 
       // cases already written so the next step is the consolidated gate
       artifact_paths: {
         test_cases: 'test-cases/STORY-001.json',
-        planner_brief: '',
+        planner_brief: 'planner-input/STORY-001.planner-brief.md',
         playwright_spec: '',
         generated_test: '',
         execution_results: '',
@@ -356,15 +368,27 @@ test('runner ALLOWS track:lite for a benign story (reaches the qa_scope gate)', 
       },
     });
     writeFileSync(join(dir, 'context.json'), JSON.stringify(ctx, null, 2));
-    // The test-cases file must ACTUALLY exist for the step to be considered
-    // produced — the runner now checks file existence, not just the prefilled
-    // path (pipeline-state.js `produced`, the prefilled-path masking fix). A
-    // minimal shape is enough; the runner only needs it to exist + parse.
+    // The test cases must be VALID and belong to this run to count as
+    // produced (task group 4.2): a `{ test_cases: [] }` stub used to pass
+    // because the runner only checked that the file existed and parsed. The
+    // consolidated gate also reviews the planner brief and the story itself.
     mkdirSync(join(dir, 'test-cases'), { recursive: true });
     writeFileSync(
       join(dir, 'test-cases', 'STORY-001.json'),
-      JSON.stringify({ test_cases: [] })
+      JSON.stringify({
+        ...validTestCases('STORY-001', 'test-run'),
+        // Per-case decisions are made BEFORE the scope approval (4.3).
+        test_cases: validTestCases('STORY-001', 'test-run').test_cases.map(
+          (c) => ({ ...c, status: 'approved' })
+        ),
+      })
     );
+    mkdirSync(join(dir, 'planner-input'), { recursive: true });
+    writeFileSync(
+      join(dir, 'planner-input', 'STORY-001.planner-brief.md'),
+      '# brief\n'
+    );
+    writeFileSync(join(dir, 'story.md'), '# STORY-001\nFooter year.\n');
 
     const r = runPipeline(dir, []);
     // Not refused (would be exit 2 with "Refusing"); instead it reaches the

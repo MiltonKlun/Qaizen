@@ -14,10 +14,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  readFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execPath } from 'node:process';
+import { bindGate } from './helpers/valid-run.js';
 
 /** Run a repo script from the repo root; return { code, out }. */
 function run(args, opts = {}) {
@@ -39,6 +46,21 @@ function run(args, opts = {}) {
 
 function scratch(prefix) {
   return mkdtempSync(join(tmpdir(), `qaizen-${prefix}-`));
+}
+
+/**
+ * Replace the workspace's Gate 4 with a real, BOUND approval of what it now
+ * contains (task group 4.3). A bare `code_reviewed: true` is a legacy
+ * approval the TestLink sync now refuses. Call after the workspace is written.
+ */
+function bindGate4(dir) {
+  const p = join(dir, 'context.json');
+  const ctx = bindGate(
+    JSON.parse(readFileSync(p, 'utf8')),
+    'code_reviewed',
+    dir
+  );
+  writeFileSync(p, JSON.stringify(ctx));
 }
 
 // --- I5: the evaluator must not turn missing work into a high score --------
@@ -237,6 +259,7 @@ test('sync-testlink-execution: a linked case with no failure entry is NOT report
       JSON.stringify({ schema_version: '1.0', failures: [] })
     );
 
+    bindGate4(dir);
     const scriptPath = join(
       process.cwd(),
       'scripts',
@@ -260,6 +283,83 @@ test('sync-testlink-execution: a linked case with no failure entry is NOT report
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// --- 3.3: a draft analysis is never pushed as a result ----------------------
+
+function syncTestlinkWith(fa) {
+  const dir = scratch('tl-draft');
+  mkdirSync(join(dir, 'test-cases'), { recursive: true });
+  mkdirSync(join(dir, 'analysis'), { recursive: true });
+  mkdirSync(join(dir, 'config'), { recursive: true });
+  writeFileSync(
+    join(dir, 'config', 'testlink-status-map.json'),
+    readFileSync(join(process.cwd(), 'config', 'testlink-status-map.json'))
+  );
+  writeFileSync(
+    join(dir, 'context.json'),
+    JSON.stringify({
+      schema_version: '1.0',
+      story: { id: 'STORY-777' },
+      review_gates: { code_reviewed: true },
+    })
+  );
+  writeFileSync(
+    join(dir, 'test-cases', 'STORY-777.json'),
+    JSON.stringify({
+      schema_version: '1.0',
+      story_id: 'STORY-777',
+      test_cases: [
+        {
+          test_case_id: 'TC-001',
+          automation_decision: 'automate_e2e',
+          status: 'approved',
+          testlink_id: '101',
+        },
+      ],
+    })
+  );
+  writeFileSync(
+    join(dir, 'analysis', 'failure-analysis.json'),
+    JSON.stringify(fa)
+  );
+  bindGate4(dir);
+  const r = spawnSync(
+    execPath,
+    [join(process.cwd(), 'scripts', 'sync-testlink-execution.js'), 'STORY-777'],
+    {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, TESTLINK_API_KEY: '', TESTLINK_URL: '' },
+    }
+  );
+  rmSync(dir, { recursive: true, force: true });
+  return { code: r.status, out: (r.stdout || '') + (r.stderr || '') };
+}
+
+test('sync-testlink-execution: a 2.x DRAFT analysis is refused, a finalized one is not', () => {
+  const failure = {
+    failure_id: 'FAIL-001',
+    test_case_id: 'TC-001',
+    classification: 'product_bug',
+    severity: 'red',
+  };
+  const draft = syncTestlinkWith({
+    schema_version: '2.0',
+    status: 'draft',
+    failures: [failure],
+  });
+  assert.equal(draft.code, 1, draft.out);
+  assert.match(draft.out, /refusing to sync execution results/);
+  // Nothing from the draft may be planned as a result.
+  assert.doesNotMatch(draft.out, /Fail \(f\)/);
+
+  const finalized = syncTestlinkWith({
+    schema_version: '2.0',
+    status: 'finalized',
+    failures: [{ ...failure, bug_draft_path: 'release/bug-drafts/BUG-001.md' }],
+  });
+  assert.doesNotMatch(finalized.out, /refusing to sync/, finalized.out);
 });
 
 // --- S3: the healer must not claim enforcement it cannot perform -----------

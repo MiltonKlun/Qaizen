@@ -31,6 +31,7 @@
     "migrate:gate-decisions": "node scripts/migrate-context-gate-decisions.js",
     "new-run": "node scripts/new-run.js",
     "list-runs": "node scripts/list-runs.js",
+    "normalize": "node scripts/normalize-results.js",
     "classify": "node scripts/run-failure-classifier.js",
     "heal": "node scripts/run-healer.js",
     "demo:healer": "node scripts/demo-healer-green-red.js",

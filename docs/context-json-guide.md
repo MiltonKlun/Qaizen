@@ -12,7 +12,15 @@ reviewed_at, notes }` objects via `oneOf`. Phase 3 (TG8) adds a
 > `opened_at` gate-telemetry timestamp on the log events and the gate
 > audit objects. IMPROVEMENT-PLAN Phase 4 adds an optional `track`
 > (`lite`/`standard`/`full`) and `track_floor` (the lowest track this story
-> may use). All later changes are backward-compatible.
+> may use). Task group 4.3 adds optional approval binding: an approved gate
+> object carries `input_digest` (SHA-256 over the inputs it reviewed) and
+> `inputs` (the per-input digests), written only by the runner at a human
+> decision; and an optional `gate_invalidations[]` log of approvals returned
+> to pending because what they reviewed changed (separate from
+> `gate_decisions[]`, which holds only human decisions). An approved gate
+> without `input_digest` is a legacy approval and is re-reviewed on the next
+> `--resume`. No agent writes these fields (`docs/pipeline-runner.md` §4).
+> All later changes are backward-compatible.
 
 `context.json` is the **manifest** of a pipeline run. It sits at the
 project root, evolves throughout a single story's pass through the
@@ -195,10 +203,13 @@ A unique-per-run identifier. Phase 1 uses an ISO-8601-ish timestamp
 plus a short hash: `2026-05-28T14-32-01Z-a1b2c3d`. The exact format
 is not strict; what matters is uniqueness.
 
-Phase 3 (TG5) introduces `scripts/new-run.js` which generates these
-and creates `runs/[story-id]/[run-id]/` history. Until then, the
-analyst generates the run_id by hand when initializing
-`context.json`.
+Since task group 4.1, `npm run pipeline -- --story ...` stages each new
+run with a unique id (recorded in `.qaizen/transition.json` and printed in
+the Analyst instruction). The Analyst writes **that** id into
+`context.json`, and the runner refuses a context whose `run_id` does not
+match the staged run: the id is how a new story is kept apart from the
+previous run's gates. Without a staged run, the Analyst generates one.
+`scripts/new-run.js` archives runs into `runs/[story-id]/[run-id]/`.
 
 ### `story`
 
@@ -456,7 +467,7 @@ also a data-safety control: what is never inlined cannot leak through a prompt
 | test-designer      | `context.json`, `story.md`, `automation-decision-model.md`; `code_change_context` if present. |
 | api-agent          | `context.json`, the `automate_api` cases of `test-cases/`, optional `docs/api-spec.yaml`.     |
 | spec-reviewer      | `context.json`, `test-cases/`, the planner brief, `specs/[story-id].md`.                      |
-| failure-classifier | `reports/results.json` (+ newman JSON), `context.json`, `test-cases/`, the API collection.    |
+| failure-classifier | the draft analysis + `analysis/execution-ledger.json`, `context.json`, `test-cases/`.         |
 | reporter           | `context.json`, `test-cases/`, `analysis/failure-analysis.json`, bug drafts. Summaries only.  |
 
 The `test-management-adapter` is a port, not an LLM-loading step, so it has no
