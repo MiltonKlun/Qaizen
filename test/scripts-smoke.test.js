@@ -18,6 +18,7 @@ import {
   mkdirSync,
   copyFileSync,
   readdirSync,
+  cpSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -251,10 +252,12 @@ test('run-pipeline — non-TTY gate refusal (no CI job can approve a gate)', () 
     ]) {
       copyFileSync(join('scripts', f), join(dir, 'scripts', f));
     }
-    copyFileSync(
-      join('schemas', 'context.schema.json'),
-      join(dir, 'schemas', 'context.schema.json')
-    );
+    // The runner imports shared modules from scripts/lib/ and resolves every
+    // schema, so copy both wholesale rather than a list that drifts.
+    cpSync(join('scripts', 'lib'), join(dir, 'scripts', 'lib'), {
+      recursive: true,
+    });
+    cpSync('schemas', join(dir, 'schemas'), { recursive: true });
     // A context sitting at Gate 1.
     writeFileSync(
       join(dir, 'context.json'),

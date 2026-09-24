@@ -61,8 +61,52 @@ the rule-based classifier) → [reporter step] → --resume → done
 ```
 
 When the run completes the runner reminds you of the two post-run habits:
-`npm run new-run <story-id>` (archive) and `npm run session-summary` (feed
-`/evolve`).
+archiving (automatic when the next story starts, or `npm run new-run -- <story-id>`
+by hand) and `npm run session-summary` (feed `/evolve`).
+
+### Starting a new story, and resuming (task group 4.1)
+
+`--story` **starts a new run**; `--resume` (or no flag) **continues the current
+one**; `--status` only reads. Combining `--story` with `--resume`, or `--status`
+with either, is refused before anything is fetched or written.
+
+What `--story` does depends on the run already at the root, and it decides
+**before writing anything**, so every refusal leaves the root exactly as it was:
+
+| Root state                                     | `--story <ref>`                                                                                                                   |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| No run                                         | Stages the story under a new run id. Next step: Analyst.                                                                          |
+| **Completed** run                              | Archives it to `runs/<story>/<id>/` (every file verified by SHA-256), removes its files from the root, then stages the new story. |
+| **Incomplete** run, different story            | **Refused.** Continue it with `--resume`, or set it aside deliberately with `npm run new-run -- <story-id> --clear`, then retry.  |
+| Incomplete run, the **same** story             | **Refused** — repeating `--story` is not a silent reset. Use `--resume`.                                                          |
+| Files that cannot be attributed to the old run | **Refused**, listing them. Nothing is archived or removed until you move them.                                                    |
+| A `story.md` the runner did not stage          | **Refused** rather than overwritten.                                                                                              |
+
+Only the run's **own** artifacts are archived: `context.json`, `story.md`, the
+files its `artifact_paths` name, files named for the story, and the run-scoped
+singletons (failure analysis, execution ledger, release report, bug drafts,
+healer output). The reusable seed test, `tests/fixtures/`, `.gitkeep` files and
+`reports/` stay where they are. Archives are byte-identical to what the run
+produced — they are evidence, so they are never reformatted.
+
+**The staged run id.** The runner gives each new run a unique id and prints it
+in the Analyst instruction. The Analyst must write that id into
+`context.json.run_id`; the runner refuses a context whose `run_id` does not
+match, or whose `story.md` changed after staging.
+
+**If a transition is interrupted.** The file movement is tracked in
+`.qaizen/transition.json` (local, never committed; staging lives in
+`.qaizen/staging/`). It records file movement only — gates and steps still come
+from `context.json`. **Recovery command: `npm run pipeline -- --resume`**, which
+finishes or undoes it before doing anything else, deterministically:
+
+- interrupted **before** the archive was verified → **rolled back**: nothing at
+  the root had changed, and the previous run is still current;
+- interrupted **after** the archive was verified (while removing old files or
+  installing the new story) → **rolled forward**: the old run is safe in its
+  archive, so the transition is completed.
+
+`--status` reports a pending transition but never touches it.
 
 ## 3. Guide steps vs exec steps
 
