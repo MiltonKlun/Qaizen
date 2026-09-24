@@ -195,10 +195,13 @@ A unique-per-run identifier. Phase 1 uses an ISO-8601-ish timestamp
 plus a short hash: `2026-05-28T14-32-01Z-a1b2c3d`. The exact format
 is not strict; what matters is uniqueness.
 
-Phase 3 (TG5) introduces `scripts/new-run.js` which generates these
-and creates `runs/[story-id]/[run-id]/` history. Until then, the
-analyst generates the run_id by hand when initializing
-`context.json`.
+Since task group 4.1, `npm run pipeline -- --story ...` stages each new
+run with a unique id (recorded in `.qaizen/transition.json` and printed in
+the Analyst instruction). The Analyst writes **that** id into
+`context.json`, and the runner refuses a context whose `run_id` does not
+match the staged run: the id is how a new story is kept apart from the
+previous run's gates. Without a staged run, the Analyst generates one.
+`scripts/new-run.js` archives runs into `runs/[story-id]/[run-id]/`.
 
 ### `story`
 
