@@ -413,3 +413,30 @@ test('selector-survival extracts locators incl. inner quotes; honest no-versions
   assert.match(r.out, /\[data-test="username"\]/);
   assert.match(r.out, /QUALITATIVE ONLY/);
 });
+
+test('normalize-results refuses to run with no execution inputs (exit 2)', () => {
+  // An empty ledger is indistinguishable from a clean run, so "nothing to
+  // read" must never be a success.
+  const r = run(['scripts/normalize-results.js', '--story', 'STORY-042']);
+  assert.equal(r.code, 2, r.out);
+  assert.match(r.out, /no execution inputs/i);
+});
+
+test('normalize-results writes a ledger from an API-only run (exit 0)', () => {
+  const out = join(mkdtempSync(join(tmpdir(), 'qz-ledger-')), 'ledger.json');
+  const r = run([
+    'scripts/normalize-results.js',
+    '--story',
+    'STORY-042',
+    '--newman',
+    'test/fixtures/newman-mixed-outcomes.json',
+    '--out',
+    out,
+  ]);
+  assert.equal(r.code, 0, r.out);
+  // The two unverifiable requests stay visible instead of being folded away.
+  assert.match(r.out, /blocked 2/);
+  const ledger = JSON.parse(readFileSync(out, 'utf8'));
+  assert.equal(ledger.totals.units, 4);
+  assert.equal(ledger.totals.passed, 1);
+});

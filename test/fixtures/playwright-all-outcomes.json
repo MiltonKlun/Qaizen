@@ -1,0 +1,886 @@
+{
+  "config": {
+    "rootDir": "<ROOT>",
+    "projects": [
+      {
+        "name": "alpha"
+      },
+      {
+        "name": "beta"
+      }
+    ]
+  },
+  "suites": [
+    {
+      "title": "outcomes.spec.ts",
+      "file": "outcomes.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "plain pass",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "alpha",
+              "projectName": "alpha",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 8,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-21T22:58:46.590Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bac7195f1102b9e735ec-1b721d8a56126299eab8",
+          "file": "outcomes.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "assertion failure",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "alpha",
+              "projectName": "alpha",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 5,
+                  "error": {
+                    "message": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 5\nReceived: 4",
+                    "stack": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 5\nReceived: 4\n    at <ROOT>\\tests\\outcomes.spec.ts:8:17",
+                    "location": {
+                      "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                      "column": 17,
+                      "line": 8
+                    },
+                    "snippet": "   6 |\n   7 | test('assertion failure', async () => {\n>  8 |   expect(2 + 2).toBe(5);\n     |                 ^\n   9 | });\n  10 |\n  11 | test('times out', async () => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                        "column": 17,
+                        "line": 8
+                      },
+                      "message": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 5\nReceived: 4\n\n   6 |\n   7 | test('assertion failure', async () => {\n>  8 |   expect(2 + 2).toBe(5);\n     |                 ^\n   9 | });\n  10 |\n  11 | test('times out', async () => {\n    at <ROOT>\\tests\\outcomes.spec.ts:8:17"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-21T22:58:46.647Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\outcomes-assertion-failure-alpha\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                    "column": 17,
+                    "line": 8
+                  }
+                },
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 8,
+                  "error": {
+                    "message": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 5\nReceived: 4",
+                    "stack": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 5\nReceived: 4\n    at <ROOT>\\tests\\outcomes.spec.ts:8:17",
+                    "location": {
+                      "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                      "column": 17,
+                      "line": 8
+                    },
+                    "snippet": "   6 |\n   7 | test('assertion failure', async () => {\n>  8 |   expect(2 + 2).toBe(5);\n     |                 ^\n   9 | });\n  10 |\n  11 | test('times out', async () => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                        "column": 17,
+                        "line": 8
+                      },
+                      "message": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 5\nReceived: 4\n\n   6 |\n   7 | test('assertion failure', async () => {\n>  8 |   expect(2 + 2).toBe(5);\n     |                 ^\n   9 | });\n  10 |\n  11 | test('times out', async () => {\n    at <ROOT>\\tests\\outcomes.spec.ts:8:17"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 1,
+                  "startTime": "2026-09-21T22:58:47.239Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\outcomes-assertion-failure-alpha-retry1\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                    "column": 17,
+                    "line": 8
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "bac7195f1102b9e735ec-daa1cad44d82d48889a0",
+          "file": "outcomes.spec.ts",
+          "line": 7,
+          "column": 1
+        },
+        {
+          "title": "times out",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 1200,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "alpha",
+              "projectName": "alpha",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "timedOut",
+                  "duration": 1203,
+                  "error": {
+                    "message": "Test timeout of 1200ms exceeded.",
+                    "stack": "Test timeout of 1200ms exceeded."
+                  },
+                  "errors": [
+                    {
+                      "message": "Test timeout of 1200ms exceeded."
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-21T22:58:47.869Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\outcomes-times-out-alpha\\error-context.md"
+                    }
+                  ]
+                },
+                {
+                  "workerIndex": 7,
+                  "parallelIndex": 0,
+                  "status": "timedOut",
+                  "duration": 1202,
+                  "error": {
+                    "message": "Test timeout of 1200ms exceeded.",
+                    "stack": "Test timeout of 1200ms exceeded."
+                  },
+                  "errors": [
+                    {
+                      "message": "Test timeout of 1200ms exceeded."
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 1,
+                  "startTime": "2026-09-21T22:58:49.741Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\outcomes-times-out-alpha-retry1\\error-context.md"
+                    }
+                  ]
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "bac7195f1102b9e735ec-e6eeb4aa289f661c1040",
+          "file": "outcomes.spec.ts",
+          "line": 11,
+          "column": 1
+        },
+        {
+          "title": "flaky: fails then passes on retry",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "alpha",
+              "projectName": "alpha",
+              "results": [
+                {
+                  "workerIndex": 8,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 10,
+                  "error": {
+                    "message": "Error: first attempt always fails\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0",
+                    "stack": "Error: first attempt always fails\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0\n    at <ROOT>\\tests\\outcomes.spec.ts:18:56",
+                    "location": {
+                      "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                      "column": 56,
+                      "line": 18
+                    },
+                    "snippet": "  16 | test('flaky: fails then passes on retry', async ({}, testInfo) => {\n  17 |   // Retry index is the only reliable cross-worker signal: module state resets.\n> 18 |   expect(testInfo.retry, 'first attempt always fails').toBeGreaterThan(0);\n     |                                                        ^\n  19 | });\n  20 |\n  21 | test.skip('intentionally skipped', async () => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                        "column": 56,
+                        "line": 18
+                      },
+                      "message": "Error: first attempt always fails\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0\n\n  16 | test('flaky: fails then passes on retry', async ({}, testInfo) => {\n  17 |   // Retry index is the only reliable cross-worker signal: module state resets.\n> 18 |   expect(testInfo.retry, 'first attempt always fails').toBeGreaterThan(0);\n     |                                                        ^\n  19 | });\n  20 |\n  21 | test.skip('intentionally skipped', async () => {\n    at <ROOT>\\tests\\outcomes.spec.ts:18:56"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-21T22:58:51.604Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\outcomes-flaky-fails-then-passes-on-retry-alpha\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                    "column": 56,
+                    "line": 18
+                  }
+                },
+                {
+                  "workerIndex": 10,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 8,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 1,
+                  "startTime": "2026-09-21T22:58:52.276Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "flaky"
+            }
+          ],
+          "id": "bac7195f1102b9e735ec-475e43b2737699c148ca",
+          "file": "outcomes.spec.ts",
+          "line": 16,
+          "column": 1
+        },
+        {
+          "title": "intentionally skipped",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "location": {
+                    "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                    "line": 21,
+                    "column": 6
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "alpha",
+              "projectName": "alpha",
+              "results": [
+                {
+                  "workerIndex": 10,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 0,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-21T22:58:52.329Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                        "line": 21,
+                        "column": 6
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bac7195f1102b9e735ec-362fc3fda5c210dc6723",
+          "file": "outcomes.spec.ts",
+          "line": 21,
+          "column": 6
+        },
+        {
+          "title": "declared expected failure",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "location": {
+                    "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                    "line": 26,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "alpha",
+              "projectName": "alpha",
+              "results": [
+                {
+                  "workerIndex": 10,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 4,
+                  "error": {
+                    "message": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 2\nReceived: 1",
+                    "stack": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 2\nReceived: 1\n    at <ROOT>\\tests\\outcomes.spec.ts:27:13",
+                    "location": {
+                      "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                      "column": 13,
+                      "line": 27
+                    },
+                    "snippet": "  25 | test('declared expected failure', async () => {\n  26 |   test.fail();\n> 27 |   expect(1).toBe(2);\n     |             ^\n  28 | });\n  29 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                        "column": 13,
+                        "line": 27
+                      },
+                      "message": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 2\nReceived: 1\n\n  25 | test('declared expected failure', async () => {\n  26 |   test.fail();\n> 27 |   expect(1).toBe(2);\n     |             ^\n  28 | });\n  29 |\n    at <ROOT>\\tests\\outcomes.spec.ts:27:13"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-21T22:58:52.329Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "location": {
+                        "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                        "line": 26,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\outcomes-declared-expected-failure-alpha\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                    "column": 13,
+                    "line": 27
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bac7195f1102b9e735ec-2ec60a2b9353412d675c",
+          "file": "outcomes.spec.ts",
+          "line": 25,
+          "column": 1
+        },
+        {
+          "title": "plain pass",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "beta",
+              "projectName": "beta",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 17,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-21T22:58:46.548Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bac7195f1102b9e735ec-220c88a73d1b76cccb7d",
+          "file": "outcomes.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "assertion failure",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "beta",
+              "projectName": "beta",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "failed",
+                  "duration": 6,
+                  "error": {
+                    "message": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 5\nReceived: 4",
+                    "stack": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 5\nReceived: 4\n    at <ROOT>\\tests\\outcomes.spec.ts:8:17",
+                    "location": {
+                      "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                      "column": 17,
+                      "line": 8
+                    },
+                    "snippet": "   6 |\n   7 | test('assertion failure', async () => {\n>  8 |   expect(2 + 2).toBe(5);\n     |                 ^\n   9 | });\n  10 |\n  11 | test('times out', async () => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                        "column": 17,
+                        "line": 8
+                      },
+                      "message": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 5\nReceived: 4\n\n   6 |\n   7 | test('assertion failure', async () => {\n>  8 |   expect(2 + 2).toBe(5);\n     |                 ^\n   9 | });\n  10 |\n  11 | test('times out', async () => {\n    at <ROOT>\\tests\\outcomes.spec.ts:8:17"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-21T22:58:46.621Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\outcomes-assertion-failure-beta\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                    "column": 17,
+                    "line": 8
+                  }
+                },
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 1,
+                  "status": "failed",
+                  "duration": 7,
+                  "error": {
+                    "message": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 5\nReceived: 4",
+                    "stack": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 5\nReceived: 4\n    at <ROOT>\\tests\\outcomes.spec.ts:8:17",
+                    "location": {
+                      "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                      "column": 17,
+                      "line": 8
+                    },
+                    "snippet": "   6 |\n   7 | test('assertion failure', async () => {\n>  8 |   expect(2 + 2).toBe(5);\n     |                 ^\n   9 | });\n  10 |\n  11 | test('times out', async () => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                        "column": 17,
+                        "line": 8
+                      },
+                      "message": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 5\nReceived: 4\n\n   6 |\n   7 | test('assertion failure', async () => {\n>  8 |   expect(2 + 2).toBe(5);\n     |                 ^\n   9 | });\n  10 |\n  11 | test('times out', async () => {\n    at <ROOT>\\tests\\outcomes.spec.ts:8:17"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 1,
+                  "startTime": "2026-09-21T22:58:47.211Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\outcomes-assertion-failure-beta-retry1\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                    "column": 17,
+                    "line": 8
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "bac7195f1102b9e735ec-4c14bcf4c0c9e078f116",
+          "file": "outcomes.spec.ts",
+          "line": 7,
+          "column": 1
+        },
+        {
+          "title": "times out",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 1200,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "beta",
+              "projectName": "beta",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 1,
+                  "status": "timedOut",
+                  "duration": 1213,
+                  "error": {
+                    "message": "Test timeout of 1200ms exceeded.",
+                    "stack": "Test timeout of 1200ms exceeded."
+                  },
+                  "errors": [
+                    {
+                      "message": "Test timeout of 1200ms exceeded."
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-21T22:58:47.837Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\outcomes-times-out-beta\\error-context.md"
+                    }
+                  ]
+                },
+                {
+                  "workerIndex": 6,
+                  "parallelIndex": 1,
+                  "status": "timedOut",
+                  "duration": 1206,
+                  "error": {
+                    "message": "Test timeout of 1200ms exceeded.",
+                    "stack": "Test timeout of 1200ms exceeded."
+                  },
+                  "errors": [
+                    {
+                      "message": "Test timeout of 1200ms exceeded."
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 1,
+                  "startTime": "2026-09-21T22:58:49.743Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\outcomes-times-out-beta-retry1\\error-context.md"
+                    }
+                  ]
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "bac7195f1102b9e735ec-aa357d2c8769df6e56db",
+          "file": "outcomes.spec.ts",
+          "line": 11,
+          "column": 1
+        },
+        {
+          "title": "flaky: fails then passes on retry",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "beta",
+              "projectName": "beta",
+              "results": [
+                {
+                  "workerIndex": 9,
+                  "parallelIndex": 1,
+                  "status": "failed",
+                  "duration": 11,
+                  "error": {
+                    "message": "Error: first attempt always fails\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0",
+                    "stack": "Error: first attempt always fails\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0\n    at <ROOT>\\tests\\outcomes.spec.ts:18:56",
+                    "location": {
+                      "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                      "column": 56,
+                      "line": 18
+                    },
+                    "snippet": "  16 | test('flaky: fails then passes on retry', async ({}, testInfo) => {\n  17 |   // Retry index is the only reliable cross-worker signal: module state resets.\n> 18 |   expect(testInfo.retry, 'first attempt always fails').toBeGreaterThan(0);\n     |                                                        ^\n  19 | });\n  20 |\n  21 | test.skip('intentionally skipped', async () => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                        "column": 56,
+                        "line": 18
+                      },
+                      "message": "Error: first attempt always fails\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0\n\n  16 | test('flaky: fails then passes on retry', async ({}, testInfo) => {\n  17 |   // Retry index is the only reliable cross-worker signal: module state resets.\n> 18 |   expect(testInfo.retry, 'first attempt always fails').toBeGreaterThan(0);\n     |                                                        ^\n  19 | });\n  20 |\n  21 | test.skip('intentionally skipped', async () => {\n    at <ROOT>\\tests\\outcomes.spec.ts:18:56"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-21T22:58:51.606Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\outcomes-flaky-fails-then-passes-on-retry-beta\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                    "column": 56,
+                    "line": 18
+                  }
+                },
+                {
+                  "workerIndex": 11,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 8,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 1,
+                  "startTime": "2026-09-21T22:58:52.294Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "flaky"
+            }
+          ],
+          "id": "bac7195f1102b9e735ec-74ea5c6ae1b821d1afb1",
+          "file": "outcomes.spec.ts",
+          "line": 16,
+          "column": 1
+        },
+        {
+          "title": "intentionally skipped",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "location": {
+                    "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                    "line": 21,
+                    "column": 6
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "beta",
+              "projectName": "beta",
+              "results": [
+                {
+                  "workerIndex": 11,
+                  "parallelIndex": 1,
+                  "status": "skipped",
+                  "duration": 0,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-21T22:58:52.347Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                        "line": 21,
+                        "column": 6
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "bac7195f1102b9e735ec-86b2e4425cf37d0cc37d",
+          "file": "outcomes.spec.ts",
+          "line": 21,
+          "column": 6
+        },
+        {
+          "title": "declared expected failure",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "fail",
+                  "location": {
+                    "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                    "line": 26,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "failed",
+              "projectId": "beta",
+              "projectName": "beta",
+              "results": [
+                {
+                  "workerIndex": 11,
+                  "parallelIndex": 1,
+                  "status": "failed",
+                  "duration": 5,
+                  "error": {
+                    "message": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 2\nReceived: 1",
+                    "stack": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 2\nReceived: 1\n    at <ROOT>\\tests\\outcomes.spec.ts:27:13",
+                    "location": {
+                      "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                      "column": 13,
+                      "line": 27
+                    },
+                    "snippet": "  25 | test('declared expected failure', async () => {\n  26 |   test.fail();\n> 27 |   expect(1).toBe(2);\n     |             ^\n  28 | });\n  29 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                        "column": 13,
+                        "line": 27
+                      },
+                      "message": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 2\nReceived: 1\n\n  25 | test('declared expected failure', async () => {\n  26 |   test.fail();\n> 27 |   expect(1).toBe(2);\n     |             ^\n  28 | });\n  29 |\n    at <ROOT>\\tests\\outcomes.spec.ts:27:13"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-21T22:58:52.347Z",
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "location": {
+                        "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                        "line": 26,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\outcomes-declared-expected-failure-beta\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "<ROOT>\\tests\\outcomes.spec.ts",
+                    "column": 13,
+                    "line": 27
+                  }
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bac7195f1102b9e735ec-d90aca414dee7e5af63e",
+          "file": "outcomes.spec.ts",
+          "line": 25,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-09-21T22:58:45.657Z",
+    "duration": 6733.478,
+    "expected": 4,
+    "skipped": 2,
+    "unexpected": 4,
+    "flaky": 2
+  }
+}
