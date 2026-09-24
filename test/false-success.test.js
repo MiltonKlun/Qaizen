@@ -14,7 +14,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  readFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execPath } from 'node:process';
@@ -260,6 +266,82 @@ test('sync-testlink-execution: a linked case with no failure entry is NOT report
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// --- 3.3: a draft analysis is never pushed as a result ----------------------
+
+function syncTestlinkWith(fa) {
+  const dir = scratch('tl-draft');
+  mkdirSync(join(dir, 'test-cases'), { recursive: true });
+  mkdirSync(join(dir, 'analysis'), { recursive: true });
+  mkdirSync(join(dir, 'config'), { recursive: true });
+  writeFileSync(
+    join(dir, 'config', 'testlink-status-map.json'),
+    readFileSync(join(process.cwd(), 'config', 'testlink-status-map.json'))
+  );
+  writeFileSync(
+    join(dir, 'context.json'),
+    JSON.stringify({
+      schema_version: '1.0',
+      story: { id: 'STORY-777' },
+      review_gates: { code_reviewed: true },
+    })
+  );
+  writeFileSync(
+    join(dir, 'test-cases', 'STORY-777.json'),
+    JSON.stringify({
+      schema_version: '1.0',
+      story_id: 'STORY-777',
+      test_cases: [
+        {
+          test_case_id: 'TC-001',
+          automation_decision: 'automate_e2e',
+          status: 'approved',
+          testlink_id: '101',
+        },
+      ],
+    })
+  );
+  writeFileSync(
+    join(dir, 'analysis', 'failure-analysis.json'),
+    JSON.stringify(fa)
+  );
+  const r = spawnSync(
+    execPath,
+    [join(process.cwd(), 'scripts', 'sync-testlink-execution.js'), 'STORY-777'],
+    {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, TESTLINK_API_KEY: '', TESTLINK_URL: '' },
+    }
+  );
+  rmSync(dir, { recursive: true, force: true });
+  return { code: r.status, out: (r.stdout || '') + (r.stderr || '') };
+}
+
+test('sync-testlink-execution: a 2.x DRAFT analysis is refused, a finalized one is not', () => {
+  const failure = {
+    failure_id: 'FAIL-001',
+    test_case_id: 'TC-001',
+    classification: 'product_bug',
+    severity: 'red',
+  };
+  const draft = syncTestlinkWith({
+    schema_version: '2.0',
+    status: 'draft',
+    failures: [failure],
+  });
+  assert.equal(draft.code, 1, draft.out);
+  assert.match(draft.out, /refusing to sync execution results/);
+  // Nothing from the draft may be planned as a result.
+  assert.doesNotMatch(draft.out, /Fail \(f\)/);
+
+  const finalized = syncTestlinkWith({
+    schema_version: '2.0',
+    status: 'finalized',
+    failures: [{ ...failure, bug_draft_path: 'release/bug-drafts/BUG-001.md' }],
+  });
+  assert.doesNotMatch(finalized.out, /refusing to sync/, finalized.out);
 });
 
 // --- S3: the healer must not claim enforcement it cannot perform -----------

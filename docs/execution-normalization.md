@@ -74,12 +74,26 @@ subtracted from assertion totals.
 ### Domain links (B6)
 
 The adapters resolve **no** domain IDs. Every unit leaves the adapter with null
-links and a stated reason. `resolveDomainLinks()` fills them from a
-caller-supplied mapping of declared metadata, and:
+links and a stated reason. `resolveDomainLinks()` then fills them from two
+exact sources (task group 3.3):
+
+1. **The report itself** (`idsFromMetadata()`): the documented conventions put
+   ids where the runner report carries them — the Playwright test title
+   (`valid login shows the inventory [TC-001]`) and the Newman item name
+   (`REQ-001 Create user returns 201 (TC-001)`, `agents/api-agent.md`).
+   Header comments such as `PW-001 — …` are **not** read: they never reach
+   the report, and pairing a comment with one test in a multi-test file would
+   be a guess.
+2. **An optional mapping file** (`--mapping`, below).
+
+And:
 
 - an unmapped unit keeps its null links **and its reason**;
+- two different ids of one kind in the same title, or a title and a mapping
+  that disagree, are a **conflict**: the link stays null and both values are
+  recorded for a human — never an arbitrary choice;
 - a mapping claiming two different cases for one unit is recorded as
-  **ambiguous** and left unresolved for a human;
+  **ambiguous** and left unresolved;
 - an ID is never derived from position or failure ordering.
 
 A unit's id is a function of runner identity alone, so re-running with different
@@ -112,6 +126,12 @@ npm run normalize -- --story QA-1042 \
 # API-only: no fabricated Playwright report is required
 npm run normalize -- --story QA-1042 --newman reports/newman-results.json
 
+# Every Newman report for this story in one execution (task group 3.2 layout)
+npm run normalize -- --story QA-1042 --execution <execution-id>
+
+# --newman is repeatable; each collection must contribute exactly once
+npm run normalize -- --story QA-1042 --newman a.json --newman b.json
+
 # With a declared domain mapping
 npm run normalize -- --story QA-1042 --playwright reports/results.json \
   --mapping config/unit-mapping.json
@@ -123,6 +143,9 @@ no execution inputs.
 
 With **neither** runner supplied the command exits `2` rather than writing an
 empty ledger, because an empty ledger is indistinguishable from a clean run.
+It also exits `2` when the same report is supplied twice, or when two reports
+claim the same collection: either would count those units twice. Every other
+flag is single-valued and refuses to be repeated.
 Manual/external result import is task group 7.x.
 
 ### Mapping file

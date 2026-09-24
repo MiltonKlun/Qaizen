@@ -42,9 +42,14 @@ const PW_ATTEMPT_STATUS = {
   skipped: 'skipped',
 };
 
+const ANSI = /\u001b\[[0-9;]*m/g;
+
 function excerpt(text, secrets) {
   if (!text) return undefined;
-  const clean = redactText(String(text), secrets);
+  // Terminal colour codes are stripped BEFORE truncation: real Playwright
+  // messages carry dozens of them, which both pollute durable evidence and eat
+  // into the excerpt budget ahead of the `Received:` line (task group 3.3).
+  const clean = redactText(String(text).replace(ANSI, ''), secrets);
   return clean.length > ERROR_EXCERPT_LIMIT
     ? clean.slice(0, ERROR_EXCERPT_LIMIT)
     : clean;

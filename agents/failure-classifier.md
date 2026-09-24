@@ -10,9 +10,18 @@ description: |
   does not own that path.
 phase_introduced: 1
 phase_active: 1+
-version: 1.1.0
+version: 2.0.0
 changed_in_run: null
 changelog: |
+  - 2.0.0: MAJOR (task group 3.3, with failure-analysis schema 2.0). Reads the
+    pre-classifier's v2 DRAFT, which is derived from the execution ledger
+    (analysis/execution-ledger.json), instead of raw runner reports; totals
+    come from the ledger and are never recomputed. PW-/REQ- ids are set only
+    when proven from metadata, otherwise left null WITH id_unresolved_reason
+    -- never minted from failure order (finding B6). Classification follows
+    the evidence order (business mismatch -> Red first; a locator keyword is
+    never evidence of Green; finding B1). Bug drafts are written while
+    finalizing, and status becomes "finalized" only after every Red has one.
   - 1.1.0: Added the "Loads only" token-efficient context declaration
     (Phase 3 TG7) — reads the JSON reporter, not the HTML report; records
     evidence_paths instead of loading traces/screenshots. Additive.
@@ -138,30 +147,53 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
 1. **Verify Gate 4.** Passed when
    `context.json.review_gates.code_reviewed` is `true` or an object with
    `status: true`. If neither, stop.
-2. **Read** `reports/results.json` and (Phase 1.5+)
-   `reports/newman-results.json`. Compute totals
-   (`total_tests`, `passed`, `failed`, `skipped`).
-3. **For each failed test**, build a failure entry:
-   - Mint a `FAIL-XXX` id (ascending).
-   - Find the originating `TC-XXX` (or `API-XXX`). For Playwright,
-     read the test's annotations / metadata. For Newman, match
-     against the collection's request items. If no link can be
-     established (e.g. the seed test failed), set
-     `test_case_id: null` and
-     `traceability_unresolved: true` with a free-text reason. **Do
-     not fake the link.**
-   - Set `playwright_test_id` (`PW-XXX`) for Playwright failures,
-     or `source: "newman"` + `request_id` (`REQ-XXX`) for Newman.
+2. **Read** the pre-classifier's draft `analysis/failure-analysis.json`
+   (`schema_version: "2.0"`, written by `npm run pipeline` or
+   `npm run normalize` + `npm run classify`). It is derived from
+   `analysis/execution-ledger.json`, which is the counting model: the
+   flat totals are its legacy projection and `outcome_breakdown` explains
+   them. **Never recompute totals from raw reports** -- that is how timed-out
+   tests vanished (B2) and pass counts went negative (B5).
+3. **For each failure in the draft** (every failed, blocked and flaky unit
+   is already present, once):
+   - Keep its `FAIL-XXX` and `unit_id`. `execution_outcome` is what the
+     run did; `classification` is why. Keep them separate: a `flaky` unit
+     can still carry a Red cause.
+   - Resolve the originating `TC-XXX` (or `API-XXX`) **only from exact
+     metadata**: the test title (`... [TC-002]`), the request name
+     (`REQ-001 ... (TC-001)`), or the test's annotations. If sources
+     disagree, the link stays unresolved -- never pick one. If no link can
+     be established (e.g. the seed test failed), keep `test_case_id: null`
+     with `traceability_unresolved: true` and a reason. **Do not fake the
+     link.**
+   - Set `playwright_test_id` (`PW-XXX`) or `request_id` (`REQ-XXX`) only
+     when metadata proves it. Otherwise leave it `null` with
+     `id_unresolved_reason`, and keep `runner_identity` so the failure
+     stays traceable. **Never mint an id from the order failures appear**
+     (finding B6).
    - **Classify.** Use the closed taxonomy in
      `schemas/failure-analysis.schema.json`. See the signals table
      in `skills/analyzing-logs/SKILL.md` and the worked examples in
      `docs/healer-guardrails.md` section 6.
    - **Assign severity** (`green` / `yellow` / `red`) per the table
-     in `docs/healer-guardrails.md`. When signals contradict each
-     other or are insufficient, default to `yellow` and classify
-     as `unknown_needs_human_review` — never guess Green or Red.
-   - Trim the error message; record evidence paths (traces,
-     screenshots, response captures).
+     in `docs/healer-guardrails.md`, applying evidence in this order:
+     1. an established business assertion mismatch (a real value was
+        observed and it is wrong) -> **Red** / `product_bug`;
+     2. an explicit infrastructure failure -> Yellow / `environment_issue`;
+     3. a retry-flaky outcome -> Yellow / `flaky`, unless step 1 applies
+        to any attempt;
+     4. a proven locator failure during an ACTION (not an assertion) ->
+        **Green** / `locator_or_selector`, only when no Red domain
+        (`scripts/red-domains.js`) or semantic ambiguity is involved;
+     5. anything else -> Yellow / `unknown_needs_human_review`.
+        A message containing "locator", "getBy" or "timeout" is **not**
+        evidence of Green: `expect(locator).toHaveText('$100.00')` against
+        `$1.00` is Red (finding B1). A missing element during an assertion is
+        ambiguous. When signals contradict each other or are insufficient,
+        default to Yellow -- never guess Green or Red.
+   - Confirm or correct the recorded `classification_reason`; a reviewer
+     reads it to check your call.
+   - Record evidence paths (traces, screenshots, response captures).
    - If `severity == "red"`, write the bug draft (next step) and
      record `bug_draft_path`.
 
@@ -174,7 +206,7 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
    | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
    | Status code is not the expected one AND is not 5xx (e.g. expected 201, got 400/404/409)                  | `product_bug` — the endpoint behaved wrong on its own contract. Confirm against the TC's `expected_results` and the AC.                                                                                                                                     |
    | Status code is 5xx                                                                                       | Ambiguous: `environment_issue` (a dependency was down) OR `product_bug` (the server crashed on a valid request). **Escalate to LLM judgment** — read the response body and the request to decide; default to `unknown_needs_human_review` if still unclear. |
-   | Request timed out                                                                                        | `wait_or_timeout`.                                                                                                                                                                                                                                          |
+   | Request timed out                                                                                        | `unknown_needs_human_review` (Yellow): an uncertain operation. Use `flaky` only when a re-run of the same request passed.                                                                                                                                   |
    | The post-response test script failed but the HTTP response itself was as expected (right status + shape) | `test_bug` — the assertion was wrong, the API was right.                                                                                                                                                                                                    |
    | Connection refused / DNS / TLS error                                                                     | `environment_issue`.                                                                                                                                                                                                                                        |
 
@@ -187,17 +219,22 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
    `docs/healer-guardrails.md` severities apply, with these
    API-specific readings:
 
-   | Severity   | API reading                                                                                                                                                               |
-   | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | **Green**  | Sporadic, retry-able timeouts; a transient network blip that passes on re-run. Documented only — and note that even Green API failures are NEVER auto-healed (see Rules). |
-   | **Yellow** | A response-shape change that does NOT break the contract the TC asserts (e.g. an added optional field, a reordered array). Needs human eyes to confirm it's benign.       |
-   | **Red**    | Wrong status code on a business endpoint; data mismatch on a business-critical field; a permission/auth endpoint returning the wrong result. Always a bug draft.          |
+   | Severity   | API reading                                                                                                                                                         |
+   | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | **Green**  | Not assigned. API failures are never healed (see Rules), so Green grants nothing here; a transient blip that passes on re-run is Yellow / `flaky`.                  |
+   | **Yellow** | A response-shape change that does NOT break the contract the TC asserts (e.g. an added optional field, a reordered array). Needs human eyes to confirm it's benign. |
+   | **Red**    | Wrong status code on a business endpoint; data mismatch on a business-critical field; a permission/auth endpoint returning the wrong result. Always a bug draft.    |
 
 4. **For each Red failure**, write
    `release/bug-drafts/BUG-XXX.md` using the canonical format in
    section 11. The `BUG-XXX` id maps one-to-one to the
    `FAIL-XXX` (i.e. `FAIL-007` → `BUG-007`).
-5. **Write** `analysis/failure-analysis.json` with `status: "draft"`.
+5. **Finalize** `analysis/failure-analysis.json`: once every classification
+   is confirmed, every Red failure has its bug draft and `bug_draft_path`,
+   and every unresolved link is resolved or explicitly acknowledged, set
+   `status: "finalized"`. Schema 2.0 enforces the bug drafts: a finalized
+   analysis with a Red failure and no `bug_draft_path` does not validate. A
+   draft never points at bug drafts that do not exist.
 6. **Validate** with
    `node scripts/validate-json.js schemas/failure-analysis.schema.json analysis/failure-analysis.json`.
 7. **Update `context.json`** with the new `artifact_paths.failure_analysis`
@@ -269,14 +306,21 @@ After updating `context.json`:
 npm run validate:context
 ```
 
-Both must exit 0. The schema has four conditional rules that
-catch the most common mistakes:
+Both must exit 0. The schema's conditional rules catch the most common
+mistakes. For `schema_version` 2.x (what this agent writes):
 
-- Red severity ⇒ `bug_draft_path` required.
+- `status: "finalized"` and Red severity ⇒ `bug_draft_path` required.
 - `test_case_id: null` ⇒ `traceability_unresolved: true` AND
   `traceability_unresolved_reason` required.
-- Newman source ⇒ `request_id` required.
-- Playwright source (or unset) ⇒ `playwright_test_id` required.
+- Newman source ⇒ the `request_id` key is required; Playwright source (or
+  unset) ⇒ the `playwright_test_id` key is required. Either may be `null`,
+  and then `id_unresolved_reason` is required.
+- Every failure carries `unit_id`, `execution_outcome`, `runner_identity`
+  and `classification_reason`; the analysis carries `execution_ledger`,
+  `outcome_breakdown` and `source_errors`.
+
+  1.x artifacts (archived runs) keep the original rules: Red always needs a
+  bug draft and PW/REQ ids must be present and non-null.
 
 ---
 
@@ -294,8 +338,10 @@ Linkage:
 - Every `FAIL-XXX` references the originating `TC-XXX` (or
   `API-XXX` in Phase 1.5+), or has `test_case_id: null` +
   `traceability_unresolved: true` + a reason.
-- Every `FAIL-XXX` carries `playwright_test_id` (`PW-XXX`) OR
-  `request_id` (`REQ-XXX`) — the schema enforces exactly one.
+- Every `FAIL-XXX` carries a `playwright_test_id` OR `request_id` key.
+  In schema 2.x its value is the proven `PW-XXX` / `REQ-XXX`, or `null`
+  with `id_unresolved_reason` and the retained `runner_identity`. An id is
+  never derived from failure order.
 - Every `BUG-XXX` carries the four linkage lines in its Markdown:
   `Linked Story`, `Linked Failure`, `Linked Risk`, `Linked Test
 Case`. Phase 2's promotion script parses these.
@@ -405,14 +451,14 @@ with a non-empty key is skipped on re-run).
 ## References
 
 - `skills/analyzing-logs/SKILL.md` — the skill this agent executes.
-- `scripts/run-failure-classifier.js` — Phase 3 TG1 rule-based
-  PRE-classifier. It produces a first-pass `analysis/failure-analysis.json`
-  by deterministic signal rules (locator→green, assertion→product_bug, …)
-  and escalates ambiguous failures to `unknown_needs_human_review`. It does
-  NOT resolve TC linkage (sets `traceability_unresolved`); this agent
-  finishes the job — confirming/overriding classifications and resolving
-  each `FAIL-XXX` to its `TC-XXX`. The script is an optimization, not a
-  replacement for the agent.
+- `scripts/run-failure-classifier.js` — the rule-based PRE-classifier. It
+  reads the execution ledger and writes a v2 DRAFT: every failed / blocked /
+  flaky unit, classified by evidence (`scripts/lib/classify-failure.js`)
+  with the reason recorded, ids proven from metadata or left null with a
+  reason, and no bug drafts. This agent finishes the job — confirming or
+  overriding classifications, resolving links, writing bug drafts and
+  finalizing. The script is an optimization, not a replacement for the
+  agent.
 - `docs/bug-draft-format.md` — the canonical bug-draft layout (the
   format in section 11 is the same contract, documented in full there;
   the Phase 2 promotion script parses it).

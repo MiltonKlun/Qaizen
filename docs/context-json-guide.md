@@ -456,7 +456,7 @@ also a data-safety control: what is never inlined cannot leak through a prompt
 | test-designer      | `context.json`, `story.md`, `automation-decision-model.md`; `code_change_context` if present. |
 | api-agent          | `context.json`, the `automate_api` cases of `test-cases/`, optional `docs/api-spec.yaml`.     |
 | spec-reviewer      | `context.json`, `test-cases/`, the planner brief, `specs/[story-id].md`.                      |
-| failure-classifier | `reports/results.json` (+ newman JSON), `context.json`, `test-cases/`, the API collection.    |
+| failure-classifier | the draft analysis + `analysis/execution-ledger.json`, `context.json`, `test-cases/`.         |
 | reporter           | `context.json`, `test-cases/`, `analysis/failure-analysis.json`, bug drafts. Summaries only.  |
 
 The `test-management-adapter` is a port, not an LLM-loading step, so it has no

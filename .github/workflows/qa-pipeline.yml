@@ -328,6 +328,10 @@ jobs:
             echo "ran=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # The classifier reads the normalized execution ledger, never raw
+          # reports (task group 3.3), so normalize the run first.
+          story=$(node -e "process.stdout.write(require('./context.json').story.id)")
+          node scripts/normalize-results.js --story "$story" --playwright reports/results.json || true
           node scripts/run-failure-classifier.js || true
           node scripts/run-healer.js --apply || true
           echo "ran=true" >> "$GITHUB_OUTPUT"

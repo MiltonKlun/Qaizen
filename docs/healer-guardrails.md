@@ -71,6 +71,23 @@ business behavior.
 { name: /Save/i })` is Green if both target the same logical
   control.
 
+### How Green is granted automatically (task group 3.3)
+
+The rule-based pre-classifier (`scripts/lib/classify-failure.js`) grants
+Green in exactly one case: a locator that could not be found during an
+**action** (`locator.click`, `fill`, …) — no assertion failed — in a test
+that touches no Red domain (`scripts/red-domains.js`). The same failure in a
+payment or permission test is Yellow. Everything else it cannot prove is
+Yellow, including a bare test timeout: one run cannot establish that a
+timeout is mere instability rather than a hang, so "wait unstable" and
+"timeout stabilization" become Green only when the Failure Classifier Agent
+or a human establishes it.
+
+It reads what the error says **failed**, never keywords. The review found
+`expect(locator).toHaveText('$100.00')` against an element showing `$1.00`
+classified Green because the message contains "locator" (finding B1). That
+is an assertion that observed a wrong business value, so it is **Red**.
+
 ### What does NOT qualify as Green, even if it looks similar
 
 - Replacing a brittle selector with one that matches a _different_
