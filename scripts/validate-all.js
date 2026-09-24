@@ -10,6 +10,7 @@
 //   context.json                          schemas/context.schema.json
 //   test-cases/*.json                     schemas/test-cases.schema.json
 //   analysis/failure-analysis.json        schemas/failure-analysis.schema.json
+//   analysis/execution-ledger.json        schemas/execution-ledger.schema.json
 //   release/release-report.json           schemas/release-report.schema.json
 //   api-tests/collections/*.json          schemas/postman-collection.schema.json
 //
@@ -42,6 +43,10 @@ function targetsFor(base = '.') {
     {
       files: [at('analysis/failure-analysis.json')],
       schema: 'schemas/failure-analysis.schema.json',
+    },
+    {
+      files: [at('analysis/execution-ledger.json')],
+      schema: 'schemas/execution-ledger.schema.json',
     },
     {
       dir: at('analysis/spec-reviews'),

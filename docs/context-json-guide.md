@@ -242,6 +242,14 @@ This is the **manifest** part. Each key points at a file the
 downstream agent will produce; the value is the **relative path** to
 that file. Empty string when not yet produced.
 
+> **`execution_ledger` (optional, added in task group 2.2a).** Points at
+> `analysis/execution-ledger.json`, the canonical cross-runner counting model
+> (`schemas/execution-ledger.schema.json`). It is **additive and not required**:
+> every context written before 2.2a stays valid, and nothing writes the ledger
+> yet — the execution adapters that produce it arrive in Phase 3. The existing
+> report-path fields (`execution_results`, `html_report`, …) remain for
+> compatibility; they are **paths, not substitutes for a valid ledger**.
+
 Conventions:
 
 - Paths are relative to the project root.
