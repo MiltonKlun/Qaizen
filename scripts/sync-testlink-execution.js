@@ -85,6 +85,20 @@ if (!gateOk) {
   exit(1);
 }
 
+// --- A draft analysis is not a result to report (task group 3.3) --------
+// A 2.x draft is the rule-based pre-classifier's first pass: its Red
+// failures have no bug drafts yet and its links may be unresolved. Pushing
+// it to TestLink would publish a guess as the verdict. 1.x analyses predate
+// this distinction and keep their previous behaviour.
+if (/^2\./.test(fa.schema_version || '') && fa.status !== 'finalized') {
+  console.error(
+    `${faPath} is a ${fa.status || 'status-less'} ${fa.schema_version} analysis; refusing to sync ` +
+      'execution results. Finalize it first (the Failure Classifier Agent or a human ' +
+      'confirms classifications, writes bug drafts, then sets status "finalized").'
+  );
+  exit(1);
+}
+
 // --- Build TC -> outcome -------------------------------------------------
 const statusByOutcome = map.outcome_to_testlink_status || {};
 const defaultStatus = map.default_status || 'Blocked';

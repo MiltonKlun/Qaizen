@@ -11,9 +11,18 @@ description: |
   completed.
 phase_introduced: 1
 phase_active: 1+
-version: 1.2.0
+version: 2.0.0
 changed_in_run: null
 changelog: |
+  - 2.0.0: MAJOR (task group 3.3, with failure-analysis schema 2.0).
+    execution_summary now comes from the execution ledger
+    (failure-analysis.execution_ledger) using the legacy projection defined
+    once in scripts/lib/execution-ledger.js, split by runner kind -- never
+    recomputed from raw reports, which dropped timed-out tests (B2), could
+    produce negative counts (B5), and read the pre-3.2 Newman path.
+    Requires a FINALIZED 2.x analysis: a draft's Red failures have no bug
+    drafts yet. flaky_tests come from ledger units with outcome "flaky".
+    Output shape unchanged; values change where the old counts were wrong.
   - 1.2.0: Enhanced release reporting (Phase 3 TG12) — emit optional
     summary_by_risk_level, untested_high_risk_items, flaky_tests,
     open_bugs_summary, conditional_pass_criteria, external_links. All
@@ -82,10 +91,11 @@ At the end of a successful run, the Reporter sets
   context only; the Reporter does not copy from it.
 - _(Optional)_ `specs/[story-id].md` — same.
 - _(Optional)_ `tests/[story-id].spec.ts` — same.
-- `reports/results.json` — Playwright execution output.
-- _(Phase 1.5+)_ `reports/newman-results.json`.
+- `analysis/execution-ledger.json` — the counts, for both branches (named
+  by `failure-analysis.json.execution_ledger`). Raw reports under
+  `reports/` are evidence paths only, never a source of counts.
 - `analysis/failure-analysis.json` — the Failure Classifier's
-  output. **Required.**
+  output. **Required**, and `finalized` when it is schema 2.x.
 - `release/bug-drafts/BUG-XXX.md` — every existing draft.
 
 **Required precondition:** Gate 4 passed —
@@ -150,16 +160,29 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
    nor `{ status: true }`), stop.
 2. **Verify `analysis/failure-analysis.json` exists** and validates.
    If it doesn't, stop and surface — the Reporter cannot fabricate
-   the classification.
-3. **Compute `execution_summary`** from `reports/results.json` and
-   (Phase 1.5+) `reports/newman-results.json`.
+   the classification. For `schema_version` 2.x it must also have
+   `status: "finalized"`: a draft is the pre-classifier's first pass, its
+   Red failures have no bug drafts yet, and its links may be unresolved.
+   Stop and ask for the Failure Classifier Agent (or a human) to finalize
+   it.
+3. **Compute `execution_summary`** from the execution ledger named in
+   `failure-analysis.json.execution_ledger` (normally
+   `analysis/execution-ledger.json`). **Never recompute from raw
+   reports**: that dropped timed-out tests (B2) and could produce negative
+   pass counts (B5). Use the legacy projection defined once in
+   `scripts/lib/execution-ledger.js` — `passed = passed`,
+   `failed = failed + blocked + flaky`,
+   `skipped = skipped + not_run + expected_failure`, `total` = all units —
+   computed over the ledger's units, split by `identity.kind`
+   (`playwright` → `e2e`, `newman` → `api`). For a 1.x analysis with no
+   ledger, the legacy raw-report computation below still applies.
    - Phase 1 form (E2E only, no Newman run): the flat
      `{ total, passed, failed, skipped, pass_rate }`.
    - **Phase 1.5+ form (both branches): use the grouped form**
      `{ e2e: {...}, api: {...}, combined: {...} }` whenever a Newman
-     run happened (i.e. `reports/newman-results.json` exists for this
-     run). `e2e` is computed from the Playwright results, `api` from
-     the Newman results, and `combined` is the element-wise sum
+     run happened (i.e. the ledger holds `newman` units). `e2e` is
+     computed from the Playwright units, `api` from the Newman units, and
+     `combined` is the element-wise sum
      (`combined.total = e2e.total + api.total`, etc.; `combined.pass_rate`
      is `combined.passed / combined.total`, not the average of the two
      rates). If only one branch ran, you may still use the grouped form
@@ -254,9 +277,11 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
      `uncovered_high_severity_count`: each high-severity risk whose status
      is `uncovered`, as `{ risk_id, description }`. **Never omit a real
      gap** — "no hidden untested risks" is a hard rule (§6).
-   - `flaky_tests` — only if flakiness is tracked for this run (e.g. a
-     test that passed on retry). Each `{ test_id, branch?, note? }`. If
-     not tracked, omit or use `[]` — **never fabricate** flakiness.
+   - `flaky_tests` — every ledger unit with `outcome: "flaky"` (failed,
+     then passed on retry). Each `{ test_id, branch?, note? }`, where
+     `test_id` is the proven `PW-XXX` / `REQ-XXX` or, when that id is
+     unresolved, the unit's `unit_id`. No ledger (1.x) → omit or use `[]`
+     — **never fabricate** flakiness.
    - `open_bugs_summary` — roll up `bug_drafts[]`: `total`, `red`,
      `yellow`, `with_jira`, `without_jira` (the last two from whether each
      draft has a `jira_key_if_exists`).

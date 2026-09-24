@@ -70,7 +70,7 @@ When the run completes the runner reminds you of the two post-run habits:
 | --------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | **Guide** | analyst, test-designer, planner, api, generator, report | **You + the agent.** The runner prints the exact instruction and exits; it never fakes an LLM step. |
 | **Gate**  | gate1, gate2, gate3, gate4                              | **You, interactively.** Brief rendered, decision captured, audit + telemetry written.               |
-| **Exec**  | execute, classify                                       | **The runner.** Deterministic: `npx playwright test`, then `scripts/run-failure-classifier.js`.     |
+| **Exec**  | execute, classify                                       | **The runner.** Deterministic: `npx playwright test`, then `normalize-results.js` → the classifier. |
 
 Playwright failures at the execute step are **data for the classifier**, not
 a runner error — the runner continues to `classify` either way. The
