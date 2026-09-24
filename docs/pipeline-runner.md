@@ -56,8 +56,10 @@ A full loop looks like:
 --story → [analyst step: you run the agent] → --resume → GATE 1 (interactive)
 → [test-designer step] → --resume → GATE 2 → [planner step] → --resume
 → [api step, if automate_api cases] → GATE 3 → [generator step] → --resume
-→ GATE 4 → execute (runner runs npx playwright test) → classify (runner runs
-the rule-based classifier) → [reporter step] → --resume → done
+→ GATE 4 → execute (runner runs npx playwright test) → [execute-api step, if
+automate_api cases] → classify (runner normalizes, then runs the rule-based
+pre-classifier) → [finalize step: the Failure Classifier agent] → --resume
+→ [reporter step] → --resume → done (the runner marks the run completed)
 ```
 
 When the run completes the runner reminds you of the two post-run habits:
@@ -110,14 +112,44 @@ finishes or undoes it before doing anything else, deterministically:
 
 ## 3. Guide steps vs exec steps
 
-| Kind      | Steps                                                   | Who acts                                                                                            |
-| --------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| **Guide** | analyst, test-designer, planner, api, generator, report | **You + the agent.** The runner prints the exact instruction and exits; it never fakes an LLM step. |
-| **Gate**  | gate1, gate2, gate3, gate4                              | **You, interactively.** Brief rendered, decision captured, audit + telemetry written.               |
-| **Exec**  | execute, classify                                       | **The runner.** Deterministic: `npx playwright test`, then `normalize-results.js` → the classifier. |
+| Kind      | Steps                                                                          | Who acts                                                                                            |
+| --------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| **Guide** | analyst, test-designer, planner, api, generator, execute-api, finalize, report | **You + the agent.** The runner prints the exact instruction and exits; it never fakes an LLM step. |
+| **Gate**  | gate1, gate2, gate3, gate4                                                     | **You, interactively.** Brief rendered, decision captured, audit + telemetry written.               |
+| **Exec**  | execute, classify                                                              | **The runner.** Deterministic: `npx playwright test`, then `normalize-results.js` → the classifier. |
 
 Playwright failures at the execute step are **data for the classifier**, not
-a runner error — the runner continues to `classify` either way. The
+a runner error — a failing suite with a valid report continues to
+`classify`. A test runner that **could not start, or wrote no valid report of
+this code**, is a runner error: the runner stops after that one launch instead
+of relaunching (finding B4 — the old runner ignored the launch result and
+looped).
+
+### What "produced" and "complete" mean (task group 4.2)
+
+An artifact counts as produced only when it **exists, validates against its
+schema, and belongs to this run** (same `story_id` and `run_id`). Text
+artifacts must be non-empty; the Playwright report must be a real report
+written after the generated test last changed and after Gate 4 approved it.
+File existence alone used to be enough, so four `{}` files could make
+`--resume` print "Run complete" (finding I6). Anything not accepted is listed
+with its reason, and the step that produces it comes next. `context.json`
+itself must validate before any step is derived, and it is validated in memory
+**before** each write, so a rejected update never reaches the disk.
+
+A gate does not even prompt while an input it reviews is missing or invalid —
+a broken machine-readable contract is not a judgment call.
+
+The run is **complete** only when every gate is passed, the execution evidence
+is valid (including the Newman branch for a story with API cases), the failure
+analysis is **finalized** with a bug draft on disk for every Red failure, and
+the release report is valid. Only then does the runner set
+`status: "completed"` — the Reporter no longer does. "Pipeline complete" is
+not "release passed": the runner prints the report's recommendation alongside.
+
+Within one invocation the runner never runs the same step twice on unchanged
+state; a step that "succeeds" without changing anything stops with a
+diagnostic instead of looping. The
 classifier itself enforces its own Gate-4 precondition (it refuses to
 classify unreviewed code), which the sequencing already guarantees.
 

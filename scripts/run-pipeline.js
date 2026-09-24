@@ -55,6 +55,14 @@ import {
   startNewStory,
   adoptStagedContext,
 } from './lib/run-lifecycle.js';
+import {
+  checkArtifact,
+  checkContext,
+  missingBugDrafts,
+  ledgerHasApiExecution,
+  latestNewmanExecution,
+} from './lib/run-artifacts.js';
+import { writeJsonAtomic, formatErrors } from './lib/artifact-io.js';
 
 // Sibling scripts / schemas resolve against THIS file's location, not the
 // CWD — so the runner works when driven from an isolated run workspace
@@ -127,15 +135,21 @@ function loadContext() {
 }
 
 function writeContext(context) {
-  writeFileSync(CONTEXT_PATH, JSON.stringify(context, null, 2) + '\n');
-  // Always re-validate through the single generic validator (CLAUDE.md §3.3).
-  const r = spawnSync('node', [VALIDATOR, CONTEXT_SCHEMA, CONTEXT_PATH], {
-    encoding: 'utf8',
+  // Validate the candidate IN MEMORY and write atomically, through the shared
+  // implementation behind scripts/validate-json.js (CLAUDE.md §3.3). The old
+  // path overwrote context.json first and validated second, so a rejected
+  // update was already on disk (finding I6).
+  const r = writeJsonAtomic(CONTEXT_PATH, context, {
+    schemaPath: CONTEXT_SCHEMA,
   });
-  if (r.status !== 0) {
+  if (!r.ok) {
     console.error(
-      `context.json failed schema validation after the update:\n${r.stdout}${r.stderr}`
+      'Refusing to update context.json: the new state does not validate. ' +
+        'The file on disk was NOT changed.'
     );
+    for (const line of formatErrors(r.errors, { includeParams: false })) {
+      console.error(line);
+    }
     exit(2);
   }
 }
@@ -148,44 +162,88 @@ function validateJson(schemaPath, dataPath) {
 }
 
 // Facts the pure state machine cannot know without I/O (IP-2.1 hints).
+//
+// "Produced" means the artifact exists, is well-formed, validates against its
+// schema, and belongs to THIS run (same story id and run id) -- not merely
+// that a file exists. Four `{}` files used to satisfy the whole back half of
+// the pipeline and print "Run complete" (finding I6, task group 4.2). Every
+// artifact that fails is listed in hints.problems so the runner can say WHY a
+// step is being asked for again. The Analyst pre-fills conventional paths
+// before the files exist; an unset path keeps its plain "not produced" meaning.
 function gatherHints(context) {
-  const hints = {};
-  const paths = context?.artifact_paths || {};
-  const tc = paths.test_cases;
-  // Existence overrides for the artifact-producing steps. The Analyst
-  // pre-fills test_cases / planner_brief with conventional paths before the
-  // files exist; without these hints the pure state machine would read those
-  // prefilled strings as "produced" and skip the step that creates them
-  // (pipeline-state.js `produced`). Only set the hint when the path is filled,
-  // so an empty path keeps its plain "not yet produced" meaning.
-  if (tc) hints.testCasesExist = existsSync(tc);
-  if (paths.planner_brief)
-    hints.plannerBriefExists = existsSync(paths.planner_brief);
-  if (paths.playwright_spec)
-    hints.specExists = existsSync(paths.playwright_spec);
-  if (paths.generated_test)
-    hints.generatedTestExists = existsSync(paths.generated_test);
-  if (tc && existsSync(tc)) {
-    try {
-      const parsed = JSON.parse(readFileSync(tc, 'utf8'));
-      hints.hasApiCases = (parsed.test_cases || []).some(
+  const hints = { problems: [] };
+  if (!context) return hints;
+  const paths = context.artifact_paths || {};
+  const check = (key) => {
+    const r = checkArtifact(key, context, '.');
+    // Only defects are reported; "not produced yet" is ordinary progress.
+    if (!r.ok && !r.absent) {
+      hints.problems.push(`${key}: ${r.reason}`);
+    }
+    return r;
+  };
+
+  if (paths.test_cases) {
+    const tc = check('test_cases');
+    hints.testCasesExist = tc.ok;
+    if (tc.ok) {
+      hints.hasApiCases = (tc.data.test_cases || []).some(
         (c) => c.automation_decision === 'automate_api'
       );
-      if (hints.hasApiCases && context?.story?.id) {
+      if (hints.hasApiCases && context.story?.id) {
         hints.apiCollectionExists = existsSync(
           `api-tests/collections/${context.story.id}.postman_collection.json`
         );
+        hints.apiExecuted = latestNewmanExecution(context.story.id) !== null;
       }
-    } catch {
-      /* unreadable test-cases: the gate brief will surface it */
     }
   }
+  if (paths.planner_brief) hints.plannerBriefExists = check('planner_brief').ok;
+  if (paths.playwright_spec) hints.specExists = check('playwright_spec').ok;
+  if (paths.generated_test)
+    hints.generatedTestExists = check('generated_test').ok;
   if (paths.execution_results)
-    hints.executionResultsExist = existsSync(paths.execution_results);
-  if (paths.failure_analysis)
-    hints.failureAnalysisExists = existsSync(paths.failure_analysis);
+    hints.executionResultsExist = check('execution_results').ok;
+
+  if (paths.failure_analysis) {
+    const fa = check('failure_analysis');
+    let produced = fa.ok;
+    if (fa.ok && /^2\./.test(fa.data.schema_version)) {
+      // A 2.x analysis is only as good as the ledger it was derived from.
+      const ledger = checkArtifact(
+        'execution_ledger',
+        {
+          ...context,
+          artifact_paths: { execution_ledger: fa.data.execution_ledger },
+        },
+        '.'
+      );
+      if (!ledger.ok) {
+        hints.problems.push(`execution_ledger: ${ledger.reason}`);
+        produced = false;
+      } else if (hints.hasApiCases && !ledgerHasApiExecution(ledger.data)) {
+        hints.problems.push(
+          'execution_ledger: has no Newman execution for this API story; re-classify after the API run'
+        );
+        produced = false;
+      }
+    }
+    hints.failureAnalysisExists = produced;
+    if (produced) {
+      hints.failureAnalysisFinalized = fa.data.status === 'finalized';
+      const missing = hints.failureAnalysisFinalized
+        ? missingBugDrafts(fa.data, '.')
+        : [];
+      hints.bugDraftsMissing = missing.length;
+      if (missing.length) {
+        hints.problems.push(
+          `failure_analysis: no bug draft on disk for Red failure(s) ${missing.join(', ')}`
+        );
+      }
+    }
+  }
   if (paths.release_report_json)
-    hints.releaseReportExists = existsSync(paths.release_report_json);
+    hints.releaseReportExists = check('release_report_json').ok;
   return hints;
 }
 
@@ -259,6 +317,22 @@ const REDO_AFTER_REJECT = {
 
 async function runGateInteractive(step, context) {
   const gateKey = GATE_KEYS[step];
+
+  // Broken machine-readable inputs are not a judgment call: the gate does not
+  // even prompt until they exist and validate (task group 4.2). The old
+  // runner printed "ATTENTION: failing validation" and asked for approval
+  // anyway, so human judgment could wave through a broken contract.
+  const broken = gateInputProblems(step, context);
+  if (broken.length) {
+    console.error(
+      `Gate ${gateKey} cannot be reviewed yet: its inputs are not valid.`
+    );
+    for (const b of broken) console.error(`  - ${b}`);
+    console.error(
+      'Fix them (re-run the step that produces them), then --resume.'
+    );
+    exit(2);
+  }
 
   if (!stdin.isTTY) {
     console.error(`GATE PENDING: ${gateKey}`);
@@ -414,12 +488,50 @@ const GUIDE_STEPS = {
     `Run the PLAYWRIGHT GENERATOR native agent on specs/${storyId(ctx)}.md.\n` +
     `  It writes tests/${storyId(ctx)}.spec.ts; fill artifact_paths.generated_test.\n` +
     '  Then: npm run pipeline -- --resume',
+  'execute-api': (ctx) =>
+    `Run the API BRANCH for ${storyId(ctx)}: this story has automate_api cases and\n` +
+    '  no Newman execution yet. It must run before the failure analysis, or the\n' +
+    '  run would complete on the E2E half alone.\n' +
+    `  npm run test:api -- ${storyId(ctx)}\n` +
+    '  Then: npm run pipeline -- --resume   (classify then includes the API results)',
+  finalize: (ctx) =>
+    `Run the FAILURE CLASSIFIER: agents/failure-classifier.md for ${storyId(ctx)}.\n` +
+    '  The rule-based pre-classifier wrote a DRAFT analysis. Confirm or correct each\n' +
+    '  classification, write release/bug-drafts/BUG-XXX.md for every Red failure and set\n' +
+    '  its bug_draft_path, resolve or acknowledge unresolved links, then set\n' +
+    '  status: "finalized" in analysis/failure-analysis.json.\n' +
+    '  Then: npm run pipeline -- --resume',
   report: (ctx) =>
     `Run the REPORTER: agents/reporter.md for ${storyId(ctx)}.\n` +
-    '  It writes release/release-report.{md,json} from the failure analysis\n' +
+    '  It writes release/release-report.{md,json} from the FINALIZED failure analysis\n' +
     '  (summaries only) and fills artifact_paths.release_report_md/_json.\n' +
+    '  It does not set context.json status; the runner does, after validating.\n' +
     '  Then: npm run pipeline -- --resume   (the run completes)',
 };
+
+/**
+ * Why a gate's mechanical inputs are not ready (empty when they are).
+ * '@context' / '@story' are the run's context.json and story file; the rest
+ * are artifact_paths keys checked through the shared validator.
+ */
+function gateInputProblems(step, context) {
+  const problems = [];
+  for (const req of GATE_BRIEFS[step]?.requires ?? []) {
+    if (req === '@context') {
+      const c = checkContext(context);
+      if (!c.ok) problems.push(`context.json ${c.reason}`);
+    } else if (req === '@story') {
+      const story = context?.story?.path || 'story.md';
+      if (!existsSync(story) || !readFileSync(story, 'utf8').trim()) {
+        problems.push(`the story file ${story} is missing or empty`);
+      }
+    } else {
+      const r = checkArtifact(req, context, '.');
+      if (!r.ok) problems.push(`${req} ${r.reason}`);
+    }
+  }
+  return problems;
+}
 
 function execStep(step, context) {
   if (step === 'execute') {
@@ -442,13 +554,46 @@ function execStep(step, context) {
       `Executing: npx ${pwArgs.join(' ')}  (failures are DATA for the`
     );
     console.log('classifier, not a runner error)\n');
-    spawnSync('npx', pwArgs, {
+    const run = spawnSync('npx', pwArgs, {
       cwd,
       stdio: 'inherit',
       shell: process.platform === 'win32',
       env: { ...env, PIPELINE_REPORT_DIR: reportDir },
     });
+    // A failing SUITE is data for the classifier. A runner that could not
+    // start, or that produced no valid report of THIS code, is not: the old
+    // runner ignored this result and looped, relaunching the executor while
+    // the report stayed absent (finding B4; nine launches in 1.6 s).
+    if (run.error) {
+      console.error(
+        `Could not launch the test runner (${run.error.message}). No report was produced; stopping.`
+      );
+      exit(2);
+    }
     const p = context.artifact_paths;
+    const candidate = {
+      ...context,
+      artifact_paths: {
+        ...p,
+        execution_results: p.execution_results || 'reports/results.json',
+      },
+    };
+    const report = checkArtifact('execution_results', candidate, '.');
+    if (!report.ok) {
+      console.error(
+        `The test runner exited ${run.status ?? `by signal ${run.signal}`} without a valid report for this code: ` +
+          `execution_results ${report.reason}.`
+      );
+      console.error(
+        'This is an execution/startup error, not a failing suite; stopping after one launch.'
+      );
+      exit(2);
+    }
+    if (run.status !== 0) {
+      console.log(
+        `\nThe suite exited ${run.status} with a valid report: failures are data; continuing to classification.`
+      );
+    }
     if (!p.execution_results) p.execution_results = 'reports/results.json';
     if (!p.html_report) p.html_report = 'reports/html';
     if (!p.traces) p.traces = 'reports/traces';
@@ -471,9 +616,14 @@ function execStep(step, context) {
       ledgerPath,
     ];
     if (context.run_id) normalizeArgs.push('--run-id', context.run_id);
-    if (env.QAIZEN_EXECUTION_ID) {
-      normalizeArgs.push('--execution', env.QAIZEN_EXECUTION_ID);
-    }
+    // This story's Newman reports from ONE execution: the one named by
+    // QAIZEN_EXECUTION_ID when it holds them, otherwise the newest that does.
+    const pinned = env.QAIZEN_EXECUTION_ID;
+    const apiExecution =
+      pinned && existsSync(join('reports', pinned, 'newman', storyId(context)))
+        ? pinned
+        : latestNewmanExecution(storyId(context));
+    if (apiExecution) normalizeArgs.push('--execution', apiExecution);
     console.log('Normalizing the run into an execution ledger\n');
     const n = spawnSync('node', normalizeArgs, { stdio: 'inherit' });
     if (n.status !== 0) {
@@ -533,7 +683,28 @@ function printStatus(context, hints) {
     for (const b of blocked) console.log(`  - ${b}`);
     return;
   }
+  const ctx = checkContext(context);
+  if (!ctx.ok) console.log(`INVALID: context.json ${ctx.reason}`);
+  for (const pr of hints.problems ?? []) console.log(`Not accepted: ${pr}`);
   console.log(`Next step: ${nextStep(context, hints)}`);
+}
+
+/**
+ * Progress guard for one invocation: true when the same step is about to run
+ * again on unchanged validated state (the same hints and the same context).
+ * An exec step that "succeeds" without changing what the state machine sees
+ * would otherwise repeat forever (finding B4, task group 4.2).
+ */
+export function progressGuard() {
+  const seen = new Set();
+  return (step, hints, context) => {
+    const key = [step, JSON.stringify(hints), JSON.stringify(context)].join(
+      '\u0000'
+    );
+    if (seen.has(key)) return true;
+    seen.add(key);
+    return false;
+  };
 }
 
 /** The staged run id the Analyst must preserve, when a run is staged. */
@@ -546,13 +717,14 @@ function stagedRunLine() {
   );
 }
 
-/** Has the current run finished? The runner's own definition, or the record. */
+/**
+ * Has the current run finished? Only by the validated definition: a
+ * `status: "completed"` set by hand or by an agent is not proof (task group
+ * 4.2), because the old Reporter set it on file existence alone.
+ */
 function runIsComplete(context) {
-  if (!context) return false;
-  return (
-    context.status === 'completed' ||
-    nextStep(context, gatherHints(context)) === 'done'
-  );
+  if (!context || !checkContext(context).ok) return false;
+  return nextStep(context, gatherHints(context)) === 'done';
 }
 
 // ----------------------------------------------------------------- main ---
@@ -660,11 +832,57 @@ async function main() {
 
   // Advance: exec steps run and continue; gates are decided interactively
   // and continue; agent (guide) steps print the instruction and stop.
+  // Everything below reads context.json as the run's truth, so it must be
+  // valid before any step is derived from it (task group 4.2).
+  if (context) {
+    const valid = checkContext(context);
+    if (!valid.ok) {
+      console.error(`context.json ${valid.reason}; fix it before resuming.`);
+      exit(2);
+    }
+  }
+
+  // Progress guard: the same step on unchanged validated state must not be
+  // attempted twice in one invocation. An exec step that "succeeds" without
+  // changing what the state machine sees would otherwise loop forever.
+  const repeated = progressGuard();
+  let reported = '';
   for (;;) {
-    const step = nextStep(context, gatherHints(context));
+    const hints = gatherHints(context);
+    const step = nextStep(context, hints);
+    const problems = (hints.problems ?? []).join('\n');
+    if (problems && problems !== reported) {
+      console.log(
+        'Not accepted as produced (so the step that makes them is next):'
+      );
+      for (const pr of hints.problems) console.log(`  - ${pr}`);
+      console.log('');
+      reported = problems;
+    }
+    if (repeated(step, hints, context)) {
+      console.error(
+        `No progress: step "${step}" ran and nothing it should produce changed. ` +
+          'Stopping instead of repeating it.'
+      );
+      exit(2);
+    }
 
     if (step === 'done') {
-      console.log('Run complete: release report produced, all gates passed.');
+      // Completion is the runner's call, made only on validated state: every
+      // gate passed, execution evidence, a finalized analysis with a bug
+      // draft per Red failure, and a valid release report for this run.
+      if (context.status !== 'completed') {
+        context.status = 'completed';
+        writeContext(context);
+      }
+      const rr = checkArtifact('release_report_json', context, '.');
+      const verdict = rr.ok ? rr.data.release_recommendation : 'unknown';
+      console.log(
+        'Pipeline complete: every gate passed and every artifact validated.'
+      );
+      console.log(
+        `Release recommendation: ${verdict}. "Pipeline complete" is not "release passed".`
+      );
       console.log(
         'Start the next story with: npm run pipeline -- --story <path|JIRA-KEY>\n' +
           '  (this run is archived automatically and verified before anything is replaced),\n' +
