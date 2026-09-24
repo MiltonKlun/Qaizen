@@ -40,7 +40,9 @@ limits** (`docs/when-to-use.md`):
 These never bend, in any phase (`CLAUDE.md` §3):
 
 1. **Four human gates; Gate 4 is always a human decision.** No flag, no CI job, no
-   agent can pass a gate — the runner refuses non-TTY approval by construction.
+   agent may pass a gate. The runner offers no such path (no approval flags; it
+   refuses non-TTY approval), and each approval is bound to the inputs it
+   reviewed, so a later change makes it stale instead of silently standing.
 2. **Traceability:** STORY → RISK → TC → SPEC/API → PW/REQ → FAIL → BUG. No
    faked links; an unresolvable one is recorded as such.
 3. **Validate before saving:** every JSON artifact against its schema, through

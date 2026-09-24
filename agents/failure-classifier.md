@@ -10,9 +10,14 @@ description: |
   does not own that path.
 phase_introduced: 1
 phase_active: 1+
-version: 2.0.0
+version: 2.1.0
 changed_in_run: null
 changelog: |
+  - 2.1.0: MINOR (task group 4.3). Gate 4 must be current, not only passed. Approvals are now bound
+    to a digest of the inputs they reviewed; a gate whose inputs changed
+    is not passed even if `status` still reads true, so the gate check
+    also requires `npm run pipeline -- --status` to show no stale
+    approval. Precondition only; no output change.
   - 2.0.0: MAJOR (task group 3.3, with failure-analysis schema 2.0). Reads the
     pre-classifier's v2 DRAFT, which is derived from the execution ledger
     (analysis/execution-ledger.json), instead of raw runner reports; totals
@@ -146,7 +151,12 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
 
 1. **Verify Gate 4.** Passed when
    `context.json.review_gates.code_reviewed` is `true` or an object with
-   `status: true`. If neither, stop.
+   `status: true`. If neither, stop. The approval must also be **current**: `npm run pipeline -- --status` must
+   not report it as a stale approval. An approval is bound to a digest of
+   what it reviewed (task group 4.3); once those inputs change it no longer
+   counts, even though `status` may still read `true` until the next
+   `--resume` returns it to pending.
+   (`scripts/run-failure-classifier.js` enforces this itself.)
 2. **Read** the pre-classifier's draft `analysis/failure-analysis.json`
    (`schema_version: "2.0"`, written by `npm run pipeline` or
    `npm run normalize` + `npm run classify`). It is derived from

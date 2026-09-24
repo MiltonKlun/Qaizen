@@ -10,9 +10,14 @@ description: |
   agent only authors it.
 phase_introduced: 1.5
 phase_active: 1.5+
-version: 1.1.0
+version: 1.2.0
 changed_in_run: null
 changelog: |
+  - 1.2.0: MINOR (task group 4.3). Gate 2 must be current, not only passed. Approvals are now bound
+    to a digest of the inputs they reviewed; a gate whose inputs changed
+    is not passed even if `status` still reads true, so the gate check
+    also requires `npm run pipeline -- --status` to show no stale
+    approval. Precondition only; no output change.
   - 1.1.0: Added the "Loads only" token-efficient context declaration
     (Phase 3 TG7). Additive, no output-shape change.
   - 1.0.0: Initial versioned baseline (Phase 3 TG8). Phase 1.5 Postman
@@ -133,7 +138,12 @@ disk wins.
 ## 5. Instructions
 
 1. **Verify Gate 2.** If
-   `context.json.review_gates.test_scope_reviewed != true`, stop.
+   `context.json.review_gates.test_scope_reviewed` is not passed (`true` or
+   `{ status: true }`), stop. The approval must also be **current**: `npm run pipeline -- --status` must
+   not report it as a stale approval. An approval is bound to a digest of
+   what it reviewed (task group 4.3); once those inputs change it no longer
+   counts, even though `status` may still read `true` until the next
+   `--resume` returns it to pending.
 2. **Read** `context.json` and `test-cases/[story-id].json`. Filter to
    the `automate_api` cases. If there are none, there is nothing to do —
    report that and stop (the story is E2E-only).

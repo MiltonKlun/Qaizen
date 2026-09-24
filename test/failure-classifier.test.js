@@ -38,6 +38,7 @@ import {
   idsFromMetadata,
 } from '../scripts/lib/build-ledger.js';
 import { validateValue } from '../scripts/lib/artifact-io.js';
+import { bindGate } from './helpers/valid-run.js';
 
 const PW_FIXTURE = 'test/fixtures/playwright-classification.json';
 const NM_FIXTURE = 'test/fixtures/newman-mixed-outcomes.json';
@@ -282,6 +283,17 @@ function workspace({ gate4 = true, runId = 'run-t' } = {}) {
   );
   copyFileSync(PW_FIXTURE, join(w, 'results.json'));
   copyFileSync(NM_FIXTURE, join(w, 'newman.json'));
+  if (gate4) {
+    // Bound to what exists, as the runner records it (task group 4.3); a bare
+    // `true` is a legacy approval the classifier now refuses.
+    const p = join(w, 'context.json');
+    const ctx = bindGate(
+      JSON.parse(readFileSync(p, 'utf8')),
+      'code_reviewed',
+      w
+    );
+    writeFileSync(p, JSON.stringify(ctx));
+  }
   return w;
 }
 

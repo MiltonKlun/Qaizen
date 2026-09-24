@@ -211,8 +211,11 @@ renderer (`scripts/gate-briefs.js`), and an interactive decision recorder:
 - **Gate steps**: halts, renders the brief, records the human decision as
   a `gateValue` audit object + a `gate_decisions[]` telemetry event
   (`opened_at`/`decided_at`). **Interactive-only**: no approval flags
-  exist, and a non-TTY stdin gets `GATE PENDING` + non-zero exit — so no
-  CI job or agent can ever pass a gate (asserted by smoke tests).
+  exist, and a non-TTY stdin gets `GATE PENDING` + non-zero exit, so the
+  runner offers no approval path to a CI job or agent (asserted by smoke
+  tests). That is not authentication; each approval is also bound to a
+  digest of what it reviewed, so a later change returns it to pending
+  (`docs/pipeline-runner.md` §4).
 - **Exec steps** (execute, classify): runs `npx playwright test`, then
   normalizes the reports into the execution ledger
   (`scripts/normalize-results.js`) and runs the rule-based pre-classifier on
