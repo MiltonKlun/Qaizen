@@ -147,27 +147,53 @@ STORY_ID=QA-1042 npm run test:api
 node scripts/run-newman.js QA-1042
 ```
 
-It runs:
+It runs the equivalent of:
 
 ```
 newman run api-tests/collections/<STORY_ID>.postman_collection.json \
   -e api-tests/environments/<STORY_ID>.postman_environment.json \
   --reporters cli,json,htmlextra \
-  --reporter-json-export reports/newman-results.json \
-  --reporter-htmlextra-export reports/newman-html
+  --reporter-json-export reports/<execution-id>/newman/<story>/<collection>.json \
+  --reporter-htmlextra-export reports/<execution-id>/newman/<story>/<collection>.html
 ```
 
-Outputs:
+Since task group 3.2 it calls Newman through its **Node API** (not a shell), so
+injected secrets are passed as values and never interpolated into a command
+line.
 
-- `reports/newman-results.json` — machine-readable results the Failure
-  Classifier reads (gitignored; goes to CI artifacts in Phase 2).
-- `reports/newman-html/` — human-readable HTML report (gitignored).
+Outputs, scoped to one execution:
 
-Exit codes from the wrapper: `0` all passed, `1` at least one
-assertion/request failed, `2` usage error or the collection file is missing.
+- `reports/<execution-id>/newman/<story-id>/<collection-id>.json` —
+  machine-readable results the normalizer and Failure Classifier read
+  (gitignored, secret-bearing, never uploaded).
+- `reports/<execution-id>/newman/<story-id>/<collection-id>.html` —
+  human-readable report, in the same ignored execution directory.
+- `reports/<execution-id>/published/newman-<story>-<collection>.json` —
+  the allowlisted, sanitized summary; the only thing CI uploads.
+
+The execution id comes from `--execution-id` or `QAIZEN_EXECUTION_ID` when the
+pipeline supplies one, otherwise the runner mints its own. This is what stops a
+story's second collection from overwriting the first's evidence, and stops a
+stale report from reading as current (finding I4).
+
+Exit codes from the wrapper: `0` requests executed and all assertions passed,
+`1` at least one assertion/request failed **or the run executed zero requests**,
+`2` usage error, the collection is missing or unusable, or publication was
+refused.
+
+Two things the wrapper refuses to call a pass:
+
+- **Zero executed requests.** Newman accepts arbitrary JSON, reports no error,
+  and returns a summary with no executions. That verified nothing, so it exits
+  1 and publishes nothing — an all-zeros summary would render downstream as a
+  green check.
+- **A file that is not a usable collection** (no `info.name`, no `item[]`).
+  Checked before Newman runs, because `newman-reporter-htmlextra` dereferences
+  `summary.collection.name` unguarded and crashes the process before any of our
+  diagnostics can run.
 
 The environment file is optional — if it's absent the wrapper warns and runs
-without `-e`.
+without one.
 
 ---
 
@@ -188,7 +214,9 @@ test-cases/[story-id].json
                               │
                               ▼  npm run test:api  (Newman)
                               │
-                              ▼  reports/newman-results.json
+                              ▼  reports/<execution-id>/newman/<story>/<collection>.json
+                              │
+                              ▼  npm run normalize  →  analysis/execution-ledger.json
                               │
                               ▼  Failure Classifier (same agent, both branches)
                               ▼  Reporter (same agent, grouped execution_summary)

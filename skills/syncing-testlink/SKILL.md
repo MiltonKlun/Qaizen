@@ -165,7 +165,10 @@ agent passes it only when the human asked). This mirrors
 ## pushExecutionResults — report results (Phase 2 TG10)
 
 After a run completes (through Gate 4) and the Reporter has produced
-`release/release-report.json` + `analysis/failure-analysis.json`:
+`release/release-report.json` + `analysis/failure-analysis.json`. A schema
+2.x analysis must be `finalized`: `scripts/sync-testlink-execution.js`
+refuses a `draft` (the pre-classifier's first pass) rather than publish it
+as the result.
 
 - For each case that has a `testlink_id`, map its outcome to a TestLink
   status via `config/testlink-status-map.json` (created in TG10):

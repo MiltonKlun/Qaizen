@@ -1,0 +1,625 @@
+{
+  "config": {
+    "rootDir": "<ROOT>",
+    "projects": [
+      {
+        "name": "chromium"
+      }
+    ]
+  },
+  "suites": [
+    {
+      "title": "classify.spec.ts",
+      "file": "classify.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "shows the order total",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 1108,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('total')\nExpected: \u001b[32m\"$1\u001b[7m00\u001b[27m.00\"\u001b[39m\nReceived: \u001b[31m\"$1.00\"\u001b[39m\nTimeout:  1000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 1000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('total')\u001b[22m\n\u001b[2m    11 × locator resolved to <span data-testid=\"total\">$1.00</span>\u001b[22m\n\u001b[2m       - unexpected value \"$1.00\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('total')\nExpected: \u001b[32m\"$1\u001b[7m00\u001b[27m.00\"\u001b[39m\nReceived: \u001b[31m\"$1.00\"\u001b[39m\nTimeout:  1000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 1000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('total')\u001b[22m\n\u001b[2m    11 × locator resolved to <span data-testid=\"total\">$1.00</span>\u001b[22m\n\u001b[2m       - unexpected value \"$1.00\"\u001b[22m\n\n    at <ROOT>\\tests\\classify.spec.ts:5:43",
+                    "location": {
+                      "file": "<ROOT>\\tests\\classify.spec.ts",
+                      "column": 43,
+                      "line": 5
+                    },
+                    "snippet": "\u001b[0m \u001b[90m 3 |\u001b[39m test(\u001b[32m'shows the order total'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n \u001b[90m 4 |\u001b[39m   \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39msetContent(\u001b[32m'<span data-testid=\"total\">$1.00</span>'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 5 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m'total'\u001b[39m))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m'$100.00'\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m1000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m   |\u001b[39m                                           \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 6 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 7 |\u001b[39m\n \u001b[90m 8 |\u001b[39m test(\u001b[32m'shows the grand total'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "<ROOT>\\tests\\classify.spec.ts",
+                        "column": 43,
+                        "line": 5
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('total')\nExpected: \u001b[32m\"$1\u001b[7m00\u001b[27m.00\"\u001b[39m\nReceived: \u001b[31m\"$1.00\"\u001b[39m\nTimeout:  1000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 1000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('total')\u001b[22m\n\u001b[2m    11 × locator resolved to <span data-testid=\"total\">$1.00</span>\u001b[22m\n\u001b[2m       - unexpected value \"$1.00\"\u001b[22m\n\n\n  3 | test('shows the order total', async ({ page }) => {\n  4 |   await page.setContent('<span data-testid=\"total\">$1.00</span>');\n> 5 |   await expect(page.getByTestId('total')).toHaveText('$100.00', { timeout: 1000 });\n    |                                           ^\n  6 | });\n  7 |\n  8 | test('shows the grand total', async ({ page }) => {\n    at <ROOT>\\tests\\classify.spec.ts:5:43"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-22T22:55:00.540Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\classify-shows-the-order-total-chromium\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "<ROOT>\\tests\\classify.spec.ts",
+                    "column": 43,
+                    "line": 5
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "9b3799b590fbc60d6ff9-dbaa5dc092e82078485d",
+          "file": "classify.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "shows the grand total",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 1105,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('grand-total')\nExpected: visible\nTimeout: 1000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 1000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('grand-total')\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('grand-total')\nExpected: visible\nTimeout: 1000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 1000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('grand-total')\u001b[22m\n\n    at <ROOT>\\tests\\classify.spec.ts:10:49",
+                    "location": {
+                      "file": "<ROOT>\\tests\\classify.spec.ts",
+                      "column": 49,
+                      "line": 10
+                    },
+                    "snippet": "\u001b[0m \u001b[90m  8 |\u001b[39m test(\u001b[32m'shows the grand total'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n \u001b[90m  9 |\u001b[39m   \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39msetContent(\u001b[32m'<span data-testid=\"total\">$1.00</span>'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 10 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m'grand-total'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible({ timeout\u001b[33m:\u001b[39m \u001b[35m1000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                                 \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 11 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\n \u001b[90m 13 |\u001b[39m test(\u001b[32m'opens the help panel'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "<ROOT>\\tests\\classify.spec.ts",
+                        "column": 49,
+                        "line": 10
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('grand-total')\nExpected: visible\nTimeout: 1000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 1000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('grand-total')\u001b[22m\n\n\n   8 | test('shows the grand total', async ({ page }) => {\n   9 |   await page.setContent('<span data-testid=\"total\">$1.00</span>');\n> 10 |   await expect(page.getByTestId('grand-total')).toBeVisible({ timeout: 1000 });\n     |                                                 ^\n  11 | });\n  12 |\n  13 | test('opens the help panel', async ({ page }) => {\n    at <ROOT>\\tests\\classify.spec.ts:10:49"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-22T22:55:02.316Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\classify-shows-the-grand-total-chromium\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "<ROOT>\\tests\\classify.spec.ts",
+                    "column": 49,
+                    "line": 10
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "9b3799b590fbc60d6ff9-98cc94f5ed2e02542a4b",
+          "file": "classify.spec.ts",
+          "line": 8,
+          "column": 1
+        },
+        {
+          "title": "opens the help panel",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 1097,
+                  "error": {
+                    "message": "TimeoutError: locator.click: Timeout 1000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('help-toggle')\u001b[22m\n",
+                    "stack": "TimeoutError: locator.click: Timeout 1000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('help-toggle')\u001b[22m\n\n    at <ROOT>\\tests\\classify.spec.ts:15:41",
+                    "location": {
+                      "file": "<ROOT>\\tests\\classify.spec.ts",
+                      "column": 41,
+                      "line": 15
+                    },
+                    "snippet": "\u001b[0m \u001b[90m 13 |\u001b[39m test(\u001b[32m'opens the help panel'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n \u001b[90m 14 |\u001b[39m   \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39msetContent(\u001b[32m'<button data-testid=\"help\">Help</button>'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 15 |\u001b[39m   \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m'help-toggle'\u001b[39m)\u001b[33m.\u001b[39mclick({ timeout\u001b[33m:\u001b[39m \u001b[35m1000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 16 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 17 |\u001b[39m\n \u001b[90m 18 |\u001b[39m test(\u001b[32m'submits the payment'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "<ROOT>\\tests\\classify.spec.ts",
+                        "column": 41,
+                        "line": 15
+                      },
+                      "message": "TimeoutError: locator.click: Timeout 1000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('help-toggle')\u001b[22m\n\n\n  13 | test('opens the help panel', async ({ page }) => {\n  14 |   await page.setContent('<button data-testid=\"help\">Help</button>');\n> 15 |   await page.getByTestId('help-toggle').click({ timeout: 1000 });\n     |                                         ^\n  16 | });\n  17 |\n  18 | test('submits the payment', async ({ page }) => {\n    at <ROOT>\\tests\\classify.spec.ts:15:41"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-22T22:55:04.103Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\classify-opens-the-help-panel-chromium\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "<ROOT>\\tests\\classify.spec.ts",
+                    "column": 41,
+                    "line": 15
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "9b3799b590fbc60d6ff9-00accd0788bada3f3dc6",
+          "file": "classify.spec.ts",
+          "line": 13,
+          "column": 1
+        },
+        {
+          "title": "submits the payment",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 1099,
+                  "error": {
+                    "message": "TimeoutError: locator.click: Timeout 1000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('pay-now')\u001b[22m\n",
+                    "stack": "TimeoutError: locator.click: Timeout 1000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('pay-now')\u001b[22m\n\n    at <ROOT>\\tests\\classify.spec.ts:20:37",
+                    "location": {
+                      "file": "<ROOT>\\tests\\classify.spec.ts",
+                      "column": 37,
+                      "line": 20
+                    },
+                    "snippet": "\u001b[0m \u001b[90m 18 |\u001b[39m test(\u001b[32m'submits the payment'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n \u001b[90m 19 |\u001b[39m   \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39msetContent(\u001b[32m'<button data-testid=\"pay\">Pay</button>'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 20 |\u001b[39m   \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m'pay-now'\u001b[39m)\u001b[33m.\u001b[39mclick({ timeout\u001b[33m:\u001b[39m \u001b[35m1000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                     \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 21 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 22 |\u001b[39m\n \u001b[90m 23 |\u001b[39m test(\u001b[32m'loads the home page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "<ROOT>\\tests\\classify.spec.ts",
+                        "column": 37,
+                        "line": 20
+                      },
+                      "message": "TimeoutError: locator.click: Timeout 1000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('pay-now')\u001b[22m\n\n\n  18 | test('submits the payment', async ({ page }) => {\n  19 |   await page.setContent('<button data-testid=\"pay\">Pay</button>');\n> 20 |   await page.getByTestId('pay-now').click({ timeout: 1000 });\n     |                                     ^\n  21 | });\n  22 |\n  23 | test('loads the home page', async ({ page }) => {\n    at <ROOT>\\tests\\classify.spec.ts:20:37"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-22T22:55:05.866Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\classify-submits-the-payment-chromium\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "<ROOT>\\tests\\classify.spec.ts",
+                    "column": 37,
+                    "line": 20
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "9b3799b590fbc60d6ff9-70e429c3c4fe3e03c8ae",
+          "file": "classify.spec.ts",
+          "line": 18,
+          "column": 1
+        },
+        {
+          "title": "loads the home page",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 3157,
+                  "error": {
+                    "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:39991/\nCall log:\n\u001b[2m  - navigating to \"http://127.0.0.1:39991/\", waiting until \"load\"\u001b[22m\n",
+                    "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:39991/\nCall log:\n\u001b[2m  - navigating to \"http://127.0.0.1:39991/\", waiting until \"load\"\u001b[22m\n\n    at <ROOT>\\tests\\classify.spec.ts:24:14",
+                    "location": {
+                      "file": "<ROOT>\\tests\\classify.spec.ts",
+                      "column": 14,
+                      "line": 24
+                    },
+                    "snippet": "\u001b[0m \u001b[90m 22 |\u001b[39m\n \u001b[90m 23 |\u001b[39m test(\u001b[32m'loads the home page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 24 |\u001b[39m   \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'http://127.0.0.1:39991/'\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m3000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m              \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 25 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 26 |\u001b[39m\n \u001b[90m 27 |\u001b[39m test(\u001b[32m'finishes the wizard'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "<ROOT>\\tests\\classify.spec.ts",
+                        "column": 14,
+                        "line": 24
+                      },
+                      "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:39991/\nCall log:\n\u001b[2m  - navigating to \"http://127.0.0.1:39991/\", waiting until \"load\"\u001b[22m\n\n\n  22 |\n  23 | test('loads the home page', async ({ page }) => {\n> 24 |   await page.goto('http://127.0.0.1:39991/', { timeout: 3000 });\n     |              ^\n  25 | });\n  26 |\n  27 | test('finishes the wizard', async ({ page }) => {\n    at <ROOT>\\tests\\classify.spec.ts:24:14"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-22T22:55:07.630Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\classify-loads-the-home-page-chromium\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "<ROOT>\\tests\\classify.spec.ts",
+                    "column": 14,
+                    "line": 24
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "9b3799b590fbc60d6ff9-068f37c21bc7711303b1",
+          "file": "classify.spec.ts",
+          "line": 23,
+          "column": 1
+        },
+        {
+          "title": "finishes the wizard",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 1500,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "timedOut",
+                  "duration": 1534,
+                  "error": {
+                    "message": "\u001b[31mTest timeout of 1500ms exceeded.\u001b[39m",
+                    "stack": "\u001b[31mTest timeout of 1500ms exceeded.\u001b[39m"
+                  },
+                  "errors": [
+                    {
+                      "message": "\u001b[31mTest timeout of 1500ms exceeded.\u001b[39m"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-22T22:55:11.464Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\classify-finishes-the-wizard-chromium\\error-context.md"
+                    }
+                  ]
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "9b3799b590fbc60d6ff9-00ff7cbbf9b3f2284786",
+          "file": "classify.spec.ts",
+          "line": 27,
+          "column": 1
+        },
+        {
+          "title": "computes the order total",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 6,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 8,
+                  "error": {
+                    "message": "Error: order total\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m2\u001b[39m",
+                    "stack": "Error: order total\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m2\u001b[39m\n    at <ROOT>\\tests\\classify.spec.ts:35:32",
+                    "location": {
+                      "file": "<ROOT>\\tests\\classify.spec.ts",
+                      "column": 32,
+                      "line": 35
+                    },
+                    "snippet": "\u001b[0m \u001b[90m 33 |\u001b[39m test(\u001b[32m'computes the order total'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m () \u001b[33m=>\u001b[39m {\n \u001b[90m 34 |\u001b[39m   \u001b[36mconst\u001b[39m total \u001b[33m=\u001b[39m \u001b[35m1\u001b[39m \u001b[33m+\u001b[39m \u001b[35m1\u001b[39m\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 35 |\u001b[39m   expect(total\u001b[33m,\u001b[39m \u001b[32m'order total'\u001b[39m)\u001b[33m.\u001b[39mtoBe(\u001b[35m3\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 36 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 37 |\u001b[39m\n \u001b[90m 38 |\u001b[39m test\u001b[33m.\u001b[39mdescribe(\u001b[32m'retried'\u001b[39m\u001b[33m,\u001b[39m () \u001b[33m=>\u001b[39m {\u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "<ROOT>\\tests\\classify.spec.ts",
+                        "column": 32,
+                        "line": 35
+                      },
+                      "message": "Error: order total\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m2\u001b[39m\n\n  33 | test('computes the order total', async () => {\n  34 |   const total = 1 + 1;\n> 35 |   expect(total, 'order total').toBe(3);\n     |                                ^\n  36 | });\n  37 |\n  38 | test.describe('retried', () => {\n    at <ROOT>\\tests\\classify.spec.ts:35:32"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-22T22:55:13.697Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "<ROOT>\\test-results\\classify-computes-the-order-total-chromium\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "<ROOT>\\tests\\classify.spec.ts",
+                    "column": 32,
+                    "line": 35
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "9b3799b590fbc60d6ff9-5f416a2d6c6397643ac8",
+          "file": "classify.spec.ts",
+          "line": 33,
+          "column": 1
+        }
+      ],
+      "suites": [
+        {
+          "title": "retried",
+          "file": "classify.spec.ts",
+          "line": 38,
+          "column": 6,
+          "specs": [
+            {
+              "title": "shows the cart total once settled",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 1106,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('cart-total')\nExpected: \u001b[32m\"$1\u001b[7m00\u001b[27m.00\"\u001b[39m\nReceived: \u001b[31m\"$1.00\"\u001b[39m\nTimeout:  1000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 1000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('cart-total')\u001b[22m\n\u001b[2m    11 × locator resolved to <span data-testid=\"cart-total\">$1.00</span>\u001b[22m\n\u001b[2m       - unexpected value \"$1.00\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('cart-total')\nExpected: \u001b[32m\"$1\u001b[7m00\u001b[27m.00\"\u001b[39m\nReceived: \u001b[31m\"$1.00\"\u001b[39m\nTimeout:  1000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 1000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('cart-total')\u001b[22m\n\u001b[2m    11 × locator resolved to <span data-testid=\"cart-total\">$1.00</span>\u001b[22m\n\u001b[2m       - unexpected value \"$1.00\"\u001b[22m\n\n    at <ROOT>\\tests\\classify.spec.ts:44:50",
+                        "location": {
+                          "file": "<ROOT>\\tests\\classify.spec.ts",
+                          "column": 50,
+                          "line": 44
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 42 |\u001b[39m     \u001b[36mconst\u001b[39m shown \u001b[33m=\u001b[39m testInfo\u001b[33m.\u001b[39mretry \u001b[33m===\u001b[39m \u001b[35m0\u001b[39m \u001b[33m?\u001b[39m \u001b[32m'$1.00'\u001b[39m \u001b[33m:\u001b[39m \u001b[32m'$100.00'\u001b[39m\u001b[33m;\u001b[39m\n \u001b[90m 43 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39msetContent(\u001b[32m`<span data-testid=\"cart-total\">${shown}</span>`\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 44 |\u001b[39m     \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m'cart-total'\u001b[39m))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m'$100.00'\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m1000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                                  \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 45 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 46 |\u001b[39m\n \u001b[90m 47 |\u001b[39m   test(\u001b[32m'opens the settings menu once rendered'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }\u001b[33m,\u001b[39m testInfo) \u001b[33m=>\u001b[39m {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "<ROOT>\\tests\\classify.spec.ts",
+                            "column": 50,
+                            "line": 44
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('cart-total')\nExpected: \u001b[32m\"$1\u001b[7m00\u001b[27m.00\"\u001b[39m\nReceived: \u001b[31m\"$1.00\"\u001b[39m\nTimeout:  1000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 1000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('cart-total')\u001b[22m\n\u001b[2m    11 × locator resolved to <span data-testid=\"cart-total\">$1.00</span>\u001b[22m\n\u001b[2m       - unexpected value \"$1.00\"\u001b[22m\n\n\n  42 |     const shown = testInfo.retry === 0 ? '$1.00' : '$100.00';\n  43 |     await page.setContent(`<span data-testid=\"cart-total\">${shown}</span>`);\n> 44 |     await expect(page.getByTestId('cart-total')).toHaveText('$100.00', { timeout: 1000 });\n     |                                                  ^\n  45 |   });\n  46 |\n  47 |   test('opens the settings menu once rendered', async ({ page }, testInfo) => {\n    at <ROOT>\\tests\\classify.spec.ts:44:50"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-22T22:55:14.271Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "<ROOT>\\test-results\\classify-retried-shows-the-cart-total-once-settled-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "<ROOT>\\tests\\classify.spec.ts",
+                        "column": 50,
+                        "line": 44
+                      }
+                    },
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 113,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-09-22T22:55:16.098Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "flaky"
+                }
+              ],
+              "id": "9b3799b590fbc60d6ff9-467ff3a4de20eaa7766e",
+              "file": "classify.spec.ts",
+              "line": 41,
+              "column": 3
+            },
+            {
+              "title": "opens the settings menu once rendered",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 1068,
+                      "error": {
+                        "message": "TimeoutError: locator.click: Timeout 1000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('menu')\u001b[22m\n",
+                        "stack": "TimeoutError: locator.click: Timeout 1000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('menu')\u001b[22m\n\n    at <ROOT>\\tests\\classify.spec.ts:50:36",
+                        "location": {
+                          "file": "<ROOT>\\tests\\classify.spec.ts",
+                          "column": 36,
+                          "line": 50
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 48 |\u001b[39m     \u001b[36mconst\u001b[39m id \u001b[33m=\u001b[39m testInfo\u001b[33m.\u001b[39mretry \u001b[33m===\u001b[39m \u001b[35m0\u001b[39m \u001b[33m?\u001b[39m \u001b[32m'menu-old'\u001b[39m \u001b[33m:\u001b[39m \u001b[32m'menu'\u001b[39m\u001b[33m;\u001b[39m\n \u001b[90m 49 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39msetContent(\u001b[32m`<button data-testid=\"${id}\">Menu</button>`\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 50 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m'menu'\u001b[39m)\u001b[33m.\u001b[39mclick({ timeout\u001b[33m:\u001b[39m \u001b[35m1000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                    \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 51 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 52 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 53 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "<ROOT>\\tests\\classify.spec.ts",
+                            "column": 36,
+                            "line": 50
+                          },
+                          "message": "TimeoutError: locator.click: Timeout 1000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('menu')\u001b[22m\n\n\n  48 |     const id = testInfo.retry === 0 ? 'menu-old' : 'menu';\n  49 |     await page.setContent(`<button data-testid=\"${id}\">Menu</button>`);\n> 50 |     await page.getByTestId('menu').click({ timeout: 1000 });\n     |                                    ^\n  51 |   });\n  52 | });\n  53 |\n    at <ROOT>\\tests\\classify.spec.ts:50:36"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-22T22:55:16.321Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "<ROOT>\\test-results\\classify-retried-opens-the-settings-menu-once-rendered-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "<ROOT>\\tests\\classify.spec.ts",
+                        "column": 36,
+                        "line": 50
+                      }
+                    },
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 159,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-09-22T22:55:17.986Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "flaky"
+                }
+              ],
+              "id": "9b3799b590fbc60d6ff9-35b1882b7d308838050d",
+              "file": "classify.spec.ts",
+              "line": 47,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-09-22T22:54:59.976Z",
+    "duration": 18335.056,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 7,
+    "flaky": 2
+  }
+}

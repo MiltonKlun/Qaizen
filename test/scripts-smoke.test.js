@@ -18,6 +18,7 @@ import {
   mkdirSync,
   copyFileSync,
   readdirSync,
+  cpSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -251,10 +252,12 @@ test('run-pipeline — non-TTY gate refusal (no CI job can approve a gate)', () 
     ]) {
       copyFileSync(join('scripts', f), join(dir, 'scripts', f));
     }
-    copyFileSync(
-      join('schemas', 'context.schema.json'),
-      join(dir, 'schemas', 'context.schema.json')
-    );
+    // The runner imports shared modules from scripts/lib/ and resolves every
+    // schema, so copy both wholesale rather than a list that drifts.
+    cpSync(join('scripts', 'lib'), join(dir, 'scripts', 'lib'), {
+      recursive: true,
+    });
+    cpSync('schemas', join(dir, 'schemas'), { recursive: true });
     // A context sitting at Gate 1.
     writeFileSync(
       join(dir, 'context.json'),
@@ -266,6 +269,8 @@ test('run-pipeline — non-TTY gate refusal (no CI job can approve a gate)', () 
         '"requirements_reviewed": false'
       )
     );
+    // Gate 1 reviews the story; a gate does not prompt without it (4.2).
+    writeFileSync(join(dir, 'story.md'), '# Login\nThe story.\n');
     const r = spawnSync('node', ['scripts/run-pipeline.js'], {
       cwd: dir,
       encoding: 'utf8',
@@ -412,4 +417,31 @@ test('selector-survival extracts locators incl. inner quotes; honest no-versions
   assert.equal(r.code, 3, r.out);
   assert.match(r.out, /\[data-test="username"\]/);
   assert.match(r.out, /QUALITATIVE ONLY/);
+});
+
+test('normalize-results refuses to run with no execution inputs (exit 2)', () => {
+  // An empty ledger is indistinguishable from a clean run, so "nothing to
+  // read" must never be a success.
+  const r = run(['scripts/normalize-results.js', '--story', 'STORY-042']);
+  assert.equal(r.code, 2, r.out);
+  assert.match(r.out, /no execution inputs/i);
+});
+
+test('normalize-results writes a ledger from an API-only run (exit 0)', () => {
+  const out = join(mkdtempSync(join(tmpdir(), 'qz-ledger-')), 'ledger.json');
+  const r = run([
+    'scripts/normalize-results.js',
+    '--story',
+    'STORY-042',
+    '--newman',
+    'test/fixtures/newman-mixed-outcomes.json',
+    '--out',
+    out,
+  ]);
+  assert.equal(r.code, 0, r.out);
+  // The two unverifiable requests stay visible instead of being folded away.
+  assert.match(r.out, /blocked 2/);
+  const ledger = JSON.parse(readFileSync(out, 'utf8'));
+  assert.equal(ledger.totals.units, 4);
+  assert.equal(ledger.totals.passed, 1);
 });

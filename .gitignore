@@ -53,3 +53,7 @@ evolve/evolve-proposal.md
 
 # Scratchpad — throwaway working area (e.g. the benchmark raw-arm output)
 scratchpad/
+
+# Transient runner state: the new-story transition record and its staging
+# directory (scripts/lib/run-lifecycle.js, task group 4.1). Local only.
+.qaizen/

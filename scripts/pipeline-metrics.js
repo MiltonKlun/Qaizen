@@ -114,7 +114,10 @@ for (const run of runs) {
     if (f.test_case_id)
       tcFailCounts[f.test_case_id] = (tcFailCounts[f.test_case_id] || 0) + 1;
     if (f.classification === 'flaky') {
-      const id = f.playwright_test_id || f.request_id || f.failure_id;
+      // unit_id (failure-analysis 2.x) is stable across runs; FAIL-ids are
+      // per-analysis, so falling back to them would merge unrelated tests.
+      const id =
+        f.playwright_test_id || f.request_id || f.unit_id || f.failure_id;
       flakyCounts[id] = (flakyCounts[id] || 0) + 1;
     }
     if (f.classification === 'product_bug') productBugsFound += 1;

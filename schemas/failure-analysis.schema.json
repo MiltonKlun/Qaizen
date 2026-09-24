@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://qaizen/schemas/failure-analysis.schema.json",
   "title": "Failure Analysis for a Pipeline Run",
-  "description": "analysis/failure-analysis.json. Produced by the Failure Classifier (skills/analyzing-logs). Classification taxonomy is closed (the enum below is canonical). Severity is the Healer guardrails axis (docs/healer-guardrails.md).",
+  "description": "analysis/failure-analysis.json. Produced by the Failure Classifier (skills/analyzing-logs). Classification taxonomy is closed (the enum below is canonical). Severity is the Healer guardrails axis (docs/healer-guardrails.md). VERSIONED (task group 3.3): schema_version 1.x keeps its original rules unchanged so archived artifacts stay valid; 2.x is derived from an execution ledger, may leave a PW/REQ id null WITH a reason instead of inventing one (finding B6), keeps the execution outcome separate from the cause, and requires a bug draft for Red only once the analysis is finalized.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -22,7 +22,10 @@
       "type": "string",
       "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
     },
-    "run_id": { "type": "string", "minLength": 1 },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
     "story_id": {
       "type": "string",
       "pattern": "^(STORY-[0-9]+|[A-Z][A-Z0-9_]*-[0-9]+)$"
@@ -32,17 +35,116 @@
       "format": "date-time",
       "description": "ISO 8601 timestamp of the test execution."
     },
-    "total_tests": { "type": "integer", "minimum": 0 },
-    "passed": { "type": "integer", "minimum": 0 },
-    "failed": { "type": "integer", "minimum": 0 },
-    "skipped": { "type": "integer", "minimum": 0 },
+    "total_tests": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "passed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "skipped": {
+      "type": "integer",
+      "minimum": 0
+    },
     "failures": {
       "type": "array",
-      "items": { "$ref": "#/definitions/failure" }
+      "items": {
+        "$ref": "#/definitions/failure"
+      }
     },
     "status": {
       "type": "string",
       "enum": ["draft", "finalized"]
+    },
+    "execution_ledger": {
+      "description": "v2. Path to the execution ledger this analysis was derived from (analysis/execution-ledger.json). The ledger is the counting model; this analysis adds causes.",
+      "type": "string",
+      "minLength": 1
+    },
+    "outcome_breakdown": {
+      "description": "v2. The ledger unit outcomes. The flat total_tests/passed/failed/skipped fields are the legacy projection of this breakdown (failed = failed + blocked + flaky; skipped = skipped + not_run + expected_failure), so the flat numbers are explained rather than re-derived.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "units",
+        "passed",
+        "failed",
+        "flaky",
+        "skipped",
+        "blocked",
+        "not_run",
+        "expected_failure",
+        "source_error_count"
+      ],
+      "properties": {
+        "units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "flaky": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_run": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_failure": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_error_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "source_errors": {
+      "description": "v2. Run-level errors (global setup failure, collection load error) preserved from the ledger. Never given invented test identities and never folded into unit counts.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["execution_id", "runner", "message"],
+        "properties": {
+          "execution_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "runner": {
+            "type": "string",
+            "enum": ["playwright", "newman", "external"]
+          },
+          "message": {
+            "type": "string"
+          },
+          "phase": {
+            "type": "string",
+            "enum": ["setup", "teardown", "run", "report"]
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -65,9 +167,17 @@
         "test_case_id": {
           "description": "The originating TC-XXX (or API-XXX for Phase 1.5+ API failures), or null if the failure cannot be linked to a TC (e.g. the seed test). When null, traceability_unresolved MUST be true.",
           "oneOf": [
-            { "type": "string", "pattern": "^TC-[0-9]+$" },
-            { "type": "string", "pattern": "^API-[0-9]+$" },
-            { "type": "null" }
+            {
+              "type": "string",
+              "pattern": "^TC-[0-9]+$"
+            },
+            {
+              "type": "string",
+              "pattern": "^API-[0-9]+$"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "traceability_unresolved": {
@@ -79,9 +189,16 @@
           "description": "Required free-text when traceability_unresolved is true. Example: 'seed test — no TC'."
         },
         "playwright_test_id": {
-          "type": "string",
-          "description": "PW-XXX for Playwright failures. Required when source == 'playwright' (the Phase 1 default).",
-          "pattern": "^PW-[0-9]+$"
+          "description": "PW-XXX for Playwright failures. The KEY is required when source == playwright. In 1.x it must be a PW id; in 2.x it may be null when no id is proven from test metadata, with id_unresolved_reason stated. An id is NEVER derived from failure ordering (finding B6).",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^PW-[0-9]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "source": {
           "type": "string",
@@ -89,17 +206,30 @@
           "enum": ["playwright", "newman"]
         },
         "request_id": {
-          "type": "string",
-          "description": "REQ-XXX for Newman failures. Phase 1.5+.",
-          "pattern": "^REQ-[0-9]+$"
+          "description": "REQ-XXX for Newman failures. Same rule as playwright_test_id: in 2.x it may be null with id_unresolved_reason, never invented.",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^REQ-[0-9]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "api_metadata": {
           "type": "object",
           "additionalProperties": false,
           "description": "Phase 1.5+ extension. Populated for Newman failures.",
           "properties": {
-            "status_code": { "type": "integer", "minimum": 0, "maximum": 599 },
-            "response_body_snippet": { "type": "string" }
+            "status_code": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 599
+            },
+            "response_body_snippet": {
+              "type": "string"
+            }
           }
         },
         "classification": {
@@ -129,48 +259,270 @@
         "evidence_paths": {
           "type": "array",
           "description": "Relative paths to traces, screenshots, HTML report sections, response captures. Reporter agents read paths; they never inline the contents.",
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
         "bug_draft_path": {
           "type": "string",
           "description": "Relative path to release/bug-drafts/BUG-XXX.md. Required iff severity == 'red'.",
           "pattern": "^release/bug-drafts/BUG-[0-9]+\\.md$"
+        },
+        "unit_id": {
+          "description": "v2. The execution-ledger unit this failure describes. Stable across runs and independent of failure order.",
+          "type": "string",
+          "minLength": 1
+        },
+        "execution_outcome": {
+          "description": "v2. What the RUN did (from the ledger), kept separate from classification, which is WHY. A flaky unit can still carry a Red cause.",
+          "type": "string",
+          "enum": ["failed", "blocked", "flaky"]
+        },
+        "runner_identity": {
+          "description": "v2. The raw runner identity, retained so an unresolved domain id can still be traced back to the exact test or request.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": ["playwright", "newman", "external"]
+            },
+            "test_title": {
+              "type": "string"
+            },
+            "file": {
+              "type": "string"
+            },
+            "project": {
+              "type": "string"
+            },
+            "repeat_index": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "collection_id": {
+              "type": "string"
+            },
+            "request_name": {
+              "type": "string"
+            },
+            "iteration": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "classification_reason": {
+          "description": "v2. The evidence that decided the classification and severity, in plain words (e.g. \"assertion toHaveText observed \\\"$1.00\\\" where \\\"$100.00\\\" was required\"). Lets a reviewer check the call instead of trusting it.",
+          "type": "string",
+          "minLength": 1
+        },
+        "id_unresolved_reason": {
+          "description": "v2. Required whenever playwright_test_id or request_id is null: why no id could be proven.",
+          "type": "string",
+          "minLength": 1
         }
       },
       "allOf": [
         {
-          "if": { "properties": { "severity": { "const": "red" } } },
-          "then": { "required": ["bug_draft_path"] }
-        },
-        {
-          "if": { "properties": { "test_case_id": { "type": "null" } } },
+          "if": {
+            "properties": {
+              "test_case_id": {
+                "type": "null"
+              }
+            }
+          },
           "then": {
             "required": [
               "traceability_unresolved",
               "traceability_unresolved_reason"
             ],
             "properties": {
-              "traceability_unresolved": { "const": true }
+              "traceability_unresolved": {
+                "const": true
+              }
             }
           }
         },
         {
           "if": {
-            "properties": { "source": { "const": "newman" } },
+            "properties": {
+              "source": {
+                "const": "newman"
+              }
+            },
             "required": ["source"]
           },
-          "then": { "required": ["request_id"] }
+          "then": {
+            "required": ["request_id"]
+          }
         },
         {
           "if": {
             "anyOf": [
-              { "not": { "required": ["source"] } },
-              { "properties": { "source": { "const": "playwright" } } }
+              {
+                "not": {
+                  "required": ["source"]
+                }
+              },
+              {
+                "properties": {
+                  "source": {
+                    "const": "playwright"
+                  }
+                }
+              }
             ]
           },
-          "then": { "required": ["playwright_test_id"] }
+          "then": {
+            "required": ["playwright_test_id"]
+          }
         }
       ]
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "pattern": "^1\\."
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            {
+              "required": ["execution_ledger"]
+            },
+            {
+              "required": ["outcome_breakdown"]
+            },
+            {
+              "required": ["source_errors"]
+            }
+          ]
+        },
+        "properties": {
+          "failures": {
+            "items": {
+              "properties": {
+                "playwright_test_id": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "severity": {
+                        "const": "red"
+                      }
+                    },
+                    "required": ["severity"]
+                  },
+                  "then": {
+                    "required": ["bug_draft_path"]
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "pattern": "^2\\."
+          }
+        }
+      },
+      "then": {
+        "required": ["execution_ledger", "outcome_breakdown", "source_errors"],
+        "properties": {
+          "failures": {
+            "items": {
+              "required": [
+                "unit_id",
+                "execution_outcome",
+                "runner_identity",
+                "classification_reason"
+              ],
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "playwright_test_id": {
+                        "type": "null"
+                      }
+                    },
+                    "required": ["playwright_test_id"]
+                  },
+                  "then": {
+                    "required": ["id_unresolved_reason"]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "request_id": {
+                        "type": "null"
+                      }
+                    },
+                    "required": ["request_id"]
+                  },
+                  "then": {
+                    "required": ["id_unresolved_reason"]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "finalized"
+                }
+              },
+              "required": ["status"]
+            },
+            "then": {
+              "properties": {
+                "failures": {
+                  "items": {
+                    "allOf": [
+                      {
+                        "if": {
+                          "properties": {
+                            "severity": {
+                              "const": "red"
+                            }
+                          },
+                          "required": ["severity"]
+                        },
+                        "then": {
+                          "required": ["bug_draft_path"]
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
 }

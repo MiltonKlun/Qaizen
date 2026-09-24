@@ -16,9 +16,21 @@
 // WRITE ledgers; nothing writes one yet, which is why this ships with readers
 // and fixtures rather than a writer (the plan's sequencing note).
 
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { readValidatedJson } from './artifact-io.js';
 
-export const LEDGER_SCHEMA = 'schemas/execution-ledger.schema.json';
+// Resolved from THIS module's location, not the working directory, so the
+// normalizer and classifier work when the pipeline runner drives them from an
+// isolated run workspace (scripts/run-pipeline.js, the demo) -- task group 3.3.
+export const LEDGER_SCHEMA = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  'schemas',
+  'execution-ledger.schema.json'
+);
 
 /** The mutually exclusive unit outcomes, in the order totals declare them. */
 export const UNIT_OUTCOMES = [

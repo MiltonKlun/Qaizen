@@ -116,7 +116,7 @@ violated. Treat every captured artifact as sensitive:
   raw artifact (§5).
 - **API reports are published only after sanitization.** Newman records the
   live auth header and resolved environment values into its JSON/HTML output,
-  so CI uploads **only** `reports/published/newman-*.json` — an allowlisted
+  so CI uploads **only** `reports/<execution-id>/published/newman-*.json` — an allowlisted
   summary built by `scripts/lib/report-sanitization.js`. The raw reporter files
   never leave the runner. A sanitization failure publishes nothing for that
   execution rather than falling back to raw output

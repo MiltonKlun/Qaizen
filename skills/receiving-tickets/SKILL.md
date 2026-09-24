@@ -105,8 +105,10 @@ The schema is the source of truth (`schemas/context.schema.json`). Required
 top-level fields at this stage:
 
 - `schema_version` — string, e.g. `"1.0"`.
-- `run_id` — unique identifier for this pipeline run (timestamp + short
-  hash works).
+- `run_id` — unique identifier for this pipeline run. When the runner
+  staged the run (`--story`), use its run id from `.qaizen/transition.json`
+  (`new_story.run_id`); the runner refuses a mismatch. Otherwise timestamp +
+  short hash works.
 - `story` — see Mode A / Mode B above.
 - `acceptance_criteria` — array of strings, one AC per element. Do not
   invent ACs; if the source is ambiguous, list whatever was written and

@@ -1,0 +1,426 @@
+{
+  "collection": {
+    "info": {
+      "name": "Fixture collection",
+      "_postman_id": "f1x7u2e0-0000-4000-8000-000000000001"
+    }
+  },
+  "environment": {
+    "values": [
+      {
+        "type": "any",
+        "value": "SYNTHETIC-FIXTURE-SECRET-8f3a21c7bd94",
+        "key": "api_key"
+      }
+    ]
+  },
+  "run": {
+    "stats": {
+      "iterations": {
+        "total": 1,
+        "pending": 0,
+        "failed": 0
+      },
+      "items": {
+        "total": 4,
+        "pending": 0,
+        "failed": 0
+      },
+      "scripts": {
+        "total": 3,
+        "pending": 0,
+        "failed": 0
+      },
+      "prerequests": {
+        "total": 4,
+        "pending": 0,
+        "failed": 0
+      },
+      "requests": {
+        "total": 4,
+        "pending": 0,
+        "failed": 1
+      },
+      "tests": {
+        "total": 4,
+        "pending": 0,
+        "failed": 0
+      },
+      "assertions": {
+        "total": 6,
+        "pending": 0,
+        "failed": 3
+      },
+      "testScripts": {
+        "total": 3,
+        "pending": 0,
+        "failed": 0
+      },
+      "prerequestScripts": {
+        "total": 0,
+        "pending": 0,
+        "failed": 0
+      }
+    },
+    "timings": {
+      "started": 1790031608396,
+      "completed": 1790031608703
+    },
+    "executions": [
+      {
+        "cursor": {
+          "iteration": 0
+        },
+        "item": {
+          "name": "Passing request with assertions",
+          "id": "e95387bc-924a-4601-be26-3e1b426d967f"
+        },
+        "request": {
+          "method": "GET",
+          "url": {
+            "protocol": "http",
+            "port": "39217",
+            "path": ["ok"],
+            "host": ["127", "0", "0", "1"],
+            "query": [],
+            "variable": []
+          },
+          "header": [
+            {
+              "key": "x-api-key",
+              "value": "SYNTHETIC-FIXTURE-SECRET-8f3a21c7bd94"
+            },
+            {
+              "key": "User-Agent",
+              "value": "PostmanRuntime/7.39.1",
+              "system": true
+            },
+            {
+              "key": "Accept",
+              "value": "*/*",
+              "system": true
+            },
+            {
+              "key": "Cache-Control",
+              "value": "no-cache",
+              "system": true
+            },
+            {
+              "key": "Postman-Token",
+              "value": "3f2451b3-d85f-41b1-98f5-fa3035403f3d",
+              "system": true
+            },
+            {
+              "key": "Host",
+              "value": "127.0.0.1:39217",
+              "system": true
+            },
+            {
+              "key": "Accept-Encoding",
+              "value": "gzip, deflate, br",
+              "system": true
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive",
+              "system": true
+            }
+          ]
+        },
+        "response": {
+          "code": 200,
+          "status": "OK",
+          "responseTime": 25
+        },
+        "assertions": [
+          {
+            "assertion": "status is 200",
+            "skipped": false
+          },
+          {
+            "assertion": "account is active",
+            "skipped": false
+          }
+        ]
+      },
+      {
+        "cursor": {
+          "iteration": 0
+        },
+        "item": {
+          "name": "Request with multiple failing assertions",
+          "id": "df4c997e-ce8f-437e-809f-36a6216d15ff"
+        },
+        "request": {
+          "method": "GET",
+          "url": {
+            "protocol": "http",
+            "port": "39217",
+            "path": ["wrong"],
+            "host": ["127", "0", "0", "1"],
+            "query": [],
+            "variable": []
+          },
+          "header": [
+            {
+              "key": "x-api-key",
+              "value": "SYNTHETIC-FIXTURE-SECRET-8f3a21c7bd94"
+            },
+            {
+              "key": "User-Agent",
+              "value": "PostmanRuntime/7.39.1",
+              "system": true
+            },
+            {
+              "key": "Accept",
+              "value": "*/*",
+              "system": true
+            },
+            {
+              "key": "Cache-Control",
+              "value": "no-cache",
+              "system": true
+            },
+            {
+              "key": "Postman-Token",
+              "value": "557dcb83-2ccd-4504-86d5-14d4a773acea",
+              "system": true
+            },
+            {
+              "key": "Host",
+              "value": "127.0.0.1:39217",
+              "system": true
+            },
+            {
+              "key": "Accept-Encoding",
+              "value": "gzip, deflate, br",
+              "system": true
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive",
+              "system": true
+            }
+          ]
+        },
+        "response": {
+          "code": 200,
+          "status": "OK",
+          "responseTime": 3
+        },
+        "assertions": [
+          {
+            "assertion": "account is active",
+            "skipped": false,
+            "error": {
+              "name": "AssertionError",
+              "index": 0,
+              "test": "account is active",
+              "message": "expected 'suspended' to deeply equal 'active'",
+              "stack": "AssertionError: expected 'suspended' to deeply equal 'active'\n   at Object.eval sandbox-script.js:1:2)"
+            }
+          },
+          {
+            "assertion": "total is non-negative",
+            "skipped": false,
+            "error": {
+              "name": "AssertionError",
+              "index": 1,
+              "test": "total is non-negative",
+              "message": "expected -1 to be at least +0",
+              "stack": "AssertionError: expected -1 to be at least +0\n   at Object.eval sandbox-script.js:2:2)"
+            }
+          },
+          {
+            "assertion": "status is 200",
+            "skipped": false
+          }
+        ]
+      },
+      {
+        "cursor": {
+          "iteration": 0
+        },
+        "item": {
+          "name": "Request with zero assertions",
+          "id": "1659dfd3-90f9-4445-a985-53c4259a3223"
+        },
+        "request": {
+          "method": "GET",
+          "url": {
+            "protocol": "http",
+            "port": "39217",
+            "path": ["ok"],
+            "host": ["127", "0", "0", "1"],
+            "query": [],
+            "variable": []
+          },
+          "header": [
+            {
+              "key": "User-Agent",
+              "value": "PostmanRuntime/7.39.1",
+              "system": true
+            },
+            {
+              "key": "Accept",
+              "value": "*/*",
+              "system": true
+            },
+            {
+              "key": "Cache-Control",
+              "value": "no-cache",
+              "system": true
+            },
+            {
+              "key": "Postman-Token",
+              "value": "c1af5a35-0b81-4752-ae7e-3cad197ef524",
+              "system": true
+            },
+            {
+              "key": "Host",
+              "value": "127.0.0.1:39217",
+              "system": true
+            },
+            {
+              "key": "Accept-Encoding",
+              "value": "gzip, deflate, br",
+              "system": true
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive",
+              "system": true
+            }
+          ]
+        },
+        "response": {
+          "code": 200,
+          "status": "OK",
+          "responseTime": 2
+        }
+      },
+      {
+        "cursor": {
+          "iteration": 0
+        },
+        "item": {
+          "name": "Request that cannot connect",
+          "id": "e16c6d92-092a-4953-b24e-e5996fa2a59b"
+        },
+        "request": {
+          "method": "GET",
+          "url": {
+            "protocol": "http",
+            "port": "39218",
+            "path": ["unreachable"],
+            "host": ["127", "0", "0", "1"],
+            "query": [],
+            "variable": []
+          },
+          "header": [
+            {
+              "key": "User-Agent",
+              "value": "PostmanRuntime/7.39.1",
+              "system": true
+            },
+            {
+              "key": "Accept",
+              "value": "*/*",
+              "system": true
+            },
+            {
+              "key": "Cache-Control",
+              "value": "no-cache",
+              "system": true
+            },
+            {
+              "key": "Postman-Token",
+              "value": "d0e6ed1a-162e-4108-bc57-aa65c0656be6",
+              "system": true
+            },
+            {
+              "key": "Host",
+              "value": "127.0.0.1:39218",
+              "system": true
+            },
+            {
+              "key": "Accept-Encoding",
+              "value": "gzip, deflate, br",
+              "system": true
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive",
+              "system": true
+            }
+          ]
+        },
+        "assertions": [
+          {
+            "assertion": "status is 200",
+            "skipped": false,
+            "error": {
+              "name": "AssertionError",
+              "index": 0,
+              "test": "status is 200",
+              "message": "expected PostmanResponse{ …(5) } to have property 'code'",
+              "stack": "AssertionError: expected PostmanResponse{ …(5) } to have property 'code'\n   at Object.eval sandbox-script.js:1:4)"
+            }
+          }
+        ],
+        "requestError": {
+          "errno": -4078,
+          "code": "ECONNREFUSED",
+          "syscall": "connect",
+          "address": "127.0.0.1",
+          "port": 39218
+        }
+      }
+    ],
+    "failures": [
+      {
+        "error": {
+          "name": "AssertionError",
+          "message": "expected 'suspended' to deeply equal 'active'",
+          "test": "account is active"
+        },
+        "source": {
+          "name": "Request with multiple failing assertions",
+          "id": "df4c997e-ce8f-437e-809f-36a6216d15ff"
+        }
+      },
+      {
+        "error": {
+          "name": "AssertionError",
+          "message": "expected -1 to be at least +0",
+          "test": "total is non-negative"
+        },
+        "source": {
+          "name": "Request with multiple failing assertions",
+          "id": "df4c997e-ce8f-437e-809f-36a6216d15ff"
+        }
+      },
+      {
+        "error": {
+          "name": "Error",
+          "message": "connect ECONNREFUSED 127.0.0.1:39218"
+        },
+        "source": {
+          "name": "Request that cannot connect",
+          "id": "e16c6d92-092a-4953-b24e-e5996fa2a59b"
+        }
+      },
+      {
+        "error": {
+          "name": "AssertionError",
+          "message": "expected PostmanResponse{ …(5) } to have property 'code'",
+          "test": "status is 200"
+        },
+        "source": {
+          "name": "Request that cannot connect",
+          "id": "e16c6d92-092a-4953-b24e-e5996fa2a59b"
+        }
+      }
+    ]
+  }
+}

@@ -17,3 +17,9 @@ package-lock.json
 CLAUDE.md
 README.md
 IMPROVEMENT-PLAN-2.md
+
+# Archived runs are evidence: byte-identical to what each run produced, never
+# reformatted (scripts/lib/run-lifecycle.js, task group 4.1).
+runs/
+# Transient runner state (the new-story transition record and staging).
+.qaizen/

@@ -30,6 +30,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { argv, env, exit } from 'node:process';
+import { requireCurrentGate } from './lib/approval-binding.js';
 
 if (existsSync('.env')) {
   for (const line of readFileSync('.env', 'utf8').split('\n')) {
@@ -80,12 +81,12 @@ const doc = loadJson(casesPath);
 const map = loadJson(mapPath);
 
 // --- Gate 2 precondition (same rule as the TestLink adapter) -------------
-const gate = context.review_gates?.test_scope_reviewed;
-const gateOk = gate === true || (gate && gate.status === true);
-if (!gateOk) {
-  console.error(
-    'Gate 2 (test_scope_reviewed) is not passed; refusing to sync. Approve the test scope first.'
-  );
+// An approval counts only while it still matches what was reviewed
+// (task group 4.3): a gate approved before the test cases or code changed
+// is not a licence to sync.
+const gateCheck = requireCurrentGate(context, 'test_scope_reviewed', '.');
+if (!gateCheck.ok) {
+  console.error(`Gate 2: ${gateCheck.reason}. Refusing to sync.`);
   exit(1);
 }
 

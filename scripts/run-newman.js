@@ -1,42 +1,70 @@
 #!/usr/bin/env node
-// Cross-platform Newman runner for the API branch (Phase 1.5+).
+// Newman runner for the API branch (Phase 1.5+; report layout from task
+// group 3.2).
 //
-// The phase plan's literal `test:api` script used `$STORY_ID` shell
-// expansion, which does not work when npm runs scripts through cmd on
-// Windows. This wrapper reads STORY_ID from an env var or the first CLI
-// arg, builds the collection + environment paths, and shells out to
-// newman with the json + htmlextra reporters. Same behaviour on Windows,
-// macOS, Linux, and CI.
+// Reports go to a PER-EXECUTION path:
+//
+//   reports/<execution-id>/newman/<story-id>/<collection-id>.json
+//
+// The previous constant path (reports/newman-results.json) was independent of
+// story, collection and run, so CI's per-collection loop destroyed every
+// collection's raw evidence but the last, and a stale file from an unrelated
+// story read as current evidence (finding I4).
+//
+// Newman is invoked through its Node API rather than `spawnSync('npx', ...,
+// {shell: true})`: secrets are passed as values, never interpolated into a
+// command line, and there is no shell to quote them wrongly.
 //
 // Usage:
 //   STORY_ID=QA-1042 npm run test:api
-//   node scripts/run-newman.js QA-1042
+//   node scripts/run-newman.js QA-1042 [--collection <id>] [--execution-id <id>]
 //
 // Exit codes:
-//   0 — newman ran and all assertions passed
-//   1 — newman ran and at least one assertion / request failed
-//   2 — usage error, or collection/environment file missing
+//   0 — newman ran, requests executed, and all assertions passed
+//   1 — newman ran and at least one assertion / request failed, OR the run
+//       verified nothing (zero executed requests is not a pass)
+//   2 — usage error, collection missing, or publication refused
 
-import {
-  existsSync,
-  readFileSync,
-  writeFileSync,
-  mkdirSync,
-  rmSync,
-} from 'node:fs';
-import { spawnSync } from 'node:child_process';
-import { join } from 'node:path';
-import { argv, env, exit, platform } from 'node:process';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { basename } from 'node:path';
+import { argv, env, exit } from 'node:process';
+import newman from 'newman';
+
 import {
   buildPublishedNewmanView,
   assertNoSecrets,
 } from './lib/report-sanitization.js';
+import {
+  newmanReportPaths,
+  publishedPaths,
+  ensureReportDir,
+  resolveExecutionId,
+  validateComponent,
+} from './lib/execution-paths.js';
 
-// Raw reporter outputs: local only, gitignored, and secret-bearing by design.
-const RAW_JSON = join('reports', 'newman-results.json');
-const RAW_HTML = join('reports', 'newman-html');
+function parseFlags(args) {
+  const flags = {};
+  const positional = [];
+  for (let i = 0; i < args.length; i += 1) {
+    const a = args[i];
+    if (a.startsWith('--')) {
+      const key = a.slice(2);
+      const value = args[i + 1];
+      if (value === undefined || value.startsWith('--')) {
+        console.error(`Error: --${key} requires a value`);
+        exit(2);
+      }
+      flags[key] = value;
+      i += 1;
+    } else {
+      positional.push(a);
+    }
+  }
+  return { flags, positional };
+}
 
-const storyId = env.STORY_ID || argv[2];
+const { flags, positional } = parseFlags(argv.slice(2));
+const storyId = flags.story || env.STORY_ID || positional[0];
 
 if (!storyId) {
   console.error(
@@ -44,6 +72,22 @@ if (!storyId) {
   );
   exit(2);
 }
+
+const storyCheck = validateComponent(storyId, 'story id');
+if (!storyCheck.ok) {
+  console.error(`Error: ${storyCheck.message}`);
+  exit(2);
+}
+
+// The pipeline passes its execution id down so every step's evidence lands in
+// one directory; a standalone run mints its own so it can never be confused
+// with, or write into, another run's directory.
+const execution = resolveExecutionId(flags['execution-id'], env);
+if (!execution.ok) {
+  console.error(`Error: ${execution.message}`);
+  exit(2);
+}
+const executionId = execution.value;
 
 const collection = `api-tests/collections/${storyId}.postman_collection.json`;
 const environment = `api-tests/environments/${storyId}.postman_environment.json`;
@@ -56,95 +100,162 @@ if (!existsSync(collection)) {
   exit(2);
 }
 
-// The environment is optional: a collection may not need one (e.g. when
-// all variables are baked into the collection or pulled from env). Warn
-// but proceed without -e if the environment file is absent.
-const args = ['run', collection];
-if (existsSync(environment)) {
-  args.push('-e', environment);
-} else {
-  console.warn(`Environment not found (continuing without it): ${environment}`);
-}
-
-// Inject secrets at run time via --env-var so they never live in the
-// committed environment file. The collection references {{api_key}};
-// the real value comes from REQRES_API_KEY in the process env (loaded
-// from .env). Add more mappings here as other API targets need keys.
-// Track every literal value injected this run so the published summary can
-// redact it. The raw reports below intentionally still contain these values;
-// they stay local and gitignored. Only reports/published/ is safe to upload.
-const injectedSecrets = [];
-if (env.REQRES_API_KEY) {
-  args.push('--env-var', `api_key=${env.REQRES_API_KEY}`);
-  injectedSecrets.push(env.REQRES_API_KEY);
-}
-
-args.push(
-  '--reporters',
-  'cli,json,htmlextra',
-  '--reporter-json-export',
-  RAW_JSON,
-  '--reporter-htmlextra-export',
-  RAW_HTML
-);
-
-// On Windows, npx resolves through newman.cmd; spawnSync needs shell:true
-// to find it on PATH. On POSIX, shell:false with the npx binary works.
-const isWindows = platform === 'win32';
-const result = spawnSync('npx', ['newman', ...args], {
-  stdio: 'inherit',
-  shell: isWindows,
-});
-
-if (result.error) {
-  console.error(`Failed to run newman: ${result.error.message}`);
-  exit(2);
-}
-
-// ---- publication (task group 1.1, I3) -----------------------------------
-// The raw reports above are secret-bearing: Newman records the live x-api-key
-// header and resolved environment values. They stay under reports/ (gitignored,
-// never uploaded). Build a sanitized, allowlisted summary for publication and
-// write it to reports/published/ — the ONLY subtree CI uploads.
+// Verify the file is actually a Postman collection BEFORE invoking newman.
 //
-// A sanitizer failure must prevent publication, so the stale file for this
-// collection is removed FIRST: a failed run can never leave an older published
-// result behind to be uploaded as if it were current.
-const publishedDir = join('reports', 'published');
-const publishedPath = join(publishedDir, `newman-${storyId}.json`);
-
+// Two reasons this cannot be left to newman:
+//   * newman accepts arbitrary JSON, reports no error, and returns a summary
+//     with zero executions -- which a status-only check reads as a pass;
+//   * newman-reporter-htmlextra dereferences `summary.collection.name`
+//     unguarded (lib/index.js:377), so a collection without a name crashes the
+//     reporter and the process dies before any of our own diagnostics run.
+// Checking here turns both into one actionable message.
 try {
-  rmSync(publishedPath, { force: true });
-} catch {
-  // Nothing to remove; publication below still governs the outcome.
-}
+  const parsed = JSON.parse(readFileSync(collection, 'utf8'));
+  const problems = [];
+  if (!parsed || typeof parsed !== 'object')
+    problems.push('it is not an object');
+  if (!parsed?.info?.name) problems.push('info.name is missing');
+  if (!Array.isArray(parsed?.item)) problems.push('item[] is missing');
+  else if (parsed.item.length === 0) problems.push('item[] is empty');
 
-if (existsSync(RAW_JSON)) {
-  try {
-    const report = JSON.parse(readFileSync(RAW_JSON, 'utf8'));
-    const view = buildPublishedNewmanView(report, {
-      secrets: injectedSecrets,
-      collectionId: storyId,
-    });
-    // Throws if any injected secret survived in any encoded form.
-    assertNoSecrets(view, injectedSecrets);
-    mkdirSync(publishedDir, { recursive: true });
-    writeFileSync(publishedPath, JSON.stringify(view, null, 2) + '\n');
-    console.log(`Published sanitized summary: ${publishedPath}`);
-  } catch (e) {
-    // Never echo the raw exception: it can carry the secret.
+  if (problems.length) {
+    console.error(`Not a usable Postman collection: ${collection}`);
+    for (const p of problems) console.error(`  - ${p}`);
     console.error(
-      `Refusing to publish a summary for ${storyId}: ${e instanceof Error ? e.message : 'sanitization failed'}`
-    );
-    console.error(
-      'Raw reports remain under reports/ (local only, secret-bearing).'
+      '  A collection that cannot run verifies nothing; this is not a pass.'
     );
     exit(2);
   }
-} else {
-  console.warn(
-    `No raw Newman JSON at ${RAW_JSON}; nothing to publish for ${storyId}.`
-  );
+} catch {
+  console.error(`Collection is not valid JSON: ${collection}`);
+  exit(2);
 }
 
-exit(result.status ?? 1);
+// A story may hold several collections; the id distinguishes their reports so
+// one never overwrites another.
+const collectionId =
+  flags.collection || basename(collection, '.postman_collection.json');
+const collectionCheck = validateComponent(collectionId, 'collection id');
+if (!collectionCheck.ok) {
+  console.error(`Error: ${collectionCheck.message}`);
+  exit(2);
+}
+
+const paths = newmanReportPaths(executionId, storyId, collectionId);
+if (!paths.ok) {
+  console.error(`Error: ${paths.message}`);
+  exit(2);
+}
+ensureReportDir(paths);
+
+// Inject secrets at run time so they never live in the committed environment
+// file. Passed as API values, not shell arguments: nothing is interpolated
+// into a command line. The raw reports below still contain these values --
+// they stay under reports/ (gitignored) and are never uploaded.
+const injectedSecrets = [];
+const envVars = [];
+if (env.REQRES_API_KEY) {
+  envVars.push({ key: 'api_key', value: env.REQRES_API_KEY });
+  injectedSecrets.push(env.REQRES_API_KEY);
+}
+
+const runOptions = {
+  collection,
+  reporters: ['cli', 'json', 'htmlextra'],
+  reporter: {
+    json: { export: paths.json },
+    htmlextra: { export: paths.html },
+  },
+};
+if (existsSync(environment)) {
+  runOptions.environment = environment;
+} else {
+  console.warn(`Environment not found (continuing without it): ${environment}`);
+}
+if (envVars.length) runOptions.envVar = envVars;
+
+console.log(
+  `Execution ${executionId} | story ${storyId} | collection ${collectionId}`
+);
+
+newman.run(runOptions, (err, summary) => {
+  if (err) {
+    // Never echo the raw error: newman errors can quote request detail.
+    console.error(
+      `Failed to run newman: ${err instanceof Error ? err.message : 'unknown error'}`
+    );
+    exit(2);
+  }
+
+  const run = summary?.run ?? {};
+  const executed = (run.executions || []).length;
+  const assertions = run.stats?.assertions ?? {};
+  const failures = (run.failures || []).length;
+
+  // ---- a run that verified nothing is not evidence -----------------------
+  // Newman accepts a JSON file that is not a collection, reports no error, and
+  // returns a summary with zero executions. Under a status-only check that is
+  // exit 0 -- "all assertions passed" -- for a run that verified nothing.
+  //
+  // This is checked BEFORE publication: a published all-zeros summary is worse
+  // than no summary, because ci-summary.js reads zero failures as a green
+  // check. Nothing verified must leave nothing publishable.
+  if (executed === 0) {
+    console.error(
+      `No requests executed for ${storyId}/${collectionId}. This verified nothing and is not a pass.`
+    );
+    console.error(
+      '  Check that the collection contains requests and that it is a valid Postman collection.'
+    );
+    console.error(
+      `  Raw reporter output (if any) is under ${paths.dir}; no summary was published.`
+    );
+    exit(1);
+  }
+
+  // ---- publication (task group 1.1, I3) ---------------------------------
+  // Published summaries are grouped per execution too, so a CI upload cannot
+  // pick up an unrelated run's file.
+  const published = publishedPaths(executionId, storyId, collectionId);
+  if (!published.ok) {
+    console.error(`Error: ${published.message}`);
+    exit(2);
+  }
+
+  if (existsSync(paths.json)) {
+    try {
+      const report = JSON.parse(readFileSync(paths.json, 'utf8'));
+      const view = buildPublishedNewmanView(report, {
+        secrets: injectedSecrets,
+        collectionId,
+      });
+      // Throws if any injected secret survived in any encoded form.
+      assertNoSecrets(view, injectedSecrets);
+      mkdirSync(published.dir, { recursive: true });
+      writeFileSync(published.json, JSON.stringify(view, null, 2) + '\n');
+      console.log(`Published sanitized summary: ${published.json}`);
+    } catch (e) {
+      // Never echo the raw exception: it can carry the secret.
+      console.error(
+        `Refusing to publish a summary for ${storyId}/${collectionId}: ${
+          e instanceof Error ? e.message : 'sanitization failed'
+        }`
+      );
+      console.error(
+        'Raw reports remain under reports/ (local only, secret-bearing).'
+      );
+      exit(2);
+    }
+  } else {
+    console.warn(
+      `No raw Newman JSON at ${paths.json}; nothing to publish for ${storyId}/${collectionId}.`
+    );
+  }
+
+  // ---- exit status -------------------------------------------------------
+  console.log(
+    `  ${executed} request(s) | assertions: ${assertions.total ?? 0} total, ${assertions.failed ?? 0} failed | ${failures} failure(s)`
+  );
+
+  exit(failures > 0 || (assertions.failed ?? 0) > 0 ? 1 : 0);
+});

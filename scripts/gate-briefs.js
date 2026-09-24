@@ -18,6 +18,10 @@ import { GATE_KEYS } from './pipeline-state.js';
 export const GATE_BRIEFS = {
   gate1: {
     name: 'Gate 1 — Requirement Interpretation',
+    // Mechanical inputs that must exist AND validate for this run before the
+    // gate may even prompt (task group 4.2). '@context' / '@story' are the
+    // run's context.json and story file; the rest are artifact_paths keys.
+    requires: ['@context', '@story'],
     artifacts: (ctx) => ['context.json', ctx?.story?.path || 'story.md'],
     checklist: [
       'AC accuracy — every acceptance criterion matches what the story says (no drift, no silent additions)',
@@ -32,6 +36,10 @@ export const GATE_BRIEFS = {
   },
   gate2: {
     name: 'Gate 2 — Test Scope Approval',
+    // Mechanical inputs that must exist AND validate for this run before the
+    // gate may even prompt (task group 4.2). '@context' / '@story' are the
+    // run's context.json and story file; the rest are artifact_paths keys.
+    requires: ['test_cases', 'planner_brief', '@context'],
     artifacts: (ctx) => [
       ctx?.artifact_paths?.test_cases,
       ctx?.artifact_paths?.planner_brief,
@@ -52,6 +60,10 @@ export const GATE_BRIEFS = {
   },
   qa_scope: {
     name: 'QA Scope — Gates 1+2 consolidated (lite track)',
+    // Mechanical inputs that must exist AND validate for this run before the
+    // gate may even prompt (task group 4.2). '@context' / '@story' are the
+    // run's context.json and story file; the rest are artifact_paths keys.
+    requires: ['@context', '@story', 'test_cases', 'planner_brief'],
     artifacts: (ctx) => [
       'context.json',
       ctx?.artifact_paths?.test_cases,
@@ -70,6 +82,10 @@ export const GATE_BRIEFS = {
   },
   gate3: {
     name: 'Gate 3 — Specs Review',
+    // Mechanical inputs that must exist AND validate for this run before the
+    // gate may even prompt (task group 4.2). '@context' / '@story' are the
+    // run's context.json and story file; the rest are artifact_paths keys.
+    requires: ['playwright_spec', 'planner_brief', 'test_cases'],
     artifacts: (ctx) => [
       ctx?.artifact_paths?.playwright_spec,
       ctx?.artifact_paths?.planner_brief,
@@ -89,6 +105,10 @@ export const GATE_BRIEFS = {
   },
   gate4: {
     name: 'Gate 4 — Code Review (human sign-off, always)',
+    // Mechanical inputs that must exist AND validate for this run before the
+    // gate may even prompt (task group 4.2). '@context' / '@story' are the
+    // run's context.json and story file; the rest are artifact_paths keys.
+    requires: ['generated_test', 'playwright_spec', 'test_cases'],
     artifacts: (ctx) => [
       ctx?.artifact_paths?.generated_test,
       ctx?.artifact_paths?.playwright_spec,

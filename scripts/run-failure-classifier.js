@@ -1,39 +1,85 @@
 #!/usr/bin/env node
-// Rule-based failure pre-classifier (Phase 3 TG1). Reads the Playwright JSON
-// report (+ optional Newman report) and produces a schema-valid
-// analysis/failure-analysis.json by applying DETERMINISTIC signal rules —
-// fast, zero LLM cost for the obvious cases. Genuinely ambiguous failures are
-// marked `unknown_needs_human_review` (severity yellow): that is the
-// "escalate" path. In a headless script there is no LLM to call, so escalation
-// = flag-for-human; the Failure Classifier Agent (agents/failure-classifier.md)
-// or a human resolves those. This script never invents a classification it is
-// not confident about — when unsure, it escalates.
+// Rule-based failure pre-classifier (Phase 3 TG1; rebuilt on the execution
+// ledger in task group 3.3).
 //
-// It maps each failure to the closed taxonomy in
-// schemas/failure-analysis.schema.json and respects the schema's conditional
-// rules (red => bug_draft_path; test_case_id:null => traceability_unresolved;
-// newman => request_id; playwright => playwright_test_id).
+// Reads the normalized execution ledger (analysis/execution-ledger.json, from
+// `npm run normalize`) and writes a schema-valid DRAFT
+// analysis/failure-analysis.json (schema_version 2.0). Every failed, blocked
+// and flaky unit gets a cause, a severity and the evidence behind the call.
+//
+// What changed, and why (all verified on a real Chromium run first):
+//
+//   B1  A wrong business value ($100.00 expected, $1.00 shown) was classified
+//       green/locator_or_selector -- eligible for auto-healing -- because the
+//       error text contains "locator". Causes now come from what Playwright
+//       says FAILED (scripts/lib/classify-failure.js), in the plan's order.
+//   B2  A timed-out test disappeared: only 'unexpected'/'failed' attempt
+//       statuses were read. The ledger normalizes every terminal outcome.
+//   B5  Newman passes were `assertions.total - failures.length` (could go
+//       negative), and the artifact was written with no validation. Counts now
+//       come from the ledger and the file goes through the validated writer.
+//   B6  PW-/REQ- ids were minted from a running failure counter. They now come
+//       only from proven metadata; otherwise they are null WITH a reason.
+//
+// This is a PRE-classifier. It never finalizes: it writes status "draft",
+// creates no bug drafts, and tells the human / Failure Classifier Agent what
+// must happen before the Reporter step.
 //
 // Gate 4 precondition: like the Failure Classifier Agent, refuses unless
 // context.json.review_gates.code_reviewed is passed.
 //
 // Usage:
-//   node scripts/run-failure-classifier.js                 # write analysis/failure-analysis.json
-//   node scripts/run-failure-classifier.js --blocking      # exit 1 if any product_bug found
-//   node scripts/run-failure-classifier.js --dry-run       # print, do not write
+//   node scripts/run-failure-classifier.js [--ledger <path>]   # write the draft
+//   node scripts/run-failure-classifier.js --blocking          # exit 1 on a product_bug
+//   node scripts/run-failure-classifier.js --dry-run           # print, do not write
 //
-// Exit codes: 0 ok · 1 --blocking with product_bug present · 2 usage/gate/file error
+// Exit codes: 0 ok · 1 --blocking with product_bug present, or the analysis
+//             could not be written · 2 usage / gate / missing-or-invalid evidence
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { argv, env, exit } from 'node:process';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { argv, exit } from 'node:process';
+import { fileURLToPath } from 'node:url';
+
+import { writeJsonAtomic, formatErrors } from './lib/artifact-io.js';
+import {
+  readLedger,
+  legacySummaryProjection,
+  UNIT_OUTCOMES,
+} from './lib/execution-ledger.js';
+import { classifyUnit } from './lib/classify-failure.js';
+import { requireCurrentGate } from './lib/approval-binding.js';
+
+const OUT = 'analysis/failure-analysis.json';
+// Resolved from this script's location, not the CWD: the pipeline runner may
+// drive the classifier from an isolated run workspace.
+const SCHEMA = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'schemas',
+  'failure-analysis.schema.json'
+);
+const DEFAULT_LEDGER = 'analysis/execution-ledger.json';
+
+/** Units that belong in a failure analysis. Passes and skips do not. */
+const ANALYZED = new Set(['failed', 'blocked', 'flaky']);
+
+function flag(name) {
+  const i = argv.indexOf(name);
+  if (i === -1) return undefined;
+  const v = argv[i + 1];
+  if (v === undefined || v.startsWith('--')) {
+    console.error(`Error: ${name} requires a value`);
+    exit(2);
+  }
+  return v;
+}
 
 const BLOCKING = argv.includes('--blocking');
 const DRY = argv.includes('--dry-run');
+const LEDGER = flag('--ledger') || DEFAULT_LEDGER;
 
-const PW_PATH = 'reports/results.json';
-const NEWMAN_PATH = 'reports/newman-results.json';
-const OUT = 'analysis/failure-analysis.json';
-
+// ---- preconditions ------------------------------------------------------
 if (!existsSync('context.json')) {
   console.error('No context.json at root.');
   exit(2);
@@ -41,196 +87,195 @@ if (!existsSync('context.json')) {
 const context = JSON.parse(readFileSync('context.json', 'utf8'));
 
 // Gate 4 precondition (same rule as the Failure Classifier Agent).
-const g = context.review_gates?.code_reviewed;
-if (!(g === true || (g && g.status === true))) {
+// An approval counts only while it still matches what was reviewed
+// (task group 4.3): a gate approved before the test cases or code changed
+// is not a licence to classify.
+const gateCheck = requireCurrentGate(context, 'code_reviewed', '.');
+if (!gateCheck.ok) {
+  console.error(`Gate 4: ${gateCheck.reason}. Refusing to classify.`);
+  exit(2);
+}
+
+const storyId = context.story?.id;
+if (!storyId) {
   console.error(
-    'Gate 4 (code_reviewed) is not passed; refusing to classify. Classifying ' +
-      'unreviewed code is forbidden (agents/failure-classifier.md §2).'
+    'context.json has no story.id; cannot tell which run to classify.'
   );
   exit(2);
 }
 
-if (!existsSync(PW_PATH)) {
-  console.error(`No Playwright report at ${PW_PATH}. Run the suite first.`);
+// Missing or invalid evidence is an evidence error, never a green result.
+if (!existsSync(LEDGER)) {
+  console.error(`No execution ledger at ${LEDGER}.`);
+  console.error(
+    `  Normalize the run first:  npm run normalize -- --story ${storyId} ` +
+      '--playwright reports/results.json [--execution <id>]'
+  );
   exit(2);
 }
-const pw = JSON.parse(readFileSync(PW_PATH, 'utf8'));
-const newman = existsSync(NEWMAN_PATH)
-  ? JSON.parse(readFileSync(NEWMAN_PATH, 'utf8'))
-  : null;
-
-// ---- deterministic signal rules ----------------------------------------
-// Returns { classification, severity } from an error message + context.
-function classifyPlaywright(msg) {
-  const m = (msg || '').toLowerCase();
-
-  // locator / selector signals (no business assertion) -> green, auto-healable
-  if (
-    /locator|selector|getby|waiting for .*(locator|element)|element is not (visible|attached)|strict mode violation|no element/.test(
-      m
-    )
-  ) {
-    return { classification: 'locator_or_selector', severity: 'green' };
-  }
-  // explicit timeouts / waits -> green (unless it smells like environment)
-  if (/timeout .*exceeded|timed out|exceeded.*timeout/.test(m)) {
-    if (/net::|econnrefused|dns|getaddrinfo|socket hang up/.test(m)) {
-      return { classification: 'environment_issue', severity: 'yellow' };
+const loaded = readLedger(LEDGER, {
+  storyId,
+  ...(context.run_id ? { runId: context.run_id } : {}),
+});
+if (!loaded.ok) {
+  console.error(`Refusing to classify: ${loaded.message}`);
+  for (const v of loaded.violations || []) console.error(`  - ${v}`);
+  if (loaded.errors) {
+    for (const line of formatErrors(loaded.errors, { includeParams: false })) {
+      console.error(line);
     }
-    return { classification: 'wait_or_timeout', severity: 'green' };
   }
-  // connection / network -> environment
-  if (
-    /net::err|econnrefused|enotfound|getaddrinfo|dns|socket hang up|tls|certificate/.test(
-      m
-    )
-  ) {
-    return { classification: 'environment_issue', severity: 'yellow' };
+  if (loaded.kind === 'identity_mismatch' && context.run_id) {
+    console.error(
+      `  Re-normalize with --run-id ${context.run_id} so the ledger belongs to this run.`
+    );
   }
-  // a business assertion mismatch -> product bug (RED), but only when the
-  // message clearly shows expected-vs-received business values.
-  if (
-    /expect\(received\)|expected:.*received:|toequal|tohavetext|tohavevalue|tohaveurl|tohavecount/.test(
-      m
-    )
-  ) {
-    return { classification: 'product_bug', severity: 'red' };
-  }
-  // setup / fixture failure -> test bug
-  if (/beforeeach|beforeall|fixture|setup|hook/.test(m)) {
-    return { classification: 'test_bug', severity: 'yellow' };
-  }
-  // nothing matched with confidence -> escalate
-  return { classification: 'unknown_needs_human_review', severity: 'yellow' };
+  exit(2);
+}
+const ledger = loaded.data;
+
+const external = ledger.units.filter((u) => u.identity?.kind === 'external');
+if (external.length) {
+  console.error(
+    `The ledger holds ${external.length} external/manual unit(s); classifying those arrives with ` +
+      'manual result import (Phase 7). Refusing rather than mislabelling them.'
+  );
+  exit(2);
 }
 
-// Newman heuristics (agents/failure-classifier.md §3 table).
-function classifyNewman(failure) {
-  const name = (failure.error?.name || '').toLowerCase();
-  const test = (failure.error?.test || '').toLowerCase();
-  const msg = (failure.error?.message || '').toLowerCase();
-  const blob = `${name} ${test} ${msg}`;
-  if (/econnrefused|enotfound|getaddrinfo|socket|tls|certificate/.test(blob)) {
-    return { classification: 'environment_issue', severity: 'yellow' };
+// ---- build the draft ----------------------------------------------------
+const reportOf = new Map(
+  ledger.source_executions.map((s) => [s.execution_id, s.report_reference])
+);
+
+/** First failing-attempt message, or the failed assertions for Newman. */
+function errorMessage(unit) {
+  const attempt = (unit.attempts || []).find(
+    (a) => a.status !== 'passed' && a.error_message
+  );
+  if (attempt) return attempt.error_message;
+  const failed = (unit.assertions || []).filter((a) => !a.passed);
+  if (failed.length) {
+    return failed
+      .map((a) => `${a.name}${a.error_message ? `: ${a.error_message}` : ''}`)
+      .join('\n')
+      .slice(0, 600);
   }
-  if (/timed out|timeout|esockettimedout/.test(blob)) {
-    return { classification: 'wait_or_timeout', severity: 'green' };
-  }
-  // assertion on a business field/status -> product bug
-  if (/expected|status code|to have|to equal|to be/.test(blob)) {
-    return { classification: 'product_bug', severity: 'red' };
-  }
-  return { classification: 'unknown_needs_human_review', severity: 'yellow' };
+  return `unit outcome: ${unit.outcome}`;
 }
 
-// ---- walk the Playwright report -----------------------------------------
-const failures = [];
-let failSeq = 0;
-const stats = pw.stats || {};
-const total =
-  (stats.expected || 0) +
-  (stats.unexpected || 0) +
-  (stats.skipped || 0) +
-  (stats.flaky || 0);
+// Sorted by unit_id so FAIL numbering depends on WHICH units failed, not on
+// the order a runner happened to report them.
+const analyzed = ledger.units
+  .filter((u) => ANALYZED.has(u.outcome))
+  .sort((a, b) => (a.unit_id < b.unit_id ? -1 : a.unit_id > b.unit_id ? 1 : 0));
 
-function walkSuites(suites, titlePath = []) {
-  for (const suite of suites || []) {
-    for (const spec of suite.specs || []) {
-      for (const t of spec.tests || []) {
-        const result = (t.results || [])[t.results.length - 1] || {};
-        const status = result.status;
-        if (status === 'unexpected' || status === 'failed') {
-          const err =
-            (result.errors && result.errors[0]?.message) ||
-            result.error?.message ||
-            '';
-          const { classification, severity } = classifyPlaywright(err);
-          failSeq += 1;
-          const id = `FAIL-${String(failSeq).padStart(3, '0')}`;
-          const f = {
-            failure_id: id,
-            // No reliable TC mapping from the raw report alone — escalate the
-            // linkage honestly rather than fake it (schema rule 1).
-            test_case_id: null,
-            traceability_unresolved: true,
-            traceability_unresolved_reason:
-              'Rule-based pre-classifier cannot map a raw Playwright failure to a TC-XXX; the Failure Classifier Agent resolves the linkage from test metadata.',
-            playwright_test_id: `PW-${String(failSeq).padStart(3, '0')}`,
-            source: 'playwright',
-            classification,
-            severity,
-            error_message: String(err).slice(0, 600),
-            evidence_paths: ['reports/html', 'reports/results.json'],
-          };
-          // schema rule 0: red => bug_draft_path required.
-          if (severity === 'red')
-            f.bug_draft_path = `release/bug-drafts/BUG-${String(failSeq).padStart(3, '0')}.md`;
-          failures.push(f);
-        }
-      }
-    }
-    if (suite.suites) walkSuites(suite.suites, titlePath);
-  }
-}
-walkSuites(pw.suites);
+const failures = analyzed.map((unit, i) => {
+  const links = unit.domain_links || {};
+  const isNewman = unit.identity.kind === 'newman';
+  const c = classifyUnit(unit);
+  const caseId = links.test_case_id || links.api_test_case_id || null;
+  const linkReason =
+    links.unresolved_reason ||
+    'No exact id in the test title / request name, and none in the normalizer mapping.';
 
-// ---- Newman failures -----------------------------------------------------
-let apiTotal = 0;
-if (newman?.run) {
-  const a = newman.run.stats?.assertions || {};
-  apiTotal = a.total || 0;
-  for (const failure of newman.run.failures || []) {
-    const { classification, severity } = classifyNewman(failure);
-    failSeq += 1;
-    const f = {
-      failure_id: `FAIL-${String(failSeq).padStart(3, '0')}`,
-      test_case_id: null,
-      traceability_unresolved: true,
-      traceability_unresolved_reason:
-        'Rule-based pre-classifier cannot map a Newman failure to an API-XXX; the Failure Classifier Agent resolves it from the collection.',
-      source: 'newman',
-      request_id: `REQ-${String(failSeq).padStart(3, '0')}`,
-      classification,
-      severity,
-      error_message: String(failure.error?.message || '').slice(0, 600),
-      evidence_paths: ['reports/newman-html', 'reports/newman-results.json'],
-    };
-    if (severity === 'red')
-      f.bug_draft_path = `release/bug-drafts/BUG-${String(failSeq).padStart(3, '0')}.md`;
-    failures.push(f);
+  const id = isNewman
+    ? (links.request_id ?? null)
+    : (links.playwright_test_id ?? null);
+  const report = reportOf.get(unit.execution_id);
+
+  const f = {
+    failure_id: `FAIL-${String(i + 1).padStart(3, '0')}`,
+    unit_id: unit.unit_id,
+    execution_outcome: unit.outcome,
+    runner_identity: unit.identity,
+    test_case_id: caseId,
+    source: isNewman ? 'newman' : 'playwright',
+    [isNewman ? 'request_id' : 'playwright_test_id']: id,
+    classification: c.classification,
+    severity: c.severity,
+    classification_reason: c.reason,
+    error_message: errorMessage(unit),
+    evidence_paths: [LEDGER, ...(report ? [report] : [])],
+  };
+  if (id === null) f.id_unresolved_reason = linkReason;
+  if (caseId === null) {
+    f.traceability_unresolved = true;
+    f.traceability_unresolved_reason = linkReason;
   }
-}
+  return f;
+});
+
+const t = ledger.totals;
+const legacy = legacySummaryProjection(t);
+const startedAt = ledger.source_executions
+  .map((s) => s.started_at)
+  .filter(Boolean)
+  .sort()[0];
 
 const doc = {
-  schema_version: '1.0',
-  run_id: context.run_id || new Date().toISOString(),
-  story_id: context.story?.id || 'UNKNOWN',
-  execution_date: new Date().toISOString(),
-  total_tests: total + apiTotal,
-  passed:
-    (stats.expected || 0) +
-    (newman
-      ? (newman.run.stats?.assertions?.total || 0) -
-        (newman.run.failures?.length || 0)
-      : 0),
-  failed: failures.length,
-  skipped: stats.skipped || 0,
+  schema_version: '2.0',
+  run_id: context.run_id || ledger.run_id,
+  story_id: storyId,
+  execution_date: startedAt || ledger.generated_at,
+  execution_ledger: LEDGER,
+  // Flat fields are the legacy projection, explained by the breakdown below.
+  total_tests: legacy.total_tests,
+  passed: legacy.passed,
+  failed: legacy.failed,
+  skipped: legacy.skipped,
+  outcome_breakdown: {
+    units: t.units,
+    ...Object.fromEntries(UNIT_OUTCOMES.map((o) => [o, t[o] ?? 0])),
+    source_error_count: t.source_error_count,
+  },
+  source_errors: ledger.source_executions.flatMap((s) =>
+    (s.source_errors || []).map((e) => ({
+      execution_id: s.execution_id,
+      runner: s.runner,
+      message: e.message,
+      ...(e.phase ? { phase: e.phase } : {}),
+    }))
+  ),
   failures,
+  // A pre-classifier never finalizes. No bug drafts are created or referenced.
   status: 'draft',
 };
 
+// Every failed/blocked/flaky unit must appear exactly once.
+const expected = (t.failed ?? 0) + (t.blocked ?? 0) + (t.flaky ?? 0);
+if (failures.length !== expected) {
+  console.error(
+    `Internal error: ${failures.length} failure(s) built for ${expected} failed/blocked/flaky unit(s).`
+  );
+  exit(1);
+}
+
 // ---- report -------------------------------------------------------------
-const counts = failures.reduce((acc, f) => {
-  acc[f.classification] = (acc[f.classification] || 0) + 1;
-  return acc;
-}, {});
-console.log('Rule-based pre-classification');
-console.log(`  Total tests: ${doc.total_tests} | failed: ${doc.failed}`);
-for (const [c, n] of Object.entries(counts)) console.log(`    ${c}: ${n}`);
-const escalated = failures.filter(
-  (f) => f.classification === 'unknown_needs_human_review'
+const bySeverity = { red: 0, yellow: 0, green: 0 };
+const byClass = {};
+for (const f of failures) {
+  bySeverity[f.severity] += 1;
+  byClass[f.classification] = (byClass[f.classification] || 0) + 1;
+}
+const unresolved = failures.filter(
+  (f) => f.test_case_id === null || f.id_unresolved_reason
 ).length;
-if (escalated) console.log(`  ${escalated} escalated to human/LLM review.`);
+
+console.log(`Pre-classification (DRAFT) from ${LEDGER}`);
+console.log(
+  `  ${t.units} unit(s): passed ${t.passed} | failed ${t.failed} | flaky ${t.flaky} | ` +
+    `blocked ${t.blocked} | skipped ${t.skipped} | not_run ${t.not_run} | expected_failure ${t.expected_failure}`
+);
+if (t.source_error_count) {
+  console.log(
+    `  ${t.source_error_count} run-level error(s) recorded separately.`
+  );
+}
+console.log(
+  `  ${failures.length} failure(s): red ${bySeverity.red} | yellow ${bySeverity.yellow} | green ${bySeverity.green}`
+);
+for (const [c, n] of Object.entries(byClass)) console.log(`    ${c}: ${n}`);
 
 if (DRY) {
   console.log('\nDRY RUN (not written).');
@@ -238,18 +283,49 @@ if (DRY) {
   exit(0);
 }
 
-if (!existsSync('analysis')) mkdirSync('analysis', { recursive: true });
-writeFileSync(OUT, JSON.stringify(doc, null, 2) + '\n');
+const written = writeJsonAtomic(OUT, doc, { schemaPath: SCHEMA });
+if (!written.ok) {
+  console.error(`\n${written.message}`);
+  for (const line of formatErrors(written.errors, { includeParams: false })) {
+    console.error(line);
+  }
+  exit(1);
+}
+
+console.log(`\nWrote ${OUT} (status: draft).`);
 console.log(
-  `\nWrote ${OUT}. Validate + resolve TC linkage via the Failure Classifier Agent.`
+  'Before the Reporter step, the Failure Classifier Agent or a human must:'
 );
 console.log(
-  'Note: this is the deterministic PRE-classifier. It maps obvious failures ' +
-    'and escalates ambiguous ones; it does NOT resolve TC linkage or call an ' +
-    'LLM (a headless script cannot). The agent finishes the job.'
+  '  1. confirm or correct each classification (the reason is recorded on each failure);'
+);
+if (bySeverity.red) {
+  console.log(
+    `  2. write a bug draft for each of the ${bySeverity.red} Red failure(s) and set bug_draft_path;`
+  );
+} else {
+  console.log('  2. (no Red failures, so no bug drafts are required);');
+}
+if (unresolved) {
+  console.log(
+    `  3. resolve or explicitly acknowledge ${unresolved} unresolved link(s) (TC / PW / REQ ids);`
+  );
+} else {
+  console.log('  3. (every failure is linked to its test case);');
+}
+console.log('  4. set status to "finalized".');
+console.log(
+  'Only green failures are eligible for the Healer, and only as reviewable patches.'
 );
 
 const productBugs = failures.filter(
   (f) => f.classification === 'product_bug'
 ).length;
-exit(BLOCKING && productBugs > 0 ? 1 : 0);
+if (BLOCKING && productBugs > 0) {
+  console.log(
+    `\n--blocking: ${productBugs} product bug(s) found. This is a CI gate on product bugs only, ` +
+      'not a release recommendation; the Reporter owns that.'
+  );
+  exit(1);
+}
+exit(0);
