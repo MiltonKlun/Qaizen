@@ -207,60 +207,60 @@ without appending), then re-run without `--dry-run` to write the line.
 npm run benchmark:capture -- --story login-success --arm raw \
   --time-to-green ? --gate4-corrections ? --fictional-rate ? \
   --known-bug-catch ? --traceability 0 \
-  --model claude-opus-4-8 --operator you@example.com --note "raw arm" --dry-run
+  --model <model-id> --operator you@example.com --note "raw arm" --dry-run
 npm run benchmark:capture -- --story login-success --arm pipeline --track standard \
   --time-to-green ? --gate4-corrections ? --fictional-rate ? \
   --known-bug-catch ? --traceability ? \
-  --model claude-opus-4-8 --operator you@example.com --note "pipeline arm" --dry-run
+  --model <model-id> --operator you@example.com --note "pipeline arm" --dry-run
 
 # ── cart-badge-count-bugfix (red: pricing; standard; a real bugfix) ───────
 npm run benchmark:capture -- --story cart-badge-count-bugfix --arm raw \
   --time-to-green ? --gate4-corrections ? --fictional-rate ? \
   --known-bug-catch ? --traceability 0 \
-  --model claude-opus-4-8 --operator you@example.com --note "raw arm" --dry-run
+  --model <model-id> --operator you@example.com --note "raw arm" --dry-run
 npm run benchmark:capture -- --story cart-badge-count-bugfix --arm pipeline --track standard \
   --time-to-green ? --gate4-corrections ? --fictional-rate ? \
   --known-bug-catch ? --traceability ? \
-  --model claude-opus-4-8 --operator you@example.com --note "pipeline arm" --dry-run
+  --model <model-id> --operator you@example.com --note "pipeline arm" --dry-run
 
 # ── sort-products-enhancement (red: pricing; standard) ────────────────────
 npm run benchmark:capture -- --story sort-products-enhancement --arm raw \
   --time-to-green ? --gate4-corrections ? --fictional-rate ? \
   --known-bug-catch ? --traceability 0 \
-  --model claude-opus-4-8 --operator you@example.com --note "raw arm" --dry-run
+  --model <model-id> --operator you@example.com --note "raw arm" --dry-run
 npm run benchmark:capture -- --story sort-products-enhancement --arm pipeline --track standard \
   --time-to-green ? --gate4-corrections ? --fictional-rate ? \
   --known-bug-catch ? --traceability ? \
-  --model claude-opus-4-8 --operator you@example.com --note "pipeline arm" --dry-run
+  --model <model-id> --operator you@example.com --note "pipeline arm" --dry-run
 
 # ── checkout-expired-card (red: payment+pricing+business-logic; standard) ─
 npm run benchmark:capture -- --story checkout-expired-card --arm raw \
   --time-to-green ? --gate4-corrections ? --fictional-rate ? \
   --known-bug-catch ? --traceability 0 \
-  --model claude-opus-4-8 --operator you@example.com --note "raw arm" --dry-run
+  --model <model-id> --operator you@example.com --note "raw arm" --dry-run
 npm run benchmark:capture -- --story checkout-expired-card --arm pipeline --track standard \
   --time-to-green ? --gate4-corrections ? --fictional-rate ? \
   --known-bug-catch ? --traceability ? \
-  --model claude-opus-4-8 --operator you@example.com --note "pipeline arm" --dry-run
+  --model <model-id> --operator you@example.com --note "pipeline arm" --dry-run
 
 # ── api-create-user (red: security; standard; API branch) ─────────────────
 npm run benchmark:capture -- --story api-create-user --arm raw \
   --time-to-green ? --gate4-corrections ? --fictional-rate ? \
   --known-bug-catch ? --traceability 0 \
-  --model claude-opus-4-8 --operator you@example.com --note "raw arm; API/Newman" --dry-run
+  --model <model-id> --operator you@example.com --note "raw arm; API/Newman" --dry-run
 npm run benchmark:capture -- --story api-create-user --arm pipeline --track standard \
   --time-to-green ? --gate4-corrections ? --fictional-rate ? \
   --known-bug-catch ? --traceability ? \
-  --model claude-opus-4-8 --operator you@example.com --note "pipeline arm; API/Newman" --dry-run
+  --model <model-id> --operator you@example.com --note "pipeline arm; API/Newman" --dry-run
 
 # ── YOUR lite story (required ≥1 lite-eligible — supply a real routine one) ─
 npm run benchmark:capture -- --story <your-lite-story> --arm raw \
   --time-to-green ? --fictional-rate ? --known-bug-catch ? --traceability 0 \
-  --model claude-opus-4-8 --operator you@example.com --note "raw arm; lite-eligible" --dry-run
+  --model <model-id> --operator you@example.com --note "raw arm; lite-eligible" --dry-run
 npm run benchmark:capture -- --story <your-lite-story> --arm pipeline --track lite \
   --time-to-green ? --gate4-corrections ? --fictional-rate ? \
   --known-bug-catch ? --traceability ? \
-  --model claude-opus-4-8 --operator you@example.com --note "pipeline arm; lite track" --dry-run
+  --model <model-id> --operator you@example.com --note "pipeline arm; lite track" --dry-run
 ```
 
 Selector survival is **not** a capture flag you guess — produce it with the

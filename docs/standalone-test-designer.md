@@ -22,7 +22,7 @@ single biggest lever against a slow, brittle, all-E2E suite.
 
 ## Prerequisites
 
-- An AI you can hand a prompt to (Claude Code or equivalent).
+- An AI agent you can hand a prompt to.
 - The story text + a sense of its risks (the Analyst produces these upstream in
   the full pipeline, but for standalone use you can supply them yourself).
 

@@ -34,7 +34,7 @@ phase plan text described.
 
 Runs as a stdio-attached Docker container. Authentication is done with an
 Atlassian API token. The container reads its config from environment
-variables that the MCP client (Claude Code) passes through from `.env`.
+variables that the MCP client passes through from `.env`.
 
 ### Why Phase 1 is read-only
 
@@ -96,11 +96,11 @@ name.
    - `JIRA_PROJECT_KEY` — e.g. `PROJ`
    - `CONFLUENCE_URL`, `CONFLUENCE_USERNAME`, `CONFLUENCE_API_TOKEN`
    - Leave `ENABLED_TOOLS` at the Phase 1 value listed above.
-4. Restart Claude Code so it re-reads `.mcp.json` and `.env`.
+4. Restart the MCP client so it re-reads `.mcp.json` and `.env`.
 
 ### Verifying the connection
 
-Once `.env` is populated, in a Claude Code session ask:
+Once `.env` is populated, ask your AI agent:
 
 > Fetch Jira issue `<your-project-key>-1` (or any real issue key).
 
@@ -119,20 +119,20 @@ Expected behavior:
   the agent explains that no such tool is exposed.
 
 If a write tool somehow succeeds in Phase 1, that is a configuration bug:
-re-check `ENABLED_TOOLS` in `.env` and that Claude Code is reading the
+re-check `ENABLED_TOOLS` in `.env` and that the MCP client is reading the
 updated `.mcp.json`. Stop and report rather than silently proceeding.
 
 ### How `.mcp.json` and `.env` connect
 
 The `atlassian` block in `.mcp.json` declares each env var with a Docker
 `-e VAR` flag (no value) and supplies the value via an `env` map using
-`${VAR}` substitution. Claude Code expands `${VAR}` from the process
+`${VAR}` substitution. The MCP client expands `${VAR}` from the process
 environment (which is loaded from `.env`) before launching the container.
 The container then sees the variables as part of its own environment and
 applies the `ENABLED_TOOLS` filter at startup.
 
 If the agent ever reports "JIRA_URL is empty" or similar, the most likely
-cause is that `.env` is missing or Claude Code wasn't restarted after
+cause is that `.env` is missing or the MCP client wasn't restarted after
 `.env` changed.
 
 ---
@@ -194,7 +194,7 @@ otherwise mutate a real external system.
 ### Verifying the write path (manual test)
 
 With `.env` populated (real `JIRA_*` + `ATLASSIAN_ENABLED_TOOLS_WRITE`)
-and Claude Code restarted so `atlassian-write` is loaded:
+and the MCP client restarted so `atlassian-write` is loaded:
 
 - Ask the agent to create a throwaway test issue in your project (e.g.
   "create a test issue in `<PROJECT_KEY>` titled 'mcp write smoke test'").
@@ -246,7 +246,7 @@ by definition, so they never use it.
    Pull requests + Contents on the relevant repo(s).
 2. Put it in `.env` as `GITHUB_PERSONAL_ACCESS_TOKEN`; leave
    `GITHUB_TOOLSETS=repos,pull_requests`.
-3. Restart Claude Code so it loads the `github` entry from `.mcp.json`.
+3. Restart the MCP client so it loads the `github` entry from `.mcp.json`.
 
 `code_change_context` in `context.json` (optional) records what was fetched:
 `linked_pr`, `base_sha`, `head_sha`, `changed_files[]`, `summary`,
@@ -261,8 +261,8 @@ Phase 1.5 — adds the Postman MCP for the API branch. Documented in
 
 Phase 2 — adds the writes-enabled `atlassian-write` entry (above). It was
 **intended** to also add a `testlink` MCP, but that bridge
-(`dogkeeper886/testlink-mcp`) would not complete its handshake in Claude
-Code (`-32000`, zero diagnostics), so it was removed from `.mcp.json`. The
+(`dogkeeper886/testlink-mcp`) would not complete its handshake in the MCP
+client (`-32000`, zero diagnostics), so it was removed from `.mcp.json`. The
 supported TestLink path is the XML-RPC script `scripts/sync-to-testlink.js`
 (live-verified). See `docs/testlink-integration.md` and
 `docs/ambiguities.md` A7. So the active MCP servers as of Phase 2 are:

@@ -7,7 +7,7 @@
 // (--apply-testlink), writing testlink_id back into the test-cases JSON.
 //
 // This is the SUPPORTED TestLink path. The dogkeeper886/testlink-mcp
-// bridge would not complete its MCP handshake in Claude Code (see
+// bridge would not complete its MCP handshake in the MCP client (see
 // docs/ambiguities.md A7); this script talks to the same TestLink
 // XML-RPC endpoint directly (proven working: tl.checkDevKey -> boolean 1).
 //

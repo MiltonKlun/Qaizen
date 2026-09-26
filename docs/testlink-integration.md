@@ -25,7 +25,7 @@ proved fragile (see §6).
 
 > **Status (TG3/TG4, A7):** the `testlink` MCP entry below was **removed
 > from `.mcp.json`** because `dogkeeper886/testlink-mcp` would not complete
-> its MCP handshake in Claude Code (`-32000 Connection closed`, no
+> its MCP handshake in the MCP client (`-32000 Connection closed`, no
 > diagnostics) — even though TestLink itself works. **The supported
 > TestLink path is `scripts/sync-to-testlink.js`** (XML-RPC, live-verified:
 > it synced the 4 STORY-002 cases and wrote `testlink_id` back). The MCP
@@ -172,7 +172,7 @@ for a case with a `testlink_id` and no failure. The map:
 
 ## 7. Verifying the connection (TG3 DoD)
 
-With `.env` populated and Claude Code restarted so the `testlink` MCP
+With `.env` populated and the MCP client restarted so the `testlink` MCP
 loads, ask the agent:
 
 > List TestLink projects.

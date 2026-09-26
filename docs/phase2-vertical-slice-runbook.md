@@ -4,7 +4,7 @@
 > on a Jira-sourced story, with TestLink sync, Jira bug creation (`--apply`),
 > and CI on every PR.
 >
-> **Who does what:** the agent (Claude) drives the agent steps and the
+> **Who does what:** the AI agent drives the agent steps and the
 > scripts. **You** approve the four human gates, push branches, open/merge
 > PRs, and type every `--apply`. Writes to Jira/TestLink and git pushes are
 > never automatic.
@@ -89,7 +89,7 @@ Three is the minimum; more is fine.
 ## 1. The per-story loop
 
 Run this loop **once per story**. Steps marked **[YOU]** are yours; steps
-marked **[AGENT]** are ones to ask Claude to do; **[SCRIPT]** is a command.
+marked **[AGENT]** are ones to ask the agent to do; **[SCRIPT]** is a command.
 
 > **Artifact slots are single-occupancy.** `context.json`,
 > `test-cases/<id>.json`, etc. describe _one_ run. Before starting a new
@@ -116,7 +116,7 @@ This writes `story.md`. Jira is **not** modified.
 
 ### Step 3 — [AGENT] Run the Analyst (Mode B)
 
-Ask Claude: **"Run the Analyst on story.md in Mode B for SK-10."**
+Ask the agent: **"Run the Analyst on story.md in Mode B for SK-10."**
 It produces `context.json` with `story.source = "jira"`,
 `story.id = "SK-10"`, `story.jira_issue_key = "SK-10"`, mints risks, and
 stops at Gate 1.
@@ -127,18 +127,18 @@ npm run validate:context             # must exit 0
 
 ### Step 3.5 — [OPTIONAL][YOU] "Pipeline started" Jira comment
 
-Only if you want it. Ask Claude explicitly: **"post the pipeline-started
+Only if you want it. Ask the agent explicitly: **"post the pipeline-started
 comment on SK-10."** Requires `atlassian-write` + your explicit ask
 (`agents/analyst.md` §2). Skip otherwise.
 
 ### Step 4 — [YOU] GATE 1 — Requirement Interpretation
 
 Read `context.json` against the Jira issue. Criteria in
-`docs/review-gates.md` §"Gate 1". When satisfied, tell Claude:
+`docs/review-gates.md` §"Gate 1". When satisfied, tell the agent:
 **"Gate 1 approved"** (optionally: "by <name>, note: <reason>" to use the
-audit-field form). Claude flips `requirements_reviewed` and re-validates.
+audit-field form). The agent flips `requirements_reviewed` and re-validates.
 
-> If you reject: say what's wrong; Claude re-runs the Analyst. Do not
+> If you reject: say what's wrong; the agent re-runs the Analyst. Do not
 > proceed until the gate is green.
 
 ### Step 5 — [AGENT] Run the Test Designer
@@ -155,7 +155,7 @@ node scripts/validate-json.js schemas/test-cases.schema.json test-cases/SK-10.js
 
 Review per `docs/review-gates.md` §"Gate 2" (risk coverage, priorities,
 automation decisions justified, not E2E-heavy). Then mark each TC
-`approved`/`rejected` and tell Claude **"Gate 2 approved"**.
+`approved`/`rejected` and tell the agent **"Gate 2 approved"**.
 
 ### Step 6.5 — [OPTIONAL][SCRIPT] Sync approved cases to TestLink
 
@@ -307,7 +307,7 @@ you type. CI never runs any of these.
 
 ## 4. If something goes wrong
 
-- **A gate isn't satisfied** → reject, tell Claude what's wrong, it re-runs
+- **A gate isn't satisfied** → reject, tell the agent what's wrong, it re-runs
   that agent. Don't flip the gate to proceed.
 - **`quality-checks` red on the PR** → run `npm run typecheck`,
   `npm run lint`, `npm run format:check`, `npm run validate:all` locally;
