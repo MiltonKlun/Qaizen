@@ -28,19 +28,19 @@ script, or CI job can pass.
 
 ---
 
-## ❓ Why it exists
+## Why it exists
 
 Asking an AI to "write Playwright tests for this story" gets you a plausible
 answer fast. Qaizen gets you a _trustworthy_ one — and turns that trust into
 artifacts you can ship, audit, and hand to your board. Four things you get that
 raw prompting doesn't:
 
-| | You gain | What it means |
-| --- | --- | --- |
-| 🔗 | **Traceability** | An unbroken chain from story → risk → test case → test → failure → bug, so nothing tested is unexplained and nothing important is silently untested. |
-| 🧾 | **Auditability** | Every artifact is schema-validated and every gate decision is recorded with telemetry — you can prove _why_ a release was signed off. |
-| 🛡️ | **Guardrails that hold** | The auto-healer fixes a broken selector for you, but can never weaken, skip, or delete a test — your suite only gets stronger, never quietly hollowed out. |
-| 🎭 | **Tests you can trust** | Tests are written against the _running app_ (via Playwright MCP), so a green run means the feature actually works — not that the AI guessed well from the story text. |
+| You gain | What it means |
+| --- | --- |
+| **Traceability** | An unbroken chain from story → risk → test case → test → failure → bug, so nothing tested is unexplained and nothing important is silently untested. |
+| **Auditability** | Every artifact is schema-validated and every gate decision is recorded with telemetry — you can prove _why_ a release was signed off. |
+| **Guardrails that hold** | The auto-healer fixes a broken selector for you, but can never weaken, skip, or delete a test — your suite only gets stronger, never quietly hollowed out. |
+| **Tests you can trust** | Tests are written against the _running app_ (via Playwright MCP), so a green run means the feature actually works — not that the AI guessed well from the story text. |
 
 Grounding matters most against text-only prompting; a capable agent may ground
 itself — but it will not gate, trace, or record itself. That is what the
@@ -53,7 +53,7 @@ see [docs/when-to-use.md](docs/when-to-use.md).
 
 ---
 
-## 🚪 Quickstart — 3 Doors
+## Quickstart — 3 Doors
 
 You don't need the whole pipeline to get value. Pick a door:
 
@@ -75,36 +75,36 @@ npm run pipeline -- --story <path-to-story.md | JIRA-KEY>
 
 ---
 
-## ⚙️ How it works
+## How it works
 
 A story flows through five stages, gated by four human checkpoints. AI agents do
 the heavy lifting; humans approve at each gate.
 
 ```mermaid
 flowchart TD
-    story([📄 story.md or Jira issue])
+    story([story.md or Jira issue])
 
     story --> analyst[Analyst<br/><i>context + risks</i>]
-    analyst -- "🟢 Gate 1<br/>Requirements" --> designer[Test Designer<br/><i>test cases + planner brief</i>]
-    designer -- "🟢 Gate 2<br/>Test scope" --> split{ }
+    analyst -- "Gate 1<br/>Requirements" --> designer[Test Designer<br/><i>test cases + planner brief</i>]
+    designer -- "Gate 2<br/>Test scope" --> split{ }
 
     split -->|E2E branch| planner[Planner<br/><i>spec.md</i>]
-    planner -- "🟢 Gate 3<br/>Specs" --> generator[Generator<br/><i>Playwright tests</i>]
-    generator -- "🔒 Gate 4<br/>Code review · human sign-off" --> execute
+    planner -- "Gate 3<br/>Specs" --> generator[Generator<br/><i>Playwright tests</i>]
+    generator -- "Gate 4<br/>Code review · human sign-off" --> execute
 
     split -->|API branch| apiagent[API Agent<br/><i>Postman collection</i>]
-    apiagent -- "🟢 Gate 3'/4'<br/>Collection + assertions" --> execute
+    apiagent -- "Gate 3'/4'<br/>Collection + assertions" --> execute
 
-    execute[▶️ Execute] --> classifier[Failure Classifier<br/><i>🟩 green · 🟨 yellow · 🟥 red</i>]
+    execute[Execute] --> classifier[Failure Classifier<br/><i>green · yellow · red</i>]
     classifier --> healer[Healer<br/><i>green-only · patch + review</i>]
-    classifier --> report[📋 Release report<br/>+ bug drafts → Jira]
+    classifier --> report[Release report<br/>+ bug drafts → Jira]
     healer --> report
 
     classDef gate fill:#1f6feb,stroke:#1f6feb,color:#fff;
     classDef human fill:#cf222e,stroke:#cf222e,color:#fff;
 ```
 
-> 🟢 = recorded human gate · 🔒 = always a human decision (never automatable)
+> Every gate is a recorded human decision; Gate 4 is always a human decision.
 
 ---
 
@@ -142,15 +142,15 @@ flowchart LR
 
 | Layer | Pieces |
 | --- | --- |
-| 🧱 **Discipline** | JSON Schemas + AJV · traceability IDs · folder ownership · four human gates · Architecture Stability Rule |
-| 🤖 **Custom agents** | analyst · test-designer · api-agent · failure-classifier · reporter · spec-reviewer |
-| 🎭 **Playwright Native Agents** | planner · generator · healer |
-| 🔌 **Official MCPs** _(reused, never rewritten)_ | Atlassian (Jira) · Playwright · Postman · TestLink |
-| 🛠️ **Runtime** | Node 20+ · TypeScript (strict) · Playwright 1.56+ · Newman · ESLint · Prettier · GitHub Actions CI |
+| **Discipline** | JSON Schemas + AJV · traceability IDs · folder ownership · four human gates · Architecture Stability Rule |
+| **Custom agents** | analyst · test-designer · api-agent · failure-classifier · reporter · spec-reviewer |
+| **Playwright Native Agents** | planner · generator · healer |
+| **Official MCPs** _(reused, never rewritten)_ | Atlassian (Jira) · Playwright · Postman · TestLink |
+| **Runtime** | Node 20+ · TypeScript (strict) · Playwright 1.56+ · Newman · ESLint · Prettier · GitHub Actions CI |
 
 ---
 
-## 📟 Commands
+## Commands
 
 | Command | What it does |
 | --- | --- |
@@ -159,7 +159,7 @@ flowchart LR
 | `npm test` | Run the generated Playwright E2E suite |
 | `npm run test:api` | Run the Postman collections via Newman |
 | `npm run normalize -- --story <id> ...` | Normalize runner reports into one execution ledger (the counting model) |
-| `npm run classify` | Rule-based failure pre-classification from the ledger (🟩 / 🟨 / 🟥), written as a draft |
+| `npm run classify` | Rule-based failure pre-classification from the ledger (Green / Yellow / Red), written as a draft |
 | `npm run heal` | Guardrailed healer — produces reviewable patches, never commits |
 | `npm run metrics` | Aggregate pipeline metrics from run history |
 | `npm run validate:all` | Validate every committed artifact against its schema |
@@ -174,7 +174,7 @@ Standalone capabilities (adopt one piece without the whole pipeline):
 
 ---
 
-## 🗂️ Repository layout
+## Repository layout
 
 | Path | Contents |
 | --- | --- |
@@ -192,14 +192,14 @@ Standalone capabilities (adopt one piece without the whole pipeline):
 
 ---
 
-## 📐 Key design choices
+## Key design choices
 
 - **Reuse before building** — official MCPs and Playwright Native Agents over
   custom code; this cut bespoke code by roughly half.
 - **Schemas are contracts** — a schema change must move with its agent prompts,
   docs, and examples in one PR (the _Architecture Stability Rule_).
-- **Healer guardrails** — 🟩 Green (auto-fix as a reviewable patch) / 🟨 Yellow
-  (suggest only) / 🟥 Red (bug draft only, never touched). Always: never change
+- **Healer guardrails** — Green (auto-fix as a reviewable patch) / Yellow
+  (suggest only) / Red (bug draft only, never touched). Always: never change
   an expected value, delete a test, or add `.skip`.
 - **Tiered ceremony** — a `lite` track for routine work, with a principled floor
   that refuses `lite` for money/security/permissions/data stories.
@@ -209,7 +209,7 @@ Standalone capabilities (adopt one piece without the whole pipeline):
 
 ---
 
-## 🔄 Continuous improvement — `/evolve`
+## Continuous improvement — `/evolve`
 
 Over time any project drifts from its own design: a step meant to be automatic
 gets done by hand every run, a doc describes a flag the code no longer has, the
@@ -229,12 +229,12 @@ recurred, and writes a proposal.
 
 | Source | What it tells `/evolve` |
 | --- | --- |
-| 📈 Git commits/merges (90d) | Where effort concentrated; recurring fix/revert/recover themes (churn) |
-| 📊 `metrics/pipeline-metrics.json` | Untested high-risk items, prompt-stability status (run `npm run metrics` first) |
-| 📝 `session-summaries/*.md` | **Highest signal** — friction in your own words, captured right after a run |
+| Git commits/merges (90d) | Where effort concentrated; recurring fix/revert/recover themes (churn) |
+| `metrics/pipeline-metrics.json` | Untested high-risk items, prompt-stability status (run `npm run metrics` first) |
+| `session-summaries/*.md` | **Highest signal** — friction in your own words, captured right after a run |
 
 **How it scores** _(deterministic — occurrence counts)_: a theme
-seen **3+ times** is a 🔴 high-confidence finding, 2× is 🟡 medium, 1× is ⚪ low.
+seen **3+ times** is a high-confidence finding, 2× is medium, 1× is low.
 It surfaces _systemic_ friction, not one-offs.
 
 **How to use it:**
@@ -246,7 +246,7 @@ npm run session-summary -- --friction "what rubbed" --note "what worked"
 # 2. Refresh metrics (one of evolve's inputs):
 npm run metrics
 
-# 3. Run it, then read evolve/evolve-proposal.md (🔴 findings first):
+# 3. Run it, then read evolve/evolve-proposal.md (high-confidence findings first):
 npm run evolve
 ```
 
@@ -258,7 +258,7 @@ right after a session while friction is fresh. See
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 - **[STRATEGY.md](STRATEGY.md)** — one-page "what this is and the question it answers."
 - **[docs/when-to-use.md](docs/when-to-use.md)** — honest fit / don't-fit guide.
@@ -271,7 +271,7 @@ right after a session while friction is fresh. See
 
 ---
 
-## 📝 License
+## License
 
 This project is licensed under the [MIT License](LICENSE).
 
