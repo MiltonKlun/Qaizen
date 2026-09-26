@@ -9,9 +9,11 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 2.0.0
+version: 2.0.1
 changed_in_run: null
 changelog: |
+  - 2.0.1: PATCH. Reference update only: the design-decision records moved to
+    `docs/design-decisions.md` (IDs D1-D7). No behavior change.
   - 2.0.0: MAJOR (task group 4.1, finding B3). The run id now comes from the
     runner's staged run when one exists (`npm run pipeline -- --story ...`
     writes it to .qaizen/transition.json and prints it in the Analyst
@@ -382,8 +384,8 @@ See `docs/traceability.md` for the full chain.
 
 ## 10. When to stop and ask for human review
 
-Stop and add to `ambiguities` (or to `docs/ambiguities.md` if
-`context.json` is not yet writable) when:
+Stop and add to `ambiguities` (or record a Proposed entry in
+`docs/design-decisions.md` if `context.json` is not yet writable) when:
 
 - `story.md` (Mode A) is missing or unreadable.
 - The Jira fetch (Mode B) fails or returns no usable content.

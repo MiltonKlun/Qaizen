@@ -204,8 +204,7 @@ Standalone capabilities (adopt one piece without the whole pipeline):
 - **Tiered ceremony** — a `lite` track for routine work, with a principled floor
   that refuses `lite` for money/security/permissions/data stories.
 - **Out of scope by design** — no autonomous gate approval, no n8n, no web
-  dashboard, no DB/queue. See [docs/deferred.md](docs/deferred.md) for what's
-  deferred (with triggers) vs. permanently rejected.
+  dashboard, no DB/queue.
 
 ---
 
@@ -260,11 +259,11 @@ right after a session while friction is fresh. See
 
 ## Documentation
 
-- **[STRATEGY.md](STRATEGY.md)** — one-page "what this is and the question it answers."
 - **[docs/when-to-use.md](docs/when-to-use.md)** — honest fit / don't-fit guide.
 - **[docs/pipeline-runner.md](docs/pipeline-runner.md)** — how to drive the runner.
 - **[docs/review-gates.md](docs/review-gates.md)** — the four gates in detail.
 - **[docs/pipeline-architecture.md](docs/pipeline-architecture.md)** — the full architecture.
+- **[docs/design-decisions.md](docs/design-decisions.md)** — architecture decision records (context, decision, consequences).
 - **[docs/traceability.md](docs/traceability.md)** · **[docs/healer-guardrails.md](docs/healer-guardrails.md)** · **[docs/automation-decision-model.md](docs/automation-decision-model.md)**
 - **[docs/evolve-loop.md](docs/evolve-loop.md)** — the `/evolve` continuous-improvement loop.
 - **[CLAUDE.md](CLAUDE.md)** — operating instructions for an AI agent working in this repo.

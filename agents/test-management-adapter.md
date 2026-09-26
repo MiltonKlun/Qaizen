@@ -10,9 +10,11 @@ description: |
   to another tool's adapter (Open/Closed Principle).
 phase_introduced: 2
 phase_active: 2+
-version: 1.1.0
+version: 1.1.1
 changed_in_run: null
 changelog: |
+  - 1.1.1: PATCH. Reference update only: the design-decision records moved to
+    `docs/design-decisions.md` (IDs D1-D7). No behavior change.
   - 1.1.0: pushExecutionResults only reports a FINALIZED failure-analysis
     2.x (task group 3.3). A draft is the rule-based pre-classifier's first
     pass; publishing it would report a guess as the verdict. 1.x analyses
@@ -39,8 +41,8 @@ the SOLID Open/Closed Principle applied to integrations.
 > hardcoded TestLink. The project owner asked for a modular design so
 > future tools (Xray, Qase) slot in without touching TestLink's code —
 > test management is "an adapter, not a hardcoded coupling." This
-> formalizes an intent the architecture already had (logged in
-> `docs/ambiguities.md` A6). TestLink is the first implemented adapter.
+> formalizes an intent the architecture already had (recorded in
+> `docs/design-decisions.md` D6). TestLink is the first implemented adapter.
 
 ---
 
@@ -210,4 +212,4 @@ suit the project.
   truth adapters read.
 - `agents/reporter.md` — owns the release report; result sync is wired
   through the reporter.
-- `docs/ambiguities.md` A6 — the modular-port deviation record.
+- `docs/design-decisions.md` D6 — the modular-port decision record.

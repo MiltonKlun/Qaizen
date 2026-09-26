@@ -30,7 +30,7 @@ proved fragile (see §6).
 > TestLink path is `scripts/sync-to-testlink.js`** (XML-RPC, live-verified:
 > it synced the 4 STORY-002 cases and wrote `testlink_id` back). The MCP
 > block is preserved here only so it can be restored if a future image
-> works. See `docs/ambiguities.md` A7.
+> works. See `docs/design-decisions.md` D7.
 
 The (removed) `testlink` MCP entry ran `dogkeeper886/testlink-mcp`:
 

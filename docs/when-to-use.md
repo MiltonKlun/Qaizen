@@ -63,7 +63,7 @@ Be honest; don't force these through the machinery:
   legitimate answer, not a failure.
 - **Foreign stacks.** The execution spine assumes Playwright + Newman. If
   you're on Cypress/k6/something else, the pipeline's _generation + execution_
-  don't fit yet (a `TestRunnerAdapter` is deferred — `docs/deferred.md`). You
+  don't fit yet (a pluggable `TestRunnerAdapter` is not built yet). You
   can still **borrow the ideas** (the Automation Decision Model, the
   Green/Yellow/Red rule, the four-gate checklist) — see the à-la-carte docs.
 - **Expecting autonomy.** If what you actually want is "an agent that writes
@@ -104,5 +104,3 @@ you argue either side.
 - `docs/evidence.md` — the measured pipeline-vs-raw comparison (the data behind
   this guide).
 - `docs/standalone-*.md` — adopt one piece without the whole pipeline.
-- `docs/deferred.md` — what's intentionally not built yet (e.g. non-Playwright
-  runners) and the triggers to revisit.

@@ -3,7 +3,7 @@
 > Some registry advisories are **accepted, not fixed**. This document records
 > which ones, why, what would change the decision, and when it must be looked at
 > again. An exception here is **not a claim of safety** — it is a dated decision
-> with an owner, in the same spirit as `docs/deferred.md`.
+> with an owner.
 
 ## The rule
 
@@ -160,4 +160,3 @@ npx playwright init-agents --loop=claude
 
 - `docs/secrets-management.md` — what may be published from a run.
 - `docs/security-and-data-safety.md` — the data-safety surface around secrets.
-- `docs/deferred.md` — the same "decision with a trigger" pattern, for scope.

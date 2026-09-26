@@ -14,9 +14,29 @@ test-results/
 .DS_Store
 .claude/
 
-# Internal planning docs — for the maintainers' eyes only, never published to
-# the public repo (IMPROVEMENT-PLAN-2.md and any successors).
-IMPROVEMENT-PLAN*.md
+# Maintainer-only files: plans, strategy, reviews, follow-ups, session notes
+# and local agent configuration. Kept on the maintainer's machine, never
+# published.
+/CLAUDE.local.md
+/AGENTS.md
+/.codex/
+/STRATEGY.md
+/PLAN.md
+/IMPROVEMENT-PLAN*.md
+/IMPLEMENTATION_PLAN.md
+/PROJECT-BRIEF.md
+/CODE_REVIEW.md
+/FOLLOWUPS.md
+/JEV.md
+/LEARNING-*.md
+/Qaizen-*.txt
+/PHASE*.md
+/phase*.md
+/plan-*.md
+/[0-9][0-9]-*.md
+/docs/deferred.md
+/docs/agents/
+session-summaries/*.md
 
 # Phase 3 run history (scripts/new-run.js). Archived runs under runs/ ARE
 # versioned for their durable artifacts (context.json, test-cases/, specs/,
@@ -26,7 +46,7 @@ runs/**/reports/
 runs/**/traces/
 runs/**/screenshots/
 
-# Demo workspaces (scripts/demo-pipeline.js, IMPROVEMENT-PLAN Phase 3). The
+# Demo workspaces (scripts/demo-pipeline.js). The
 # demo creates a throwaway, DEMO-sentinel-marked run under runs/DEMO-1/; it is
 # replayed from examples/demo-run/ on every `npm run demo:pipeline` and is
 # never a versioned artifact.
@@ -42,9 +62,9 @@ runs/DEMO-1/
 metrics/pipeline-metrics.json
 metrics/pipeline-metrics.md
 
-# Phase 3 TG10 /evolve proposal is regenerable from git + metrics + session
-# summaries — keep the dir (evolve/.gitkeep), not the generated proposal.
-# session-summaries/ ARE versioned (durable human input /evolve reads).
+# The /evolve proposal is regenerable from git + metrics + session summaries —
+# keep the dir (evolve/.gitkeep), not the generated proposal. Session summaries
+# are local notes (ignored above); only session-summaries/.gitkeep is tracked.
 evolve/evolve-proposal.json
 evolve/evolve-proposal.md
 

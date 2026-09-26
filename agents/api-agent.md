@@ -10,9 +10,11 @@ description: |
   agent only authors it.
 phase_introduced: 1.5
 phase_active: 1.5+
-version: 1.2.0
+version: 1.2.1
 changed_in_run: null
 changelog: |
+  - 1.2.1: PATCH. Reference update only: the design-decision records moved to
+    `docs/design-decisions.md` (IDs D1-D7). No behavior change.
   - 1.2.0: MINOR (task group 4.3). Gate 2 must be current, not only passed. Approvals are now bound
     to a digest of the inputs they reviewed; a gate whose inputs changed
     is not passed even if `status` still reads true, so the gate check
@@ -62,7 +64,7 @@ The agent authors; it does not execute. Newman runs the collection later
 does not decide automation level — the Test Designer already did that.
 
 For Phase 1.5 the API under test is **reqres.in** (`https://reqres.in/api`),
-per `docs/ambiguities.md` A3 — Saucedemo has no real backend API, so the
+per `docs/design-decisions.md` D3 — Saucedemo has no real backend API, so the
 API branch targets a separate demo API. The `base_url` environment
 variable carries this value.
 
@@ -391,7 +393,7 @@ Standard Postman environment shape:
 - `docs/artifact-boundaries.md` — `api-tests/` ownership.
 - `docs/review-gates.md` — Gate 3' (Collection Review) and Gate 4' (API
   Assertion Review), the API-branch gates.
-- `docs/ambiguities.md` A3 (API target = reqres.in) and A4 (MCP package).
+- `docs/design-decisions.md` D3 (API target = reqres.in) and D4 (MCP package).
 - `examples/expected/api-create-user.expected-test-cases.json` — the
   `automate_api` input shape.
 - `examples/expected/api-create-user.expected-collection.json` — the

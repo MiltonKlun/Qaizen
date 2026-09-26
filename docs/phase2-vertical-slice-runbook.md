@@ -270,7 +270,7 @@ right after the run, while it's fresh:
   ```bash
   npm run session-summary -- --friction "…" --timesink "…" --note "…"
   ```
-  It writes a versioned `session-summaries/<date>.md` — the highest-signal
+  It writes a local (gitignored) `session-summaries/<date>.md` — the highest-signal
   source `/evolve` mines (`docs/evolve-loop.md`).
 
 Then archive the run with `npm run new-run -- <story-id>` (or just start the
