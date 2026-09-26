@@ -24,7 +24,7 @@ path; defer the MCP"). **Blocking:** false — TestLink sync works.
   authenticates the key (`tl.checkDevKey` → `boolean 1`), project `AIQA`
   - plan id 2 exist.
 - The `dogkeeper886/testlink-mcp` bridge, however, **will not complete its
-  MCP handshake in Claude Code**: `/mcp` shows it `Failed` with
+  MCP handshake in the MCP client**: `/mcp` shows it `Failed` with
   `MCP error -32000: Connection closed`, and the container emits **zero
   diagnostics** (starts, exits 0, no stdout/stderr). Reconnecting repeatedly
   does not help. The failure is in the bridge, not TestLink — proven
@@ -222,7 +222,7 @@ Documented in `docs/postman-integration.md`.
 
 - **A. Keep `.claude/` ignored as written.** Contributors run
   `npx playwright init-agents --loop=claude` after cloning. Pro: matches the
-  literal TG1 instruction; protects per-user Claude state files that may also
+  literal TG1 instruction; protects per-user tool state files that may also
   live under `.claude/`. Con: any local edits to the agent prompts are not
   version-controlled.
 - **B. Narrow the ignore to per-user files** (e.g. `.claude/settings*.local.json`,

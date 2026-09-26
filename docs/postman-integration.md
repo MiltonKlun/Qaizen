@@ -89,7 +89,7 @@ Agent primarily needs collection + environment read/write.
 2. Click **Generate API Key**, name it (e.g. "qaizen"), copy it.
 3. Put it in `.env` as `POSTMAN_API_KEY`. `.env` is gitignored — never commit
    it.
-4. Restart the MCP client (Claude Code) so it re-reads `.mcp.json` + `.env`.
+4. Restart the MCP client so it re-reads `.mcp.json` + `.env`.
 
 The key is only needed for the **MCP** (authoring against Postman cloud). If
 you only ever run collections from disk with Newman, you can leave it blank —
