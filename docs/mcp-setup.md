@@ -24,7 +24,7 @@ Created by `npx playwright init-agents --loop=claude` (Phase 1, TG3). It runs
 Native Agents call via `mcp__playwright-test__*` tools.
 
 Do not hand-edit the entry. Regenerate it with `npx playwright init-agents`
-after Playwright upgrades. See `docs/ambiguities.md` entry A2 for why this
+after Playwright upgrades. See `docs/design-decisions.md` D2 for why this
 server is named `playwright-test` rather than the bare `playwright` the
 phase plan text described.
 
@@ -265,7 +265,7 @@ Phase 2 — adds the writes-enabled `atlassian-write` entry (above). It was
 client (`-32000`, zero diagnostics), so it was removed from `.mcp.json`. The
 supported TestLink path is the XML-RPC script `scripts/sync-to-testlink.js`
 (live-verified). See `docs/testlink-integration.md` and
-`docs/ambiguities.md` A7. So the active MCP servers as of Phase 2 are:
+`docs/design-decisions.md` D7. So the active MCP servers as of Phase 2 are:
 `playwright-test`, `atlassian`, `atlassian-write`, `postman` — **no
 `testlink`**.
 

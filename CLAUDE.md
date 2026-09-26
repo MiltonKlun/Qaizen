@@ -22,7 +22,7 @@ The system is built by combining mature open-source pieces (Playwright Native Ag
 ## 2. How to use this file
 
 1. Read this `CLAUDE.md` first. Every session, every task.
-2. Read `STRATEGY.md` for the one-page "what this is and the question it answers" (the ceremony-vs-raw-AI tension, the tiered answer, the non-negotiables). Then `README.md` for the architectural picture and the entry points.
+2. Read `README.md` for the architectural picture and the entry points.
 3. Open the doc under `docs/` that matches what you are doing — e.g. `docs/pipeline-runner.md` (driving a story), `docs/review-gates.md` (the gates), `docs/pipeline-architecture.md` (the full flow), `docs/healer-guardrails.md`, `docs/traceability.md`, `docs/automation-decision-model.md`.
 
 The core build is complete; the system is in continuous-improvement mode. Work now is feature work on new stories (the runner flow below) and the improvement loop (`/evolve`, metrics), not phased construction. If a request is ambiguous or would violate a rule in section 3, stop and ask before executing.
@@ -140,7 +140,7 @@ The Healer never targets API/Newman tests. Healing applies to Playwright tests o
 If a story is ambiguous, an acceptance criterion is unclear, or you can't tell whether something is in scope:
 
 - Do not guess.
-- Write the ambiguity into `context.json.ambiguities` (or `docs/ambiguities.md` if no context exists yet) with a description and a `blocking: true|false` flag.
+- Write the ambiguity into `context.json.ambiguities` (or a Proposed entry in `docs/design-decisions.md` if no context exists yet) with a description and a `blocking: true|false` flag.
 - Stop and ask the human.
 
 This applies equally to test design, spec writing, and code generation. The Analyst flags ambiguities; the Test Designer respects them; the Planner does not paper over them.
@@ -271,7 +271,6 @@ The entry points that orient any new session:
 
 ```
 README.md     Project overview, the three doors, architecture, commands.
-STRATEGY.md   One-page "what this is and the question it answers".
 CLAUDE.md     This file. Operating instructions.
 docs/         Architecture, gates, traceability, integration & fit guides.
 agents/       Custom agent prompts.   skills/   Adapted lifecycle skills.
@@ -279,9 +278,7 @@ schemas/      JSON Schema contracts.  scripts/  Runner, validators, tooling.
 examples/     Example stories, expected outputs, the offline demo fixtures.
 ```
 
-The build history (phase plans and retrospectives) is preserved in the project's
-git history rather than as top-level files; the system is past phased
-construction and in continuous-improvement mode.
+The system is past phased construction and in continuous-improvement mode.
 
 ---
 
@@ -290,7 +287,7 @@ construction and in continuous-improvement mode.
 Every time you start a session on this project, run this mental checklist before doing anything:
 
 1. Have I read `CLAUDE.md`? (Yes — you're reading it now.)
-2. Have I read `README.md` (and `STRATEGY.md`) for architectural context?
+2. Have I read `README.md` for architectural context?
 3. Which doc under `docs/` covers what I'm about to do? Open it first.
 4. What am I about to do? State it out loud at the start of the response, in small steps.
 5. Does this work require schema changes? If yes, do I have time to update schema + agents + docs + examples + migration in the same PR? (Architecture Stability Rule.)
@@ -308,7 +305,7 @@ If the human asks for something not already covered by the docs:
 
 - If it is a clarification or an explanation, answer.
 - If it is a small improvement to docs or a contained fix, do it.
-- If it is new functionality, propose it (and, if it's deferred scope, check `docs/deferred.md`) and ask whether to take it on or treat it as out of scope.
+- If it is new functionality, propose it and ask whether to take it on or treat it as out of scope.
 - If it is a request to skip a rule from sections 3–4, refuse and explain which rule it violates and why the rule exists.
 
 Don't be rigid for its own sake. Be rigid about gates, traceability, schemas, folder ownership, healer guardrails, and forbidden dependencies. Everything else is negotiable with the human present.
@@ -320,21 +317,3 @@ Don't be rigid for its own sake. Be rigid about gates, traceability, schemas, fo
 > Reuse before building, validate before saving, stop before guessing.
 
 If you only remember one thing from this file, remember that.
-
----
-
-## Agent skills
-
-Wayfinding for the external engineering skills (issue tracker, domain docs).
-This adds discovery only — it does not alter any rule in sections 1–9 above,
-which remain binding and outrank it.
-
-### Issue tracker
-
-Issues and specs for this repo live as GitHub issues (`gh` CLI), inferred from
-`git remote`. See `docs/agents/issue-tracker.md`.
-
-### Domain docs
-
-Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root (created lazily
-when terms/decisions get resolved). See `docs/agents/domain.md`.

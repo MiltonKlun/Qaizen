@@ -192,5 +192,6 @@ touches credentials is added.
 - `docs/secrets-management.md` — credential handling, CI secrets, rotation.
 - `docs/context-json-guide.md` — manifest rule (paths, not contents) and
   token-efficient context handling.
-- `docs/ambiguities.md` A5 — the Newman-results secret-leak follow-up.
+- `docs/design-decisions.md` D5 — the API-key decision and why raw Newman
+  reports are secret-bearing.
 - `playwright.config.ts` — trace/screenshot capture configuration.

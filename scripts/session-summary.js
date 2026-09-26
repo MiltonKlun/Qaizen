@@ -2,7 +2,7 @@
 // session-summary — capture a short "what rubbed today" note after a run
 // (Phase 3 TG10, optional helper). These notes are the highest-signal source
 // /evolve reads, because they are friction in the human's own words. Stored as
-// session-summaries/[date].md, versioned (small, durable, intentional).
+// session-summaries/[date].md: local maintainer notes, gitignored.
 //
 // Non-interactive by design (the harness runs scripts with no TTY): pass the
 // notes as flags. A human can also just write the .md file by hand — this

@@ -81,8 +81,8 @@ npm run session-summary -- \
   --note "metrics + list-runs were genuinely useful"
 ```
 
-That writes `session-summaries/YYYY-MM-DD.md` (versioned — it is durable human
-input, not a regenerable artifact). The next `/evolve` mines it.
+That writes `session-summaries/YYYY-MM-DD.md`, a local note (gitignored: it is
+the maintainer's own input and is never published). The next `/evolve` mines it.
 
 ---
 
