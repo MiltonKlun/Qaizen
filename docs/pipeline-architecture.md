@@ -263,7 +263,7 @@ the middle (authoring + execution).
 
 For Phase 1.5 the API under test is **reqres.in** (`https://reqres.in/api`),
 because Saucedemo — the E2E target — has no real backend API. See
-`docs/ambiguities.md` A3.
+`docs/design-decisions.md` D3.
 
 ### The dual flow (E2E + API)
 

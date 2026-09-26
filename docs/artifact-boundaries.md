@@ -153,8 +153,8 @@ If a task seems to require writing into a folder owned by another agent
 — stop. Per `CLAUDE.md` section 3.11 and 3.7:
 
 1. Don't write the file.
-2. Record the ambiguity in `docs/ambiguities.md` (or, if the work is in
-   progress, in `context.json.ambiguities`).
+2. Record the ambiguity in `context.json.ambiguities` (or, if no story
+   context exists yet, as a Proposed entry in `docs/design-decisions.md`).
 3. Surface it to the human.
 
 Examples of valid stops:

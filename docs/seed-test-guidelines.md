@@ -91,7 +91,7 @@ step 9, it is given:
 
 The Planner uses `playwright-test` MCP tools (the
 `mcp__playwright-test__*` set; see `docs/mcp-setup.md` and
-`docs/ambiguities.md` entry A2 for why the MCP is named
+`docs/design-decisions.md` D2 for why the MCP is named
 `playwright-test`, not `playwright`) to:
 
 1. Run the seed test to reach the known-good state.

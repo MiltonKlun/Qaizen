@@ -55,7 +55,7 @@ from Postman). It runs in two modes:
 > to `@postman/mcp-server` / `postmanlabs/postman-mcp-server`. The actual
 > npm package is `@postman/postman-mcp-server`. There is also a **third-party**
 > unscoped `postman-mcp-server` on npm — **do not use it**; it is not published
-> by Postman. See `docs/ambiguities.md` A4 for the full reasoning.
+> by Postman. See `docs/design-decisions.md` D4 for the full reasoning.
 
 ### `.mcp.json` entry
 
@@ -128,7 +128,7 @@ story (if any) and **updates** it rather than creating a duplicate.
   (`agents/api-agent.md` Forbidden actions).
 
 For Phase 1.5 the API base URL is `https://reqres.in/api` (per
-`docs/ambiguities.md` A3 — Saucedemo has no backend, so the API branch targets
+`docs/design-decisions.md` D3 — Saucedemo has no backend, so the API branch targets
 reqres.in). The environment file sets `base_url` to that value.
 
 ---
@@ -234,6 +234,6 @@ phase (`docs/healer-guardrails.md`).
 - `schemas/postman-collection.schema.json` — minimal schema the collections
   validate against (Phase 1.5 TG3).
 - `scripts/run-newman.js` — the cross-platform Newman wrapper.
-- `docs/ambiguities.md` A3 (API target = reqres.in) and A4 (MCP package name).
+- `docs/design-decisions.md` D3 (API target = reqres.in) and D4 (MCP package name).
 - `docs/mcp-setup.md` — the other MCP servers (playwright-test, atlassian).
 - `docs/automation-decision-model.md` — when a case is `automate_api`.

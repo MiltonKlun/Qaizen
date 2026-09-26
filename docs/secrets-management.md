@@ -70,7 +70,7 @@ compromised: rotate it immediately and scrub it from history.
 1. `https://app.reqres.in/api-keys` → free key.
 2. `.env`: `REQRES_API_KEY`. Injected into Newman runs as `{{api_key}}`
    (sent as `x-api-key`). See `docs/postman-integration.md` and
-   `docs/ambiguities.md` A5.
+   `docs/design-decisions.md` D5.
 
 ### GitHub (for CI)
 

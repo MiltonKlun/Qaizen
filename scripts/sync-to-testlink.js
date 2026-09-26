@@ -8,7 +8,7 @@
 //
 // This is the SUPPORTED TestLink path. The dogkeeper886/testlink-mcp
 // bridge would not complete its MCP handshake in the MCP client (see
-// docs/ambiguities.md A7); this script talks to the same TestLink
+// docs/design-decisions.md D7); this script talks to the same TestLink
 // XML-RPC endpoint directly (proven working: tl.checkDevKey -> boolean 1).
 //
 // Source of truth is test-cases/*.json; TestLink is a downstream target.

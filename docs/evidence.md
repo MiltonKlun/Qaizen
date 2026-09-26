@@ -7,7 +7,7 @@
 > SauceDemo turned out to be training-data luck over a hard-coded, ungrounded
 > test. The protocol's aggregate verdict still awaits the full series
 > (`docs/benchmark-protocol.md`). The project reports only what it has actually
-> measured and does not over-claim from a handful of data points (`STRATEGY.md`).
+> measured and does not over-claim from a handful of data points.
 
 This is the project's answer to its own central question: **why use this
 ceremony instead of asking an AI directly?** It reports measured results —

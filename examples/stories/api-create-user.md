@@ -2,7 +2,7 @@
 
 > API-branch example story for Phase 1.5. Targets **reqres.in**
 > (`https://reqres.in/api`), the demo API the project uses because
-> Saucedemo has no real backend (see `docs/ambiguities.md` A3). The
+> Saucedemo has no real backend (see `docs/design-decisions.md` D3). The
 > Analyst should treat this as `source: "manual"` with
 > `story.id = "API-001"`. Every test case here is `automate_api` —
 > there is no UI in scope.
