@@ -38,6 +38,12 @@ test-results/
 /docs/agents/
 session-summaries/*.md
 
+# Local repository backups (git bundles, settings snapshots). Never published.
+/backups/
+
+# Per-developer editor settings.
+/.vscode/
+
 # Phase 3 run history (scripts/new-run.js). Archived runs under runs/ ARE
 # versioned for their durable artifacts (context.json, test-cases/, specs/,
 # tests/, analysis/, release/, planner-input/, api-tests/, run-manifest.json),
