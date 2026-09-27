@@ -35,6 +35,9 @@ The script:
   (issue type, priority map, labels, link type, write-back key).
 - **Idempotent / duplicate-safe:** a case already carrying
   `external_ids.jira` is skipped; re-running creates nothing new.
+- **Recoverable:** each create is recorded in `sync_state.jira` as it
+  happens. After an interruption, run `--reconcile` (or `--resolve
+TC-ID=KEY|none`) before the next `--apply` (`docs/sync-recovery.md`).
 - Links each created issue to the story when `context.story.jira_issue_key`
   exists (link type from the field map).
 - Writes the created key back into `test-cases/<story-id>.json` under

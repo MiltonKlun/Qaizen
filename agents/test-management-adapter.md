@@ -10,9 +10,15 @@ description: |
   to another tool's adapter (Open/Closed Principle).
 phase_introduced: 2
 phase_active: 2+
-version: 1.1.1
+version: 1.2.0
 changed_in_run: null
 changelog: |
+  - 1.2.0: MINOR (task group 5.1). pushTestCases is recoverable: each create
+    records its intent in test_cases[].sync_state.<tool> before the request
+    and the returned id immediately after, a create with an unknown outcome
+    blocks further creates until it is reconciled, and cases that already
+    carry an id are skipped, never re-created or updated. See
+    docs/sync-recovery.md.
   - 1.1.1: PATCH. Reference update only: the design-decision records moved to
     `docs/design-decisions.md` (IDs D1-D7). No behavior change.
   - 1.1.0: pushExecutionResults only reports a FINALIZED failure-analysis
@@ -103,8 +109,16 @@ each adapter realizes them via its tool's MCP or REST API.
   backward compatibility. New adapters use `external_ids`.
 - Links to the Jira story when `context.json.story.jira_issue_key`
   exists, if the tool supports it.
-- **Idempotent:** re-running updates the same cases (matched by the
-  written-back id or by `test_case_id`), never duplicates.
+- **Idempotent:** a case that already carries the tool's id is
+  skipped; re-running never duplicates. Adapters do not edit existing
+  remote cases.
+- **Recoverable:** record the intent in `test_cases[].sync_state.<tool>`
+  before each create and the returned id immediately after it, before
+  linking or the next case. A create whose outcome is unknown (timeout,
+  dropped connection, unreadable reply) stays `pending` and blocks
+  further creates until it is reconciled by a read-only search for its
+  marker, or resolved by a human. Never retry a create blindly. See
+  `docs/sync-recovery.md`.
 
 ### `pushExecutionResults(results)`
 

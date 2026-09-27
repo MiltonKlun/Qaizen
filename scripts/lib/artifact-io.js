@@ -97,9 +97,46 @@ export function compileSchema(schemaPath) {
     };
   }
 
-  const result = { ok: true, validate };
+  const result = { ok: true, validate, id: parsed.$id ?? null };
   compiledByPath.set(key, result);
   return result;
+}
+
+/**
+ * Compile one definition inside a schema (e.g. `#/definitions/syncState`), so
+ * a shape defined once can validate a value that is not a whole artifact —
+ * the sync record embedded in a Markdown bug draft, for instance. Uses the
+ * same AJV instance: the parent schema is compiled first, which registers its
+ * `$id`, and the fragment is resolved against it.
+ */
+function compileFragment(schemaPath, pointer) {
+  const parent = compileSchema(schemaPath);
+  if (!parent.ok) return parent;
+  if (!parent.id) {
+    return {
+      ok: false,
+      kind: IO_ERROR.INVALID_SCHEMA,
+      message: `Schema ${schemaPath} has no $id, so ${pointer} cannot be resolved`,
+    };
+  }
+  let validate;
+  try {
+    validate = ajv.getSchema(`${parent.id}${pointer}`);
+  } catch (err) {
+    return {
+      ok: false,
+      kind: IO_ERROR.INVALID_SCHEMA,
+      message: `${schemaPath}${pointer} failed to compile: ${err.message}`,
+    };
+  }
+  if (!validate) {
+    return {
+      ok: false,
+      kind: IO_ERROR.INVALID_SCHEMA,
+      message: `${schemaPath} has no definition at ${pointer}`,
+    };
+  }
+  return { ok: true, validate };
 }
 
 /**
@@ -159,14 +196,16 @@ export function formatErrors(errors, { includeParams = true } = {}) {
  * Validate an in-memory value against a schema.
  * @returns {{ok: true} | {ok: false, kind: string, message: string, errors?: object[]}}
  */
-export function validateValue(value, schemaPath) {
-  const compiled = compileSchema(schemaPath);
+export function validateValue(value, schemaPath, { fragment } = {}) {
+  const compiled = fragment
+    ? compileFragment(schemaPath, fragment)
+    : compileSchema(schemaPath);
   if (!compiled.ok) return compiled;
   if (compiled.validate(value)) return { ok: true };
   return {
     ok: false,
     kind: IO_ERROR.SCHEMA_INVALID_DATA,
-    message: `Value does NOT validate against ${schemaPath}`,
+    message: `Value does NOT validate against ${schemaPath}${fragment ?? ''}`,
     errors: compiled.validate.errors ?? [],
   };
 }
@@ -290,6 +329,51 @@ export function writeJsonAtomic(path, value, opts = {}) {
     };
   }
 
+  return writeTextAtomic(path, serialized);
+}
+
+// On Windows a rename over a file fails with EPERM/EACCES/EBUSY while another
+// process (antivirus, the search indexer) briefly holds the destination or the
+// fresh temp file open. That is transient; the same condition on other
+// platforms is a real permission error and fails at once.
+const TRANSIENT_RENAME = new Set(['EPERM', 'EACCES', 'EBUSY']);
+const RENAME_RETRY_MS = 2000;
+
+function renameWithRetry(from, to) {
+  const deadline = Date.now() + RENAME_RETRY_MS;
+  let wait = 10;
+  for (;;) {
+    try {
+      renameSync(from, to);
+      return;
+    } catch (err) {
+      const transient =
+        process.platform === 'win32' && TRANSIENT_RENAME.has(err.code);
+      if (!transient || Date.now() >= deadline) throw err;
+      // Synchronous pause: this module's writes are synchronous by contract.
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, wait);
+      wait = Math.min(wait * 2, 200);
+    }
+  }
+}
+
+/**
+ * Write text atomically: a sibling temp file, then a rename over the
+ * destination. On any failure the destination keeps its previous bytes.
+ * Used directly for non-JSON artifacts (Markdown bug drafts) and by
+ * `writeJsonAtomic` after it has validated and serialized.
+ *
+ * @param {string} path destination
+ * @param {string} text the complete new contents
+ * @param {object} [opts]
+ * @param {string} [opts.root] reject destinations escaping this root
+ */
+export function writeTextAtomic(path, text, opts = {}) {
+  if (opts.root) {
+    const within = assertWithinRoot(path, opts.root);
+    if (!within.ok) return within;
+  }
+
   const target = resolve(path);
   const dir = dirname(target);
   try {
@@ -309,8 +393,8 @@ export function writeJsonAtomic(path, value, opts = {}) {
     `.${Date.now()}-${Math.random().toString(36).slice(2)}.tmp`
   );
   try {
-    writeFileSync(tmp, serialized);
-    renameSync(tmp, target);
+    writeFileSync(tmp, text);
+    renameWithRetry(tmp, target);
     return { ok: true };
   } catch (err) {
     try {

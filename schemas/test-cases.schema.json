@@ -151,6 +151,7 @@
           "description": "Phase 2.6 (TG2.6-3). Generic tool -> external id linkage written back by a TestManagementAdapter after a push (e.g. {\"jira\": \"SK-50\", \"qase\": \"123\"}). Open/Closed: a new adapter records its id here without adding a new per-tool field. testlink_id remains the TestLink adapter's dedicated field for compatibility; new adapters use this object. Keys are tool names; values are the tool's issue/case id.",
           "additionalProperties": { "type": "string" }
         },
+        "sync_state": { "$ref": "#/definitions/syncState" },
         "api_metadata": {
           "type": "object",
           "additionalProperties": false,
@@ -178,6 +179,89 @@
             }
           }
         }
+      }
+    },
+    "syncState": {
+      "type": "object",
+      "description": "Optional. Per-target record of external synchronization (task group 5.1), keyed by target tool (e.g. \"jira\", \"testlink\"). Written by the adapters in scripts/ so a create survives a later failure: the intent is saved before the request and the remote id immediately after it. Never holds credentials. Like testlink_id and external_ids, it records WHERE a case was pushed, not WHAT it says, so it never invalidates an approval. The same shape is used in bug drafts (docs/bug-draft-format.md, \"## Sync State\").",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_-]*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/syncRecord"
+      }
+    },
+    "syncRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation_key", "marker", "state", "intent_at"],
+      "properties": {
+        "operation_key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable identity: target:project:story:local-id:operation-kind."
+        },
+        "marker": {
+          "type": "string",
+          "pattern": "^qaizen-op-[0-9a-f]{12}$",
+          "description": "Short digest of operation_key, sent with the create so an uncertain outcome can be reconciled by a read-only remote search."
+        },
+        "marker_searchable": {
+          "type": "boolean",
+          "description": "false when the remote rejected the field carrying the marker and the create was resent without it; such an operation can only be resolved by a human."
+        },
+        "payload_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 of the canonical payload last sent (or about to be sent)."
+        },
+        "state": {
+          "enum": ["pending", "created", "failed", "not_found"],
+          "description": "pending: intent saved, outcome not yet known. created: remote id known. failed: the remote definitely rejected the create (nothing exists). not_found: a pending operation was reconciled and nothing exists remotely."
+        },
+        "remote_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "link_state": {
+          "enum": ["not_applicable", "pending", "linked", "failed"],
+          "description": "Optional follow-up link to the story issue. A failed link is retried on a later run without recreating the item."
+        },
+        "intent_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "linked_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reconciled_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_error": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Sanitized diagnostic of the last failure. Never contains credentials."
+        }
+      },
+      "if": {
+        "properties": {
+          "state": {
+            "const": "created"
+          }
+        }
+      },
+      "then": {
+        "required": ["remote_id"]
       }
     }
   }

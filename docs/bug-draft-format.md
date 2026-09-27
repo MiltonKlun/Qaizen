@@ -82,6 +82,38 @@ TC-XXX (or API-XXX for API-branch failures)
 [empty until promoted; populated by scripts/create-jira-bugs.js --apply]
 ```
 
+### Optional: `## Sync State`
+
+Added by `scripts/create-jira-bugs.js` when it promotes the draft, never
+by the Failure Classifier. It is the machine-readable record of the Jira
+create, as one fenced JSON block keyed by target:
+
+````markdown
+## Sync State
+
+```json
+{
+  "jira": {
+    "operation_key": "jira:SK:SK-10:BUG-001:create_bug",
+    "marker": "qaizen-op-3f9c2a7b1d04",
+    "marker_searchable": true,
+    "payload_digest": "…64 hex digits…",
+    "state": "created",
+    "remote_id": "SK-57",
+    "link_state": "linked",
+    "intent_at": "2026-09-27T14:02:11.000Z",
+    "created_at": "2026-09-27T14:02:12.000Z",
+    "linked_at": "2026-09-27T14:02:12.000Z"
+  }
+}
+```
+````
+
+The object validates against
+`schemas/test-cases.schema.json#/definitions/syncState`, the same shape
+test cases use. It never holds credentials. See `docs/sync-recovery.md`
+for the states and how an interrupted promotion is finished.
+
 ---
 
 ## 2. Field rules
@@ -101,6 +133,7 @@ TC-XXX (or API-XXX for API-branch failures)
 | `## Environment`        | `BASE_URL`, runtime, `run_id`. Carried into the description.                                                                            |
 | `## Evidence`           | Paths only — never inlined contents (the path-not-content rule).                                                                        |
 | `## Jira Issue Key`     | **Empty until promoted.** Its emptiness is the de-dup signal: a draft whose key is already filled is **skipped** on re-run.             |
+| `## Sync State`         | Optional; written only by the promotion script. Records the create so an interrupted promotion can be finished without a duplicate.     |
 
 ---
 
@@ -109,9 +142,15 @@ TC-XXX (or API-XXX for API-branch failures)
 `scripts/create-jira-bugs.js` (Phase 2 TG5):
 
 1. Reads every `release/bug-drafts/BUG-*.md`.
-2. Parses the level-2 sections above.
-3. **De-dups:** if `## Jira Issue Key` already holds a value, the draft
-   is skipped (already filed) — re-running is safe.
+2. Parses the level-2 sections above and validates `## Sync State`.
+   Every draft must name the active story (`context.story.id`) and an
+   approved test case of it (or mark the case
+   `traceability_unresolved`), and the scope approval must be current.
+   Otherwise nothing is sent.
+3. **De-dups:** if `## Jira Issue Key` already holds a Jira key, the
+   draft is skipped (already filed) — re-running is safe. A draft whose
+   earlier create has an unknown outcome blocks all creates until
+   `--reconcile` or `--resolve` settles it (`docs/sync-recovery.md`).
 4. Maps `## Severity` → Jira priority via
    `config/jira-priority-map.json`.
 5. Issue type comes from `JIRA_BUG_ISSUETYPE` (default `Bug`).
@@ -123,8 +162,10 @@ TC-XXX (or API-XXX for API-branch failures)
    `jira_create_issue` write.
 8. On a real create, links the new bug to the story issue when
    `context.story.jira_issue_key` is present (link type from the
-   priority map's `link_type`), then **writes the new key back** into
-   the draft's `## Jira Issue Key` line.
+   priority map's `link_type`). The new key is **written back** into
+   the draft's `## Jira Issue Key` line and `## Sync State` the moment
+   Jira returns it, before the link; a failed link is retried alone on
+   the next `--apply`.
 
 The "writes are never a side effect" rule (`docs/mcp-setup.md`) means
 the script is the **only** path that files a bug, and only with the
