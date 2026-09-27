@@ -243,6 +243,8 @@ the XML-RPC API is identical across 1.9.x.
 - `skills/syncing-testlink/SKILL.md` — the adapter (TG4).
 - `scripts/sync-to-testlink.js` — the test-case sync script (TG4),
   invoked optionally by the Test Designer with `--apply-testlink`.
+  Requires `TEST_MANAGEMENT_TOOL=testlink` (or `both`). An interrupted
+  sync is finished with `--reconcile` (`docs/sync-recovery.md`).
 - `scripts/sync-testlink-execution.js` — the execution-result sync
   (TG10), invoked optionally by the Reporter with
   `--apply-testlink-execution`.

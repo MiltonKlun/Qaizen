@@ -13,142 +13,65 @@
 //
 // Source of truth is test-cases/*.json; TestLink is a downstream target.
 //
+// Recoverable by design (task group 5.1): the intent of each create is saved
+// (sync_state.testlink, state "pending") before the request, and the new id
+// the moment TestLink returns it. A create whose outcome is unknown stays
+// pending and blocks further creates until --reconcile finds it (by name in
+// the story's suite, confirmed by the operation marker in its summary) or a
+// human resolves it with --resolve. A create is never blindly retried.
+//
 // Usage:
 //   node scripts/sync-to-testlink.js <story-id>                  # dry-run
 //   node scripts/sync-to-testlink.js <story-id> --apply-testlink # real write
+//   node scripts/sync-to-testlink.js <story-id> --reconcile      # settle pending creates
+//   node scripts/sync-to-testlink.js <story-id> --resolve TC-001=1234   # human resolution
+//   node scripts/sync-to-testlink.js <story-id> --resolve TC-001=none
+//   ... --release-stale-lock   # take over the lock of a sync that is no longer running
 //
 // Env (loaded from .env if present, else process.env):
+//   TEST_MANAGEMENT_TOOL — must select testlink (testlink | both)
 //   TESTLINK_URL  — full XML-RPC endpoint, e.g.
 //                   http://host.docker.internal:8080/testlink/lib/api/xmlrpc/v1/xmlrpc.php
 //                   (for a non-container CLI run use localhost, not
 //                   host.docker.internal — see docs/testlink-integration.md)
 //   TESTLINK_API_KEY, TESTLINK_PROJECT_KEY, TESTLINK_TEST_PLAN_ID
+//   QAIZEN_HTTP_TIMEOUT_MS (default 30000)
 //
-// Exit codes: 0 ok · 1 sync/validation error · 2 usage/file/env error
+// Exit codes: 0 ok · 1 sync/validation/recovery error · 2 usage/file/env error
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { argv, env, exit } from 'node:process';
-import { requireCurrentGate } from './lib/approval-binding.js';
 
-// --- tiny .env loader (so a local CLI run works without exporting) -------
-// CI injects env directly; this only fills gaps, never overrides real env.
-if (existsSync('.env')) {
-  for (const line of readFileSync('.env', 'utf8').split('\n')) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-    if (m && !(m[1] in env)) env[m[1]] = m[2];
-  }
-}
+import {
+  readJson,
+  readValidatedJson,
+  writeJsonAtomic,
+  formatErrors,
+} from './lib/artifact-io.js';
+import {
+  SYNC_STATE,
+  acquireLock,
+  checkSyncScope,
+  classifyCreate,
+  httpRequest,
+  httpTimeoutMs,
+  loadDotEnv,
+  operationKey,
+  operationMarker,
+  parseResolutions,
+  payloadDigest,
+  planAction,
+  sanitizeDiagnostic,
+  selectTestManagementTarget,
+} from './lib/integration-io.js';
 
-const APPLY = argv.includes('--apply-testlink');
-const storyId = argv.find((a, i) => i >= 2 && !a.startsWith('--'));
+const TARGET = 'testlink';
+const SCHEMA = 'schemas/test-cases.schema.json';
+const TESTLINK_ID = /^[1-9][0-9]*$/;
 
-if (!storyId) {
-  console.error(
-    'Usage: node scripts/sync-to-testlink.js <story-id> [--apply-testlink]'
-  );
-  exit(2);
-}
+// ------------------------------------------------------------ XML-RPC
 
-const casesPath = `test-cases/${storyId}.json`;
-const mapPath = 'config/testlink-field-map.json';
-
-for (const [label, p] of [
-  ['test-cases', casesPath],
-  ['field map', mapPath],
-  ['context.json', 'context.json'],
-]) {
-  if (!existsSync(p)) {
-    console.error(`Missing ${label}: ${p}`);
-    exit(2);
-  }
-}
-
-const loadJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
-const context = loadJson('context.json');
-const doc = loadJson(casesPath);
-const map = loadJson(mapPath);
-
-// --- Gate 2 precondition -------------------------------------------------
-// An approval counts only while it still matches what was reviewed
-// (task group 4.3): a gate approved before the test cases or code changed
-// is not a licence to sync.
-const gateCheck = requireCurrentGate(context, 'test_scope_reviewed', '.');
-if (!gateCheck.ok) {
-  console.error(`Gate 2: ${gateCheck.reason}. Refusing to sync.`);
-  exit(1);
-}
-
-// --- Filter to approved cases -------------------------------------------
-const syncStatuses = map.sync_only_status || ['approved'];
-const approved = (doc.test_cases || []).filter((tc) =>
-  syncStatuses.includes(tc.status)
-);
-const skipped = (doc.test_cases || []).filter(
-  (tc) => !syncStatuses.includes(tc.status)
-);
-
-if (approved.length === 0) {
-  console.log(
-    `No cases with status in [${syncStatuses.join(', ')}] in ${casesPath}. Nothing to sync.`
-  );
-  exit(0);
-}
-
-const importance = map.priority_to_importance || {};
-const execType = map.automation_decision_to_execution_type || {};
-const mapCase = (tc) => ({
-  ref: tc,
-  test_case_id: tc.test_case_id,
-  name: `${tc.test_case_id} ${tc.title}`,
-  summary: tc.description,
-  preconditions: (tc.preconditions || []).join('<br/>'),
-  steps: (tc.steps || []).map((s, i) => ({
-    step_number: i + 1,
-    actions: s.action + (s.data ? ` (data: ${JSON.stringify(s.data)})` : ''),
-    expected_results: (tc.expected_results || []).join('<br/>'),
-    execution_type: execType[tc.automation_decision] ?? 1,
-  })),
-  importance: importance[tc.priority] ?? 2,
-  execution_type: execType[tc.automation_decision] ?? 1,
-  already_synced: Boolean(tc.testlink_id),
-});
-
-const planned = approved.map(mapCase);
-const suiteName = `${storyId} — ${context.story?.title ?? 'story'}`;
-
-// --- Report the plan -----------------------------------------------------
-console.log(`TestLink sync plan for ${storyId}`);
-console.log(`  Project: ${env.TESTLINK_PROJECT_KEY ?? '(unset)'}`);
-console.log(`  Test plan id: ${env.TESTLINK_TEST_PLAN_ID ?? '(unset)'}`);
-console.log(`  Suite: ${suiteName}`);
-console.log(`  Approved cases to sync: ${approved.length}`);
-console.log(`  Skipped (not approved): ${skipped.length}`);
-for (const p of planned) {
-  const action = p.already_synced ? 'UPDATE (has testlink_id)' : 'CREATE';
-  console.log(
-    `    - ${p.test_case_id} "${p.ref.title}" -> ${action}, importance=${p.importance}, exec_type=${p.execution_type}`
-  );
-}
-
-if (!APPLY) {
-  console.log(
-    '\nDRY RUN (no writes). Re-run with --apply-testlink to push to TestLink.'
-  );
-  exit(0);
-}
-
-// --- Apply path: real TestLink XML-RPC writes ----------------------------
-const url = env.TESTLINK_URL;
-const apiKey = env.TESTLINK_API_KEY;
-const projectKey = env.TESTLINK_PROJECT_KEY;
-if (!url || !apiKey || !projectKey) {
-  console.error(
-    'Apply requires TESTLINK_URL, TESTLINK_API_KEY, and TESTLINK_PROJECT_KEY.'
-  );
-  exit(2);
-}
-
-// Minimal XML-RPC client over built-in fetch (no dependency). TestLink
+// Minimal XML-RPC encoding over built-in fetch (no dependency). TestLink
 // takes a single struct param of name->value; we only need string/int.
 function xmlEscape(s) {
   return String(s)
@@ -175,12 +98,12 @@ function valueXml(value) {
   }
   return `<string>${xmlEscape(value)}</string>`;
 }
-function member(name, value) {
-  return `<member><name>${name}</name><value>${valueXml(value)}</value></member>`;
-}
 function buildCall(method, struct) {
   const members = Object.entries(struct)
-    .map(([k, v]) => member(k, v))
+    .map(
+      ([k, v]) =>
+        `<member><name>${k}</name><value>${valueXml(v)}</value></member>`
+    )
     .join('');
   return `<?xml version="1.0"?><methodCall><methodName>${method}</methodName><params><param><value><struct>${members}</struct></value></param></params></methodCall>`;
 }
@@ -212,147 +135,548 @@ function readResponse(xml) {
   if (msgMatch) out.message = msgMatch[1];
   return out;
 }
-async function tl(method, struct) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/xml' },
-    body: buildCall(method, struct),
-  });
-  const text = await res.text();
-  if (!res.ok && !text.includes('methodResponse')) {
-    throw new Error(`${method}: HTTP ${res.status}`);
-  }
-  return readResponse(text);
+/** tl.createTestCase body -> {id} | {rejected} | null (uninterpretable). */
+function parseCreate(xml) {
+  if (!/methodResponse/.test(xml)) return null;
+  const r = readResponse(xml);
+  if (r.fault) return { rejected: `XML-RPC fault: ${r.fault}` };
+  if (r.id && TESTLINK_ID.test(r.id)) return { id: r.id };
+  if (r.code)
+    return { rejected: `TestLink error ${r.code}: ${r.message ?? ''}` };
+  return null;
 }
-
-// Raw POST that returns the response text (for array responses that the
-// scalar reader above can't fully parse, e.g. tl.getProjects).
-async function tlRaw(method, struct) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/xml' },
-    body: buildCall(method, struct),
-  });
-  return res.text();
+/** Every scalar value of <name>field</name> in a response, in order. */
+function allValues(xml, field) {
+  const re = new RegExp(
+    `<name>${field}</name>\\s*<value>\\s*(?:<(?:string|int)>)?([^<]*)`,
+    'g'
+  );
+  return [...xml.matchAll(re)].map((m) => m[1].trim());
 }
 
 async function main() {
-  const dk = { devKey: apiKey };
+  loadDotEnv(env);
 
-  // 1. Resolve the project by PREFIX (TESTLINK_PROJECT_KEY) against the
-  //    full project list. The project's TestLink name ("Qaizen")
-  //    differs from the story title, so we match on the stable prefix.
-  const projectsXml = await tlRaw('tl.getProjects', dk);
-  if (/<fault>/.test(projectsXml)) {
-    throw new Error(`tl.getProjects faulted: ${projectsXml.slice(0, 300)}`);
+  const APPLY = argv.includes('--apply-testlink');
+  const RECONCILE = argv.includes('--reconcile');
+  const RELEASE_STALE = argv.includes('--release-stale-lock');
+  let resolutions;
+  try {
+    resolutions = parseResolutions(argv);
+  } catch (e) {
+    console.error(e.message);
+    return 2;
   }
-  // Split into per-project <struct> blocks and find the one whose prefix
-  // member equals TESTLINK_PROJECT_KEY; pull its id from the same block.
-  let projectId = null;
-  let projectName = null;
-  for (const block of projectsXml.split('<struct>')) {
-    const prefix = (block.match(
-      /<name>prefix<\/name>\s*<value>\s*<string>([^<]*)<\/string>/
-    ) || [])[1];
-    if (prefix === projectKey) {
-      projectId = (block.match(
-        /<name>id<\/name>\s*<value>\s*<string>([^<]*)<\/string>/
-      ) || [])[1];
-      projectName = (block.match(
-        /<name>name<\/name>\s*<value>\s*<string>([^<]*)<\/string>/
-      ) || [])[1];
-      break;
+  const storyId = argv.find(
+    (a, i) => i >= 2 && !a.startsWith('--') && argv[i - 1] !== '--resolve'
+  );
+  if (!storyId) {
+    console.error(
+      'Usage: node scripts/sync-to-testlink.js <story-id> [--apply-testlink | --reconcile | --resolve TC-ID=ID|none] [--release-stale-lock]'
+    );
+    return 2;
+  }
+  if ([APPLY, RECONCILE, resolutions.length > 0].filter(Boolean).length > 1) {
+    console.error(
+      'Use only one of --apply-testlink, --reconcile, --resolve at a time.'
+    );
+    return 2;
+  }
+
+  const selected = selectTestManagementTarget(env.TEST_MANAGEMENT_TOOL, TARGET);
+  if (!selected.ok) {
+    console.error(selected.reason);
+    return 2;
+  }
+
+  const casesPath = `test-cases/${storyId}.json`;
+  const mapPath = 'config/testlink-field-map.json';
+  for (const [label, p] of [
+    ['test-cases', casesPath],
+    ['field map', mapPath],
+    ['context.json', 'context.json'],
+  ]) {
+    if (!existsSync(p)) {
+      console.error(`Missing ${label}: ${p}`);
+      return 2;
     }
   }
-  if (!projectId) {
-    throw new Error(
-      `No TestLink project with prefix "${projectKey}" (TESTLINK_PROJECT_KEY). ` +
-        `Check the prefix matches a real project.`
+
+  // --- Validate every input before anything touches TestLink -------------
+  const docRead = readValidatedJson(casesPath, SCHEMA);
+  if (!docRead.ok) {
+    console.error(docRead.message);
+    for (const line of formatErrors(docRead.errors)) console.error(line);
+    return 2;
+  }
+  const doc = docRead.data;
+  const ctxRead = readJson('context.json');
+  const mapRead = readJson(mapPath);
+  for (const r of [ctxRead, mapRead]) {
+    if (!r.ok) {
+      console.error(r.message);
+      return 2;
+    }
+  }
+  const context = ctxRead.data;
+  const map = mapRead.data;
+
+  const scope = checkSyncScope(context, doc, storyId, '.');
+  if (!scope.ok) {
+    console.error(`${scope.reason}. Refusing to sync.`);
+    return 1;
+  }
+
+  // --- Plan -----------------------------------------------------------
+  const syncStatuses = map.sync_only_status || ['approved'];
+  const approved = doc.test_cases.filter((tc) =>
+    syncStatuses.includes(tc.status)
+  );
+  const notApproved = doc.test_cases.length - approved.length;
+  if (approved.length === 0) {
+    console.log(
+      `No cases with status in [${syncStatuses.join(', ')}] in ${casesPath}. Nothing to sync.`
+    );
+    return 0;
+  }
+
+  const importance = map.priority_to_importance || {};
+  const execType = map.automation_decision_to_execution_type || {};
+  const recordOf = (tc) => tc.sync_state?.[TARGET];
+  const remoteOf = (tc) => tc.testlink_id || tc.external_ids?.[TARGET] || null;
+  const plan = approved.map((tc) => ({
+    tc,
+    action: planAction(recordOf(tc), remoteOf(tc)),
+  }));
+  const byAction = (a) => plan.filter((p) => p.action === a);
+  const suiteName = `${storyId} — ${context.story?.title ?? 'story'}`;
+  const caseName = (tc) => `${tc.test_case_id} ${tc.title}`;
+  const projectKey = env.TESTLINK_PROJECT_KEY || null;
+
+  console.log(`TestLink sync plan for ${storyId}`);
+  console.log(`  Project: ${projectKey ?? '(unset)'}`);
+  console.log(`  Test plan id: ${env.TESTLINK_TEST_PLAN_ID ?? '(unset)'}`);
+  console.log(`  Suite: ${suiteName}`);
+  console.log(`  Approved cases: ${approved.length}`);
+  console.log(`  Skipped (not approved): ${notApproved}`);
+  for (const { tc, action } of plan) {
+    const label = {
+      create: 'CREATE',
+      skip: `SKIP (already in TestLink as ${remoteOf(tc)})`,
+      reconcile: `RECONCILE FIRST (earlier create has an unknown outcome, since ${recordOf(tc)?.intent_at})`,
+    }[action];
+    console.log(
+      `    - ${tc.test_case_id} "${tc.title}" -> ${label}, importance=${importance[tc.priority] ?? 2}, exec_type=${execType[tc.automation_decision] ?? 1}`
     );
   }
-  console.log(
-    `\nResolved project "${projectName}" (prefix ${projectKey}) -> id ${projectId}`
-  );
 
-  // 2. Create the story's test suite under the project — or reuse it if a
-  //    suite with the same name already exists (idempotent re-runs).
-  const suite = await tl('tl.createTestSuite', {
-    ...dk,
-    testprojectid: projectId,
-    testsuitename: suiteName,
-    details: `Auto-synced from ${casesPath} by scripts/sync-to-testlink.js`,
-  });
-  let suiteId = suite.id && suite.id !== '0' ? suite.id : null;
-  if (suiteId) {
-    console.log(`Created suite "${suiteName}" -> id ${suiteId}`);
-  } else {
-    // createTestSuite refused (likely the name already exists). Find the
-    // existing first-level suite with this name and reuse its id.
-    const suitesXml = await tlRaw('tl.getFirstLevelTestSuitesForTestProject', {
-      ...dk,
-      testprojectid: projectId,
-    });
-    for (const block of suitesXml.split('<struct>')) {
-      const nm = (block.match(
-        /<name>name<\/name>\s*<value>\s*<string>([^<]*)<\/string>/
-      ) || [])[1];
-      if (nm === suiteName) {
-        suiteId = (block.match(
-          /<name>id<\/name>\s*<value>\s*<string>([^<]*)<\/string>/
-        ) || [])[1];
-        break;
+  if (!APPLY && !RECONCILE && resolutions.length === 0) {
+    console.log(
+      '\nDRY RUN (no writes, no local changes). Re-run with --apply-testlink to push to TestLink.'
+    );
+    return 0;
+  }
+  if (!projectKey) {
+    console.error(
+      'TESTLINK_PROJECT_KEY is required to identify the operations.'
+    );
+    return 2;
+  }
+
+  const lock = acquireLock('.', TARGET, { releaseStale: RELEASE_STALE });
+  if (!lock.ok) {
+    console.error(`Refusing to sync: ${lock.reason}`);
+    return 1;
+  }
+  try {
+    const persist = () =>
+      writeJsonAtomic(casesPath, doc, { schemaPath: SCHEMA });
+    const now = () => new Date().toISOString();
+
+    if (resolutions.length) return resolve(resolutions);
+
+    const url = env.TESTLINK_URL;
+    const apiKey = env.TESTLINK_API_KEY;
+    if (!url || !apiKey) {
+      console.error(
+        `${APPLY ? 'Apply' : 'Reconcile'} requires TESTLINK_URL, TESTLINK_API_KEY, and TESTLINK_PROJECT_KEY.`
+      );
+      return 2;
+    }
+    let timeoutMs;
+    try {
+      timeoutMs = httpTimeoutMs(env);
+    } catch (e) {
+      console.error(e.message);
+      return 2;
+    }
+    const secrets = [apiKey];
+    const dk = { devKey: apiKey };
+    const call = (method, struct) =>
+      httpRequest(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/xml' },
+        body: buildCall(method, struct),
+        timeoutMs,
+      });
+    /** A read (or idempotent) call whose failure aborts the run. */
+    async function read(method, struct) {
+      const r = await call(method, struct);
+      if (r.kind !== 'response') throw new Error(`${method}: ${r.error}`);
+      if (!r.text.includes('methodResponse')) {
+        throw new Error(
+          `${method}: HTTP ${r.status}: ${sanitizeDiagnostic(r.text, secrets)}`
+        );
       }
+      return r.text;
     }
-    if (!suiteId) {
-      throw new Error(
-        `createTestSuite did not return an id and no existing suite named "${suiteName}" was found. createTestSuite response: ${JSON.stringify(suite)}`
-      );
-    }
-    console.log(`Reusing existing suite "${suiteName}" -> id ${suiteId}`);
-  }
 
-  // 3. Create each approved case; collect testlink ids for write-back.
-  let created = 0;
-  for (const p of planned) {
-    const r = await tl('tl.createTestCase', {
-      ...dk,
-      testcasename: p.name,
-      testsuiteid: suiteId,
-      testprojectid: projectId,
-      authorlogin: 'admin',
-      summary: p.summary,
-      preconditions: p.preconditions,
-      importance: p.importance,
-      executiontype: p.execution_type,
-      steps: p.steps,
-    });
-    if (r.fault)
-      throw new Error(`createTestCase ${p.test_case_id}: ${r.fault}`);
-    // TestLink returns the new case's id + additional_info.external_id.
-    const tlId = r.id || r.additionalInfo || r.external_id;
-    if (tlId) {
-      p.ref.testlink_id = String(tlId);
+    if (RECONCILE) return await reconcile();
+
+    if (byAction('reconcile').length) {
+      console.error(
+        `\nRefusing to create: ${byAction('reconcile').length} earlier create(s) have an unknown outcome. ` +
+          `Run with --reconcile first, so nothing is created twice.`
+      );
+      return 1;
+    }
+    const toCreate = byAction('create');
+    if (!toCreate.length) {
+      console.log('\nNothing to create.');
+      return 0;
+    }
+
+    const project = await resolveProject();
+    console.log(
+      `\nResolved project "${project.name}" (prefix ${projectKey}) -> id ${project.id}`
+    );
+    const suiteId = await ensureSuite(project.id);
+
+    let created = 0;
+    for (const { tc } of toCreate) {
+      const outcome = await create(tc, project.id, suiteId);
+      if (outcome !== 'created') return 1;
       created += 1;
-      console.log(`  ${p.test_case_id} -> TestLink id ${tlId}`);
-    } else {
-      console.warn(
-        `  ${p.test_case_id}: created but no id in response: ${JSON.stringify(r)}`
+    }
+    console.log(
+      `\nDone. Created ${created} TestLink case(s); each id was saved to ${casesPath} as it was created.`
+    );
+    console.log(
+      'Note: adding cases to the test plan + the count-verify step ' +
+        'use tl.addTestCaseToTestPlan / tl.getTestCasesForTestPlan and can be ' +
+        'run as a follow-up; the create + write-back path is complete.'
+    );
+    return 0;
+
+    // ------------------------------------------------------------------
+    async function resolveProject() {
+      // Match on the stable prefix (TESTLINK_PROJECT_KEY): the project's
+      // TestLink name differs from the story title.
+      const xml = await read('tl.getProjects', dk);
+      if (/<fault>/.test(xml)) {
+        throw new Error(
+          `tl.getProjects faulted: ${sanitizeDiagnostic(xml, secrets)}`
+        );
+      }
+      for (const block of xml.split('<struct>')) {
+        const prefix = (block.match(
+          /<name>prefix<\/name>\s*<value>\s*<string>([^<]*)<\/string>/
+        ) || [])[1];
+        if (prefix === projectKey) {
+          return {
+            id: (block.match(
+              /<name>id<\/name>\s*<value>\s*<string>([^<]*)<\/string>/
+            ) || [])[1],
+            name: (block.match(
+              /<name>name<\/name>\s*<value>\s*<string>([^<]*)<\/string>/
+            ) || [])[1],
+          };
+        }
+      }
+      throw new Error(
+        `No TestLink project with prefix "${projectKey}" (TESTLINK_PROJECT_KEY). ` +
+          `Check the prefix matches a real project.`
       );
     }
+
+    async function findSuite(projectId) {
+      const xml = await read('tl.getFirstLevelTestSuitesForTestProject', {
+        ...dk,
+        testprojectid: projectId,
+      });
+      for (const block of xml.split('<struct>')) {
+        const nm = (block.match(
+          /<name>name<\/name>\s*<value>\s*<string>([^<]*)<\/string>/
+        ) || [])[1];
+        if (nm === suiteName) {
+          return (block.match(
+            /<name>id<\/name>\s*<value>\s*<string>([^<]*)<\/string>/
+          ) || [])[1];
+        }
+      }
+      return null;
+    }
+
+    // Create the story's suite, or reuse it by name (safe to repeat).
+    async function ensureSuite(projectId) {
+      const existing = await findSuite(projectId);
+      if (existing) {
+        console.log(`Reusing existing suite "${suiteName}" -> id ${existing}`);
+        return existing;
+      }
+      const suite = readResponse(
+        await read('tl.createTestSuite', {
+          ...dk,
+          testprojectid: projectId,
+          testsuitename: suiteName,
+          details: `Auto-synced from ${casesPath} by scripts/sync-to-testlink.js`,
+        })
+      );
+      if (suite.id && suite.id !== '0') {
+        console.log(`Created suite "${suiteName}" -> id ${suite.id}`);
+        return suite.id;
+      }
+      const again = await findSuite(projectId);
+      if (again) return again;
+      throw new Error(
+        `createTestSuite did not return an id and no suite named "${suiteName}" exists: ${sanitizeDiagnostic(JSON.stringify(suite), secrets)}`
+      );
+    }
+
+    async function create(tc, projectId, suiteId) {
+      const key = operationKey({
+        target: TARGET,
+        project: projectKey,
+        storyId,
+        localId: tc.test_case_id,
+        kind: 'create_case',
+      });
+      const marker = operationMarker(key);
+      const struct = {
+        testcasename: caseName(tc),
+        testsuiteid: suiteId,
+        testprojectid: projectId,
+        authorlogin: 'admin',
+        // The marker lets --reconcile recognise this exact create later.
+        summary: `${tc.description}<br/><br/>${marker}`,
+        preconditions: (tc.preconditions || []).join('<br/>'),
+        importance: importance[tc.priority] ?? 2,
+        executiontype: execType[tc.automation_decision] ?? 1,
+        steps: (tc.steps || []).map((s, i) => ({
+          step_number: i + 1,
+          actions:
+            s.action + (s.data ? ` (data: ${JSON.stringify(s.data)})` : ''),
+          expected_results: (tc.expected_results || []).join('<br/>'),
+          execution_type: execType[tc.automation_decision] ?? 1,
+        })),
+      };
+      const record = {
+        operation_key: key,
+        marker,
+        marker_searchable: true,
+        payload_digest: payloadDigest(struct),
+        state: SYNC_STATE.PENDING,
+        intent_at: now(),
+        updated_at: now(),
+        link_state: 'not_applicable',
+      };
+      tc.sync_state = { ...tc.sync_state, [TARGET]: record };
+      const saved = persist();
+      if (!saved.ok) {
+        console.error(
+          `${tc.test_case_id}: could not save the intent before creating (${saved.message}). Nothing was sent.`
+        );
+        return 'aborted';
+      }
+
+      const out = classifyCreate(
+        await call('tl.createTestCase', { ...dk, ...struct }),
+        parseCreate,
+        secrets
+      );
+
+      if (out.outcome === 'created') {
+        tc.testlink_id = out.id;
+        tc.external_ids = { ...tc.external_ids, [TARGET]: out.id };
+        Object.assign(record, {
+          state: SYNC_STATE.CREATED,
+          remote_id: out.id,
+          created_at: now(),
+          updated_at: now(),
+        });
+        const kept = persist();
+        if (!kept.ok) {
+          console.error(
+            `\nCRITICAL: TestLink created case ${out.id} for ${tc.test_case_id}, but it could not be saved (${kept.message}).\n` +
+              `Record it before doing anything else:\n` +
+              `  node scripts/sync-to-testlink.js ${storyId} --resolve ${tc.test_case_id}=${out.id}`
+          );
+          return 'aborted';
+        }
+        console.log(`  ${tc.test_case_id} -> TestLink id ${out.id}`);
+        return 'created';
+      }
+
+      if (out.outcome === 'rejected') {
+        Object.assign(record, {
+          state: SYNC_STATE.FAILED,
+          last_error: out.detail.slice(0, 500),
+          updated_at: now(),
+        });
+        const kept = persist();
+        console.error(
+          `${tc.test_case_id}: TestLink rejected the create (${out.detail}). Nothing was created.` +
+            (kept.ok ? '' : ` (Could not record the failure: ${kept.message}.)`)
+        );
+        return 'rejected';
+      }
+
+      record.last_error = out.detail.slice(0, 500);
+      record.updated_at = now();
+      const kept = persist();
+      console.error(
+        `${tc.test_case_id}: the outcome of the create is unknown (${out.detail}).\n` +
+          `It may exist in TestLink. Stopped before any other create. Run:\n` +
+          `  node scripts/sync-to-testlink.js ${storyId} --reconcile` +
+          (kept.ok
+            ? ''
+            : `\n(Could not record the diagnostic: ${kept.message}; the pending intent was saved earlier.)`)
+      );
+      return 'ambiguous';
+    }
+
+    // Read-only: find a pending create by name in the story's suite, and
+    // accept a candidate only if its summary carries the operation marker.
+    async function reconcile() {
+      const pending = byAction('reconcile');
+      if (!pending.length) {
+        console.log('\nNothing to reconcile.');
+        return 0;
+      }
+      const project = await resolveProject();
+      const suiteExists = Boolean(await findSuite(project.id));
+      let unresolved = 0;
+      for (const { tc } of pending) {
+        const record = recordOf(tc);
+        let matches = [];
+        if (suiteExists) {
+          const xml = await read('tl.getTestCaseIDByName', {
+            ...dk,
+            testcasename: caseName(tc),
+            testsuitename: suiteName,
+            testprojectname: project.name,
+          });
+          const r = readResponse(xml);
+          if (r.fault) {
+            unresolved += 1;
+            console.error(
+              `  ${tc.test_case_id}: search faulted (${sanitizeDiagnostic(r.fault, secrets)}); still pending.`
+            );
+            continue;
+          }
+          // An error struct (e.g. "no test case with this name") means none.
+          const ids = r.code && !r.id ? [] : allValues(xml, 'id');
+          for (const id of ids.filter((i) => TESTLINK_ID.test(i))) {
+            const detail = await read('tl.getTestCase', {
+              ...dk,
+              testcaseid: id,
+            });
+            if (detail.includes(record.marker)) matches.push(id);
+          }
+          matches = [...new Set(matches)];
+        }
+        if (matches.length > 1) {
+          unresolved += 1;
+          console.error(
+            `  ${tc.test_case_id}: ${matches.length} cases carry ${record.marker} (${matches.join(', ')}). ` +
+              `Decide which one is the test case, then --resolve ${tc.test_case_id}=<ID>.`
+          );
+          continue;
+        }
+        if (matches.length === 1) {
+          adopt(tc, matches[0]);
+          console.log(
+            `  ${tc.test_case_id} -> found TestLink id ${matches[0]} (created earlier)`
+          );
+        } else {
+          markNotFound(tc);
+          console.log(
+            `  ${tc.test_case_id} -> not in TestLink; it will be created on the next --apply-testlink`
+          );
+        }
+        const kept = persist();
+        if (!kept.ok) {
+          console.error(`Could not save the reconciliation: ${kept.message}`);
+          return 1;
+        }
+      }
+      return unresolved ? 1 : 0;
+    }
+
+    function resolve(list) {
+      for (const { localId, remote } of list) {
+        const tc = approved.find((t) => t.test_case_id === localId);
+        if (!tc) {
+          console.error(
+            `--resolve: ${localId} is not an approved case of ${storyId}.`
+          );
+          return 2;
+        }
+        const record = recordOf(tc);
+        if (!record || record.state !== SYNC_STATE.PENDING) {
+          console.error(
+            `--resolve: ${localId} has no unresolved operation (state ${record?.state ?? 'none'}).`
+          );
+          return 2;
+        }
+        if (remote !== null && !TESTLINK_ID.test(remote)) {
+          console.error(
+            `--resolve: "${remote}" is not a TestLink test case id.`
+          );
+          return 2;
+        }
+        if (remote) adopt(tc, remote);
+        else markNotFound(tc);
+        console.log(
+          `  ${localId} -> ${remote ?? 'not created'} (resolved by hand)`
+        );
+      }
+      const kept = persist();
+      if (!kept.ok) {
+        console.error(`Could not save the resolution: ${kept.message}`);
+        return 1;
+      }
+      return 0;
+    }
+
+    function adopt(tc, remote) {
+      tc.testlink_id = remote;
+      tc.external_ids = { ...tc.external_ids, [TARGET]: remote };
+      Object.assign(recordOf(tc), {
+        state: SYNC_STATE.CREATED,
+        remote_id: remote,
+        reconciled_at: now(),
+        updated_at: now(),
+      });
+      delete recordOf(tc).last_error;
+    }
+
+    function markNotFound(tc) {
+      Object.assign(recordOf(tc), {
+        state: SYNC_STATE.NOT_FOUND,
+        reconciled_at: now(),
+        updated_at: now(),
+      });
+    }
+  } finally {
+    lock.release();
   }
-
-  // 4. Write the testlink_id linkage back into the source-of-truth JSON.
-  writeFileSync(casesPath, JSON.stringify(doc, null, 2) + '\n');
-  console.log(`\nWrote testlink_id back into ${casesPath} (${created} cases).`);
-
-  console.log(
-    'Done. Note: adding cases to the test plan + the count-verify step ' +
-      'use tl.addTestCaseToTestPlan / tl.getTestCasesForTestPlan and can be ' +
-      'run as a follow-up; the create + write-back path is complete.'
-  );
 }
 
-main().catch((e) => {
-  console.error(`\nTestLink sync FAILED: ${e.message}`);
-  exit(1);
-});
+main().then(
+  (code) => exit(code),
+  (e) => {
+    console.error(`\nTestLink sync FAILED: ${e.message}`);
+    exit(1);
+  }
+);

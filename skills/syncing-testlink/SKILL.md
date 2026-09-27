@@ -158,7 +158,10 @@ agent passes it only when the human asked). This mirrors
 `scripts/create-jira-bugs.js --apply`.
 
 `scripts/sync-to-testlink.js` is the non-interactive equivalent for CI
-(same dry-run default, same `--apply-testlink` flag).
+(same dry-run default, same `--apply-testlink` flag). It records each
+create in `sync_state.testlink` as it happens; an interrupted sync is
+finished with `--reconcile`, never by creating again
+(`docs/sync-recovery.md`).
 
 ---
 

@@ -342,7 +342,10 @@ Phase 2 keeps the local flow intact and adds:
   entry. Writes are never a side effect — see `docs/mcp-setup.md`.
 - The TestLink XML-RPC sync (`scripts/sync-to-testlink.js`) pushes
   approved test cases and execution results to TestLink (the MCP bridge
-  was dropped — see `docs/testlink-integration.md` and `ambiguities` A7).
+  was dropped — see `docs/testlink-integration.md` and
+  `docs/design-decisions.md` D7). Test-case and bug creation in TestLink
+  and Jira records each create as it happens, so an interrupted sync is
+  finished without duplicates (`docs/sync-recovery.md`).
 - `scripts/create-jira-bugs.js` promotes Red bug drafts to real Jira
   issues — only when invoked with the `--apply` flag.
 - Review audit fields (`reviewer`, `reviewed_at`, `notes`) added to

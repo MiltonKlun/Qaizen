@@ -10,9 +10,12 @@ description: |
   does not own that path.
 phase_introduced: 1
 phase_active: 1+
-version: 2.1.0
+version: 2.1.1
 changed_in_run: null
 changelog: |
+  - 2.1.1: PATCH (task group 5.1). Drafts are written without a
+    `## Sync State` section; the promotion script adds and owns it.
+    No output change.
   - 2.1.0: MINOR (task group 4.3). Gate 4 must be current, not only passed. Approvals are now bound
     to a digest of the inputs they reviewed; a gate whose inputs changed
     is not passed even if `status` still reads true, so the gate check
@@ -455,6 +458,10 @@ TC-XXX (or API-XXX for Phase 1.5+ API failures)
 The `Jira Issue Key` line MUST be present and empty in Phase 1.
 Phase 2's script uses its presence as a de-dup signal (a draft
 with a non-empty key is skipped on re-run).
+
+Do not write a `## Sync State` section. `scripts/create-jira-bugs.js`
+adds it when it promotes the draft and is its only writer
+(`docs/bug-draft-format.md`).
 
 ---
 

@@ -67,7 +67,12 @@ const DOWNSTREAM = {
  * Everything else — expected results, automation decisions, priorities, and
  * the per-case approval status — is part of what was approved.
  */
-const TC_WRITEBACK_FIELDS = ['testlink_id', 'external_ids', 'qmetry_fields'];
+const TC_WRITEBACK_FIELDS = [
+  'testlink_id',
+  'external_ids',
+  'sync_state',
+  'qmetry_fields',
+];
 
 const sha256 = (s) => createHash('sha256').update(s).digest('hex');
 

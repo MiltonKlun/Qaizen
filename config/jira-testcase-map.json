@@ -17,6 +17,6 @@
   "link_type": "Relates",
   "_link_comment": "Issue-link type used to link a created test-case issue back to the story issue (only when context.story.jira_issue_key exists). Must match a link type in your Jira instance.",
   "writeback_key": "jira",
-  "_writeback_comment": "Key under test-cases[].external_ids where the created Jira issue key is recorded (e.g. external_ids.jira = 'SK-50'). Drives idempotency: a case already carrying this key is skipped on re-run.",
+  "_writeback_comment": "Key under test-cases[].external_ids where the created Jira issue key is recorded (e.g. external_ids.jira = 'SK-50'). Must be \"jira\": the adapter refuses another tool's name, which would let two adapters overwrite each other. Drives idempotency: a case already carrying this key is skipped on re-run.",
   "sync_only_status": ["approved"]
 }

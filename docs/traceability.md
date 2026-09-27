@@ -200,7 +200,9 @@ the new Jira issue back to the original Jira story (when one exists)
 is created via Jira's issue-link types.
 
 Re-running the script is safe — drafts with a non-empty `Jira Issue
-Key` are skipped. That's the de-dup contract.
+Key` are skipped. That's the de-dup contract. An interrupted promotion
+is finished with `--reconcile`, never by filing again
+(`docs/sync-recovery.md`).
 
 ---
 

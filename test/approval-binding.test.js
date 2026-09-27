@@ -81,13 +81,22 @@ test('an approved run with unchanged inputs has every approval current', () => {
   }
 });
 
-test('adding a Jira id, reformatting, or CRLF line endings changes nothing', () => {
+test('adding a Jira id or sync record, reformatting, or CRLF line endings changes nothing', () => {
   const dir = repo();
   try {
     writeCompletedRun(dir);
     editTestCase(dir, (c) => {
       c.external_ids = { jira: 'SK-99' };
       c.testlink_id = '4242';
+      c.sync_state = {
+        jira: {
+          operation_key: 'jira:SK:OLD-1:TC-001:create_case',
+          marker: 'qaizen-op-0123456789ab',
+          state: 'created',
+          remote_id: 'SK-99',
+          intent_at: '2026-09-27T00:00:00Z',
+        },
+      };
     });
     const p = join(dir, 'test-cases', 'OLD-1.json');
     writeFileSync(

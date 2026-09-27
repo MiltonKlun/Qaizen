@@ -10,9 +10,11 @@ description: |
   becomes enforceable in code.
 phase_introduced: 1
 phase_active: 1+
-version: 1.3.0
+version: 1.3.1
 changed_in_run: null
 changelog: |
+  - 1.3.1: PATCH (task group 5.1). sync_state joins the adapter-owned
+    fields the Test Designer leaves unset. No output change.
   - 1.3.0: Added the lite output profile (IMPROVEMENT-PLAN Phase 4, lite
     track): on context.track == "lite", trim narrative prose but keep every
     required field — automation_decision + reason, schema validation, and
@@ -199,10 +201,11 @@ before Gate 2 and they agree on scope.
      `expected_results`.
    - Set `status: "draft"`. The human flips it to `approved` or
      `rejected` at Gate 2.
-   - Leave `qmetry_fields`, `testlink_id`, `external_ids`, and
-     `api_metadata` unset / empty in Phase 1. `external_ids` (Phase 2.6)
-     and `testlink_id` are written back later by the test-management
-     adapters (TestLink / Jira), not by the Test Designer.
+   - Leave `qmetry_fields`, `testlink_id`, `external_ids`, `sync_state`,
+     and `api_metadata` unset / empty in Phase 1. `external_ids`,
+     `testlink_id`, and `sync_state` are written back later by the
+     test-management adapters (TestLink / Jira), not by the Test
+     Designer (`docs/sync-recovery.md`).
    - **(Phase 2.6, shift-left, optional)** If this is a _refinement_ run
      (design before code exists), set `design_stage: "pre_development"`.
      Otherwise leave it unset (treated as `ready_for_qa`). See
