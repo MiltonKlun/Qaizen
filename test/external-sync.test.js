@@ -33,7 +33,8 @@ import {
   httpTimeoutMs,
   operationKey,
   operationMarker,
-  planAction,
+  describeSkip,
+  planOperation,
   sanitizeDiagnostic,
 } from '../scripts/lib/integration-io.js';
 
@@ -231,30 +232,63 @@ test('diagnostics never carry credentials and stay short', () => {
   assert.ok(out.length <= 303);
 });
 
-test('planning: pending blocks, a known id skips, a failed link is retried, anything else creates', () => {
+test('planning: pending reconciles, a trusted id skips, a bad id blocks, a failed link is retried, anything else creates', () => {
   const rec = (state, extra = {}) => ({ state, ...extra });
-  assert.equal(planAction(rec('pending'), null), 'reconcile');
-  assert.equal(planAction(rec('pending'), 'SK-1'), 'reconcile');
-  assert.equal(planAction(undefined, 'SK-1'), 'skip');
+  const isValidId = (id) => /^[A-Z]+-[0-9]+$/.test(id);
+  const plan = (record, remoteIds, linkWanted = false) =>
+    planOperation({ record, remoteIds, isValidId, linkWanted });
+
+  assert.equal(plan(rec('pending'), []).action, 'reconcile');
+  assert.equal(plan(rec('pending'), ['SK-1']).action, 'reconcile');
+  assert.deepEqual(plan(undefined, ['SK-1']), { action: 'skip', id: 'SK-1' });
+  assert.equal(plan(undefined, ['SK-1', 'SK-1']).action, 'skip');
+  const linked = rec('created', { remote_id: 'SK-1', link_state: 'failed' });
+  assert.equal(plan(linked, ['SK-1'], true).action, 'link');
+  assert.equal(plan(linked, ['SK-1']).action, 'skip');
   assert.equal(
-    planAction(rec('created', { link_state: 'failed' }), 'SK-1', {
-      linkWanted: true,
-    }),
-    'link'
-  );
-  assert.equal(
-    planAction(rec('created', { link_state: 'failed' }), 'SK-1'),
+    plan(
+      rec('created', { remote_id: 'SK-1', link_state: 'linked' }),
+      ['SK-1'],
+      true
+    ).action,
     'skip'
   );
-  assert.equal(
-    planAction(rec('created', { link_state: 'linked' }), 'SK-1', {
-      linkWanted: true,
-    }),
-    'skip'
+  // Never create an item whose recorded id cannot be trusted.
+  assert.match(plan(undefined, ['not-a-key']).reason, /not a valid id/);
+  assert.match(
+    plan(undefined, ['SK-1', 'SK-2']).reason,
+    /conflicting remote ids SK-1 and SK-2/
   );
-  assert.equal(planAction(rec('failed'), null), 'create');
-  assert.equal(planAction(rec('not_found'), null), 'create');
-  assert.equal(planAction(undefined, null), 'create');
+  assert.match(
+    plan(rec('created', { remote_id: 'SK-9' }), ['SK-1']).reason,
+    /record says SK-9/
+  );
+  assert.match(
+    plan(rec('created', { remote_id: 'SK-9' }), []).reason,
+    /carries no id/
+  );
+  for (const bad of [['x'], ['SK-1', 'SK-2']]) {
+    assert.equal(plan(undefined, bad).action, 'blocked');
+  }
+  // Empty strings are how unsynced cases leave the field.
+  assert.equal(plan(undefined, ['', undefined, null]).action, 'create');
+  assert.equal(plan(rec('failed'), []).action, 'create');
+  assert.equal(plan(rec('not_found'), []).action, 'create');
+});
+
+test('a skipped item says whether it changed locally, and that it is never updated', () => {
+  assert.equal(
+    describeSkip(undefined, 'a'.repeat(64), 'Jira'),
+    'already there'
+  );
+  assert.equal(
+    describeSkip({ source_digest: 'a'.repeat(64) }, 'a'.repeat(64), 'Jira'),
+    'already there'
+  );
+  assert.match(
+    describeSkip({ source_digest: 'a'.repeat(64) }, 'b'.repeat(64), 'Jira'),
+    /changed locally since it was pushed; Jira is NOT updated/
+  );
 });
 
 test('operation identity is stable and the timeout is bounded', () => {
@@ -314,7 +348,7 @@ test('dry-run sends nothing and changes nothing, even with a pending operation',
       );
       assert.equal(r.code, 0, r.out);
       assert.match(r.out, /DRY RUN/);
-      assert.match(r.out, /Outcome unknown/);
+      assert.match(r.out, /TC-001 .* RECONCILE FIRST/);
     });
     assert.equal(jira.state.requests.length, 0);
     assert.equal(readFileSync(casesFile(dir), 'utf8'), before);
@@ -894,7 +928,10 @@ test('TestLink: a failed create keeps earlier ids; the rerun creates only what i
         testlinkEnv(url)
       );
       assert.equal(r2.code, 0, r2.out);
-      assert.match(r2.out, /TC-001 .* SKIP \(already in TestLink as 201\)/);
+      assert.match(
+        r2.out,
+        /TC-001 .* SKIP \(in TestLink as 201; already there\)/
+      );
     });
     assert.equal(tlCreates(tl.state), 4, '1 ok + 1 fault + 2 on the rerun');
     assert.equal(tl.state.cases.length, 3, 'exactly one TestLink case per TC');
@@ -1131,4 +1168,253 @@ test('bugs: a draft from another story or outside the approved scope is refused 
     }
   });
   assert.equal(jira.state.requests.length, 0);
+});
+
+// ------------------------------------------------------------ 5.2: idempotency
+
+/** Re-approve the current scope, as a human does after changing a case. */
+function reapproveScope(dir) {
+  const p = join(dir, 'context.json');
+  const ctx = JSON.parse(readFileSync(p, 'utf8'));
+  writeFileSync(
+    p,
+    JSON.stringify(bindGate(ctx, 'test_scope_reviewed', dir), null, 2)
+  );
+}
+
+const planLines = (out) =>
+  out.split(/\r?\n/).filter((l) => l.startsWith('    - '));
+
+test('TestLink: the review fixture — already-linked cases make zero create calls and keep their ids', async () => {
+  const dir = workspace();
+  try {
+    const doc = readCases(dir);
+    doc.test_cases.forEach((tc, i) => (tc.testlink_id = String(101 + i)));
+    writeCases(dir, doc);
+    const before = readFileSync(casesFile(dir), 'utf8');
+    const tl = fakeTestLink();
+    await withServer(tl.handler, async (url) => {
+      const r = await runCli(
+        dir,
+        'sync-to-testlink.js',
+        [STORY, '--apply-testlink'],
+        testlinkEnv(url)
+      );
+      assert.equal(r.code, 0, r.out);
+      assert.equal(
+        (r.out.match(/SKIP \(in TestLink as 10[123]; already there\)/g) || [])
+          .length,
+        3
+      );
+      assert.match(r.out, /Existing TestLink cases are never updated/);
+    });
+    assert.equal(tlCreates(tl.state), 0);
+    assert.deepEqual(
+      tl.state.calls,
+      [],
+      'nothing to create: TestLink is not even contacted'
+    );
+    assert.equal(
+      readFileSync(casesFile(dir), 'utf8'),
+      before,
+      'ids kept, file untouched'
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('repeating a successful sync creates nothing and changes nothing (Jira and TestLink)', async () => {
+  for (const [script, flag, env, fake, count] of [
+    [
+      'create-jira-testcases.js',
+      '--apply',
+      jiraEnv,
+      fakeJira,
+      (f) => creates(f.state) + links(f.state),
+    ],
+    [
+      'sync-to-testlink.js',
+      '--apply-testlink',
+      testlinkEnv,
+      fakeTestLink,
+      (f) => f.state.calls.length,
+    ],
+  ]) {
+    const dir = workspace();
+    try {
+      const server = fake();
+      await withServer(server.handler, async (url) => {
+        const first = await runCli(dir, script, [STORY, flag], env(url));
+        assert.equal(first.code, 0, first.out);
+        const after = readFileSync(casesFile(dir), 'utf8');
+        const requests = count(server);
+        const second = await runCli(dir, script, [STORY, flag], env(url));
+        assert.equal(second.code, 0, second.out);
+        assert.equal(
+          count(server),
+          requests,
+          `${script}: no write on the repeat`
+        );
+        assert.equal(
+          readFileSync(casesFile(dir), 'utf8'),
+          after,
+          `${script}: file unchanged`
+        );
+        assert.equal((second.out.match(/SKIP \(in /g) || []).length, 3);
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+});
+
+test('a case changed after it was pushed is skipped, with a statement that remote cases are never updated', async () => {
+  for (const [script, flag, env, fake, tool, created] of [
+    [
+      'create-jira-testcases.js',
+      '--apply',
+      jiraEnv,
+      fakeJira,
+      'Jira',
+      (f) => creates(f.state),
+    ],
+    [
+      'sync-to-testlink.js',
+      '--apply-testlink',
+      testlinkEnv,
+      fakeTestLink,
+      'TestLink',
+      (f) => tlCreates(f.state),
+    ],
+  ]) {
+    const dir = workspace();
+    try {
+      const server = fake();
+      await withServer(server.handler, async (url) => {
+        assert.equal(
+          (await runCli(dir, script, [STORY, flag], env(url))).code,
+          0
+        );
+        const doc = readCases(dir);
+        doc.test_cases[0].title = 'Valid user lands on the inventory page';
+        writeCases(dir, doc);
+        reapproveScope(dir);
+        const made = created(server);
+
+        const dry = await runCli(dir, script, [STORY], env(url));
+        const apply = await runCli(dir, script, [STORY, flag], env(url));
+        for (const r of [dry, apply]) {
+          assert.equal(r.code, 0, r.out);
+          assert.match(
+            r.out,
+            new RegExp(
+              `TC-001 .* SKIP \\(in ${tool} as \\S+; changed locally since it was pushed; ${tool} is NOT updated`
+            )
+          );
+          assert.match(
+            r.out,
+            /TC-002 .* SKIP \(in \S+ as \S+; already there\)/
+          );
+        }
+        assert.equal(created(server), made, `${tool}: nothing re-created`);
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+});
+
+test('a malformed or conflicting remote id is blocked: never created, never treated as linked', async () => {
+  const dir = workspace();
+  try {
+    const doc = readCases(dir);
+    doc.test_cases[0].testlink_id = 'TL-abc';
+    doc.test_cases[1].testlink_id = '101';
+    doc.test_cases[1].external_ids = { testlink: '102' };
+    writeCases(dir, doc);
+    const tl = fakeTestLink();
+    await withServer(tl.handler, async (url) => {
+      const r = await runCli(
+        dir,
+        'sync-to-testlink.js',
+        [STORY, '--apply-testlink'],
+        testlinkEnv(url)
+      );
+      assert.equal(r.code, 1, r.out);
+      assert.match(
+        r.out,
+        /TC-001 .* BLOCKED \(recorded remote id "TL-abc" is not a valid id/
+      );
+      assert.match(
+        r.out,
+        /TC-002 .* BLOCKED \(conflicting remote ids 101 and 102/
+      );
+      assert.match(r.out, /2 case\(s\) are BLOCKED and were not touched/);
+    });
+    assert.equal(tlCreates(tl.state), 1, 'only the clean case was created');
+    const after = readCases(dir).test_cases;
+    assert.equal(after[0].testlink_id, 'TL-abc');
+    assert.equal(after[0].sync_state, undefined);
+    assert.deepEqual(
+      [after[1].testlink_id, after[1].external_ids.testlink],
+      ['101', '102']
+    );
+    assert.equal(after[2].testlink_id, '201');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('dry-run and apply select identical operations from the same inputs', async () => {
+  const setups = [
+    [
+      'sync-to-testlink.js',
+      '--apply-testlink',
+      testlinkEnv,
+      fakeTestLink,
+      (doc) => {
+        doc.test_cases[0].testlink_id = '150';
+        doc.test_cases[1].testlink_id = 'bogus';
+      },
+    ],
+    [
+      'create-jira-testcases.js',
+      '--apply',
+      jiraEnv,
+      fakeJira,
+      (doc) => {
+        doc.test_cases[0].external_ids = { jira: 'SK-150' };
+        doc.test_cases[1].external_ids = { jira: 'not a key' };
+      },
+    ],
+  ];
+  for (const [script, flag, env, fake, arrange] of setups) {
+    const dir = workspace({ storyKey: null });
+    try {
+      const doc = readCases(dir);
+      arrange(doc);
+      writeCases(dir, doc);
+      const server = fake();
+      await withServer(server.handler, async (url) => {
+        const dry = await runCli(dir, script, [STORY], env(url));
+        const apply = await runCli(dir, script, [STORY, flag], env(url));
+        assert.equal(dry.code, 0, dry.out);
+        assert.equal(apply.code, 1, apply.out);
+        const plan = planLines(dry.out);
+        assert.equal(plan.length, 3);
+        assert.deepEqual(
+          planLines(apply.out).slice(0, 3),
+          plan,
+          `${script}: same plan`
+        );
+        assert.deepEqual(
+          plan.map((l) => l.match(/-> (\w+)/)[1]),
+          ['SKIP', 'BLOCKED', 'CREATE']
+        );
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
 });

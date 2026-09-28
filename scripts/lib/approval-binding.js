@@ -114,14 +114,17 @@ function fileDigest(root, rel, { json = false, strip = null } = {}) {
 }
 
 /** The semantic content of a test-cases file: writeback ids removed. */
+/** A test case without the linkage fields adapters write back. */
+export function semanticCase(tc) {
+  const copy = { ...tc };
+  for (const k of TC_WRITEBACK_FIELDS) delete copy[k];
+  return copy;
+}
+
 function semanticTestCases(doc) {
   return {
     ...doc,
-    test_cases: (doc.test_cases ?? []).map((tc) => {
-      const copy = { ...tc };
-      for (const k of TC_WRITEBACK_FIELDS) delete copy[k];
-      return copy;
-    }),
+    test_cases: (doc.test_cases ?? []).map(semanticCase),
   };
 }
 

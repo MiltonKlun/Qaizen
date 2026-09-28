@@ -38,6 +38,7 @@ is defined once, in `schemas/test-cases.schema.json#/definitions/syncRecord`.
 | `operation_key`                | Stable identity: `target:project:story:local-id:kind`, e.g. `jira:SK:SK-10:TC-001:create_case`.      |
 | `marker`                       | `qaizen-op-` plus 12 hex digits derived from the key. Sent with the create so it can be found again. |
 | `payload_digest`               | SHA-256 of what was sent.                                                                            |
+| `source_digest`                | SHA-256 of the local item when it was pushed; a later difference is reported as a local change.      |
 | `state`                        | `pending`, `created`, `failed`, or `not_found` (below).                                              |
 | `remote_id`                    | The Jira key or TestLink id, once known.                                                             |
 | `link_state`                   | Story link for Jira items: `pending`, `linked`, `failed`, or `not_applicable`.                       |
@@ -61,6 +62,29 @@ An outcome counts as **unknown** when the request timed out, the connection
 dropped after sending, the tool answered with a 5xx, or it answered success
 without a usable id. In all of these the item may exist, so it stays
 `pending`.
+
+### How each item is planned
+
+Every run, dry or real, prints one line per item with the operation it
+selects. A dry run and an apply on the same files select the same operations.
+
+| Plan              | When                                                                                       | What `--apply` does                               |
+| ----------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------- |
+| `CREATE`          | No remote id is recorded.                                                                  | Creates it.                                       |
+| `SKIP`            | A valid remote id is recorded, and every place that records it agrees.                     | Nothing. Existing remote items are never updated. |
+| `LINK ONLY`       | Created, but its story link failed or is pending (Jira).                                   | Retries the link only.                            |
+| `RECONCILE FIRST` | An earlier create has an unknown outcome.                                                  | Refuses every create (section 4).                 |
+| `BLOCKED`         | A recorded id is malformed, or `testlink_id`, `external_ids` and the sync record disagree. | Leaves the item untouched and exits 1.            |
+
+The scripts never edit an item that already exists remotely. When a linked
+case has changed locally since it was pushed, its `SKIP` line says so
+(`changed locally since it was pushed; ... is NOT updated`). Updating the
+remote copy is a manual decision in the tool.
+
+A `BLOCKED` item is never created, because it may already exist, and never
+treated as linked, because its id cannot be trusted. Correct the id in the
+file by hand: keep the right one, or remove a wrong one after checking the
+tool.
 
 ## 4. Finishing an interrupted sync
 

@@ -46,6 +46,7 @@ import {
   writeJsonAtomic,
   formatErrors,
 } from './lib/artifact-io.js';
+import { semanticCase } from './lib/approval-binding.js';
 import {
   JIRA_KEY,
   SYNC_STATE,
@@ -60,7 +61,9 @@ import {
   parseLimit,
   parseResolutions,
   payloadDigest,
-  planAction,
+  describeSkip,
+  planOperation,
+  sourceDigest,
   selectTestManagementTarget,
 } from './lib/integration-io.js';
 
@@ -170,7 +173,10 @@ async function main() {
   const remoteOf = (tc) => tc.external_ids?.[writebackKey];
   const plan = approved.map((tc) => ({
     tc,
-    action: planAction(recordOf(tc), remoteOf(tc), {
+    ...planOperation({
+      record: recordOf(tc),
+      remoteIds: [remoteOf(tc)],
+      isValidId: (id) => JIRA_KEY.test(id),
       linkWanted: Boolean(storyKey),
     }),
   }));
@@ -188,42 +194,33 @@ async function main() {
     `  Story link: ${storyKey ? `${storyKey} (${linkType})` : '(no jira_issue_key — cases will not be linked)'}`
   );
   console.log(`  Approved cases: ${approved.length}`);
-  console.log(
-    `  Already synced (skip, have external_ids.${writebackKey}): ${byAction('skip').length}`
-  );
-  for (const p of byAction('skip')) {
-    console.log(`    - ${p.tc.test_case_id} -> ${remoteOf(p.tc)}`);
-  }
-  if (byAction('link').length) {
-    console.log(
-      `  Link to retry (created, not yet linked): ${byAction('link').length}`
-    );
-    for (const p of byAction('link')) {
-      console.log(
-        `    - ${p.tc.test_case_id} (${remoteOf(p.tc)}) -> ${storyKey}`
-      );
+  for (const p of plan) {
+    const { tc } = p;
+    let label;
+    if (p.action === 'create') {
+      const pr = priorityMap
+        ? `, priority ${priorityMap[tc.priority] || '(default)'}`
+        : '';
+      label = limited.includes(p)
+        ? `CREATE${pr}`
+        : `CREATE later (beyond --limit ${LIMIT})`;
+    } else if (p.action === 'skip') {
+      label = `SKIP (in Jira as ${p.id}; ${describeSkip(recordOf(tc), sourceDigest(semanticCase(tc)), 'Jira')})`;
+    } else if (p.action === 'link') {
+      label = `LINK ONLY (${p.id} exists; retry its link to ${storyKey})`;
+    } else if (p.action === 'reconcile') {
+      const r = recordOf(tc);
+      label = `RECONCILE FIRST (${p.reason}; marker ${r.marker}${r.marker_searchable === false ? ', not searchable' : ''})`;
+    } else {
+      label = `BLOCKED (${p.reason})`;
     }
-  }
-  if (byAction('reconcile').length) {
-    console.log(
-      `  Outcome unknown (pending; must be reconciled before any create): ${byAction('reconcile').length}`
-    );
-    for (const p of byAction('reconcile')) {
-      const r = recordOf(p.tc);
-      console.log(
-        `    - ${p.tc.test_case_id} (marker ${r.marker}${r.marker_searchable === false ? ', not searchable' : ''}, since ${r.intent_at})`
-      );
-    }
+    console.log(`    - ${tc.test_case_id} "${tc.title}" -> ${label}`);
   }
   console.log(
-    `  To create: ${limited.length}${toCreate.length > limited.length ? ` (of ${toCreate.length}; --limit ${LIMIT})` : ''}`
+    `  Create ${limited.length} · skip ${byAction('skip').length} · link ${byAction('link').length} · ` +
+      `reconcile ${byAction('reconcile').length} · blocked ${byAction('blocked').length}. ` +
+      `Existing Jira issues are never updated by this adapter.`
   );
-  for (const { tc } of limited) {
-    const pr = priorityMap
-      ? ` -> priority ${priorityMap[tc.priority] || '(default)'}`
-      : '';
-    console.log(`    - ${tc.test_case_id} "${tc.title}"${pr}`);
-  }
 
   if (!APPLY && !RECONCILE && resolutions.length === 0) {
     console.log(
@@ -301,6 +298,12 @@ async function main() {
         `${linkFailures} story link(s) failed; the issues exist and their keys are saved. Re-run --apply to retry only the links.`
       );
     }
+    if (byAction('blocked').length) {
+      console.error(
+        `${byAction('blocked').length} case(s) are BLOCKED and were not touched; correct them in ${casesPath} (see the plan above).`
+      );
+      return 1;
+    }
     return 0;
 
     // ------------------------------------------------------------------
@@ -331,6 +334,7 @@ async function main() {
         marker,
         marker_searchable: true,
         payload_digest: payloadDigest(fields),
+        source_digest: sourceDigest(semanticCase(tc)),
         state: SYNC_STATE.PENDING,
         intent_at: now(),
         updated_at: now(),

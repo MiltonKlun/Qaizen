@@ -79,22 +79,92 @@ export function payloadDigest(payload) {
 }
 
 /**
- * The next action for one local item, from its saved record and whether it
- * already carries a remote id. Pure: dry-run and apply call the same function
- * on the same validated inputs, so they plan identical operations.
- *
- * @returns {'create'|'reconcile'|'link'|'skip'}
+ * Digest of a local item's content (a test case without its sync linkage),
+ * recorded when it is pushed. A later mismatch means the local item changed
+ * after the push; adapters report that and never update the remote copy.
  */
-export function planAction(record, remoteId, { linkWanted = false } = {}) {
-  if (record?.state === SYNC_STATE.PENDING) return 'reconcile';
-  if (remoteId) {
-    const retryLink =
-      linkWanted &&
-      record?.state === SYNC_STATE.CREATED &&
-      (record.link_state === 'pending' || record.link_state === 'failed');
-    return retryLink ? 'link' : 'skip';
+export function sourceDigest(item) {
+  return sha256(canonicalJson(item));
+}
+
+/**
+ * The one planning rule every adapter uses, so a dry run and an apply on the
+ * same validated inputs select exactly the same operation for each item.
+ *
+ * `remoteIds` lists every place the item records its remote id (for TestLink:
+ * `testlink_id` and `external_ids.testlink`). An id is trusted only when it is
+ * well formed, agrees with the other places, and agrees with the sync record.
+ * Anything else is BLOCKED: never created (it may exist remotely) and never
+ * treated as linked, until a human corrects the file.
+ *
+ * @param {object} args
+ * @param {object} [args.record] the item's sync record for this target
+ * @param {Array<string|undefined|null>} args.remoteIds recorded remote ids
+ * @param {(id: string) => boolean} args.isValidId the target's id format
+ * @param {boolean} [args.linkWanted] a story link applies to this target
+ * @returns {{action: 'create'|'reconcile'|'link'|'skip'|'blocked', id?: string, reason?: string}}
+ */
+export function planOperation({
+  record,
+  remoteIds,
+  isValidId,
+  linkWanted = false,
+}) {
+  if (record?.state === SYNC_STATE.PENDING) {
+    return {
+      action: 'reconcile',
+      reason: `an earlier create has an unknown outcome (since ${record.intent_at})`,
+    };
   }
-  return 'create';
+  // An empty string is how a not-yet-synced case leaves the field.
+  const present = remoteIds.filter(
+    (v) => v !== undefined && v !== null && v !== ''
+  );
+  const malformed = present.filter(
+    (v) => typeof v !== 'string' || !isValidId(v)
+  );
+  if (malformed.length) {
+    return {
+      action: 'blocked',
+      reason: `recorded remote id "${malformed[0]}" is not a valid id; correct or remove it by hand`,
+    };
+  }
+  const ids = [...new Set(present)];
+  if (ids.length > 1) {
+    return {
+      action: 'blocked',
+      reason: `conflicting remote ids ${ids.join(' and ')}; keep the right one by hand`,
+    };
+  }
+  const recorded =
+    record?.state === SYNC_STATE.CREATED ? record.remote_id : null;
+  if (recorded && recorded !== ids[0]) {
+    return {
+      action: 'blocked',
+      reason: ids.length
+        ? `the sync record says ${recorded} but the case says ${ids[0]}; correct it by hand`
+        : `the sync record says ${recorded} but the case carries no id; restore it by hand`,
+    };
+  }
+  if (ids.length === 0) return { action: 'create' };
+  const retryLink =
+    linkWanted &&
+    record?.state === SYNC_STATE.CREATED &&
+    (record.link_state === 'pending' || record.link_state === 'failed');
+  return { action: retryLink ? 'link' : 'skip', id: ids[0] };
+}
+
+/**
+ * Plan wording for an item that is already in the remote tool. Adapters
+ * never update an existing remote item; this says so, and says when the local
+ * copy has changed since it was pushed.
+ */
+export function describeSkip(record, currentDigest, tool) {
+  const changed =
+    record?.source_digest && record.source_digest !== currentDigest;
+  return changed
+    ? `changed locally since it was pushed; ${tool} is NOT updated (this adapter never edits existing remote items)`
+    : 'already there';
 }
 
 // ------------------------------------------------------------ lock

@@ -63,7 +63,7 @@ import {
   operationMarker,
   parseResolutions,
   payloadDigest,
-  planAction,
+  planOperation,
 } from './lib/integration-io.js';
 
 const TARGET = 'jira';
@@ -256,14 +256,8 @@ async function main() {
       return 1;
     }
     const key = d.sections['Jira Issue Key'].trim();
+    // A malformed key is planned as BLOCKED below, like any recorded id.
     d.existingKey = isPlaceholder(key) ? null : key;
-    if (d.existingKey && !JIRA_KEY.test(d.existingKey)) {
-      console.error(
-        `${d.path}: "## Jira Issue Key" holds "${d.existingKey}", which is not a Jira key. ` +
-          `Fix it (or restore the placeholder) before promoting.`
-      );
-      return 1;
-    }
   }
 
   const storyKey = context.story?.jira_issue_key || null;
@@ -314,7 +308,10 @@ async function main() {
   const recordOf = (d) => d.syncState[TARGET];
   const plan = drafts.map((d) => ({
     d,
-    action: planAction(recordOf(d), d.existingKey, {
+    ...planOperation({
+      record: recordOf(d),
+      remoteIds: [d.existingKey],
+      isValidId: (id) => JIRA_KEY.test(id),
       linkWanted: Boolean(storyKey),
     }),
   }));
@@ -348,6 +345,14 @@ async function main() {
       console.log(
         `    - ${d.bugId} (marker ${recordOf(d).marker}, since ${recordOf(d).intent_at})`
       );
+    }
+  }
+  if (byAction('blocked').length) {
+    console.log(
+      `  Blocked (never filed or treated as filed until corrected): ${byAction('blocked').length}`
+    );
+    for (const { d, reason } of byAction('blocked')) {
+      console.log(`    - ${d.bugId} (${reason})`);
     }
   }
   const toCreate = byAction('create').map(({ d }) => {
@@ -455,6 +460,12 @@ async function main() {
       console.warn(
         `${linkFailures} story link(s) failed; the bugs exist and their keys are saved. Re-run --apply to retry only the links.`
       );
+    }
+    if (byAction('blocked').length) {
+      console.error(
+        `${byAction('blocked').length} draft(s) are BLOCKED and were not touched; correct them (see the plan above).`
+      );
+      return 1;
     }
     return 0;
 
