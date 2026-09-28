@@ -23,7 +23,6 @@ tools:
   - testlink-mcp:list_projects
   - testlink-mcp:create_test_suite
   - testlink-mcp:create_test_case
-  - testlink-mcp:update_test_case
   - testlink-mcp:list_test_cases_in_suite
   - testlink-mcp:create_test_plan
   - testlink-mcp:add_test_case_to_test_plan
@@ -101,7 +100,7 @@ Create (or reuse) a test suite named after the story — e.g.
 keeps TestLink browsable and mirrors our per-story JSON. Use
 `testlink-mcp:create_test_suite`. Record the suite id.
 
-### Step 5: Sync each approved case (diff: skip/update/create)
+### Step 5: Sync each approved case (skip / create / blocked)
 
 For each approved case, map our fields → TestLink fields via
 `config/testlink-field-map.json`:
@@ -116,19 +115,24 @@ For each approved case, map our fields → TestLink fields via
 | `priority`                                 | `importance` (via the map)                                            |
 | `automation_decision`                      | `execution_type` (automate\_\* → 2 automated; manual/skip → 1 manual) |
 
-Diff logic before writing (idempotent — never duplicate):
+Plan before writing (idempotent — never duplicate, never edit):
 
-- **MATCHING** (the case exists by `testlink_id`/name and all mapped
-  fields equal) → skip.
-- **DIFFERS** (exists but fields changed) → `update_test_case` for the
-  differing fields only.
-- **NEW** (no `testlink_id`, name not found) → `create_test_case`.
+- **LINKED** (a valid `testlink_id` that agrees with
+  `external_ids.testlink` and the sync record) → skip. Existing
+  TestLink cases are **never updated** by this adapter. If the local
+  case changed since it was pushed, say so and still skip; changing the
+  TestLink copy is a manual decision.
+- **BLOCKED** (a malformed or conflicting recorded id) → neither
+  create nor skip; report it for a human to correct.
+- **PENDING** (an earlier create with an unknown outcome) → reconcile
+  first (`docs/sync-recovery.md`).
+- **NEW** (no recorded id) → `create_test_case`.
 
 Use `testlink-mcp:list_test_cases_in_suite` to detect existing cases.
 
 ### Step 6: Write back the linkage
 
-For every created/updated case, write TestLink's id into our
+For every created case, write TestLink's id into our
 `test-cases/[story-id].json` as `testlink_id` on that case. Re-validate
 the JSON against the schema after writing (the schema already allows
 `testlink_id`). This preserves the `TC-XXX → testlink_id` chain in our
@@ -192,15 +196,16 @@ flag are defined here for completeness.
 ## Rules
 
 - **Sync only `approved` cases.** Never push `draft`/`rejected`/`skip`.
-- **Source of truth is our JSON.** If TestLink and our JSON disagree,
-  our JSON wins; re-push.
+- **Source of truth is our JSON.** TestLink is a downstream copy. This
+  adapter creates missing cases and never edits existing ones; a case
+  changed after its push is reported, not re-pushed.
 - **No hardcoded mapping.** Field + status maps live in
   `config/testlink-*-map.json`, human-editable.
 - **Dry-run by default; explicit flag to write.** Both `pushTestCases`
   (`--apply-testlink`) and `pushExecutionResults`
   (`--apply-testlink-execution`).
-- **Idempotent.** Re-running never duplicates; it skips/updates by
-  `testlink_id`.
+- **Idempotent.** Re-running never duplicates; it skips cases whose
+  `testlink_id` is valid and consistent, and blocks the rest.
 - **Credentials from env.** `TESTLINK_*` from `.env`, never committed.
 - **Stay in folder ownership.** The only file this adapter writes in our
   tree is the `testlink_id` write-back into `test-cases/[story-id].json`

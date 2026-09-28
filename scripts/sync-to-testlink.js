@@ -48,6 +48,7 @@ import {
   writeJsonAtomic,
   formatErrors,
 } from './lib/artifact-io.js';
+import { semanticCase } from './lib/approval-binding.js';
 import {
   SYNC_STATE,
   acquireLock,
@@ -60,7 +61,9 @@ import {
   operationMarker,
   parseResolutions,
   payloadDigest,
-  planAction,
+  describeSkip,
+  planOperation,
+  sourceDigest,
   sanitizeDiagnostic,
   selectTestManagementTarget,
 } from './lib/integration-io.js';
@@ -243,10 +246,13 @@ async function main() {
   const importance = map.priority_to_importance || {};
   const execType = map.automation_decision_to_execution_type || {};
   const recordOf = (tc) => tc.sync_state?.[TARGET];
-  const remoteOf = (tc) => tc.testlink_id || tc.external_ids?.[TARGET] || null;
   const plan = approved.map((tc) => ({
     tc,
-    action: planAction(recordOf(tc), remoteOf(tc)),
+    ...planOperation({
+      record: recordOf(tc),
+      remoteIds: [tc.testlink_id, tc.external_ids?.[TARGET]],
+      isValidId: (id) => TESTLINK_ID.test(id),
+    }),
   }));
   const byAction = (a) => plan.filter((p) => p.action === a);
   const suiteName = `${storyId} — ${context.story?.title ?? 'story'}`;
@@ -259,16 +265,21 @@ async function main() {
   console.log(`  Suite: ${suiteName}`);
   console.log(`  Approved cases: ${approved.length}`);
   console.log(`  Skipped (not approved): ${notApproved}`);
-  for (const { tc, action } of plan) {
+  for (const p of plan) {
+    const { tc } = p;
     const label = {
-      create: 'CREATE',
-      skip: `SKIP (already in TestLink as ${remoteOf(tc)})`,
-      reconcile: `RECONCILE FIRST (earlier create has an unknown outcome, since ${recordOf(tc)?.intent_at})`,
-    }[action];
-    console.log(
-      `    - ${tc.test_case_id} "${tc.title}" -> ${label}, importance=${importance[tc.priority] ?? 2}, exec_type=${execType[tc.automation_decision] ?? 1}`
-    );
+      create: `CREATE, importance=${importance[tc.priority] ?? 2}, exec_type=${execType[tc.automation_decision] ?? 1}`,
+      skip: `SKIP (in TestLink as ${p.id}; ${describeSkip(recordOf(tc), sourceDigest(semanticCase(tc)), 'TestLink')})`,
+      reconcile: `RECONCILE FIRST (${p.reason})`,
+      blocked: `BLOCKED (${p.reason})`,
+    }[p.action];
+    console.log(`    - ${tc.test_case_id} "${tc.title}" -> ${label}`);
   }
+  console.log(
+    `  Create ${byAction('create').length} · skip ${byAction('skip').length} · ` +
+      `reconcile ${byAction('reconcile').length} · blocked ${byAction('blocked').length}. ` +
+      `Existing TestLink cases are never updated by this adapter.`
+  );
 
   if (!APPLY && !RECONCILE && resolutions.length === 0) {
     console.log(
@@ -343,7 +354,7 @@ async function main() {
     const toCreate = byAction('create');
     if (!toCreate.length) {
       console.log('\nNothing to create.');
-      return 0;
+      return blockedExit();
     }
 
     const project = await resolveProject();
@@ -366,7 +377,17 @@ async function main() {
         'use tl.addTestCaseToTestPlan / tl.getTestCasesForTestPlan and can be ' +
         'run as a follow-up; the create + write-back path is complete.'
     );
-    return 0;
+    return blockedExit();
+
+    // Blocked cases are never touched; they fail the run so a human looks.
+    function blockedExit() {
+      const n = byAction('blocked').length;
+      if (!n) return 0;
+      console.error(
+        `${n} case(s) are BLOCKED and were not touched; correct them in ${casesPath} (see the plan above).`
+      );
+      return 1;
+    }
 
     // ------------------------------------------------------------------
     async function resolveProject() {
@@ -475,6 +496,7 @@ async function main() {
         marker,
         marker_searchable: true,
         payload_digest: payloadDigest(struct),
+        source_digest: sourceDigest(semanticCase(tc)),
         state: SYNC_STATE.PENDING,
         intent_at: now(),
         updated_at: now(),

@@ -215,6 +215,11 @@
           "pattern": "^[0-9a-f]{64}$",
           "description": "SHA-256 of the canonical payload last sent (or about to be sent)."
         },
+        "source_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 of the local item's content (without its sync linkage) when it was pushed. A later difference means the local item changed after the push; adapters report it and never update the remote copy (task group 5.2)."
+        },
         "state": {
           "enum": ["pending", "created", "failed", "not_found"],
           "description": "pending: intent saved, outcome not yet known. created: remote id known. failed: the remote definitely rejected the create (nothing exists). not_found: a pending operation was reconciled and nothing exists remotely."

@@ -10,9 +10,15 @@ description: |
   to another tool's adapter (Open/Closed Principle).
 phase_introduced: 2
 phase_active: 2+
-version: 1.2.0
+version: 1.3.0
 changed_in_run: null
 changelog: |
+  - 1.3.0: MINOR (task group 5.2). A recorded remote id is trusted only
+    when well formed and consistent (field, external_ids, sync record);
+    otherwise the case is BLOCKED, neither created nor skipped. A linked
+    case that changed locally after its push is skipped with an explicit
+    statement that the remote copy is not updated (sync_state.source_digest).
+    Dry-run and apply share one plan.
   - 1.2.0: MINOR (task group 5.1). pushTestCases is recoverable: each create
     records its intent in test_cases[].sync_state.<tool> before the request
     and the returned id immediately after, a create with an unknown outcome
@@ -109,9 +115,12 @@ each adapter realizes them via its tool's MCP or REST API.
   backward compatibility. New adapters use `external_ids`.
 - Links to the Jira story when `context.json.story.jira_issue_key`
   exists, if the tool supports it.
-- **Idempotent:** a case that already carries the tool's id is
-  skipped; re-running never duplicates. Adapters do not edit existing
-  remote cases.
+- **Idempotent:** a case that already carries a valid, consistent id
+  is skipped; re-running never duplicates. Adapters do not edit
+  existing remote cases: a case changed after its push is reported as
+  changed and still skipped. A malformed or conflicting recorded id
+  blocks that case (neither created nor skipped) until a human
+  corrects it. Dry-run and apply select the same operation per case.
 - **Recoverable:** record the intent in `test_cases[].sync_state.<tool>`
   before each create and the returned id immediately after it, before
   linking or the next case. A create whose outcome is unknown (timeout,
@@ -168,8 +177,9 @@ guarantee.
 ## 4. Hard rules for every adapter
 
 - **Source of truth is `test-cases/*.json`.** Never treat the tool as
-  authoritative. If the tool and our JSON disagree, our JSON wins; the
-  adapter re-pushes.
+  authoritative. The tool holds a downstream copy: adapters create
+  missing cases and never edit existing ones, so a later local change
+  is reported rather than re-pushed.
 - **Sync only `approved` cases.** Never push `draft` / `rejected` /
   `skip`.
 - **Dry-run by default.** Every adapter and its script default to a
