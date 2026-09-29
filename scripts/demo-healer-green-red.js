@@ -4,8 +4,9 @@
 // guardrails.js) against two realistic candidate patches:
 //
 //   GREEN  — a broken-locator fix: only the selector string changes, the
-//            business assertion is untouched. Expect [] (SAFE) => this is the
-//            kind of candidate the Healer may emit as a reviewable .patch.
+//            business assertion is untouched. Expect [] => ELIGIBLE under
+//            static checks: the kind of candidate the Healer may emit as a
+//            reviewable .patch. A human still reviews it.
 //
 //   RED    — a broken-business-assertion "fix": the candidate changes the
 //            EXPECTED value to make a failing test pass. Expect a violation
@@ -19,7 +20,7 @@
 // Usage:  node scripts/demo-healer-green-red.js
 // Exit:   0 if both cases behave as expected · 1 if either does not.
 
-import { guardrailViolations } from './healer-guardrails.js';
+import { ELIGIBILITY_NOTE, guardrailViolations } from './healer-guardrails.js';
 
 // --- GREEN: locator-only fix (business meaning preserved) -----------------
 const greenBefore = `import { test, expect } from '@playwright/test';
@@ -52,15 +53,17 @@ const redAfter = greenBefore.replace(
 
 let ok = true;
 
-function check(label, before, after, expectSafe) {
+function check(label, before, after, expectEligible) {
   const violations = guardrailViolations(before, after);
-  const safe = violations.length === 0;
-  const pass = safe === expectSafe;
+  const eligible = violations.length === 0;
+  const pass = eligible === expectEligible;
   ok = ok && pass;
+  const verdict = (e) => (e ? 'ELIGIBLE' : 'REJECTED');
   console.log(`\n${label}`);
-  console.log(`  expected: ${expectSafe ? 'SAFE (allowed)' : 'REJECTED'}`);
-  console.log(`  result:   ${safe ? 'SAFE (allowed)' : 'REJECTED'}`);
-  if (!safe) for (const v of violations) console.log(`    - ${v}`);
+  console.log(`  expected: ${verdict(expectEligible)}`);
+  console.log(`  result:   ${verdict(eligible)}`);
+  if (eligible) console.log(`    (${ELIGIBILITY_NOTE})`);
+  if (!eligible) for (const v of violations) console.log(`    - ${v}`);
   console.log(`  ${pass ? 'OK' : 'XX MISMATCH'}`);
 }
 
@@ -79,7 +82,7 @@ check(
 );
 
 console.log(
-  `\n${ok ? 'PASS' : 'FAIL'}: the Green candidate is allowed (reviewable patch); ` +
+  `\n${ok ? 'PASS' : 'FAIL'}: the Green candidate is eligible for a reviewable patch; ` +
     'the Red candidate is rejected (never auto-fixed → bug-draft path). ' +
     'The Healer never commits, never merges, never changes a business assertion.'
 );
