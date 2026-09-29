@@ -45,7 +45,7 @@ it. So "standalone" here means "standalone _safety check_", honestly — not
 
 ```bash
 # See the guardrail decide, deterministically (Green allowed, Red rejected):
-npm run demo:healer            # exits 0; prints SAFE for a locator fix, REJECTED for a value change
+npm run demo:healer            # exits 0; prints ELIGIBLE for a locator fix, REJECTED for a value change
 
 # Use the guardrail on your own candidate patch (any Playwright repo):
 node -e "import('./scripts/healer-guardrails.js').then(({guardrailViolations}) => \

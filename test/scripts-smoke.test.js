@@ -32,8 +32,10 @@ function run(args) {
 test('demo:healer — Green/Red boundary holds (exit 0)', () => {
   const r = run(['scripts/demo-healer-green-red.js']);
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /GREEN[\s\S]*SAFE/);
-  assert.match(r.out, /RED[\s\S]*REJECTED/);
+  assert.match(r.out, /GREEN[\s\S]*result: {3}ELIGIBLE/);
+  assert.match(r.out, /human review still required/);
+  assert.match(r.out, /RED[\s\S]*result: {3}REJECTED/);
+  assert.doesNotMatch(r.out, /\bSAFE\b/);
 });
 
 test('validate:examples — every gold example validates (exit 0)', () => {

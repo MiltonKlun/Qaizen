@@ -98,6 +98,39 @@ is an assertion that observed a wrong business value, so it is **Red**.
 - "Healing" a Green failure by removing the assertion that made it
   fail. That's never a fix. See section 5 — Never Touched List.
 
+### What the static check accepts automatically (task group 6.1)
+
+Green describes what a human may fix. What `scripts/healer-guardrails.js`
+accepts **without** a human deciding the change is much narrower. It parses
+the original and the candidate with the TypeScript compiler API and compares
+their executable structure, ignoring positions, whitespace and comments. A
+candidate is eligible only if the one thing that changed is:
+
+- the static string argument of `page.locator('...')` or
+  `page.getByTestId('...')`,
+- where `page` is provably the Playwright fixture (destructured as
+  `{ page }` in a test or hook callback, never renamed, aliased or
+  reassigned),
+- and the locator is used directly by an action in the same statement
+  (`await page.locator('...').click()`).
+
+Everything else must be identical: imports, tests, groups, hooks, control
+flow, every assertion (its target, matcher, modifiers such as `.not`,
+expected values and `await`), snapshot targets and every other statement.
+Locators inside `expect(...)` and locators stored in a variable are **not**
+eligible, because their value can decide what an assertion checks.
+
+Rejected with a reason: added `.skip` / `.fixme` / `.only` / `.fail` (even if
+the file already had one), a removed test or hook, dynamic test registration,
+a removed traceability id (comments included), code turned into a comment,
+and source that does not parse. Role/name selectors (`getByRole`), navigation,
+waits and timeouts are still Green for a human to fix, but not eligible for
+automatic acceptance in this version.
+
+A clean result means **eligible under static checks; human review still
+required**. Equal structure does not prove that a new selector targets the
+same business element.
+
 ### Phase 1 action
 
 Document the Green classification in `analysis/failure-analysis.json`.
