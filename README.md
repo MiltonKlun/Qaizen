@@ -39,7 +39,7 @@ raw prompting doesn't:
 | --- | --- |
 | **Traceability** | An unbroken chain from story → risk → test case → test → failure → bug, so nothing tested is unexplained and nothing important is silently untested. |
 | **Auditability** | Every artifact is schema-validated and every gate decision is recorded with telemetry — you can prove _why_ a release was signed off. |
-| **Guardrails that hold** | The auto-healer fixes a broken selector for you, but can never weaken, skip, or delete a test — your suite only gets stronger, never quietly hollowed out. |
+| **Guardrails that hold** | A proposed selector fix is checked, re-run in isolation and handed to you as a patch; nothing that weakens, skips, or deletes a test gets through — your suite only gets stronger, never quietly hollowed out. |
 | **Tests you can trust** | Tests are written against the _running app_ (via Playwright MCP), so a green run means the feature actually works — not that the AI guessed well from the story text. |
 
 Grounding matters most against text-only prompting; a capable agent may ground
@@ -160,7 +160,7 @@ flowchart LR
 | `npm run test:api` | Run the Postman collections via Newman |
 | `npm run normalize -- --story <id> ...` | Normalize runner reports into one execution ledger (the counting model) |
 | `npm run classify` | Rule-based failure pre-classification from the ledger (Green / Yellow / Red), written as a draft |
-| `npm run heal` | Guardrailed healer — produces reviewable patches, never commits |
+| `npm run heal` | Healer triage; `--failure FAIL-X --candidate <file> --apply` validates a proposed fix into a reviewable patch, never commits |
 | `npm run metrics` | Aggregate pipeline metrics from run history |
 | `npm run validate:all` | Validate every committed artifact against its schema |
 | `npm run scan:gate4 -- <spec>` | Static pre-Gate-4 scan (assists review) |
@@ -198,9 +198,10 @@ Standalone capabilities (adopt one piece without the whole pipeline):
   custom code; this cut bespoke code by roughly half.
 - **Schemas are contracts** — a schema change must move with its agent prompts,
   docs, and examples in one PR (the _Architecture Stability Rule_).
-- **Healer guardrails** — Green (auto-fix as a reviewable patch) / Yellow
-  (suggest only) / Red (bug draft only, never touched). Always: never change
-  an expected value, delete a test, or add `.skip`.
+- **Healer guardrails** — Green (a proposed locator fix, validated into a
+  reviewable patch) / Yellow (suggest only) / Red (bug draft only, never
+  touched). Always: never change an expected value, delete a test, or add
+  `.skip`.
 - **Tiered ceremony** — a `lite` track for routine work, with a principled floor
   that refuses `lite` for money/security/permissions/data stories.
 - **Out of scope by design** — no autonomous gate approval, no n8n, no web
