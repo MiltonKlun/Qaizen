@@ -37,6 +37,8 @@ export const BOUND_GATES = [
   'qa_scope_approved',
   'specs_reviewed',
   'code_reviewed',
+  'collection_reviewed',
+  'api_assertions_reviewed',
 ];
 
 /**
@@ -49,17 +51,119 @@ const DOWNSTREAM = {
     'qa_scope_approved',
     'specs_reviewed',
     'code_reviewed',
+    'collection_reviewed',
+    'api_assertions_reviewed',
   ],
-  test_scope_reviewed: ['qa_scope_approved', 'specs_reviewed', 'code_reviewed'],
+  test_scope_reviewed: [
+    'qa_scope_approved',
+    'specs_reviewed',
+    'code_reviewed',
+    'collection_reviewed',
+    'api_assertions_reviewed',
+  ],
   qa_scope_approved: [
     'requirements_reviewed',
     'test_scope_reviewed',
     'specs_reviewed',
     'code_reviewed',
+    'collection_reviewed',
+    'api_assertions_reviewed',
   ],
   specs_reviewed: ['code_reviewed'],
   code_reviewed: [],
+  // The API branch is reviewed on its own track: requests, then assertions.
+  collection_reviewed: ['api_assertions_reviewed'],
+  api_assertions_reviewed: [],
 };
+
+/** The story's Postman collection and environment (conventional paths). */
+export function apiPaths(context) {
+  const paths = context?.artifact_paths ?? {};
+  const id = context?.story?.id ?? '<story>';
+  return {
+    collection:
+      paths.api_collection ||
+      `api-tests/collections/${id}.postman_collection.json`,
+    environment:
+      paths.api_environment ||
+      `api-tests/environments/${id}.postman_environment.json`,
+  };
+}
+
+/** Every item of a collection, with its folder path, depth first. */
+function collectionItems(items, path = []) {
+  const out = [];
+  for (const it of items ?? []) {
+    const here = [...path, it?.name ?? ''];
+    out.push({ path: here.join(' / '), item: it });
+    if (Array.isArray(it?.item)) out.push(...collectionItems(it.item, here));
+  }
+  return out;
+}
+
+const isTestEvent = (e) => e?.listen === 'test';
+
+/**
+ * What Gate 3' reviews: the requests and variables, without the assertion
+ * scripts (those are Gate 4'). Pre-request scripts stay: they shape requests.
+ */
+function collectionRequests(col) {
+  const strip = (node) => {
+    if (Array.isArray(node)) return node.map(strip);
+    if (!node || typeof node !== 'object') return node;
+    const out = {};
+    for (const [k, v] of Object.entries(node)) {
+      out[k] =
+        k === 'event' && Array.isArray(v)
+          ? v.filter((e) => !isTestEvent(e)).map(strip)
+          : strip(v);
+    }
+    return out;
+  };
+  return strip(col);
+}
+
+/** What Gate 4' reviews: every assertion script, by where it runs. */
+function collectionAssertions(col) {
+  const scripts = [];
+  const add = (where, events) => {
+    for (const e of (events ?? []).filter(isTestEvent)) {
+      const exec = e.script?.exec;
+      scripts.push({
+        where,
+        exec: Array.isArray(exec) ? exec.join('\n') : String(exec ?? ''),
+      });
+    }
+  };
+  add('(collection)', col?.event);
+  for (const { path, item } of collectionItems(col?.item))
+    add(path, item?.event);
+  return scripts;
+}
+
+/**
+ * The environment's keys with their values replaced by placeholders: the
+ * approval binds to WHICH variables exist, never to secret values.
+ */
+function environmentShape(env) {
+  return (env?.values ?? [])
+    .map((v) => ({
+      key: v?.key ?? null,
+      enabled: v?.enabled !== false,
+      value: /^\{\{.*\}\}$/.test(String(v?.value ?? '')) ? v.value : '<value>',
+    }))
+    .sort((a, b) => String(a.key).localeCompare(String(b.key)));
+}
+
+function jsonFileView(root, rel, view) {
+  const abs = rel ? join(root, rel) : null;
+  if (!abs || !existsSync(abs) || !statSync(abs).isFile()) return null;
+  try {
+    return sha256(canonicalJson(view(JSON.parse(readFileSync(abs, 'utf8')))));
+  } catch {
+    return textDigest(readFileSync(abs));
+  }
+}
 
 /**
  * Test-case fields adapters write back after a sync. They record WHERE a case
@@ -208,6 +312,38 @@ export function gateInputs(gate, context, root = '.') {
         inputs[f] = fileDigest(root, f);
       }
       return inputs;
+    }
+    case 'collection_reviewed': {
+      const api = apiPaths(context);
+      return {
+        'gate:test_scope_reviewed': gateDigest(
+          'test_scope_reviewed',
+          context,
+          root
+        ),
+        api_requests: jsonFileView(root, api.collection, collectionRequests),
+        api_environment: jsonFileView(root, api.environment, environmentShape),
+        endpoint_contract: fileDigest(root, 'docs/api-spec.yaml'),
+      };
+    }
+    case 'api_assertions_reviewed': {
+      const api = apiPaths(context);
+      return {
+        'gate:collection_reviewed': gateDigest(
+          'collection_reviewed',
+          context,
+          root
+        ),
+        api_assertions: jsonFileView(
+          root,
+          api.collection,
+          collectionAssertions
+        ),
+        'scripts/run-newman.js': fileDigest(root, 'scripts/run-newman.js'),
+        'package-lock.json': fileDigest(root, 'package-lock.json', {
+          json: true,
+        }),
+      };
     }
     default:
       throw new Error(`gateInputs: unknown gate "${gate}"`);

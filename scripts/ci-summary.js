@@ -72,7 +72,8 @@ function resolvePublishedDir() {
   }
   if (!existsSync(REPORTS_ROOT)) return { dir: null, executionId: null };
   const executions = readdirSync(REPORTS_ROOT, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && e.name.startsWith('exec-'))
+    // Run executions ("exec-") and repository checks ("repo-") alike.
+    .filter((e) => e.isDirectory() && /^(exec|repo)-/.test(e.name))
     .map((e) => e.name)
     .sort();
   if (executions.length === 0) return { dir: null, executionId: null };

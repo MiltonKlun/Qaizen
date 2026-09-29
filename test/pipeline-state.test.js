@@ -135,7 +135,7 @@ test('nextStep — sequencing table', () => {
       'gate3',
     ],
     [
-      'API branch: automate_api cases without a collection insert the api step',
+      'mixed scope: the E2E chain is reviewed first; the API step waits for it',
       ctx({
         gates: { requirements_reviewed: true, test_scope_reviewed: true },
         paths: {
@@ -144,10 +144,10 @@ test('nextStep — sequencing table', () => {
         },
       }),
       { hasApiCases: true, apiCollectionExists: false },
-      'api',
+      'gate3',
     ],
     [
-      'API branch: collection exists -> proceed to gate3',
+      'API branch: collection exists -> still gate3 for the E2E half',
       ctx({
         gates: { requirements_reviewed: true, test_scope_reviewed: true },
         paths: {
@@ -330,7 +330,131 @@ test('GATE_KEYS maps the runner gates to review_gates keys (incl. lite qa_scope)
     qa_scope: 'qa_scope_approved',
     gate3: 'specs_reviewed',
     gate4: 'code_reviewed',
+    'gate3-api': 'collection_reviewed',
+    'gate4-api': 'api_assertions_reviewed',
   });
+});
+
+// ---------------------------------------------------------------------------
+// Task group 7.1: branches come from the approved scope, and each branch has
+// its own human reviews before anything executes.
+
+const G = { status: true, reviewer: 'h' };
+const scoped = (gates, paths = {}) =>
+  ctx({
+    gates: { requirements_reviewed: G, test_scope_reviewed: G, ...gates },
+    paths: { test_cases: ALL_PATHS.test_cases, ...paths },
+  });
+
+test('branches: API-only never meets an E2E step and runs Newman after both API reviews', () => {
+  const api = { branches: { e2e: false, api: true } };
+  assert.equal(
+    nextStep(scoped({}), { ...api, apiCollectionExists: false }),
+    'api'
+  );
+  assert.equal(
+    nextStep(scoped({}), { ...api, apiCollectionExists: true }),
+    'gate3-api'
+  );
+  assert.equal(
+    nextStep(scoped({ collection_reviewed: G }), {
+      ...api,
+      apiCollectionExists: true,
+    }),
+    'gate4-api'
+  );
+  // An E2E approval never stands in for an API one.
+  assert.equal(
+    nextStep(scoped({ specs_reviewed: G, code_reviewed: G }), {
+      ...api,
+      apiCollectionExists: true,
+    }),
+    'gate3-api'
+  );
+  const reviewed = scoped({
+    collection_reviewed: G,
+    api_assertions_reviewed: G,
+  });
+  assert.equal(
+    nextStep(reviewed, {
+      ...api,
+      apiCollectionExists: true,
+      apiExecuted: false,
+    }),
+    'execute-api'
+  );
+  assert.equal(
+    nextStep(reviewed, {
+      ...api,
+      apiCollectionExists: true,
+      apiExecuted: true,
+    }),
+    'classify',
+    'no Playwright report is needed for API-only work'
+  );
+});
+
+test('branches: E2E-only never asks for a collection', () => {
+  const e2e = { branches: { e2e: true, api: false } };
+  const reviewed = scoped(
+    { specs_reviewed: G, code_reviewed: G },
+    {
+      playwright_spec: ALL_PATHS.playwright_spec,
+      generated_test: ALL_PATHS.generated_test,
+    }
+  );
+  assert.equal(
+    nextStep(reviewed, { ...e2e, apiCollectionExists: false }),
+    'execute'
+  );
+});
+
+test('branches: a mixed scope collects every review, then runs Playwright before Newman', () => {
+  const mixed = {
+    branches: { e2e: true, api: true },
+    apiCollectionExists: true,
+  };
+  const e2eDone = { specs_reviewed: G, code_reviewed: G };
+  const paths = {
+    playwright_spec: ALL_PATHS.playwright_spec,
+    generated_test: ALL_PATHS.generated_test,
+  };
+  assert.equal(
+    nextStep(scoped(e2eDone, paths), mixed),
+    'gate3-api',
+    'E2E approval alone does not execute'
+  );
+  assert.equal(
+    nextStep(scoped({ ...e2eDone, collection_reviewed: G }, paths), mixed),
+    'gate4-api'
+  );
+  const all = scoped(
+    { ...e2eDone, collection_reviewed: G, api_assertions_reviewed: G },
+    paths
+  );
+  assert.equal(
+    nextStep(all, { ...mixed, apiExecuted: false }),
+    'execute',
+    'Playwright first'
+  );
+  assert.equal(
+    nextStep(
+      scoped(
+        { ...e2eDone, collection_reviewed: G, api_assertions_reviewed: G },
+        { ...paths, execution_results: ALL_PATHS.execution_results }
+      ),
+      { ...mixed, apiExecuted: false }
+    ),
+    'execute-api',
+    'then Newman, even if the E2E suite failed'
+  );
+});
+
+test('branches: no approved automated case has nothing to execute', () => {
+  assert.equal(
+    nextStep(scoped({}), { branches: { e2e: false, api: false } }),
+    'no-executable-scope'
+  );
 });
 
 test('lite track — sequencing uses one consolidated qa_scope gate (Phase 4)', () => {

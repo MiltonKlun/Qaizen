@@ -1,0 +1,132 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-05-31T18-00-00Z-apiex",
+  "story": {
+    "id": "API-001",
+    "title": "API — Create user and reject invalid registration",
+    "source": "manual",
+    "path": "story.md",
+    "description": "A client can create a user via POST /users (201 with id + createdAt) and is rejected when registering without a password via POST /register (400 with an error). Server-side contract checks against reqres.in; no UI in scope."
+  },
+  "acceptance_criteria": [
+    "Given a valid JSON body with a name and a job, when the client POSTs to /users, then the API responds 201 Created with a body containing a non-empty id and a createdAt timestamp.",
+    "Given a registration body that has an email but no password, when the client POSTs to /register, then the API responds 400 Bad Request with a body containing an error field describing the missing password. No account is created."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "The API accepts an invalid or incomplete request (e.g. registration with no password) or returns a malformed created-resource response, letting bad data into the system.",
+      "severity": "high",
+      "related_acs": [0, 1]
+    }
+  ],
+  "artifact_paths": {
+    "test_cases": "test-cases/API-001.json",
+    "planner_brief": "planner-input/API-001.planner-brief.md",
+    "playwright_spec": "",
+    "generated_test": "",
+    "execution_results": "",
+    "html_report": "",
+    "traces": "",
+    "screenshots": "",
+    "failure_analysis": "",
+    "release_report_md": "",
+    "release_report_json": "",
+    "bug_drafts_dir": "release/bug-drafts",
+    "api_collection": "api-tests/collections/API-001.postman_collection.json",
+    "api_environment": "api-tests/environments/API-001.postman_environment.json"
+  },
+  "review_gates": {
+    "requirements_reviewed": {
+      "status": true,
+      "reviewer": "QA engineer",
+      "reviewed_at": "2026-05-31T18:10:00Z",
+      "opened_at": "2026-05-31T18:10:00Z",
+      "notes": null,
+      "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "inputs": {
+        "story": "1111111111111111111111111111111111111111111111111111111111111111",
+        "interpretation": "2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    },
+    "test_scope_reviewed": {
+      "status": true,
+      "reviewer": "QA engineer",
+      "reviewed_at": "2026-05-31T18:20:00Z",
+      "opened_at": "2026-05-31T18:20:00Z",
+      "notes": null,
+      "input_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "inputs": {
+        "gate:requirements_reviewed": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "test_cases": "3333333333333333333333333333333333333333333333333333333333333333",
+        "planner_brief": "4444444444444444444444444444444444444444444444444444444444444444"
+      }
+    },
+    "specs_reviewed": false,
+    "code_reviewed": false,
+    "collection_reviewed": {
+      "status": true,
+      "reviewer": "QA engineer",
+      "reviewed_at": "2026-05-31T18:40:00Z",
+      "opened_at": "2026-05-31T18:40:00Z",
+      "notes": null,
+      "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "inputs": {
+        "gate:test_scope_reviewed": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "api_requests": "5555555555555555555555555555555555555555555555555555555555555555",
+        "api_environment": "6666666666666666666666666666666666666666666666666666666666666666",
+        "endpoint_contract": null
+      }
+    },
+    "api_assertions_reviewed": {
+      "status": true,
+      "reviewer": "QA engineer",
+      "reviewed_at": "2026-05-31T18:55:00Z",
+      "opened_at": "2026-05-31T18:55:00Z",
+      "notes": null,
+      "input_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "inputs": {
+        "gate:collection_reviewed": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "api_assertions": "7777777777777777777777777777777777777777777777777777777777777777",
+        "scripts/run-newman.js": "8888888888888888888888888888888888888888888888888888888888888888",
+        "package-lock.json": "9999999999999999999999999999999999999999999999999999999999999999"
+      }
+    }
+  },
+  "status": "in_progress",
+  "gate_decisions": [
+    {
+      "gate": "requirements_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-05-31T18:10:00Z",
+      "decided_at": "2026-05-31T18:10:00Z",
+      "reviewer": "QA engineer",
+      "notes": null
+    },
+    {
+      "gate": "test_scope_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-05-31T18:20:00Z",
+      "decided_at": "2026-05-31T18:20:00Z",
+      "reviewer": "QA engineer",
+      "notes": null
+    },
+    {
+      "gate": "collection_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-05-31T18:40:00Z",
+      "decided_at": "2026-05-31T18:40:00Z",
+      "reviewer": "QA engineer",
+      "notes": null
+    },
+    {
+      "gate": "api_assertions_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-05-31T18:55:00Z",
+      "decided_at": "2026-05-31T18:55:00Z",
+      "reviewer": "QA engineer",
+      "notes": null
+    }
+  ]
+}

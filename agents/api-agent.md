@@ -10,9 +10,13 @@ description: |
   agent only authors it.
 phase_introduced: 1.5
 phase_active: 1.5+
-version: 1.2.1
+version: 1.3.0
 changed_in_run: null
 changelog: |
+  - 1.3.0: MINOR (task group 7.1). Record the collection and environment in
+    context.json artifact_paths.api_collection / api_environment (now in the
+    schema). The branch has its own gates, collection_reviewed (Gate 3') and
+    api_assertions_reviewed (Gate 4'); the runner runs Newman only after both.
   - 1.2.1: PATCH. Reference update only: the design-decision records moved to
     `docs/design-decisions.md` (IDs D1-D7). No behavior change.
   - 1.2.0: MINOR (task group 4.3). Gate 2 must be current, not only passed. Approvals are now bound
@@ -110,11 +114,9 @@ Two paired files, keyed by `context.json.story.id`:
    standard Postman environment file (no project schema; it's a simple
    `{ name, values: [{ key, value, enabled }] }` shape).
 
-After writing, the agent validates the collection and updates
-`context.json.artifact_paths` if API-branch keys are present (Phase 1.5
-may add `api_collection` / `api_environment` keys; until the schema
-defines them, record the paths in the run summary instead of inventing
-context.json keys — see Stop conditions).
+After writing, the agent validates the collection and records both paths
+in `context.json.artifact_paths.api_collection` and `.api_environment`,
+then re-validates `context.json`.
 
 ---
 
@@ -191,8 +193,11 @@ disk wins.
    node scripts/validate-json.js schemas/postman-collection.schema.json api-tests/collections/[story-id].postman_collection.json
    ```
    Fix and re-validate until it exits 0.
-8. **Stop at Gate 3 (API / Collection Review).** Hand off to the human.
-   Do not run Newman; do not promote anything.
+8. **Stop at Gate 3' (API Collection Review, `collection_reviewed`).** Hand
+   off to the human; Gate 4' (`api_assertions_reviewed`) reviews the
+   assertions next. Do not run Newman: the pipeline runner runs it after
+   both approvals, and `run-newman.js` refuses the live story without them.
+   Do not promote anything.
 
 ---
 

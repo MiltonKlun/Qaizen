@@ -54,13 +54,22 @@ A full loop looks like:
 
 ```
 --story → [analyst step: you run the agent] → --resume → GATE 1 (interactive)
-→ [test-designer step] → --resume → GATE 2 → [planner step] → --resume
-→ [api step, if automate_api cases] → GATE 3 → [generator step] → --resume
-→ GATE 4 → execute (runner runs npx playwright test) → [execute-api step, if
-automate_api cases] → classify (runner normalizes, then runs the rule-based
-pre-classifier) → [finalize step: the Failure Classifier agent] → --resume
+→ [test-designer step] → --resume → GATE 2
+→ E2E branch (approved automate_e2e cases): [planner] → GATE 3 → [generator] → GATE 4
+→ API branch (approved automate_api cases): [api] → GATE 3' → GATE 4'
+→ execute (runner runs npx playwright test, E2E branch)
+→ execute-api (runner runs scripts/run-newman.js, API branch)
+→ classify (runner normalizes, then runs the rule-based pre-classifier)
+→ [finalize step: the Failure Classifier agent] → --resume
 → [reporter step] → --resume → done (the runner marks the run completed)
 ```
+
+Branches come from the **approved** cases only: an API-only story never
+meets the planner, generator or Gate 4, and needs no Playwright report. A
+mixed story collects every review before either suite runs; then Playwright
+runs, then Newman, and both outcomes are classified even if one suite fails.
+A scope with no approved `automate_e2e` or `automate_api` case stops at
+`no-executable-scope`: there is nothing to execute.
 
 When the run completes the runner reminds you of the two post-run habits:
 archiving (automatic when the next story starts, or `npm run new-run -- <story-id>`
@@ -112,11 +121,11 @@ finishes or undoes it before doing anything else, deterministically:
 
 ## 3. Guide steps vs exec steps
 
-| Kind      | Steps                                                                          | Who acts                                                                                            |
-| --------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| **Guide** | analyst, test-designer, planner, api, generator, execute-api, finalize, report | **You + the agent.** The runner prints the exact instruction and exits; it never fakes an LLM step. |
-| **Gate**  | gate1, gate2, gate3, gate4                                                     | **You, interactively.** Brief rendered, decision captured, audit + telemetry written.               |
-| **Exec**  | execute, classify                                                              | **The runner.** Deterministic: `npx playwright test`, then `normalize-results.js` → the classifier. |
+| Kind      | Steps                                                                                  | Who acts                                                                                                             |
+| --------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Guide** | analyst, test-designer, planner, api, generator, no-executable-scope, finalize, report | **You + the agent.** The runner prints the exact instruction and exits; it never fakes an LLM step.                  |
+| **Gate**  | gate1, gate2, gate3, gate4, gate3-api, gate4-api                                       | **You, interactively.** Brief rendered, decision captured, audit + telemetry written.                                |
+| **Exec**  | execute, execute-api, classify                                                         | **The runner.** Deterministic: `npx playwright test`, `run-newman.js`, then `normalize-results.js` → the classifier. |
 
 Playwright failures at the execute step are **data for the classifier**, not
 a runner error — a failing suite with a valid report continues to

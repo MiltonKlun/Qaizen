@@ -25,8 +25,9 @@
 // creates no bug drafts, and tells the human / Failure Classifier Agent what
 // must happen before the Reporter step.
 //
-// Gate 4 precondition: like the Failure Classifier Agent, refuses unless
-// context.json.review_gates.code_reviewed is passed.
+// Gate precondition: like the Failure Classifier Agent, refuses unless the
+// final approval of every branch in the ledger is current — code_reviewed for
+// Playwright evidence, collection_reviewed + api_assertions_reviewed for Newman.
 //
 // Usage:
 //   node scripts/run-failure-classifier.js [--ledger <path>]   # write the draft
@@ -86,16 +87,6 @@ if (!existsSync('context.json')) {
 }
 const context = JSON.parse(readFileSync('context.json', 'utf8'));
 
-// Gate 4 precondition (same rule as the Failure Classifier Agent).
-// An approval counts only while it still matches what was reviewed
-// (task group 4.3): a gate approved before the test cases or code changed
-// is not a licence to classify.
-const gateCheck = requireCurrentGate(context, 'code_reviewed', '.');
-if (!gateCheck.ok) {
-  console.error(`Gate 4: ${gateCheck.reason}. Refusing to classify.`);
-  exit(2);
-}
-
 const storyId = context.story?.id;
 if (!storyId) {
   console.error(
@@ -133,6 +124,30 @@ if (!loaded.ok) {
   exit(2);
 }
 const ledger = loaded.data;
+
+// The final human approval of every branch this evidence came from (same rule
+// as the Failure Classifier Agent): Playwright evidence needs Gate 4, Newman
+// evidence needs Gate 3' and Gate 4' (task group 7.1). An approval counts only
+// while it still matches what was reviewed (task group 4.3), and one branch's
+// approval never stands in for another's.
+const runners = new Set(ledger.source_executions.map((e) => e.runner));
+const required = [];
+if (runners.has('playwright') || runners.size === 0) {
+  required.push(['Gate 4', 'code_reviewed']);
+}
+if (runners.has('newman')) {
+  required.push(
+    ["Gate 3'", 'collection_reviewed'],
+    ["Gate 4'", 'api_assertions_reviewed']
+  );
+}
+for (const [label, gate] of required) {
+  const gateCheck = requireCurrentGate(context, gate, '.');
+  if (!gateCheck.ok) {
+    console.error(`${label}: ${gateCheck.reason}. Refusing to classify.`);
+    exit(2);
+  }
+}
 
 const external = ledger.units.filter((u) => u.identity?.kind === 'external');
 if (external.length) {

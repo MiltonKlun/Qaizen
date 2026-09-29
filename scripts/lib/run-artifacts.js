@@ -33,6 +33,11 @@ const RULES = {
   execution_ledger: { kind: 'json', schema: 'execution-ledger.schema.json' },
   failure_analysis: { kind: 'json', schema: 'failure-analysis.schema.json' },
   release_report_json: { kind: 'json', schema: 'release-report.schema.json' },
+  // A Postman collection carries no story/run ids; its path names the story.
+  api_collection: {
+    kind: 'collection',
+    schema: 'postman-collection.schema.json',
+  },
 };
 
 const ok = (data) => ({ ok: true, data });
@@ -112,6 +117,11 @@ export function checkArtifact(key, context, root = '.') {
   const r = readJson(path);
   if (!r.ok) return bad(`${rel} is not valid JSON`);
   const v = validateValue(r.data, schema(rule.schema));
+  if (rule.kind === 'collection') {
+    return v.ok
+      ? ok(r.data)
+      : bad(`${rel} does not validate against schemas/${rule.schema}`);
+  }
   if (!v.ok) {
     const first = (v.errors ?? [])[0];
     const where = first
@@ -166,6 +176,54 @@ export function missingBugDrafts(analysis, root = '.') {
  */
 export function ledgerHasApiExecution(ledger) {
   return (ledger?.source_executions ?? []).some((s) => s.runner === 'newman');
+}
+
+/**
+ * Newman evidence that can stand for THIS run's approved API branch (task
+ * group 7.1): the newest execution for the story, with at least one executed
+ * request, written after the collection last changed and after the Gate 4'
+ * approval. An older execution is evidence of other assertions.
+ * @returns {{ok: true, executionId: string} | {ok: false, reason: string}}
+ */
+export function newmanEvidence(context, collectionPath, root = '.') {
+  const story = context?.story?.id;
+  const id = latestNewmanExecution(story, root);
+  if (!id) return { ok: false, reason: 'no Newman execution for this story' };
+  const dir = join(root, 'reports', id, 'newman', story);
+  const files = readdirSync(dir).filter((f) => f.endsWith('.json'));
+  let executed = 0;
+  let newest = 0;
+  for (const f of files) {
+    const r = readJson(join(dir, f));
+    if (!r.ok) {
+      return {
+        ok: false,
+        reason: `reports/${id}/newman/${story}/${f} is not valid JSON`,
+      };
+    }
+    executed += (r.data?.run?.executions ?? []).length;
+    newest = Math.max(newest, statSync(join(dir, f)).mtimeMs);
+  }
+  if (executed === 0) {
+    return { ok: false, reason: `execution ${id} executed no request` };
+  }
+  const col = collectionPath ? join(root, collectionPath) : null;
+  if (col && existsSync(col) && statSync(col).mtimeMs > newest) {
+    return {
+      ok: false,
+      reason: `execution ${id} predates the current collection`,
+    };
+  }
+  const g = context?.review_gates?.api_assertions_reviewed;
+  const approved =
+    g && typeof g === 'object' ? Date.parse(g.reviewed_at ?? '') : NaN;
+  if (!Number.isNaN(approved) && approved > newest) {
+    return {
+      ok: false,
+      reason: `execution ${id} predates the Gate 4' approval`,
+    };
+  }
+  return { ok: true, executionId: id };
 }
 
 /**

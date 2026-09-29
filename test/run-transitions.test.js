@@ -30,6 +30,7 @@ import {
 import { delimiter, join } from 'node:path';
 
 import {
+  bindGate,
   runContext,
   writeCompletedRun,
   validTestCases,
@@ -379,9 +380,27 @@ test('an API story is not complete until its Newman branch ran', () => {
       { status: 'in_progress' },
       { 'test-cases/OLD-1.json': JSON.stringify(tc) }
     );
-    write(dir, 'api-tests/collections/OLD-1.postman_collection.json', '{}');
+    // A valid collection that both API gates approved (task group 7.1): only
+    // the Newman execution is missing, so that is the next step.
+    write(
+      dir,
+      'api-tests/collections/OLD-1.postman_collection.json',
+      readFileSync(
+        join(
+          REPO,
+          'examples/expected/api-create-user.expected-collection.json'
+        ),
+        'utf8'
+      )
+    );
+    const p = join(dir, 'context.json');
+    let ctx = JSON.parse(readFileSync(p, 'utf8'));
+    ctx = bindGate(ctx, 'collection_reviewed', dir);
+    ctx = bindGate(ctx, 'api_assertions_reviewed', dir);
+    writeFileSync(p, JSON.stringify(ctx));
     const r = pipeline(dir, ['--status']);
     assert.match(r.out, /Next step: execute-api/, r.out);
+    assert.match(r.out, /API: {4}G3' PASSED · G4' PASSED/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

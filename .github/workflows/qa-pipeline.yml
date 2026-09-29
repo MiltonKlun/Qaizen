@@ -242,14 +242,14 @@ jobs:
           # One execution id for the whole job, passed explicitly so every
           # collection's reports land in ONE execution directory and a later
           # run can never be read as this one (task group 3.2, finding I4).
-          QAIZEN_EXECUTION_ID: exec-ci-${{ github.run_id }}-${{ github.run_attempt }}
+          QAIZEN_EXECUTION_ID: repo-ci-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set +e
           status=0
           for f in api-tests/collections/*.postman_collection.json; do
             id=$(basename "$f" .postman_collection.json)
             echo "::group::Newman $id"
-            STORY_ID="$id" npm run test:api
+            STORY_ID="$id" npm run test:api -- --repository-check
             rc=$?
             [ $rc -ne 0 ] && status=$rc
             echo "::endgroup::"
@@ -272,7 +272,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: newman-report
-          path: reports/exec-ci-${{ github.run_id }}-${{ github.run_attempt }}/published
+          path: reports/repo-ci-${{ github.run_id }}-${{ github.run_attempt }}/published
           retention-days: 14
           if-no-files-found: ignore
 
@@ -371,9 +371,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: newman-report
-          path: reports/exec-ci-${{ github.run_id }}-${{ github.run_attempt }}/published
+          path: reports/repo-ci-${{ github.run_id }}-${{ github.run_attempt }}/published
         continue-on-error: true
       - name: Write CI summary
         env:
-          QAIZEN_EXECUTION_ID: exec-ci-${{ github.run_id }}-${{ github.run_attempt }}
+          QAIZEN_EXECUTION_ID: repo-ci-${{ github.run_id }}-${{ github.run_attempt }}
         run: npm run ci:summary

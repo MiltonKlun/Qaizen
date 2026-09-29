@@ -91,10 +91,13 @@ pipeline:
         │
         ▼
   Gate 4 → review_gates.code_reviewed = true
-        │
+        │           (E2E branch; the API branch instead: API Agent fills
+        │            artifact_paths.api_collection / .api_environment →
+        │            Gate 3' collection_reviewed → Gate 4' api_assertions_reviewed)
         ▼
   Test execution fills artifact_paths.execution_results, .html_report,
-                                       .traces, .screenshots
+                                       .traces, .screenshots (E2E);
+                   reports/<execution-id>/newman/<story>/ (API)
         │
         ▼
   Failure Classifier fills artifact_paths.failure_analysis,

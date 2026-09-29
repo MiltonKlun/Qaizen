@@ -145,7 +145,17 @@ STORY_ID=QA-1042 npm run test:api
 
 # Or directly:
 node scripts/run-newman.js QA-1042
+
+# The repository-suite check (what CI runs): no approval is read or implied
+node scripts/run-newman.js QA-1042 --repository-check
 ```
+
+In a pipeline run the runner executes this itself (step `execute-api`) once
+Gate 3' (`collection_reviewed`) and Gate 4' (`api_assertions_reviewed`) are
+approved. For the active run's story, `run-newman.js` refuses to run while
+either approval is missing or stale. `--repository-check` runs the committed
+collection with no human-approved provenance: its execution id starts with
+`repo-`, so it is never taken for a run's evidence.
 
 It runs the equivalent of:
 

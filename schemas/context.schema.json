@@ -273,6 +273,14 @@
         "bug_drafts_dir": {
           "type": "string"
         },
+        "api_collection": {
+          "description": "OPTIONAL (task group 7.1). Path to the story's Postman collection (api-tests/collections/[story-id].postman_collection.json), written by the API Agent for approved automate_api cases. Absent = the conventional path. Reviewed at collection_reviewed (requests) and api_assertions_reviewed (assertions).",
+          "type": "string"
+        },
+        "api_environment": {
+          "description": "OPTIONAL (task group 7.1). Path to the story's Postman environment (api-tests/environments/[story-id].postman_environment.json). Values are read at run time from .env; approvals bind to its keys only, never to secret values.",
+          "type": "string"
+        },
         "execution_ledger": {
           "description": "OPTIONAL (task group 2.2a). Path to analysis/execution-ledger.json, the canonical cross-runner counting model for this run (schemas/execution-ledger.schema.json). ADDITIVE and not required: every pre-2.2a context stays valid, and nothing writes this yet — the execution adapters that populate it arrive in Phase 3. The existing report-path fields remain for compatibility; they are PATHS, not substitutes for a valid ledger.",
           "type": "string"
@@ -305,6 +313,14 @@
         "qa_scope_approved": {
           "$ref": "#/definitions/gateValue",
           "description": "OPTIONAL (Phase 2 TG7). When present and passed, consolidates Gate 1 (requirements_reviewed) and Gate 2 (test_scope_reviewed) into a single approval. The two underlying gates remain present and valid (deprecated, not removed). Same boolean | audit-object shape as the other gates. Gate 4 (code_reviewed) is NEVER consolidated into this."
+        },
+        "collection_reviewed": {
+          "$ref": "#/definitions/gateValue",
+          "description": "OPTIONAL (task group 7.1). API Gate 3 (Gate 3'): the human reviewed the collection's requests, variables and endpoint contract for the approved automate_api cases. Required only when the approved scope has API cases. Independent of specs_reviewed; an E2E approval never stands in for it."
+        },
+        "api_assertions_reviewed": {
+          "$ref": "#/definitions/gateValue",
+          "description": "OPTIONAL (task group 7.1). API Gate 4 (Gate 4'): the human reviewed the collection's assertion scripts. Always a human decision, like code_reviewed, and independent of it. Newman runs for the story only while both API approvals are current."
         }
       }
     },
@@ -324,7 +340,9 @@
               "test_scope_reviewed",
               "specs_reviewed",
               "code_reviewed",
-              "qa_scope_approved"
+              "qa_scope_approved",
+              "collection_reviewed",
+              "api_assertions_reviewed"
             ]
           },
           "decision": {
@@ -368,7 +386,9 @@
               "test_scope_reviewed",
               "specs_reviewed",
               "code_reviewed",
-              "qa_scope_approved"
+              "qa_scope_approved",
+              "collection_reviewed",
+              "api_assertions_reviewed"
             ]
           },
           "invalidated_at": {
@@ -448,7 +468,7 @@
             "input_digest": {
               "type": "string",
               "pattern": "^[a-f0-9]{64}$",
-              "description": "OPTIONAL (task group 4.3). SHA-256 over the inputs this gate reviewed, taken at the moment of human approval (scripts/lib/approval-binding.js): Gate 1 = story + interpreted ACs/risks/ambiguities/track; Gate 2 = Gate-1 digest + semantic test cases + planner brief; Gate 3 = Gate-2 digest + spec + planner/generator prompt versions; Gate 4 = Gate-3 digest + generated test + fixtures + Playwright config + dependency lock; qa_scope_approved = Gate-1 + Gate-2 inputs. When today's inputs no longer match, the approval is stale and the runner returns the gate to pending. An approved gate WITHOUT this field is a legacy approval and needs re-review before the run advances. Written only by the runner at a human decision; never by an agent."
+              "description": "OPTIONAL (task group 4.3). SHA-256 over the inputs this gate reviewed, taken at the moment of human approval (scripts/lib/approval-binding.js): Gate 1 = story + interpreted ACs/risks/ambiguities/track; Gate 2 = Gate-1 digest + semantic test cases + planner brief; Gate 3 = Gate-2 digest + spec + planner/generator prompt versions; Gate 4 = Gate-3 digest + generated test + fixtures + Playwright config + dependency lock; qa_scope_approved = Gate-1 + Gate-2 inputs; collection_reviewed (Gate 3') = Gate-2 digest + collection requests/variables (no assertion scripts) + environment variable names (never values) + endpoint contract; api_assertions_reviewed (Gate 4') = Gate-3' digest + assertion scripts + Newman runner + dependency lock. When today's inputs no longer match, the approval is stale and the runner returns the gate to pending. An approved gate WITHOUT this field is a legacy approval and needs re-review before the run advances. Written only by the runner at a human decision; never by an agent."
             },
             "inputs": {
               "type": "object",

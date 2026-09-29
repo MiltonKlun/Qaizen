@@ -158,8 +158,11 @@ for (const run of runs) {
     runsWithGateLog += 1;
     for (const d of ctx.gate_decisions) {
       if (d.decision !== 'rejected') continue;
-      if (d.gate === 'specs_reviewed') gate3Rejections += 1;
-      if (d.gate === 'code_reviewed') gate4Rejections += 1;
+      // Gate 3 and Gate 4 of either branch (E2E, or the API's 3' and 4').
+      if (d.gate === 'specs_reviewed' || d.gate === 'collection_reviewed')
+        gate3Rejections += 1;
+      if (d.gate === 'code_reviewed' || d.gate === 'api_assertions_reviewed')
+        gate4Rejections += 1;
     }
   }
 
