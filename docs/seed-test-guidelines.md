@@ -124,6 +124,11 @@ alongside the existing seed.
   If the application needs auth to load even the landing page,
   document that and capture an auth strategy — but the seed itself
   stays auth-free in Phase 1. See section 6.
+- **No other tests in its group.** The seed carries no TC/PW/SPEC ids;
+  it is the one documented exception to per-test traceability. The
+  exception covers only a test inside `test.describe('Seed: ...')` in
+  `tests/seed.spec.ts`. Any other test in that file is checked like a
+  generated test (`docs/traceability.md` §3.6).
 
 ---
 

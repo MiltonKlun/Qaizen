@@ -454,10 +454,14 @@ independently.
 > **Pre-Gate-4 static scan (assist, IMPROVEMENT-PLAN Phase 6 / PFI-5).**
 > `scripts/gate4-scan.js` (`npm run scan:gate4 -- <file>`) does the
 > _mechanical_ half of this checklist for the reviewer: it flags hard waits,
-> `.skip`/`.fixme`/`.only`, fragile locators (nth-child / `.nth()` / index
-> XPath / long CSS chains), weakened assertions (reusing the Healer's
-> `WEAK_ASSERTION_PATTERN` — one source of truth), and missing `TC-`/`SPEC-`/
-> `PW-` traceability. The thin gated runner shows this output inside the
+> `.skip`/`.fixme`/`.only`/`.fail`, fragile locators (nth-child / `.nth()` /
+> index XPath / long CSS chains), weakened assertions (the Healer's
+> `WEAK_MATCHERS` — one source of truth), and per-test traceability: each
+> test's own `PW-`/`TC-`/`SPEC-` ids, checked against the approved test
+> cases and spec when the run's context is available
+> (`docs/traceability.md` §3.6). It states what it verified and against
+> which files; "references present" is not "linkage verified". The thin
+> gated runner shows this output inside the
 > Gate-4 brief, and an informational CI job posts it on PRs touching `tests/`.
 > It is **confirm-or-dismiss input, never a verdict**: it informs, never
 > fixes, never decides, and never changes the approval bar. Gate 4 stays the

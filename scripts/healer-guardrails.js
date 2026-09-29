@@ -46,20 +46,21 @@ import {
 export const ELIGIBILITY_NOTE =
   'eligible under static checks; human review still required (equal structure does not prove the new selector targets the same element)';
 
-// Kept for scripts/gate4-scan.js until task group 6.2 moves it to the parser.
-/** Test suppression: .skip / .fixme / test.skip / describe.skip. */
-export const SKIP_PATTERN = /\.(skip|fixme)\s*\(|test\.skip|describe\.skip/;
-
-/** Assertion weakened to a trivially-true form. */
-export const WEAK_ASSERTION_PATTERN =
-  /toBeTruthy\(\)|toBeDefined\(\)|\.not\.toThrow\(\)/;
-
 const SNAPSHOT_MATCHERS = new Set([
   'toHaveScreenshot',
   'toMatchSnapshot',
   'toMatchAriaSnapshot',
 ]);
-const WEAK_MATCHERS = new Set(['toBeTruthy', 'toBeDefined', 'toBeFalsy']);
+
+/**
+ * Matchers that assert almost nothing (a trivially-true form). Shared with
+ * the pre-Gate-4 scanner (scripts/gate4-scan.js) so both flag the same set.
+ */
+export const WEAK_MATCHERS = new Set([
+  'toBeTruthy',
+  'toBeDefined',
+  'toBeFalsy',
+]);
 
 /**
  * Compare a candidate with the original test source.

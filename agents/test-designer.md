@@ -10,9 +10,13 @@ description: |
   becomes enforceable in code.
 phase_introduced: 1
 phase_active: 1+
-version: 1.3.1
+version: 1.4.0
 changed_in_run: null
 changelog: |
+  - 1.4.0: MINOR (task group 6.2). The planner brief's Traceability section
+    now states the per-test id convention (TC in the title, PW and SPEC in
+    the annotation option) so the Planner and Generator carry it into every
+    test. Additive; no test-case change.
   - 1.3.1: PATCH (task group 5.1). sync_state joins the adapter-owned
     fields the Test Designer leaves unset. No output change.
   - 1.3.0: Added the lite output profile (IMPROVEMENT-PLAN Phase 4, lite
@@ -423,6 +427,9 @@ should be aware of.
 
 - Story: [story.id]
 - Risks covered: [RISK-001, ...]
+- Every generated test carries its own PW-XXX, TC-XXX and SPEC-XXX
+  (docs/traceability.md §3.6): the TC in the test title, PW and SPEC
+  in the `annotation` option. A file header does not count.
 ```
 
 ---

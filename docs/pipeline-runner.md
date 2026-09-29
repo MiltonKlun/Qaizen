@@ -227,7 +227,9 @@ At each gate the runner prints a one-screen brief:
 At **Gate 4** the brief also embeds the pre-Gate-4 **static scan**
 (`scripts/gate4-scan.js`, IMPROVEMENT-PLAN Phase 6): the mechanical findings
 on the generated test (hard waits, `.skip`/`.only`, fragile locators, weak
-assertions, missing traceability) plus the same judgment questions. It is
+assertions, and each test's own PW/TC/SPEC ids, checked against the run's
+approved test cases and spec) plus the same judgment questions, printed
+separately from the mechanical results. It is
 informational — it answers the mechanical half so you can spend your attention
 on business correctness; it never decides the gate.
 
