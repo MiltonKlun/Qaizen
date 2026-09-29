@@ -17,6 +17,9 @@
 //                                    that execution (task group 3.2 layout)
 //     [--newman <report.json> ...]   repeatable; explicit reports
 //     [--out analysis/execution-ledger.json] [--run-id <id>] [--mapping <file>]
+//     [--test-cases test-cases/<story>.json]   the approved scope: records the
+//                                    approved case ids and the scope digest the
+//                                    TestLink result sync checks (task group 5.3)
 //
 // Exit codes:
 //   0 — a valid ledger was written
@@ -30,7 +33,12 @@ import { argv, env, exit } from 'node:process';
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
-import { readJson, writeJsonAtomic, formatErrors } from './lib/artifact-io.js';
+import {
+  readJson,
+  readValidatedJson,
+  writeJsonAtomic,
+  formatErrors,
+} from './lib/artifact-io.js';
 import { newmanStoryDir } from './lib/execution-paths.js';
 import {
   adaptPlaywrightReport,
@@ -38,9 +46,11 @@ import {
 } from './lib/execution-results.js';
 import { buildLedger } from './lib/build-ledger.js';
 import {
+  approvedScopeDigest,
   ledgerInvariants,
   LEDGER_SCHEMA,
   legacySummaryProjection,
+  TEST_CASES_SCHEMA,
 } from './lib/execution-ledger.js';
 
 const DEFAULT_OUT = 'analysis/execution-ledger.json';
@@ -83,7 +93,7 @@ function usage(message) {
   console.error(
     'Usage: node scripts/normalize-results.js --story <STORY-ID> ' +
       '[--playwright <report.json>] [--execution <id>] [--newman <report.json> ...] ' +
-      '[--out <ledger.json>] [--run-id <id>] [--mapping <file>]'
+      '[--out <ledger.json>] [--run-id <id>] [--mapping <file>] [--test-cases <file>]'
   );
 }
 
@@ -274,6 +284,40 @@ export function main(args = argv.slice(2)) {
     approvedCaseIds = read.data.approved_case_ids || [];
   }
 
+  // The approved scope, when given, is the authority on which cases count and
+  // is recorded as a digest, so a ledger cannot later be reported against a
+  // different scope (task group 5.3).
+  let scopeDigest = null;
+  if (flags['test-cases']) {
+    const tc = readValidatedJson(flags['test-cases'], TEST_CASES_SCHEMA);
+    if (!tc.ok) {
+      console.error(`Error: ${tc.message}`);
+      for (const line of formatErrors(tc.errors)) console.error(line);
+      return 2;
+    }
+    if (tc.data.story_id !== storyId) {
+      console.error(
+        `Error: ${flags['test-cases']} is for story ${tc.data.story_id}, not ${storyId}.`
+      );
+      return 2;
+    }
+    const approved = tc.data.test_cases
+      .filter((c) => c.status === 'approved')
+      .map((c) => c.test_case_id);
+    const fromMapping = [...approvedCaseIds].sort().join(',');
+    if (
+      approvedCaseIds.length &&
+      fromMapping !== [...approved].sort().join(',')
+    ) {
+      console.error(
+        'Error: the mapping file lists different approved_case_ids than the test cases approve.'
+      );
+      return 2;
+    }
+    approvedCaseIds = approved;
+    scopeDigest = approvedScopeDigest(tc.data);
+  }
+
   const { ledger, unmapped, ambiguous } = buildLedger({
     runId,
     storyId,
@@ -282,6 +326,7 @@ export function main(args = argv.slice(2)) {
     units,
     approvedCaseIds,
     mapping,
+    approvedScopeDigest: scopeDigest,
   });
 
   const inv = ledgerInvariants(ledger);

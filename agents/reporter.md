@@ -11,9 +11,12 @@ description: |
   run completed: the runner does, after validating every artifact.
 phase_introduced: 1
 phase_active: 1+
-version: 3.1.0
+version: 3.1.1
 changed_in_run: null
 changelog: |
+  - 3.1.1: PATCH (task group 5.3). The optional TestLink result sync is
+    described as it now works: outcomes come from the execution ledger, not
+    from the absence of a failure. The Reporter's own output is unchanged.
   - 3.1.0: MINOR (task group 4.3). Gate 4 must be current, not only passed. Approvals are now bound
     to a digest of the inputs they reviewed; a gate whose inputs changed
     is not passed even if `status` still reads true, so the gate check
@@ -345,12 +348,16 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
     `node scripts/sync-testlink-execution.js <story-id>` (dry-run,
     prints the plan) or
     `node scripts/sync-testlink-execution.js <story-id>
---apply-testlink-execution` (real write). - The script re-checks Gate 4, considers only cases that already
-    carry a `testlink_id` (i.e. were synced by the Test Designer's
-    `scripts/sync-to-testlink.js`), derives each case's outcome
-    (the matching `analysis/failure-analysis.json` classification, or
-    `skipped`, or `passed`), and maps it to a TestLink status via
-    `config/testlink-status-map.json` — **never hardcoded**. - The Reporter does not invent statuses or reclassify; the outcome
+--apply-testlink-execution` (real write). - The script re-checks Gates 2 and 4, considers only approved cases
+    that already carry a `testlink_id` (i.e. were synced by the Test
+    Designer's `scripts/sync-to-testlink.js`), and derives each case's
+    outcome from its units in the current run's execution ledger:
+    Pass only when every linked unit passed, Fail only for a failure
+    the finalized analysis confirms as `product_bug`, Blocked for any
+    other failure, and Not Run for skipped, manual, or unexecuted
+    cases. It maps the outcome via `config/testlink-status-map.json`
+    — **never hardcoded** — and refuses to apply without a ledger
+    that matches the story, the run and the approved scope. - The Reporter does not invent statuses or reclassify; the outcome
     comes straight from the Failure Classifier's output.
 
 ---

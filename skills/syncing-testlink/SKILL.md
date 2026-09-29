@@ -177,13 +177,18 @@ After a run completes (through Gate 4) and the Reporter has produced
 refuses a `draft` (the pre-classifier's first pass) rather than publish it
 as the result.
 
-- For each case that has a `testlink_id`, map its outcome to a TestLink
-  status via `config/testlink-status-map.json` (created in TG10):
-  - `passed` → Pass
-  - `product_bug` → Fail
-  - `flaky` / `environment_issue` / `test_bug` / `test_data_issue` /
-    `unknown_needs_human_review` → Blocked
-  - `skipped` → Not Run
+- For each approved case that has a `testlink_id`, derive ONE outcome
+  from all of its units in the current run's execution ledger, never
+  from the absence of a failure, and map it via
+  `config/testlink-status-map.json`:
+  - `passed` (every linked unit explicitly passed) → Pass
+  - `product_failure` (a failed unit the finalized analysis confirms
+    as `product_bug`) → Fail
+  - `blocked` (any other failure, flake, block, partial or unclean
+    execution) → Blocked
+  - `not_run` (skipped, manual, or nothing ran) → Not Run
+- The ledger must match the story, the run and the approved scope;
+  otherwise nothing is reported. See `docs/testlink-integration.md`.
 - `testlink-mcp:report_test_case_result` against
   `TESTLINK_TEST_PLAN_ID`.
 - Default dry-run; real write requires `--apply-testlink-execution`.

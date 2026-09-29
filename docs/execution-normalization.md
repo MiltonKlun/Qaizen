@@ -148,6 +148,14 @@ claim the same collection: either would count those units twice. Every other
 flag is single-valued and refuses to be repeated.
 Manual/external result import is task group 7.x.
 
+`--test-cases <test-cases/story.json>` names the approved scope. The
+ledger then lists every approved case in `case_outcomes` and records
+`approved_scope_digest`, a SHA-256 of the approved cases without their
+sync linkage. The TestLink result sync refuses a ledger whose digest does
+not match the current approved cases (task group 5.3). The pipeline
+passes this flag; a mapping file's `approved_case_ids`, if also given,
+must agree with it.
+
 ### Mapping file
 
 ```json
