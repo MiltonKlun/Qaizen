@@ -11,6 +11,7 @@
 //   test-cases/*.json                     schemas/test-cases.schema.json
 //   analysis/failure-analysis.json        schemas/failure-analysis.schema.json
 //   analysis/execution-ledger.json        schemas/execution-ledger.schema.json
+//   analysis/healer-validation/*.json     schemas/healer-validation.schema.json
 //   release/release-report.json           schemas/release-report.schema.json
 //   api-tests/collections/*.json          schemas/postman-collection.schema.json
 //
@@ -52,6 +53,11 @@ function targetsFor(base = '.') {
       dir: at('analysis/spec-reviews'),
       suffix: '.json',
       schema: 'schemas/spec-review.schema.json',
+    },
+    {
+      dir: at('analysis/healer-validation'),
+      suffix: '.json',
+      schema: 'schemas/healer-validation.schema.json',
     },
     {
       files: [at('release/release-report.json')],

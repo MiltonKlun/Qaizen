@@ -10,9 +10,12 @@ description: |
   does not own that path.
 phase_introduced: 1
 phase_active: 1+
-version: 2.1.1
+version: 2.1.2
 changed_in_run: null
 changelog: |
+  - 2.1.2: PATCH (task group 6.3). Describes the Healer handoff as it now
+    works: only a finalized Green failure linked to a ledger unit can take a
+    proposed candidate (scripts/run-healer.js). No output change.
   - 2.1.1: PATCH (task group 5.1). Drafts are written without a
     `## Sync State` section; the promotion script adds and owns it.
     No output change.
@@ -252,8 +255,13 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
    `node scripts/validate-json.js schemas/failure-analysis.schema.json analysis/failure-analysis.json`.
 7. **Update `context.json`** with the new `artifact_paths.failure_analysis`
    path. Re-validate `context.json`.
-8. **Hand off to the Reporter.** Do not run the Healer (which is a
-   Phase 3 capability anyway and is bound by its own guardrails).
+8. **Hand off to the Reporter.** Do not run the Healer. Your
+   classification decides what it may do later: only a Green failure
+   in a `finalized` analysis, linked to its ledger `unit_id`, can take a
+   proposed fix (`scripts/run-healer.js --failure FAIL-XXX --candidate
+<file>`), which is validated in an isolated copy and ends as a patch
+   for human review. A wrong Green is how a product bug gets "healed",
+   so when in doubt, it is not Green.
 
 ---
 
@@ -290,8 +298,8 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
   `planner-input/`, or `api-tests/`. Healing tests is the Phase 3
   Healer's job — and even then it produces patches, never direct
   edits. See `docs/healer-guardrails.md`.
-- Re-running failed tests (Phase 3 Healer can re-run in an isolated
-  workspace; this agent cannot).
+- Re-running failed tests (the Healer re-runs one test in an isolated
+  workspace when it validates a proposed fix; this agent never does).
 - Adding `.skip`, `.fixme`, or any test-suppression mechanism to
   Playwright tests.
 - Updating snapshots.
