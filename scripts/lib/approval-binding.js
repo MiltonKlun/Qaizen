@@ -16,6 +16,9 @@
 //   Gate 4 (code_reviewed)         = Gate-3 digest + generated test + fixtures
 //                                    + Playwright config + dependency lock
 //   qa_scope_approved (lite)       = the union of Gate-1 and Gate-2 inputs
+//   external_plan_reviewed         = Gate-2 digest + external plan
+//   external_evidence_reviewed     = external-plan digest + imported results
+//                                    + the evidence files they cite
 //
 // Chaining the digests means a change upstream makes every later approval
 // stale on its own. The digest never covers the approval object itself,
@@ -39,6 +42,8 @@ export const BOUND_GATES = [
   'code_reviewed',
   'collection_reviewed',
   'api_assertions_reviewed',
+  'external_plan_reviewed',
+  'external_evidence_reviewed',
 ];
 
 /**
@@ -53,6 +58,8 @@ const DOWNSTREAM = {
     'code_reviewed',
     'collection_reviewed',
     'api_assertions_reviewed',
+    'external_plan_reviewed',
+    'external_evidence_reviewed',
   ],
   test_scope_reviewed: [
     'qa_scope_approved',
@@ -60,6 +67,8 @@ const DOWNSTREAM = {
     'code_reviewed',
     'collection_reviewed',
     'api_assertions_reviewed',
+    'external_plan_reviewed',
+    'external_evidence_reviewed',
   ],
   qa_scope_approved: [
     'requirements_reviewed',
@@ -68,12 +77,17 @@ const DOWNSTREAM = {
     'code_reviewed',
     'collection_reviewed',
     'api_assertions_reviewed',
+    'external_plan_reviewed',
+    'external_evidence_reviewed',
   ],
   specs_reviewed: ['code_reviewed'],
   code_reviewed: [],
   // The API branch is reviewed on its own track: requests, then assertions.
   collection_reviewed: ['api_assertions_reviewed'],
   api_assertions_reviewed: [],
+  // Manual, component and skip cases (task group 7.2): plan, then evidence.
+  external_plan_reviewed: ['external_evidence_reviewed'],
+  external_evidence_reviewed: [],
 };
 
 /** The story's Postman collection and environment (conventional paths). */
@@ -88,6 +102,41 @@ export function apiPaths(context) {
       paths.api_environment ||
       `api-tests/environments/${id}.postman_environment.json`,
   };
+}
+
+/** The story's external plan and imported results (conventional paths). */
+export function externalPaths(context) {
+  const paths = context?.artifact_paths ?? {};
+  const id = context?.story?.id ?? '<story>';
+  return {
+    plan: paths.external_plan || `planner-input/${id}.external-plan.json`,
+    results: paths.external_results || `external-evidence/${id}.results.json`,
+  };
+}
+
+/**
+ * The evidence files the imported results cite, each by its CURRENT bytes: a
+ * screenshot replaced after review is a different input (null = missing).
+ */
+function evidenceDigests(root, rel) {
+  const abs = join(root, rel);
+  if (!existsSync(abs)) return {};
+  let doc;
+  try {
+    doc = JSON.parse(readFileSync(abs, 'utf8'));
+  } catch {
+    return {};
+  }
+  const out = {};
+  for (const r of Array.isArray(doc?.results) ? doc.results : []) {
+    for (const e of Array.isArray(r?.evidence) ? r.evidence : []) {
+      if (typeof e?.path !== 'string') continue;
+      const f = join(root, e.path);
+      out[`evidence:${e.path}`] =
+        existsSync(f) && statSync(f).isFile() ? sha256(readFileSync(f)) : null;
+    }
+  }
+  return out;
 }
 
 /** Every item of a collection, with its folder path, depth first. */
@@ -343,6 +392,29 @@ export function gateInputs(gate, context, root = '.') {
         'package-lock.json': fileDigest(root, 'package-lock.json', {
           json: true,
         }),
+      };
+    }
+    case 'external_plan_reviewed':
+      return {
+        'gate:test_scope_reviewed': gateDigest(
+          'test_scope_reviewed',
+          context,
+          root
+        ),
+        external_plan: fileDigest(root, externalPaths(context).plan, {
+          json: true,
+        }),
+      };
+    case 'external_evidence_reviewed': {
+      const ext = externalPaths(context);
+      return {
+        'gate:external_plan_reviewed': gateDigest(
+          'external_plan_reviewed',
+          context,
+          root
+        ),
+        external_results: fileDigest(root, ext.results, { json: true }),
+        ...evidenceDigests(root, ext.results),
       };
     }
     default:

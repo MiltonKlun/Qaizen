@@ -39,6 +39,7 @@ import { createInterface } from 'node:readline/promises';
 import { argv, env, exit, stdin, stdout } from 'node:process';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { createHash } from 'node:crypto';
 import {
   nextStep,
   gatePassed,
@@ -68,8 +69,10 @@ import {
   newmanEvidence,
 } from './lib/run-artifacts.js';
 import { writeJsonAtomic, formatErrors } from './lib/artifact-io.js';
+import { approvedScopeDigest, externalSource } from './lib/execution-ledger.js';
 import {
   apiPaths,
+  externalPaths,
   bindingFor,
   gateDigest,
   findInvalidations,
@@ -90,6 +93,12 @@ const JIRA_FETCH = join(SCRIPT_DIR, 'fetch-jira-story.js');
 const CONTEXT_PATH = 'context.json';
 const CONTEXT_SCHEMA = join(REPO_DIR, 'schemas', 'context.schema.json');
 const TEST_CASES_SCHEMA = join(REPO_DIR, 'schemas', 'test-cases.schema.json');
+const EXTERNAL_SCHEMA = join(
+  REPO_DIR,
+  'schemas',
+  'external-execution.schema.json'
+);
+const IMPORT_EXECUTION = 'scripts/import-execution.js';
 
 // ---------------------------------------------------------------- safety --
 // No flag may ever decide a gate. Reject anything that smells like one, so
@@ -206,10 +215,24 @@ function gatherHints(context) {
         (c) => c.status === 'approved'
       );
       const has = (d) => approved.some((c) => c.automation_decision === d);
-      hints.branches = { e2e: has('automate_e2e'), api: has('automate_api') };
+      hints.branches = {
+        e2e: has('automate_e2e'),
+        api: has('automate_api'),
+        // Manual, component and skip cases (task group 7.2); only the first
+        // two have results to record.
+        external: approved.some(
+          (c) => externalSource(c.automation_decision) !== null
+        ),
+        externalRuns: has('manual') || has('automate_component'),
+      };
       hints.hasApiCases = hints.branches.api;
+      if (hints.branches.external) externalHints(context, tc.data, hints);
       if (hints.branches.api) {
-        const col = checkArtifact('api_collection', withApiPaths(context), '.');
+        const col = checkArtifact(
+          'api_collection',
+          withConventionalPaths(context),
+          '.'
+        );
         if (!col.ok && !col.absent) {
           hints.problems.push(`api_collection: ${col.reason}`);
         }
@@ -250,6 +273,14 @@ function gatherHints(context) {
           'execution_ledger: has no Newman execution for this API story; re-classify after the API run'
         );
         produced = false;
+      } else if (
+        hints.branches?.externalRuns &&
+        !ledgerHasCurrentExternal(ledger.data, context)
+      ) {
+        hints.problems.push(
+          'execution_ledger: does not hold the current external results; re-classify after the evidence review'
+        );
+        produced = false;
       }
     }
     hints.failureAnalysisExists = produced;
@@ -271,15 +302,62 @@ function gatherHints(context) {
   return hints;
 }
 
-/** The context with the API artifact paths filled in (conventional paths). */
-function withApiPaths(context) {
+/**
+ * The external plan and results as they stand (task group 7.2). A plan or
+ * results file that does not validate, belongs to another run, or was recorded
+ * against a different approved scope is not produced.
+ */
+function externalHints(context, testCases, hints) {
+  const view = withConventionalPaths(context);
+  const plan = checkArtifact('external_plan', view, '.');
+  if (!plan.ok && !plan.absent) {
+    hints.problems.push(`external_plan: ${plan.reason}`);
+  }
+  hints.externalPlanExists = plan.ok;
+  const results = checkArtifact('external_results', view, '.');
+  if (!results.ok && !results.absent) {
+    hints.problems.push(`external_results: ${results.reason}`);
+  }
+  let current = results.ok;
+  if (
+    results.ok &&
+    results.data.approved_scope_digest !== approvedScopeDigest(testCases)
+  ) {
+    hints.problems.push(
+      'external_results: recorded against a different approved scope; re-import against the current one'
+    );
+    current = false;
+  }
+  hints.externalResultsExist = current;
+}
+
+/** SHA-256 of a file's bytes, or null when it does not exist. */
+function fileSha256(path) {
+  return existsSync(path)
+    ? createHash('sha256').update(readFileSync(path)).digest('hex')
+    : null;
+}
+
+/** Was the ledger built from the external results that exist now? */
+function ledgerHasCurrentExternal(ledger, context) {
+  const digest = fileSha256(externalPaths(context).results);
+  return (ledger?.source_executions ?? []).some(
+    (s) => s.runner === 'external' && s.report_digest === digest
+  );
+}
+
+/** The context with the API and external paths filled in (conventional). */
+function withConventionalPaths(context) {
   const api = apiPaths(context);
+  const ext = externalPaths(context);
   return {
     ...context,
     artifact_paths: {
       ...context.artifact_paths,
       api_collection: api.collection,
       api_environment: api.environment,
+      external_plan: ext.plan,
+      external_results: ext.results,
     },
   };
 }
@@ -359,6 +437,10 @@ const REDO_AFTER_REJECT = {
     'Re-run agents/api-agent.md with the correction notes (requests, variables, endpoint contract), then --resume.',
   'gate4-api':
     "Re-run the API Agent, or edit the collection's assertions yourself (normal at this gate), then --resume.",
+  'gate3-ext':
+    'Re-run agents/test-designer.md to correct the external plan (procedures, commands, evidence, exclusion reasons), then --resume.',
+  'gate4-ext':
+    'Record the missing or corrected results with `node scripts/import-execution.js` (a re-import replaces that case), then --resume.',
 };
 
 async function runGateInteractive(step, context) {
@@ -414,7 +496,10 @@ async function runGateInteractive(step, context) {
             ? CONTEXT_SCHEMA
             : p === context.artifact_paths?.test_cases
               ? TEST_CASES_SCHEMA
-              : null;
+              : p === externalPaths(context).plan ||
+                  p === externalPaths(context).results
+                ? EXTERNAL_SCHEMA
+                : null;
         if (schema) valid = validateJson(schema, p);
       }
       return { path: p, exists, valid };
@@ -555,10 +640,22 @@ const GUIDE_STEPS = {
     '  verifying endpoint shapes via Postman MCP / OpenAPI — never invented.\n' +
     "  Then: npm run pipeline -- --resume   (the collection goes to Gate 3' and Gate 4')",
   'no-executable-scope': (ctx) =>
-    `The approved scope of ${storyId(ctx)} has no automate_e2e or automate_api case,\n` +
-    '  so there is nothing for Playwright or Newman to run. Manual, component and\n' +
-    '  skipped cases are recorded through the external-evidence path, not executed here.\n' +
-    '  If a case should be automated, correct its automation_decision and re-review Gate 2.',
+    `The approved scope of ${storyId(ctx)} has no approved test case, so there is\n` +
+    '  nothing to execute, record or report. Approve the cases that should run (or\n' +
+    '  mark them manual/skip with a reason) and re-review Gate 2.',
+  'external-plan': (ctx) =>
+    `Run the TEST DESIGNER: agents/test-designer.md (external plan) for ${storyId(ctx)}.\n` +
+    `  It writes ${externalPaths(ctx).plan}: one entry per approved manual, component\n` +
+    '  and skip case (procedure or command, expected outcome, evidence required, or the\n' +
+    '  exclusion reason). Nothing is executed before this plan is reviewed.\n' +
+    '  Then: npm run pipeline -- --resume   (the plan goes to the external Gate 3)',
+  'external-results': (ctx) =>
+    `Record the manual/component results of ${storyId(ctx)}, one case at a time:\n` +
+    `  node ${IMPORT_EXECUTION} --case TC-XXX --outcome passed|failed|blocked|not_run\n` +
+    '    --executed-at <ISO time> --operator "<name>" --evidence <file> [--evidence <file>] [--notes "..."]\n' +
+    '  A pass needs evidence; a case you do not record stays Not Run. Importing approves\n' +
+    '  nothing: the results go to the external Gate 4 for review.\n' +
+    '  Then: npm run pipeline -- --resume',
   generator: (ctx) =>
     `Run the PLAYWRIGHT GENERATOR native agent on specs/${storyId(ctx)}.md.\n` +
     `  It writes tests/${storyId(ctx)}.spec.ts; fill artifact_paths.generated_test.\n` +
@@ -597,7 +694,9 @@ function gateInputProblems(step, context) {
     } else {
       const r = checkArtifact(
         req,
-        req === 'api_collection' ? withApiPaths(context) : context,
+        req === 'api_collection' || req.startsWith('external_')
+          ? withConventionalPaths(context)
+          : context,
         '.'
       );
       if (!r.ok) problems.push(`${req} ${r.reason}`);
@@ -737,7 +836,11 @@ function execStep(step, context) {
     // (task group 3.3), so the run's reports are normalized first. The run id
     // is passed through so the classifier can refuse a ledger from another run.
     const ledgerPath = 'analysis/execution-ledger.json';
-    const branches = gatherHints(context).branches ?? { e2e: true, api: false };
+    const branches = gatherHints(context).branches ?? {
+      e2e: true,
+      api: false,
+      external: false,
+    };
     const normalizeArgs = [
       NORMALIZER,
       '--story',
@@ -770,6 +873,21 @@ function execStep(step, context) {
         : latestNewmanExecution(storyId(context));
     if (branches.api && apiExecution) {
       normalizeArgs.push('--execution', apiExecution);
+    }
+    // The reviewed external plan and, when there is work to record, its
+    // results (task group 7.2). A skip-only plan yields no unit at all.
+    const ext = externalPaths(context);
+    if (branches.external) {
+      normalizeArgs.push('--external-plan', ext.plan);
+      if (existsSync(ext.results)) {
+        normalizeArgs.push('--external-results', ext.results);
+      }
+      if (!context.artifact_paths.external_plan) {
+        context.artifact_paths.external_plan = ext.plan;
+      }
+      if (existsSync(ext.results) && !context.artifact_paths.external_results) {
+        context.artifact_paths.external_results = ext.results;
+      }
     }
     console.log('Normalizing the run into an execution ledger\n');
     const n = spawnSync('node', normalizeArgs, { stdio: 'inherit' });
@@ -834,6 +952,11 @@ function printStatus(context, hints) {
   if (hints.branches?.api || gates.collection_reviewed !== undefined) {
     console.log(
       `API:    G3' ${mark('collection_reviewed')} · G4' ${mark('api_assertions_reviewed')}`
+    );
+  }
+  if (hints.branches?.external || gates.external_plan_reviewed !== undefined) {
+    console.log(
+      `Ext:    G3 plan ${mark('external_plan_reviewed')} · G4 evidence ${mark('external_evidence_reviewed')}`
     );
   }
   if (gates.qa_scope_approved !== undefined) {

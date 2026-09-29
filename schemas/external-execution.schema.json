@@ -1,0 +1,198 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://qaizen/schemas/external-execution.schema.json",
+  "title": "External execution: plan and imported results",
+  "description": "The non-automated branch of a run (task group 7.2): approved manual, component and skip cases. Three documents share this schema, told apart by `document`. The IMPORT (the normalized JSON handed to scripts/import-execution.js --from) is described below. The PLAN (planner-input/[story-id].external-plan.json, written by the Test Designer) states for each case how it is executed and what evidence is required; a human reviews it at external_plan_reviewed before any external work. The RESULTS (external-evidence/[story-id].results.json, written only by scripts/import-execution.js) record what the operator reports, with evidence digests; importing asserts nothing about review — external_evidence_reviewed records that separately. Skip cases are never executed and never have a result.",
+  "oneOf": [
+    { "$ref": "#/definitions/plan" },
+    { "$ref": "#/definitions/results" },
+    { "$ref": "#/definitions/import" }
+  ],
+  "definitions": {
+    "import": {
+      "description": "The normalized JSON a component suite (or an operator) hands to scripts/import-execution.js --from: what was run and what came out, with evidence paths. The import checks every entry against the reviewed plan and writes the RESULTS document; this file itself is never evidence of review. Component output of any other format is converted to this outside the pipeline.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "document",
+        "story_id",
+        "run_id",
+        "results"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "document": { "const": "external_import" },
+        "story_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "results": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["test_case_id", "outcome", "executed_at", "operator"],
+            "properties": {
+              "test_case_id": { "type": "string", "pattern": "^TC-[0-9]+$" },
+              "outcome": { "enum": ["passed", "failed", "blocked", "not_run"] },
+              "executed_at": { "type": "string", "format": "date-time" },
+              "operator": { "type": "string", "minLength": 1 },
+              "evidence": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 },
+                "description": "Repository-relative paths; the import digests them."
+              },
+              "notes": { "type": "string", "maxLength": 1000 }
+            }
+          }
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "document", "story_id", "run_id", "cases"],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "document": { "const": "external_plan" },
+        "story_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "cases": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/plannedCase" }
+        }
+      }
+    },
+    "plannedCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["test_case_id", "source"],
+      "properties": {
+        "test_case_id": { "type": "string", "pattern": "^TC-[0-9]+$" },
+        "source": {
+          "enum": ["manual", "component", "skip"],
+          "description": "manual: a person follows the procedure. component: an external command (a component suite) is run outside this pipeline and its normalized result imported. skip: approved exclusion, never executed."
+        },
+        "procedure": {
+          "type": "string",
+          "minLength": 1,
+          "description": "manual: the steps the operator follows."
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "description": "component: the external command that produces the result (run outside this pipeline)."
+        },
+        "expected_outcome": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What a pass means, from the case's expected_results."
+        },
+        "evidence_required": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "What must be attached to a result (e.g. a screenshot of the confirmation page, the component suite's JSON output)."
+        },
+        "exclusion_reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "skip: why the case is excluded; it is reported as Not Run, never as passed."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "source": { "const": "manual" } } },
+          "then": {
+            "required": ["procedure", "expected_outcome", "evidence_required"]
+          }
+        },
+        {
+          "if": { "properties": { "source": { "const": "component" } } },
+          "then": {
+            "required": ["command", "expected_outcome", "evidence_required"]
+          }
+        },
+        {
+          "if": { "properties": { "source": { "const": "skip" } } },
+          "then": { "required": ["exclusion_reason"] }
+        }
+      ]
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "document",
+        "story_id",
+        "run_id",
+        "approved_scope_digest",
+        "results"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "document": { "const": "external_results" },
+        "story_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "approved_scope_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "The approved test-case scope the results were recorded against (scripts/lib/execution-ledger.js approvedScopeDigest)."
+        },
+        "results": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/result" }
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "test_case_id",
+        "source",
+        "outcome",
+        "executed_at",
+        "operator",
+        "evidence",
+        "imported_at"
+      ],
+      "properties": {
+        "test_case_id": { "type": "string", "pattern": "^TC-[0-9]+$" },
+        "source": { "enum": ["manual", "component"] },
+        "outcome": {
+          "enum": ["passed", "failed", "blocked", "not_run"],
+          "description": "As the operator reports it. A pass needs evidence; a missing result is not a result (the case stays Not Run)."
+        },
+        "executed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the work was actually done, as supplied."
+        },
+        "operator": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Who performed it, as supplied. This is not a reviewer's approval."
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+            }
+          }
+        },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "imported_at": { "type": "string", "format": "date-time" }
+      },
+      "if": { "properties": { "outcome": { "const": "passed" } } },
+      "then": { "properties": { "evidence": { "minItems": 1 } } }
+    }
+  }
+}

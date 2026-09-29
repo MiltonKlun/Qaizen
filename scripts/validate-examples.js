@@ -14,6 +14,8 @@
 //   *.expected-execution-ledger.json schemas/execution-ledger.schema.json
 //   *.expected-release-report.json   schemas/release-report.schema.json
 //   *.expected-collection.json       schemas/postman-collection.schema.json
+//   *.expected-external-plan.json    schemas/external-execution.schema.json (7.2)
+//   *.expected-external-results.json schemas/external-execution.schema.json (7.2)
 //                                    (Phase 1.5+; skipped if the schema
 //                                    file does not yet exist)
 //   *.expected-spec-review.json      schemas/spec-review.schema.json (Phase 3)
@@ -63,6 +65,14 @@ const PATTERNS = [
   {
     suffix: '.expected-collection.json',
     schema: 'schemas/postman-collection.schema.json',
+  },
+  {
+    suffix: '.expected-external-plan.json',
+    schema: 'schemas/external-execution.schema.json',
+  },
+  {
+    suffix: '.expected-external-results.json',
+    schema: 'schemas/external-execution.schema.json',
   },
   {
     suffix: '.expected-spec-review.json',

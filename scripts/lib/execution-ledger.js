@@ -317,6 +317,27 @@ export const CASE_REPORT_OUTCOMES = [
 ];
 
 const NOT_EXECUTED = new Set(['skipped', 'not_run']);
+
+/**
+ * The external branch (task group 7.2): approved automation decisions the
+ * pipeline does not execute, and the `source` each has in the external plan
+ * and results (schemas/external-execution.schema.json). Component tests run
+ * outside the pipeline (docs/automation-decision-model.md section 5).
+ */
+export const EXTERNAL_SOURCE = {
+  manual: 'manual',
+  automate_component: 'component',
+  skip: 'skip',
+};
+
+/** The external source of an automation decision, or null when automated. */
+export const externalSource = (decision) =>
+  Object.prototype.hasOwnProperty.call(EXTERNAL_SOURCE, decision)
+    ? EXTERNAL_SOURCE[decision]
+    : null;
+
+/** Decisions whose result is recorded by import (skip never has one). */
+const RECORDED_DECISIONS = new Set(['manual', 'automate_component']);
 const NON_PASSING = new Set(['failed', 'blocked', 'flaky', 'expected_failure']);
 
 const linksTo = (unit, caseId) => {
@@ -331,8 +352,8 @@ const unattributed = (unit) => {
 /**
  * One reportable outcome for one test case, from ALL of its linked units.
  *
- * Precedence (IMPLEMENTATION_PLAN 5.3):
- *   intentionally skipped / manual / no linked unit           -> not_run
+ * Precedence (task groups 5.3, 7.2):
+ *   intentionally skipped / no linked unit                     -> not_run
  *   a failed unit the finalized analysis confirms as product_bug -> product_failure
  *   any other failure, block, flake, expected failure, an
  *   unattributed non-passing unit of the same runner, evidence
@@ -341,8 +362,9 @@ const unattributed = (unit) => {
  *   every linked unit explicitly passed                        -> passed
  *
  * Set-based throughout, so the order of units or failures cannot change the
- * result. A manual case never borrows another case's units: its outcome needs
- * a human evidence record, which does not exist yet.
+ * result. A manual or component case is judged only by its own imported
+ * external result (never by an automated unit), and an automated case never
+ * by an external one. Without a recorded result a manual case is not_run.
  *
  * @param {object} args
  * @param {object} args.testCase   one test case
@@ -366,17 +388,19 @@ export function testCaseOutcome({
   if (testCase.automation_decision === 'skip') {
     return notRun('intentionally skipped (automation_decision: skip)');
   }
-  if (testCase.automation_decision === 'manual') {
-    return notRun(
-      'manual case: its result needs a human evidence record, and no automated result is borrowed'
-    );
-  }
-
+  const external = RECORDED_DECISIONS.has(testCase.automation_decision);
   const units = ledger.units ?? [];
-  const linked = units.filter((u) => linksTo(u, id));
+  const linked = units.filter(
+    (u) => linksTo(u, id) && (u.identity?.kind === 'external') === external
+  );
   const unitIds = linked.map((u) => u.unit_id).sort();
   if (linked.length === 0) {
-    return notRun('no executed unit links to this case', unitIds);
+    return notRun(
+      external
+        ? `${testCase.automation_decision} case with no recorded result: nothing is inferred from its absence`
+        : 'no executed unit links to this case',
+      unitIds
+    );
   }
 
   const confirmed = linked.filter(

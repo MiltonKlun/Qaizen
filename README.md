@@ -95,6 +95,9 @@ flowchart TD
     split -->|API branch| apiagent[API Agent<br/><i>Postman collection</i>]
     apiagent -- "Gate 3'/4'<br/>Collection + assertions" --> execute
 
+    split -->|Manual · component · skip| extplan[External plan<br/><i>procedures · evidence · exclusions</i>]
+    extplan -- "Plan review → results recorded<br/>Evidence review · human sign-off" --> classifier
+
     execute[Execute] --> classifier[Failure Classifier<br/><i>green · yellow · red</i>]
     classifier --> healer[Healer<br/><i>green-only · patch + review</i>]
     classifier --> report[Release report<br/>+ bug drafts → Jira]
@@ -116,6 +119,10 @@ flowchart TD
 | **2. Test scope** | Test Designer | Coverage, priorities, automation decisions justified |
 | **3. Specs** | Planner | Specs match scope, negative cases present |
 | **4. Code** | Generator | Stable locators, real assertions, no skipped/weakened tests — always a human sign-off |
+
+API cases and manual, component or skip cases have their own Gate 3 and Gate 4
+reviews ([review gates](docs/review-gates.md)); one branch's approval never
+stands in for another's, and no gate is waived as "not applicable".
 
 ---
 
@@ -160,6 +167,7 @@ flowchart LR
 | `npm run test:api` | Run the Postman collections via Newman |
 | `npm run normalize -- --story <id> ...` | Normalize runner reports into one execution ledger (the counting model) |
 | `npm run classify` | Rule-based failure pre-classification from the ledger (Green / Yellow / Red), written as a draft |
+| `npm run import:execution -- --case TC-X ...` | Record a manual or component result, with its evidence, against the reviewed plan (approves nothing) |
 | `npm run heal` | Healer triage; `--failure FAIL-X --candidate <file> --apply` validates a proposed fix into a reviewable patch, never commits |
 | `npm run metrics` | Aggregate pipeline metrics from run history |
 | `npm run validate:all` | Validate every committed artifact against its schema |
@@ -185,6 +193,7 @@ Standalone capabilities (adopt one piece without the whole pipeline):
 | `docs` | Architecture, gates, traceability, integration & fit guides |
 | `examples` | Example stories, expected outputs, the offline demo fixtures |
 | `tests` · `api-tests` | Generated Playwright tests · Postman collections |
+| `external-evidence` | Recorded manual/component results and their evidence, per story |
 | `test` | Unit tests for the pipeline's own scripts — distinct from `tests`, the generated Playwright suite |
 | `runs` | Archived run history (one snapshot per story run) |
 | `evidence` | Benchmark records — the raw data behind `docs/evidence.md` |

@@ -170,6 +170,22 @@ export function bindGate(ctx, gate, dir) {
  * approves, and `draft` is not valid after it (docs/review-gates.md).
  */
 export function validTestCases(storyId, runId) {
+  const tc = scopeCases(storyId, runId);
+  return {
+    ...tc,
+    // E2E only: an approved manual/skip case would open the external branch
+    // (task group 7.2), whose reviews a plain completed E2E run never had.
+    test_cases: tc.test_cases.filter(
+      (c) => c.automation_decision === 'automate_e2e'
+    ),
+  };
+}
+
+/**
+ * Three approved gold cases (TC-001, TC-002, TC-004) for tests that set each
+ * case's automation decision and status themselves (task groups 7.1, 7.2).
+ */
+export function scopeCases(storyId, runId) {
   const tc = gold('examples/expected/login-success.expected-test-cases.json');
   return {
     ...tc,

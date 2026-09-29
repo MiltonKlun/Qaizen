@@ -12,11 +12,18 @@
 //   analyst → gate1 → test-designer → gate2 →
 //     [E2E]  planner → gate3 → generator → gate4
 //     [API]  api → gate3-api (collection_reviewed) → gate4-api (api_assertions_reviewed)
-//   → [E2E] execute → [API] execute-api → classify → finalize → report → done
+//     [EXT]  external-plan → gate3-ext (external_plan_reviewed)
+//   → [E2E] execute → [API] execute-api
+//   → [EXT] external-results → gate4-ext (external_evidence_reviewed)
+//   → classify → finalize → report → done
 //
 // A branch runs only when the approved scope has cases for it (task group
 // 7.1): an API-only story never meets the E2E steps, and every applicable
-// branch is fully reviewed before either suite executes.
+// branch is fully reviewed before either suite executes. Manual, component
+// and skip cases form the external branch (task group 7.2): its plan is
+// reviewed with the other plans, its evidence after it exists, and a
+// skip-only scope still passes both external reviews — nothing is executed,
+// and nothing is approved by default.
 //
 // `hints` carries facts that live OUTSIDE context.json (file existence, the
 // automate_api split inside the test-cases file). The CLI gathers them with
@@ -54,6 +61,9 @@ export const GATE_KEYS = {
   // The API branch's own reviews (task group 7.1); never an E2E approval.
   'gate3-api': 'collection_reviewed',
   'gate4-api': 'api_assertions_reviewed',
+  // The external branch's reviews (task group 7.2): plan, then evidence.
+  'gate3-ext': 'external_plan_reviewed',
+  'gate4-ext': 'external_evidence_reviewed',
 };
 
 /**
@@ -62,13 +72,18 @@ export const GATE_KEYS = {
  * @param {object|null} context  Parsed context.json, or null when the run
  *                               has not started (no context.json yet).
  * @param {object} [hints]      Optional CLI-gathered facts (all optional):
- *   - branches:               { e2e, api } from the APPROVED cases' automation
- *                             decisions (task group 7.1). Preferred.
+ *   - branches:               { e2e, api, external, externalRuns } from the
+ *                             APPROVED cases' automation decisions (task
+ *                             groups 7.1, 7.2). Preferred. `external`: any
+ *                             manual/component/skip case; `externalRuns`: any
+ *                             manual/component case (skip is never executed).
  *   - hasApiCases:            legacy: true if test-cases has automate_api cases
  *                             (used only when `branches` is absent).
  *   - apiCollectionExists:    true if the Postman collection file exists.
  *   - apiExecuted:            true if a Newman execution of the approved
  *                             collection exists for this run.
+ *   - externalPlanExists:     true if a valid external plan exists for this run.
+ *   - externalResultsExist:   true if valid imported results exist for this run.
  *   - testCasesExist:         file-existence override for test_cases.
  *   - plannerBriefExists:     file-existence override for planner_brief.
  *   - specExists:             file-existence override for playwright_spec.
@@ -86,7 +101,8 @@ export const GATE_KEYS = {
  * behavior is unchanged (filled-only), so older callers are unaffected.
  * @returns {string} one of: analyst | gate1 | test-designer | gate2 |
  *   qa_scope | no-executable-scope | planner | gate3 | generator | gate4 |
- *   api | gate3-api | gate4-api | execute | execute-api | classify |
+ *   api | gate3-api | gate4-api | external-plan | gate3-ext | execute |
+ *   execute-api | external-results | gate4-ext | classify |
  *   finalize | report | done   (qa_scope replaces gate1+gate2 on the lite
  *   track — context.track === "lite" or a passed qa_scope_approved)
  */
@@ -138,7 +154,9 @@ export function nextStep(context, hints = {}) {
   const api = hints.branches
     ? hints.branches.api === true
     : hints.hasApiCases === true;
-  if (!e2e && !api) return 'no-executable-scope';
+  const external = hints.branches?.external === true;
+  const externalRuns = hints.branches?.externalRuns === true;
+  if (!e2e && !api && !external) return 'no-executable-scope';
 
   // Every branch collects its own approvals before anything executes: a
   // mixed scope runs neither suite until both are fully reviewed.
@@ -154,6 +172,10 @@ export function nextStep(context, hints = {}) {
     if (!gatePassed(gates.collection_reviewed)) return 'gate3-api';
     if (!gatePassed(gates.api_assertions_reviewed)) return 'gate4-api';
   }
+  if (external) {
+    if (hints.externalPlanExists !== true) return 'external-plan';
+    if (!gatePassed(gates.external_plan_reviewed)) return 'gate3-ext';
+  }
 
   // Deterministic order: Playwright, then Newman. A run is not executed until
   // every applicable branch has evidence (an API story never completes on the
@@ -161,6 +183,14 @@ export function nextStep(context, hints = {}) {
   if (e2e && !produced(paths.execution_results, hints.executionResultsExist))
     return 'execute';
   if (api && hints.apiExecuted !== true) return 'execute-api';
+  // External results are recorded after every plan is approved, and reviewed
+  // once they exist. A skip-only scope has nothing to record, but its
+  // unexecuted disposition is still reviewed at gate4-ext.
+  if (external) {
+    if (externalRuns && hints.externalResultsExist !== true)
+      return 'external-results';
+    if (!gatePassed(gates.external_evidence_reviewed)) return 'gate4-ext';
+  }
   if (!produced(paths.failure_analysis, hints.failureAnalysisExists))
     return 'classify';
   // The pre-classifier writes a DRAFT. The Failure Classifier Agent (or a

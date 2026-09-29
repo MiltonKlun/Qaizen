@@ -332,6 +332,8 @@ test('GATE_KEYS maps the runner gates to review_gates keys (incl. lite qa_scope)
     gate4: 'code_reviewed',
     'gate3-api': 'collection_reviewed',
     'gate4-api': 'api_assertions_reviewed',
+    'gate3-ext': 'external_plan_reviewed',
+    'gate4-ext': 'external_evidence_reviewed',
   });
 });
 
@@ -450,10 +452,117 @@ test('branches: a mixed scope collects every review, then runs Playwright before
   );
 });
 
-test('branches: no approved automated case has nothing to execute', () => {
+test('branches: no approved case has nothing to execute', () => {
   assert.equal(
-    nextStep(scoped({}), { branches: { e2e: false, api: false } }),
+    nextStep(scoped({}), {
+      branches: { e2e: false, api: false, external: false },
+    }),
     'no-executable-scope'
+  );
+});
+
+// Task group 7.2: manual, component and skip cases form the external branch.
+// Its plan is reviewed before any execution and its evidence after it exists;
+// neither review is ever skipped as "not applicable".
+
+test('external: a manual-only scope is planned, reviewed, recorded, reviewed, then classified', () => {
+  const ext = {
+    branches: { e2e: false, api: false, external: true, externalRuns: true },
+  };
+  assert.equal(nextStep(scoped({}), ext), 'external-plan');
+  assert.equal(
+    nextStep(scoped({}), { ...ext, externalPlanExists: true }),
+    'gate3-ext'
+  );
+  const planned = scoped({ external_plan_reviewed: G });
+  assert.equal(
+    nextStep(planned, { ...ext, externalPlanExists: true }),
+    'external-results'
+  );
+  assert.equal(
+    nextStep(planned, {
+      ...ext,
+      externalPlanExists: true,
+      externalResultsExist: true,
+    }),
+    'gate4-ext',
+    'importing results approves nothing'
+  );
+  assert.equal(
+    nextStep(
+      scoped({ external_plan_reviewed: G, external_evidence_reviewed: G }),
+      {
+        ...ext,
+        externalPlanExists: true,
+        externalResultsExist: true,
+      }
+    ),
+    'classify'
+  );
+  // An E2E approval never stands in for an external one.
+  assert.equal(
+    nextStep(scoped({ specs_reviewed: G, code_reviewed: G }), {
+      ...ext,
+      externalPlanExists: true,
+    }),
+    'gate3-ext'
+  );
+});
+
+test('external: a skip-only scope records nothing but is still reviewed twice', () => {
+  const skip = {
+    branches: { e2e: false, api: false, external: true, externalRuns: false },
+    externalPlanExists: true,
+  };
+  assert.equal(nextStep(scoped({}), skip), 'gate3-ext');
+  assert.equal(
+    nextStep(scoped({ external_plan_reviewed: G }), skip),
+    'gate4-ext',
+    'no results to record, but the unexecuted disposition is reviewed'
+  );
+  assert.equal(
+    nextStep(
+      scoped({ external_plan_reviewed: G, external_evidence_reviewed: G }),
+      skip
+    ),
+    'classify'
+  );
+});
+
+test('external: a mixed manual/API scope reviews every plan before Newman, and evidence after it', () => {
+  const mixed = {
+    branches: { e2e: false, api: true, external: true, externalRuns: true },
+    apiCollectionExists: true,
+    externalPlanExists: true,
+  };
+  const api = { collection_reviewed: G, api_assertions_reviewed: G };
+  assert.equal(
+    nextStep(scoped(api), mixed),
+    'gate3-ext',
+    'the external plan is reviewed before anything executes'
+  );
+  const plans = { ...api, external_plan_reviewed: G };
+  assert.equal(nextStep(scoped(plans), mixed), 'execute-api');
+  assert.equal(
+    nextStep(scoped(plans), { ...mixed, apiExecuted: true }),
+    'external-results'
+  );
+  assert.equal(
+    nextStep(scoped(plans), {
+      ...mixed,
+      apiExecuted: true,
+      externalResultsExist: true,
+    }),
+    'gate4-ext'
+  );
+  assert.equal(
+    nextStep(scoped({ ...plans, external_evidence_reviewed: G }), {
+      ...mixed,
+      apiExecuted: true,
+      externalResultsExist: true,
+    }),
+    'classify',
+    'the report waits for every final review'
   );
 });
 

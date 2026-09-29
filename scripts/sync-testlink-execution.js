@@ -11,7 +11,10 @@
 //   Blocked for any other failure, block, flake, expected failure, partial
 //           execution, evidence from an unclean execution, or an unattributed
 //           failing unit that might be its own;
-//   Not Run when it is intentionally skipped, manual, or nothing ran for it.
+//   Not Run when it is intentionally skipped, or nothing ran (or was recorded)
+//           for it.
+// Manual and component cases follow the same precedence over their imported
+// external results (task group 7.2); a skip is Not Run, never Pass.
 // The rules live in scripts/lib/execution-ledger.js (testCaseOutcome). The
 // outcome -> TestLink status mapping lives in config/testlink-status-map.json.
 //
@@ -43,6 +46,7 @@ import { requireCurrentGate } from './lib/approval-binding.js';
 import {
   CASE_REPORT_OUTCOMES,
   approvedScopeDigest,
+  externalSource,
   readLedger,
   testCaseOutcome,
 } from './lib/execution-ledger.js';
@@ -189,14 +193,32 @@ async function main() {
     console.error(`${scope.reason}. Refusing to sync execution results.`);
     return 1;
   }
-  // The E2E branch review (Gate 4). An approval counts only while it still
-  // matches what was reviewed (task group 4.3).
-  const gate4 = requireCurrentGate(context, 'code_reviewed', '.');
-  if (!gate4.ok) {
-    console.error(
-      `Gate 4: ${gate4.reason}. Refusing to sync execution results.`
+  // The final review of every branch whose results are reported: Gate 4 for
+  // E2E, the external plan and evidence reviews for manual/component/skip
+  // (task group 7.2). An approval counts only while it still matches what
+  // was reviewed (task group 4.3); one branch's never stands in for another's.
+  const decisions = new Set(
+    doc.test_cases
+      .filter((tc) => tc.status === 'approved')
+      .map((tc) => tc.automation_decision)
+  );
+  const required = [];
+  if (decisions.has('automate_e2e')) required.push(['Gate 4', 'code_reviewed']);
+  if ([...decisions].some((d) => externalSource(d) !== null)) {
+    required.push(
+      ['External Gate 3', 'external_plan_reviewed'],
+      ['External Gate 4', 'external_evidence_reviewed']
     );
-    return 1;
+  }
+  if (!required.length) required.push(['Gate 4', 'code_reviewed']);
+  for (const [label, gate] of required) {
+    const g = requireCurrentGate(context, gate, '.');
+    if (!g.ok) {
+      console.error(
+        `${label}: ${g.reason}. Refusing to sync execution results.`
+      );
+      return 1;
+    }
   }
 
   // --- The failure analysis: which failures are CONFIRMED product bugs --
@@ -292,10 +314,10 @@ async function main() {
       });
       continue;
     }
-    // Skipped and manual cases are Not Run for their own reasons, with or
-    // without a ledger. Anything else without valid evidence is Not Run
-    // because of the missing evidence (and an apply is refused below).
-    const ownReason = ['skip', 'manual'].includes(tc.automation_decision);
+    // A skipped case is Not Run for its own reason, with or without a
+    // ledger. Anything else without valid evidence is Not Run because of the
+    // missing evidence (and an apply is refused below).
+    const ownReason = tc.automation_decision === 'skip';
     let derived;
     if (ledger || ownReason) {
       derived = testCaseOutcome({

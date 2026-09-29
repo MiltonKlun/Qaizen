@@ -572,6 +572,79 @@ runs Newman only after both, and `run-newman.js` refuses the active run's
 story without them (the informational CI check runs with
 `--repository-check`, which carries no approval).
 
+### External Gate 3 — Manual, Component and Skip Plan Review
+
+Approved `manual`, `automate_component` and `skip` cases are not executed
+by the pipeline (docs/automation-decision-model.md). They form the external
+branch (task group 7.2) and keep two reviews of their own. There is no
+generated code for them, so `code_reviewed` is never set on their behalf,
+and neither review is skipped as "not applicable".
+
+**When it runs:** After Gate 2, with the other branches' plan reviews and
+before any execution (runner step `gate3-ext`).
+
+**Inputs the reviewer reads:**
+
+- `planner-input/[story-id].external-plan.json` (written by the Test
+  Designer, `schemas/external-execution.schema.json`).
+- `test-cases/[story-id].json`, for each case's `expected_results`.
+
+**Criteria (all must hold):**
+
+- [ ] **One entry per approved external case, and nothing else.**
+- [ ] **Manual procedures are followable** — a person can repeat them and
+      they end in the case's expected results.
+- [ ] **Component commands name the suite** that produces the result; it
+      runs outside this pipeline and its result is imported, not parsed.
+- [ ] **Evidence required is concrete** — enough to trust a pass (which
+      screenshot, which report), not "evidence attached".
+- [ ] **Skip exclusions carry a real reason.** A skipped case is reported
+      Not Run, never passed.
+
+**Tracking:** `context.json.review_gates.external_plan_reviewed`, bound to
+the Gate 2 digest and the plan. Changing the plan or the approved scope
+stales it and the evidence review after it. Results are only recorded
+against a current plan approval, and only for work done after it.
+
+### External Gate 4 — Evidence Review **(human sign-off, always)**
+
+**When it runs:** After the results are recorded (runner step
+`gate4-ext`), before classification and the report. A skip-only scope has
+nothing to record, but it still reaches this gate: the reviewer confirms the
+unexecuted disposition.
+
+**Inputs the reviewer reads:**
+
+- `external-evidence/[story-id].results.json`, written only by
+  `node scripts/import-execution.js` (one case from flags, or the
+  normalized `external_import` JSON with `--from`).
+- The evidence files it lists (each recorded with its SHA-256).
+- The external plan and the test cases.
+
+**Criteria (all must hold):**
+
+- [ ] **Every pass carries the evidence the plan requires**, and the
+      evidence shows the expected outcome.
+- [ ] **Failures and blocks say what happened**; none is re-labelled.
+- [ ] **A planned case with no result stays Not Run** — nothing is
+      inferred from its absence.
+- [ ] **Operators and execution times are plausible** for this run.
+- [ ] **Skip-only scope:** nothing was executed, and that is acceptable
+      for this release.
+
+**What the import does not do:** it records what the operator reports and
+digests the evidence; it never asserts that anyone reviewed it. It refuses a
+pass without evidence, a case the plan does not list, a skip, work dated
+before the plan approval or in the future, and results of another story, run
+or approved scope.
+
+**Tracking:** `context.json.review_gates.external_evidence_reviewed`,
+bound to the plan approval, the results file and the current bytes of every
+evidence file. A later import, or a replaced screenshot, returns it to
+pending. An imported failure reaches the Failure Classifier as
+`source: "external"`, `unknown_needs_human_review`: whether it is a product
+bug is a human call.
+
 ---
 
 ## Locator selection policy (Gate 3 + Gate 4)

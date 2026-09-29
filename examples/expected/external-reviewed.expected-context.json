@@ -1,0 +1,130 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-02T09-00-00Z-extex",
+  "story": {
+    "id": "UX-014",
+    "title": "Error banner copy and contrast",
+    "source": "manual",
+    "path": "story.md",
+    "description": "The login error banner must be readable and tell a non-technical user what to do next. A visual and copy review: nothing here is automated, so the scope is manual, with one legacy check approved as a skip."
+  },
+  "acceptance_criteria": [
+    "Given a failed sign-in, when the error banner appears, then its colour contrast against the page background is readable at desktop and mobile widths.",
+    "Given a failed sign-in, when the error banner appears, then its copy tells the user what to do next without technical terms."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "Users cannot read or act on the error and abandon sign-in.",
+      "severity": "medium",
+      "related_acs": [0, 1]
+    }
+  ],
+  "artifact_paths": {
+    "test_cases": "test-cases/UX-014.json",
+    "planner_brief": "planner-input/UX-014.planner-brief.md",
+    "playwright_spec": "",
+    "generated_test": "",
+    "execution_results": "",
+    "html_report": "",
+    "traces": "",
+    "screenshots": "",
+    "failure_analysis": "",
+    "release_report_md": "",
+    "release_report_json": "",
+    "bug_drafts_dir": "release/bug-drafts",
+    "external_plan": "planner-input/UX-014.external-plan.json",
+    "external_results": "external-evidence/UX-014.results.json"
+  },
+  "review_gates": {
+    "requirements_reviewed": {
+      "status": true,
+      "reviewer": "QA engineer",
+      "reviewed_at": "2026-06-02T09:10:00Z",
+      "opened_at": "2026-06-02T09:10:00Z",
+      "notes": null,
+      "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "inputs": {
+        "story": "1111111111111111111111111111111111111111111111111111111111111111",
+        "interpretation": "2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    },
+    "test_scope_reviewed": {
+      "status": true,
+      "reviewer": "QA engineer",
+      "reviewed_at": "2026-06-02T09:20:00Z",
+      "opened_at": "2026-06-02T09:20:00Z",
+      "notes": null,
+      "input_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "inputs": {
+        "gate:requirements_reviewed": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "test_cases": "3333333333333333333333333333333333333333333333333333333333333333",
+        "planner_brief": "4444444444444444444444444444444444444444444444444444444444444444"
+      }
+    },
+    "specs_reviewed": false,
+    "code_reviewed": false,
+    "external_plan_reviewed": {
+      "status": true,
+      "reviewer": "QA engineer",
+      "reviewed_at": "2026-06-02T09:35:00Z",
+      "opened_at": "2026-06-02T09:35:00Z",
+      "notes": null,
+      "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "inputs": {
+        "gate:test_scope_reviewed": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "external_plan": "5555555555555555555555555555555555555555555555555555555555555555"
+      }
+    },
+    "external_evidence_reviewed": {
+      "status": true,
+      "reviewer": "QA lead",
+      "reviewed_at": "2026-06-02T11:00:00Z",
+      "opened_at": "2026-06-02T10:50:00Z",
+      "notes": "Both screenshots show the banner at the widths the plan names.",
+      "input_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "inputs": {
+        "gate:external_plan_reviewed": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "external_results": "6666666666666666666666666666666666666666666666666666666666666666",
+        "evidence:external-evidence/UX-014/tc-001-desktop.png": "7777777777777777777777777777777777777777777777777777777777777777",
+        "evidence:external-evidence/UX-014/tc-001-mobile.png": "8888888888888888888888888888888888888888888888888888888888888888"
+      }
+    }
+  },
+  "status": "in_progress",
+  "gate_decisions": [
+    {
+      "gate": "requirements_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-06-02T09:10:00Z",
+      "decided_at": "2026-06-02T09:10:00Z",
+      "reviewer": "QA engineer",
+      "notes": null
+    },
+    {
+      "gate": "test_scope_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-06-02T09:20:00Z",
+      "decided_at": "2026-06-02T09:20:00Z",
+      "reviewer": "QA engineer",
+      "notes": null
+    },
+    {
+      "gate": "external_plan_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-06-02T09:35:00Z",
+      "decided_at": "2026-06-02T09:35:00Z",
+      "reviewer": "QA engineer",
+      "notes": null
+    },
+    {
+      "gate": "external_evidence_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-06-02T10:50:00Z",
+      "decided_at": "2026-06-02T11:00:00Z",
+      "reviewer": "QA lead",
+      "notes": "Both screenshots show the banner at the widths the plan names."
+    }
+  ]
+}

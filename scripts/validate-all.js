@@ -14,6 +14,8 @@
 //   analysis/healer-validation/*.json     schemas/healer-validation.schema.json
 //   release/release-report.json           schemas/release-report.schema.json
 //   api-tests/collections/*.json          schemas/postman-collection.schema.json
+//   planner-input/*.external-plan.json    schemas/external-execution.schema.json
+//   external-evidence/*.results.json      schemas/external-execution.schema.json
 //
 // Examples under examples/expected/ are covered by validate-examples.js;
 // this script covers the live, committed run artifacts AT THE ROOT and every
@@ -67,6 +69,18 @@ function targetsFor(base = '.') {
       dir: at('api-tests/collections'),
       suffix: '.json',
       schema: 'schemas/postman-collection.schema.json',
+    },
+    // The external branch (task group 7.2): the reviewed plan and the
+    // imported results. Evidence files themselves are not JSON artifacts.
+    {
+      dir: at('planner-input'),
+      suffix: '.external-plan.json',
+      schema: 'schemas/external-execution.schema.json',
+    },
+    {
+      dir: at('external-evidence'),
+      suffix: '.results.json',
+      schema: 'schemas/external-execution.schema.json',
     },
   ];
 }

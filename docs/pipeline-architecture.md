@@ -332,6 +332,24 @@ Failure Classifier and Reporter require the final approval of each branch
 they report on, never another branch's. See `docs/review-gates.md` for the
 criteria and `docs/pipeline-runner.md` for the sequence.
 
+### The external branch: manual, component and skip cases
+
+Approved `manual`, `automate_component` and `skip` cases are not executed
+by the pipeline (task group 7.2). The Test Designer writes an external plan
+(`planner-input/[story-id].external-plan.json`), reviewed at
+`external_plan_reviewed` alongside the other plans and before any execution.
+After execution, the operator records results with
+`scripts/import-execution.js` into `external-evidence/[story-id].results.json`
+(`schemas/external-execution.schema.json`), each with its evidence digested;
+component suites run outside the pipeline and hand over the normalized
+`external_import` JSON. `external_evidence_reviewed` signs the results off
+before classification. The normalizer turns each recorded result into one
+ledger unit (`identity.kind: "external"`) linked to its case, so the same
+ledger and TestLink precedence apply: a pass needs reviewed evidence, a
+planned case with no result stays Not Run, and a skip is never a pass. A
+skip-only scope still passes both external reviews and yields a ledger with
+zero units. `code_reviewed` is never set for code that does not exist.
+
 ---
 
 ## 6. Phase 2 — Integrations and CI

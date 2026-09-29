@@ -94,6 +94,12 @@ pipeline:
         │           (E2E branch; the API branch instead: API Agent fills
         │            artifact_paths.api_collection / .api_environment →
         │            Gate 3' collection_reviewed → Gate 4' api_assertions_reviewed)
+        │           (manual / component / skip scope: Test Designer fills
+        │            artifact_paths.external_plan → external_plan_reviewed;
+        │            after execution, scripts/import-execution.js writes
+        │            external-evidence/<story>.results.json →
+        │            external_evidence_reviewed. code_reviewed is never set
+        │            for code that does not exist.)
         ▼
   Test execution fills artifact_paths.execution_results, .html_report,
                                        .traces, .screenshots (E2E);

@@ -10,6 +10,12 @@
 // fabricated Playwright report, and vice versa. With neither, this exits 2
 // rather than writing an empty ledger that would read as "nothing failed".
 //
+// External work (task group 7.2) comes from the reviewed external plan and
+// the results recorded by scripts/import-execution.js: one unit per recorded
+// manual/component result, linked to its case. A skip-only plan is an input
+// too: it yields a ledger with zero units whose approved cases are all
+// not_run -- an explicit zero-execution summary, never a pass.
+//
 // Usage:
 //   node scripts/normalize-results.js --story QA-1042 \
 //     [--playwright reports/results.json] \
@@ -20,6 +26,9 @@
 //     [--test-cases test-cases/<story>.json]   the approved scope: records the
 //                                    approved case ids and the scope digest the
 //                                    TestLink result sync checks (task group 5.3)
+//     [--external-plan planner-input/<story>.external-plan.json]
+//     [--external-results external-evidence/<story>.results.json]
+//                                    (results need the plan and --test-cases)
 //
 // Exit codes:
 //   0 — a valid ledger was written
@@ -27,11 +36,11 @@
 //       invariant, or write failure)
 //   2 — usage error, or no execution inputs exist
 
-import { existsSync, readdirSync } from 'node:fs';
-import { basename, join, resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
 import { argv, env, exit } from 'node:process';
-import { randomUUID } from 'node:crypto';
-import { pathToFileURL } from 'node:url';
+import { createHash, randomUUID } from 'node:crypto';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
   readJson,
@@ -47,6 +56,7 @@ import {
 import { buildLedger } from './lib/build-ledger.js';
 import {
   approvedScopeDigest,
+  externalSource,
   ledgerInvariants,
   LEDGER_SCHEMA,
   legacySummaryProjection,
@@ -54,6 +64,136 @@ import {
 } from './lib/execution-ledger.js';
 
 const DEFAULT_OUT = 'analysis/execution-ledger.json';
+const EXTERNAL_SCHEMA = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'schemas',
+  'external-execution.schema.json'
+);
+
+/** A recorded external outcome as a unit attempt (the ledger's vocabulary). */
+const EXTERNAL_ATTEMPT = { failed: 'failed', blocked: 'interrupted' };
+
+/**
+ * Read and check the external plan and results against the story, run and
+ * approved scope. Nothing here decides an outcome: a recorded result becomes
+ * one unit with exactly the outcome the operator reported.
+ * @returns {{ok: true, execution: object|null, units: object[]} |
+ *           {ok: false, message: string}}
+ */
+function externalInputs(flags, { storyId, runId, testCases, scopeDigest }) {
+  const fail = (message) => ({ ok: false, message });
+  const planPath = flags['external-plan'];
+  const resultsPath = flags['external-results'];
+  if (!planPath) {
+    return resultsPath
+      ? fail('--external-results needs the reviewed --external-plan')
+      : { ok: true, execution: null, units: [] };
+  }
+  const plan = readValidatedJson(planPath, EXTERNAL_SCHEMA);
+  if (!plan.ok || plan.data.document !== 'external_plan') {
+    return fail(`${planPath} is not a valid external plan`);
+  }
+  if (plan.data.story_id !== storyId) {
+    return fail(
+      `${planPath} is for story ${plan.data.story_id}, not ${storyId}`
+    );
+  }
+  if (runId && plan.data.run_id !== runId) {
+    return fail(`${planPath} belongs to run ${plan.data.run_id}, not ${runId}`);
+  }
+  // Every planned case must still be an approved case of the same kind.
+  if (testCases) {
+    const approved = new Map(
+      testCases.test_cases
+        .filter((c) => c.status === 'approved')
+        .map((c) => [c.test_case_id, externalSource(c.automation_decision)])
+    );
+    const off = plan.data.cases.filter(
+      (c) => approved.get(c.test_case_id) !== c.source
+    );
+    if (off.length) {
+      return fail(
+        `${planPath} plans ${off.map((c) => c.test_case_id).join(', ')}, which the approved scope does not have as planned`
+      );
+    }
+  }
+  if (!resultsPath) return { ok: true, execution: null, units: [] };
+
+  if (!testCases) {
+    return fail('--external-results needs --test-cases (the approved scope)');
+  }
+  const res = readValidatedJson(resultsPath, EXTERNAL_SCHEMA);
+  if (!res.ok || res.data.document !== 'external_results') {
+    return fail(`${resultsPath} is not valid external results`);
+  }
+  if (res.data.story_id !== storyId || (runId && res.data.run_id !== runId)) {
+    return fail(
+      `${resultsPath} belongs to ${res.data.story_id}/${res.data.run_id}, not this run`
+    );
+  }
+  if (res.data.approved_scope_digest !== scopeDigest) {
+    return fail(
+      `${resultsPath} was recorded against a different approved scope`
+    );
+  }
+  const planned = new Map(plan.data.cases.map((c) => [c.test_case_id, c]));
+  const seen = new Set();
+  for (const r of res.data.results) {
+    const p = planned.get(r.test_case_id);
+    if (!p || p.source !== r.source) {
+      return fail(
+        `${resultsPath} records ${r.test_case_id} as ${r.source}, which the reviewed plan does not`
+      );
+    }
+    if (seen.has(r.test_case_id)) {
+      return fail(`${resultsPath} records ${r.test_case_id} more than once`);
+    }
+    seen.add(r.test_case_id);
+  }
+
+  const executionId = `exec-ext-${randomUUID().slice(0, 8)}`;
+  const times = res.data.results.map((r) => r.executed_at).sort();
+  const units = res.data.results.map((r) => {
+    const attempt = EXTERNAL_ATTEMPT[r.outcome];
+    const message = `Reported ${r.outcome} by ${r.operator}${r.notes ? `: ${r.notes}` : ''}`;
+    return {
+      unit_id: `external:${r.test_case_id}`,
+      execution_id: executionId,
+      identity: {
+        kind: 'external',
+        test_title: `${r.test_case_id} (${r.source})`,
+        occurrence: 0,
+      },
+      domain_links: { test_case_id: r.test_case_id },
+      outcome: r.outcome,
+      ...(attempt
+        ? {
+            attempts: [
+              { status: attempt, error_message: message.slice(0, 600) },
+            ],
+          }
+        : {}),
+    };
+  });
+  return {
+    ok: true,
+    units,
+    execution: {
+      execution_id: executionId,
+      runner: 'external',
+      started_at: times[0] ?? new Date().toISOString(),
+      completed_at: times[times.length - 1] ?? null,
+      command_identity: `import-execution (${[...new Set(res.data.results.map((r) => r.source))].sort().join(', ') || 'no results'})`,
+      process_status: 'completed',
+      report_reference: resultsPath,
+      report_digest: createHash('sha256')
+        .update(readFileSync(resultsPath))
+        .digest('hex'),
+      source_errors: [],
+    },
+  };
+}
 
 /**
  * Flags that may be given more than once; every other flag is single-valued.
@@ -93,7 +233,8 @@ function usage(message) {
   console.error(
     'Usage: node scripts/normalize-results.js --story <STORY-ID> ' +
       '[--playwright <report.json>] [--execution <id>] [--newman <report.json> ...] ' +
-      '[--out <ledger.json>] [--run-id <id>] [--mapping <file>] [--test-cases <file>]'
+      '[--out <ledger.json>] [--run-id <id>] [--mapping <file>] [--test-cases <file>] ' +
+      '[--external-plan <file>] [--external-results <file>]'
   );
 }
 
@@ -190,12 +331,9 @@ export function main(args = argv.slice(2)) {
 
   // Neither runner supplied: an empty ledger would be indistinguishable from a
   // clean run, so refuse instead of manufacturing one.
-  if (!pwPath && nmPaths.length === 0) {
+  if (!pwPath && nmPaths.length === 0 && !flags['external-plan']) {
     console.error(
-      'Error: no execution inputs. Pass --playwright, --execution and/or --newman.'
-    );
-    console.error(
-      '  Manual/external result import is task group 7.x; it is not available yet.'
+      'Error: no execution inputs. Pass --playwright, --execution, --newman and/or --external-plan.'
     );
     return 2;
   }
@@ -288,6 +426,7 @@ export function main(args = argv.slice(2)) {
   // is recorded as a digest, so a ledger cannot later be reported against a
   // different scope (task group 5.3).
   let scopeDigest = null;
+  let testCases = null;
   if (flags['test-cases']) {
     const tc = readValidatedJson(flags['test-cases'], TEST_CASES_SCHEMA);
     if (!tc.ok) {
@@ -316,6 +455,22 @@ export function main(args = argv.slice(2)) {
     }
     approvedCaseIds = approved;
     scopeDigest = approvedScopeDigest(tc.data);
+    testCases = tc.data;
+  }
+
+  const ext = externalInputs(flags, {
+    storyId,
+    runId: flags['run-id'] || env.RUN_ID || null,
+    testCases,
+    scopeDigest,
+  });
+  if (!ext.ok) {
+    console.error(`Error: ${ext.message}`);
+    return 2;
+  }
+  if (ext.execution) {
+    sourceExecutions.push(ext.execution);
+    units.push(...ext.units);
   }
 
   const { ledger, unmapped, ambiguous } = buildLedger({

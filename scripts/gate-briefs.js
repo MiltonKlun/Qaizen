@@ -10,7 +10,7 @@
 // JSON artifact / not validated). No I/O here; the CLI gathers, this renders.
 
 import { GATE_KEYS } from './pipeline-state.js';
-import { apiPaths } from './lib/approval-binding.js';
+import { apiPaths, externalPaths } from './lib/approval-binding.js';
 
 // Per-gate brief data. `artifacts(ctx)` returns the paths the reviewer reads
 // (the things produced since the previous gate); `checklist` is the
@@ -165,6 +165,48 @@ export const GATE_BRIEFS = {
     judgment: [
       'Would you let this collection block a release — do you trust a red AND a green from it?',
       'Does any assertion quietly test less than the TC expected_results?',
+    ],
+  },
+  // The external branch's reviews (task group 7.2): manual, component and
+  // skip cases. No code exists for them, so code_reviewed is never asked for;
+  // these two reviews stand in its place and are never approved by default.
+  'gate3-ext': {
+    name: 'Gate 3 (external) — Manual / Component / Skip Plan Review',
+    requires: ['@context', 'test_cases', 'external_plan'],
+    artifacts: (ctx) => [
+      externalPaths(ctx).plan,
+      ctx?.artifact_paths?.test_cases,
+    ],
+    checklist: [
+      'Every approved manual, component and skip case has exactly one plan entry, and nothing else does',
+      'Manual procedures are steps a person can follow, ending in the TC expected_results',
+      'Component commands name the suite that produces the result; it runs outside this pipeline',
+      'Evidence required is concrete (what screenshot, which report) — enough to trust a pass',
+      'Skip exclusions carry a real reason; a skipped case is reported Not Run, never passed',
+    ],
+    judgment: [
+      'Would a result produced by following this plan convince you the TC passed?',
+      'Is any skip hiding something that should be tested?',
+    ],
+  },
+  'gate4-ext': {
+    name: 'Gate 4 (external) — Evidence Review (human sign-off, always)',
+    requires: ['@context', 'test_cases', 'external_plan'],
+    artifacts: (ctx) => [
+      externalPaths(ctx).results,
+      externalPaths(ctx).plan,
+      ctx?.artifact_paths?.test_cases,
+    ],
+    checklist: [
+      'Every pass carries the evidence the plan requires, and the evidence shows the expected outcome',
+      'Failed and blocked results say what happened; they are not quietly re-labelled',
+      'A planned case with no result stays Not Run — nothing is inferred from its absence',
+      'Operators and execution times are plausible for this run (after the plan approval)',
+      'Skip-only scope: confirm that nothing was executed and that is acceptable for this release',
+    ],
+    judgment: [
+      'Do you trust these results as much as you would an automated run?',
+      'Is any result a claim rather than evidence?',
     ],
   },
 };

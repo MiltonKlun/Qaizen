@@ -32,6 +32,7 @@
     "new-run": "node scripts/new-run.js",
     "list-runs": "node scripts/list-runs.js",
     "normalize": "node scripts/normalize-results.js",
+    "import:execution": "node scripts/import-execution.js",
     "classify": "node scripts/run-failure-classifier.js",
     "heal": "node scripts/run-healer.js",
     "demo:healer": "node scripts/demo-healer-green-red.js",

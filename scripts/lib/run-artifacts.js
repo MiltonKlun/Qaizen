@@ -38,6 +38,17 @@ const RULES = {
     kind: 'collection',
     schema: 'postman-collection.schema.json',
   },
+  // One schema, two documents (task group 7.2): each path must hold its own.
+  external_plan: {
+    kind: 'json',
+    schema: 'external-execution.schema.json',
+    document: 'external_plan',
+  },
+  external_results: {
+    kind: 'json',
+    schema: 'external-execution.schema.json',
+    document: 'external_results',
+  },
 };
 
 const ok = (data) => ({ ok: true, data });
@@ -53,9 +64,9 @@ function readJson(path) {
   }
 }
 
-/** The moment Gate 4 was approved, when the audit object records it. */
-function gate4ApprovedAt(context) {
-  const g = context?.review_gates?.code_reviewed;
+/** The moment a gate was approved, when the audit object records it. */
+function gateApprovedAt(context, gate) {
+  const g = context?.review_gates?.[gate];
   const t = g && typeof g === 'object' ? Date.parse(g.reviewed_at ?? '') : NaN;
   return Number.isNaN(t) ? null : t;
 }
@@ -85,7 +96,7 @@ function checkPlaywrightReport(path, context, root) {
       return bad(`is stale: ${test} changed after this report was written`);
     }
   }
-  const approved = gate4ApprovedAt(context);
+  const approved = gateApprovedAt(context, 'code_reviewed');
   if (approved !== null && approved > reportTime) {
     return bad('is stale: it predates the Gate 4 approval of the code it ran');
   }
@@ -138,6 +149,22 @@ export function checkArtifact(key, context, root = '.') {
   }
   if (context?.run_id && r.data.run_id !== context.run_id) {
     return bad(`${rel} belongs to run ${r.data.run_id}, not ${context.run_id}`);
+  }
+  if (rule.document && r.data.document !== rule.document) {
+    return bad(`${rel} is an ${r.data.document}, not an ${rule.document}`);
+  }
+  // Work recorded before the plan was approved was not done against the
+  // reviewed plan (the external counterpart of a pre-Gate-4 report).
+  if (key === 'external_results') {
+    const approved = gateApprovedAt(context, 'external_plan_reviewed');
+    const early = (r.data.results ?? []).filter(
+      (x) => approved !== null && Date.parse(x.executed_at) < approved
+    );
+    if (early.length) {
+      return bad(
+        `${rel} is stale: ${early.map((x) => x.test_case_id).join(', ')} predate the external plan approval`
+      );
+    }
   }
   return ok(r.data);
 }

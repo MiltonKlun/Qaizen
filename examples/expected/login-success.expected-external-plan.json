@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "document": "external_plan",
+  "story_id": "STORY-001",
+  "run_id": "2026-05-28T18-00-00Z-loginex",
+  "cases": [
+    {
+      "test_case_id": "TC-004",
+      "source": "manual",
+      "procedure": "Sign in with a valid username and a wrong password. When the error banner appears, inspect it at 100% zoom in a desktop browser, then once more at a 375px-wide viewport.",
+      "expected_outcome": "The banner uses an error colour and is readable against the page background, and the copy is specific enough that a non-technical user knows what to do next.",
+      "evidence_required": [
+        "A screenshot of the error banner at desktop width",
+        "A screenshot of the error banner at a 375px-wide viewport"
+      ]
+    }
+  ]
+}

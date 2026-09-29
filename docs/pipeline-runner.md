@@ -57,8 +57,12 @@ A full loop looks like:
 → [test-designer step] → --resume → GATE 2
 → E2E branch (approved automate_e2e cases): [planner] → GATE 3 → [generator] → GATE 4
 → API branch (approved automate_api cases): [api] → GATE 3' → GATE 4'
+→ external branch (approved manual / automate_component / skip cases):
+    [external-plan] → EXTERNAL GATE 3
 → execute (runner runs npx playwright test, E2E branch)
 → execute-api (runner runs scripts/run-newman.js, API branch)
+→ [external-results: you record them with scripts/import-execution.js]
+    → EXTERNAL GATE 4 (external branch)
 → classify (runner normalizes, then runs the rule-based pre-classifier)
 → [finalize step: the Failure Classifier agent] → --resume
 → [reporter step] → --resume → done (the runner marks the run completed)
@@ -68,8 +72,25 @@ Branches come from the **approved** cases only: an API-only story never
 meets the planner, generator or Gate 4, and needs no Playwright report. A
 mixed story collects every review before either suite runs; then Playwright
 runs, then Newman, and both outcomes are classified even if one suite fails.
-A scope with no approved `automate_e2e` or `automate_api` case stops at
-`no-executable-scope`: there is nothing to execute.
+
+Manual, component and skip cases (task group 7.2) are never executed by the
+runner. Their plan is reviewed with the other plans, before anything runs;
+the operator records results afterwards, one case at a time or from the
+normalized JSON (`--from`):
+
+```bash
+node scripts/import-execution.js --case TC-004 --outcome passed \
+  --executed-at 2026-09-29T10:15:00Z --operator "A. Tester" \
+  --evidence external-evidence/QA-1042/tc-004-banner.png
+```
+
+A pass needs evidence, and importing approves nothing: the results go to the
+external Gate 4, and a later import returns that review to pending. A
+planned case with no recorded result stays Not Run. A skip-only scope records
+nothing but still passes both external reviews, and its ledger says plainly
+that zero units ran. Only a scope with no approved case at all stops at
+`no-executable-scope`. Keep evidence under `external-evidence/<story-id>/`:
+it is archived with the run, so it must not hold secrets or personal data.
 
 When the run completes the runner reminds you of the two post-run habits:
 archiving (automatic when the next story starts, or `npm run new-run -- <story-id>`
@@ -121,11 +142,11 @@ finishes or undoes it before doing anything else, deterministically:
 
 ## 3. Guide steps vs exec steps
 
-| Kind      | Steps                                                                                  | Who acts                                                                                                             |
-| --------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Guide** | analyst, test-designer, planner, api, generator, no-executable-scope, finalize, report | **You + the agent.** The runner prints the exact instruction and exits; it never fakes an LLM step.                  |
-| **Gate**  | gate1, gate2, gate3, gate4, gate3-api, gate4-api                                       | **You, interactively.** Brief rendered, decision captured, audit + telemetry written.                                |
-| **Exec**  | execute, execute-api, classify                                                         | **The runner.** Deterministic: `npx playwright test`, `run-newman.js`, then `normalize-results.js` → the classifier. |
+| Kind      | Steps                                                                                                                   | Who acts                                                                                                             |
+| --------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Guide** | analyst, test-designer, planner, api, external-plan, generator, external-results, no-executable-scope, finalize, report | **You + the agent.** The runner prints the exact instruction and exits; it never fakes an LLM step.                  |
+| **Gate**  | gate1, gate2, gate3, gate4, gate3-api, gate4-api, gate3-ext, gate4-ext                                                  | **You, interactively.** Brief rendered, decision captured, audit + telemetry written.                                |
+| **Exec**  | execute, execute-api, classify                                                                                          | **The runner.** Deterministic: `npx playwright test`, `run-newman.js`, then `normalize-results.js` → the classifier. |
 
 Playwright failures at the execute step are **data for the classifier**, not
 a runner error — a failing suite with a valid report continues to
@@ -196,6 +217,10 @@ digests) on the gate:
 | Gate 2                   | Gate 1's digest + the test cases (semantic content) + the planner brief                                 |
 | Gate 3                   | Gate 2's digest + the spec + the planner/generator prompt versions                                      |
 | Gate 4                   | Gate 3's digest + the generated test + `tests/fixtures/` + `playwright.config.ts` + `package-lock.json` |
+| Gate 3'                  | Gate 2's digest + the collection's requests + the environment's keys + `docs/api-spec.yaml`             |
+| Gate 4'                  | Gate 3''s digest + the assertion scripts + `scripts/run-newman.js` + `package-lock.json`                |
+| External Gate 3          | Gate 2's digest + the external plan                                                                     |
+| External Gate 4          | External Gate 3's digest + the imported results + the current bytes of each evidence file               |
 | lite `qa_scope_approved` | the union of the Gate 1 and Gate 2 inputs                                                               |
 
 On every `--resume`, an approval whose inputs changed — or a legacy approval
