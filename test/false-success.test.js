@@ -25,6 +25,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execPath } from 'node:process';
 
+import { runContext } from './helpers/valid-run.js';
+
 /** Run a repo script from the repo root; return { code, out }. */
 function run(args, opts = {}) {
   const r = spawnSync(execPath, args, {
@@ -52,7 +54,14 @@ function scratch(prefix) {
 const VALID_CONTEXT = {
   schema_version: '1.0',
   run_id: '2026-01-01T00-00-00Z-test',
-  story: { id: 'STORY-777', source: 'manual', path: 'story.md' },
+  // A fixed evaluation story (examples/stories/footer-social-links.md):
+  // candidates are only evaluated against the fixed stories (task group 8.1).
+  story: {
+    id: 'STORY-021',
+    title: 'Footer shows social links and a copyright line',
+    source: 'manual',
+    path: 'story.md',
+  },
   acceptance_criteria: ['The footer shows the current year.'],
   ambiguities: [],
   risks: [
@@ -63,8 +72,9 @@ const VALID_CONTEXT = {
       related_acs: [0],
     },
   ],
-  artifact_paths: {},
-  review_gates: {},
+  // Schema-valid: the evaluator now counts context validity (task group 8.1).
+  artifact_paths: runContext().artifact_paths,
+  review_gates: runContext({ gates: false }).review_gates,
   status: 'draft',
 };
 
@@ -142,7 +152,8 @@ test('evaluate-agents: context-only candidate is scorable ONLY in explicit analy
     // It scores (exit 0 or 1 depending on the context's own checks), but it
     // must NOT be rejected for missing test cases.
     assert.doesNotMatch(r.out, /missing required test cases/);
-    assert.match(r.out, /Scored: 1/);
+    assert.match(r.out, /\(footer-social-links, analyst stage\)/);
+    assert.match(r.out, /OK footer-social-links: 100%/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

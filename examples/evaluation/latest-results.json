@@ -1,19 +1,50 @@
 {
-  "generated_at": "2026-06-07T05:00:37.507Z",
-  "mode": "expected-dataset",
-  "story_count": 5,
-  "scored_count": 5,
-  "overall_match_pct": 100,
+  "generated_at": "2026-09-29T20:30:24.965Z",
+  "kind": "expected-fixture-validation",
+  "scope": "structural: schema validity, required fields, ids, TC->RISK and TC->AC links, decisions, risk coverage. Not wording, and not business correctness (judged with the review-gate rubrics).",
+  "counts": {
+    "stories": 7,
+    "declared": {
+      "designer": 2,
+      "analyst": 3,
+      "none": 2
+    },
+    "scored": {
+      "designer": 2,
+      "analyst": 3
+    },
+    "missing": 0
+  },
+  "checks": {
+    "passed": 98,
+    "total": 98
+  },
+  "match_pct": 100,
+  "missing": [],
+  "excluded": [
+    {
+      "story": "checkout-order-summary",
+      "reason": "No gold output has been written for this story yet."
+    },
+    {
+      "story": "footer-social-links",
+      "reason": "No gold output has been written for this lite-track story yet."
+    }
+  ],
   "results": [
     {
       "story": "api-create-user",
-      "scored": true,
-      "has_test_cases": true,
+      "stage": "designer",
       "sources": {
         "context": "examples/expected/api-create-user.expected-context.json",
         "test_cases": "examples/expected/api-create-user.expected-test-cases.json"
       },
       "checks": [
+        {
+          "name": "context validates against its schema",
+          "pass": true,
+          "detail": ""
+        },
         {
           "name": "context.schema_version present",
           "pass": true,
@@ -90,6 +121,11 @@
           "detail": ""
         },
         {
+          "name": "test cases validate against their schema",
+          "pass": true,
+          "detail": ""
+        },
+        {
           "name": "test_cases array present",
           "pass": true,
           "detail": ""
@@ -115,6 +151,11 @@
           "detail": ""
         },
         {
+          "name": "every TC acceptance_criteria_ref is a real AC",
+          "pass": true,
+          "detail": ""
+        },
+        {
           "name": "every TC has a decision + non-empty reason",
           "pass": true,
           "detail": ""
@@ -126,19 +167,23 @@
         }
       ],
       "failed_checks": [],
-      "passed": 22,
-      "total": 22,
+      "passed": 25,
+      "total": 25,
       "match_pct": 100
     },
     {
       "story": "cart-badge-count-bugfix",
-      "scored": true,
-      "has_test_cases": false,
+      "stage": "analyst",
       "sources": {
         "context": "examples/expected/cart-badge-count-bugfix.expected-context.json",
         "test_cases": null
       },
       "checks": [
+        {
+          "name": "context validates against its schema",
+          "pass": true,
+          "detail": ""
+        },
         {
           "name": "context.schema_version present",
           "pass": true,
@@ -216,19 +261,24 @@
         }
       ],
       "failed_checks": [],
-      "passed": 15,
-      "total": 15,
-      "match_pct": 100
+      "passed": 16,
+      "total": 16,
+      "match_pct": 100,
+      "note": "Bug-fix story kept to anchor the Analyst's interpretation; no gold test cases have been written for it."
     },
     {
       "story": "checkout-expired-card",
-      "scored": true,
-      "has_test_cases": false,
+      "stage": "analyst",
       "sources": {
         "context": "examples/expected/checkout-expired-card.expected-context.json",
         "test_cases": null
       },
       "checks": [
+        {
+          "name": "context validates against its schema",
+          "pass": true,
+          "detail": ""
+        },
         {
           "name": "context.schema_version present",
           "pass": true,
@@ -306,19 +356,24 @@
         }
       ],
       "failed_checks": [],
-      "passed": 15,
-      "total": 15,
-      "match_pct": 100
+      "passed": 16,
+      "total": 16,
+      "match_pct": 100,
+      "note": "Payment-flow story kept to anchor the Analyst's risk and ambiguity handling; no gold test cases have been written for it."
     },
     {
       "story": "login-success",
-      "scored": true,
-      "has_test_cases": true,
+      "stage": "designer",
       "sources": {
         "context": "examples/expected/login-success.expected-context.json",
         "test_cases": "examples/expected/login-success.expected-test-cases.json"
       },
       "checks": [
+        {
+          "name": "context validates against its schema",
+          "pass": true,
+          "detail": ""
+        },
         {
           "name": "context.schema_version present",
           "pass": true,
@@ -395,6 +450,11 @@
           "detail": ""
         },
         {
+          "name": "test cases validate against their schema",
+          "pass": true,
+          "detail": ""
+        },
+        {
           "name": "test_cases array present",
           "pass": true,
           "detail": ""
@@ -420,6 +480,11 @@
           "detail": ""
         },
         {
+          "name": "every TC acceptance_criteria_ref is a real AC",
+          "pass": true,
+          "detail": ""
+        },
+        {
           "name": "every TC has a decision + non-empty reason",
           "pass": true,
           "detail": ""
@@ -431,19 +496,23 @@
         }
       ],
       "failed_checks": [],
-      "passed": 22,
-      "total": 22,
+      "passed": 25,
+      "total": 25,
       "match_pct": 100
     },
     {
       "story": "sort-products-enhancement",
-      "scored": true,
-      "has_test_cases": false,
+      "stage": "analyst",
       "sources": {
         "context": "examples/expected/sort-products-enhancement.expected-context.json",
         "test_cases": null
       },
       "checks": [
+        {
+          "name": "context validates against its schema",
+          "pass": true,
+          "detail": ""
+        },
         {
           "name": "context.schema_version present",
           "pass": true,
@@ -521,9 +590,10 @@
         }
       ],
       "failed_checks": [],
-      "passed": 15,
-      "total": 15,
-      "match_pct": 100
+      "passed": 16,
+      "total": 16,
+      "match_pct": 100,
+      "note": "Enhancement story kept to anchor the Analyst's interpretation; no gold test cases have been written for it."
     }
   ]
 }

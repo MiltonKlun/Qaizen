@@ -16,6 +16,8 @@
 //   api-tests/collections/*.json          schemas/postman-collection.schema.json
 //   planner-input/*.external-plan.json    schemas/external-execution.schema.json
 //   external-evidence/*.results.json      schemas/external-execution.schema.json
+//   examples/evaluation/manifest.json     schemas/evaluation-manifest.schema.json
+//                                         (repo root only; task group 8.1)
 //
 // Examples under examples/expected/ are covered by validate-examples.js;
 // this script covers the live, committed run artifacts AT THE ROOT and every
@@ -110,6 +112,12 @@ function archivedRunDirs() {
 const TARGETS = [
   ...targetsFor('.'),
   ...archivedRunDirs().flatMap((d) => targetsFor(d)),
+  // The evaluation manifest declares which gold outputs each story has; the
+  // evaluator refuses to run on an invalid one, so CI guards it here too.
+  {
+    files: ['examples/evaluation/manifest.json'],
+    schema: 'schemas/evaluation-manifest.schema.json',
+  },
 ];
 
 // Compilation + caching live in scripts/lib/artifact-io.js (task group 2.1).
