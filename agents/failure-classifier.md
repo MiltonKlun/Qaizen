@@ -10,9 +10,14 @@ description: |
   does not own that path.
 phase_introduced: 1
 phase_active: 1+
-version: 2.2.0
+version: 2.3.0
 changed_in_run: null
 changelog: |
+  - 2.3.0: MINOR (task group 7.2). Imported manual/component results are
+    classified too: an external failure keeps `source: "external"`, has no
+    PW/REQ id, and its cause is the human's call (never auto-classified).
+    The precondition adds the external plan and evidence reviews for a scope
+    with manual, component or skip cases.
   - 2.2.0: MINOR (task group 7.1). The precondition follows the branches in
     the ledger: Gate 4 for Playwright results, Gate 3' and Gate 4' for Newman
     results. API-only runs are classified without a Gate 4 or a Playwright
@@ -109,12 +114,19 @@ This agent does NOT:
   originating `TC-XXX` (or `API-XXX` for Phase 1.5+).
 - _(Phase 1.5+)_ `api-tests/collections/[story-id].postman_collection.json`
   — to map Newman requests back to `REQ-XXX` and `COL-XXX`.
+- _(Task group 7.2)_ `external-evidence/[story-id].results.json` — the
+  manual/component results the operator recorded, with evidence paths. Each
+  is one ledger unit (`identity.kind: "external"`) linked to its `TC-XXX`.
 
 **Required precondition:** The final approval of **every branch whose results you classify** must
 be passed and current: `code_reviewed` (Gate 4) for Playwright results,
 `collection_reviewed` (Gate 3') and `api_assertions_reviewed` (Gate 4')
-for Newman results. One branch's approval never stands in for another's:
-an API-only run has no Gate 4, and Gate 4 does not cover a collection.
+for Newman results, `external_plan_reviewed` and
+`external_evidence_reviewed` (the external Gates 3 and 4) for a scope with
+manual, component or skip cases -- even a skip-only scope with no result.
+One branch's approval never stands in for another's:
+an API-only run has no Gate 4, and Gate 4 does not cover a collection or
+a manual result.
 A gate is passed when it is `true` (Phase 1 boolean form) OR an object
 with `status: true` (Phase 2+ audit-field form). The agent REFUSES to run
 otherwise. Classifying failures of unreviewed
@@ -165,7 +177,8 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
 
 1. **Verify the final approvals.** Gate 4 (`code_reviewed`) for Playwright
    results; Gate 3' (`collection_reviewed`) and Gate 4'
-   (`api_assertions_reviewed`) for Newman results. If any is not passed,
+   (`api_assertions_reviewed`) for Newman results; the external plan and
+   evidence reviews for manual/component/skip scope. If any is not passed,
    stop. The approval must also be **current**: `npm run pipeline -- --status` must
    not report it as a stale approval. An approval is bound to a digest of
    what it reviewed (task group 4.3); once those inputs change it no longer
@@ -191,6 +204,12 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
      be established (e.g. the seed test failed), keep `test_case_id: null`
      with `traceability_unresolved: true` and a reason. **Do not fake the
      link.**
+   - An **external** failure (`source: "external"`, an imported manual or
+     component result) has no `PW-XXX` or `REQ-XXX`: do not add one. The
+     pipeline did not run it, so the draft leaves it
+     `unknown_needs_human_review` (Yellow). Change the classification only
+     on what the recorded notes and evidence show (e.g. `product_bug`, Red,
+     with a bug draft); never re-label a recorded failure as a pass.
    - Set `playwright_test_id` (`PW-XXX`) or `request_id` (`REQ-XXX`) only
      when metadata proves it. Otherwise leave it `null` with
      `id_unresolved_reason`, and keep `runner_identity` so the failure

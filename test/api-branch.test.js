@@ -28,7 +28,7 @@ import { execPath } from 'node:process';
 
 import {
   bindGate,
-  validTestCases,
+  scopeCases,
   writeCompletedRun,
 } from './helpers/valid-run.js';
 
@@ -62,7 +62,7 @@ function run(cases, { keepE2E = false } = {}) {
   const dir = mkdtempSync(join(REPO, '.tmp-runner-api-'));
   for (const d of ['scripts', 'schemas'])
     cpSync(join(REPO, d), join(dir, d), { recursive: true });
-  const tc = validTestCases(STORY, RUN);
+  const tc = scopeCases(STORY, RUN);
   cases.forEach(([decision, status], i) => {
     tc.test_cases[i].automation_decision = decision;
     tc.test_cases[i].status = status;
@@ -189,7 +189,7 @@ test('API-only: its own reviews in order, no E2E step, no borrowed approval', ()
   const dir = run([
     ['automate_api', 'approved'],
     ['automate_api', 'approved'],
-    ['manual', 'approved'],
+    ['manual', 'rejected'],
   ]);
   try {
     const step = () =>
@@ -216,17 +216,17 @@ test('API-only: its own reviews in order, no E2E step, no borrowed approval', ()
   }
 });
 
-test('draft or rejected cases activate nothing; no approved automated case has nothing to run', () => {
+test('draft or rejected cases activate nothing; no approved case has nothing to run', () => {
   const dir = run([
     ['automate_api', 'rejected'],
     ['automate_api', 'rejected'],
-    ['manual', 'approved'],
+    ['manual', 'rejected'],
   ]);
   try {
     const r = pipeline(dir, ['--resume']);
     assert.equal(r.code, 0, r.out);
     assert.match(r.out, /NO-EXECUTABLE-SCOPE/);
-    assert.match(r.out, /nothing for Playwright or Newman to run/);
+    assert.match(r.out, /has no approved test case/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -236,7 +236,7 @@ test('the two API approvals go stale independently', () => {
   const dir = run([
     ['automate_api', 'approved'],
     ['automate_api', 'approved'],
-    ['manual', 'approved'],
+    ['manual', 'rejected'],
   ]);
   try {
     withCollection(dir);
@@ -276,12 +276,12 @@ test('the two API approvals go stale independently', () => {
 // ------------------------------------------------------------ execution
 
 test('API-only run: the runner executes Newman and classifies without a Playwright report', async () => {
-  const api = await apiServer();
   const dir = run([
     ['automate_api', 'approved'],
     ['automate_api', 'approved'],
-    ['manual', 'approved'],
+    ['manual', 'rejected'],
   ]);
+  const api = await apiServer();
   try {
     withCollection(dir, api.url);
     approveApi(dir);
@@ -314,15 +314,15 @@ test('API-only run: the runner executes Newman and classifies without a Playwrig
 });
 
 test('mixed scope: a failing Playwright suite is data, then Newman runs, then both are classified', async () => {
-  const api = await apiServer();
   const dir = run(
     [
       ['automate_e2e', 'approved'],
       ['automate_api', 'approved'],
-      ['manual', 'approved'],
+      ['manual', 'rejected'],
     ],
     { keepE2E: true }
   );
+  const api = await apiServer();
   try {
     withCollection(dir, api.url);
     approveApi(dir);
@@ -356,7 +356,7 @@ test('a mixed scope does not execute either suite until every branch is reviewed
     [
       ['automate_e2e', 'approved'],
       ['automate_api', 'approved'],
-      ['manual', 'approved'],
+      ['manual', 'rejected'],
     ],
     { keepE2E: true }
   );
@@ -377,12 +377,12 @@ test('a mixed scope does not execute either suite until every branch is reviewed
 });
 
 test('run-newman: the live story needs its API approvals; a repository check is never run evidence', async () => {
-  const api = await apiServer();
   const dir = run([
     ['automate_api', 'approved'],
     ['automate_api', 'approved'],
-    ['manual', 'approved'],
+    ['manual', 'rejected'],
   ]);
+  const api = await apiServer();
   try {
     withCollection(dir, api.url);
     const newman = (args) =>

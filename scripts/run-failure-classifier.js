@@ -27,7 +27,12 @@
 //
 // Gate precondition: like the Failure Classifier Agent, refuses unless the
 // final approval of every branch in the ledger is current — code_reviewed for
-// Playwright evidence, collection_reviewed + api_assertions_reviewed for Newman.
+// Playwright evidence, collection_reviewed + api_assertions_reviewed for Newman,
+// external_plan_reviewed + external_evidence_reviewed for manual/component/skip
+// work (task group 7.2; a skip-only scope has no unit but is still reviewed).
+//
+// An imported manual/component failure is never auto-classified: whether it
+// is a product bug is the human's call (unknown_needs_human_review, Yellow).
 //
 // Usage:
 //   node scripts/run-failure-classifier.js [--ledger <path>]   # write the draft
@@ -46,6 +51,7 @@ import { writeJsonAtomic, formatErrors } from './lib/artifact-io.js';
 import {
   readLedger,
   legacySummaryProjection,
+  externalSource,
   UNIT_OUTCOMES,
 } from './lib/execution-ledger.js';
 import { classifyUnit } from './lib/classify-failure.js';
@@ -61,6 +67,25 @@ const SCHEMA = join(
   'failure-analysis.schema.json'
 );
 const DEFAULT_LEDGER = 'analysis/execution-ledger.json';
+
+/**
+ * The automation decisions of the approved scope, or null when the run names
+ * no readable test cases (older callers: the ledger's runners decide alone).
+ */
+function approvedDecisions() {
+  const p = context.artifact_paths?.test_cases;
+  if (!p || !existsSync(p)) return null;
+  try {
+    const doc = JSON.parse(readFileSync(p, 'utf8'));
+    return new Set(
+      (doc.test_cases ?? [])
+        .filter((c) => c.status === 'approved')
+        .map((c) => c.automation_decision)
+    );
+  } catch {
+    return null;
+  }
+}
 
 /** Units that belong in a failure analysis. Passes and skips do not. */
 const ANALYZED = new Set(['failed', 'blocked', 'flaky']);
@@ -131,8 +156,16 @@ const ledger = loaded.data;
 // while it still matches what was reviewed (task group 4.3), and one branch's
 // approval never stands in for another's.
 const runners = new Set(ledger.source_executions.map((e) => e.runner));
+const decisions = approvedDecisions();
+const externalScope =
+  runners.has('external') ||
+  [...(decisions ?? [])].some((d) => externalSource(d) !== null);
 const required = [];
-if (runners.has('playwright') || runners.size === 0) {
+if (
+  runners.has('playwright') ||
+  (runners.size === 0 &&
+    (!decisions || decisions.has('automate_e2e') || !externalScope))
+) {
   required.push(['Gate 4', 'code_reviewed']);
 }
 if (runners.has('newman')) {
@@ -141,21 +174,18 @@ if (runners.has('newman')) {
     ["Gate 4'", 'api_assertions_reviewed']
   );
 }
+if (externalScope) {
+  required.push(
+    ['External Gate 3', 'external_plan_reviewed'],
+    ['External Gate 4', 'external_evidence_reviewed']
+  );
+}
 for (const [label, gate] of required) {
   const gateCheck = requireCurrentGate(context, gate, '.');
   if (!gateCheck.ok) {
     console.error(`${label}: ${gateCheck.reason}. Refusing to classify.`);
     exit(2);
   }
-}
-
-const external = ledger.units.filter((u) => u.identity?.kind === 'external');
-if (external.length) {
-  console.error(
-    `The ledger holds ${external.length} external/manual unit(s); classifying those arrives with ` +
-      'manual result import (Phase 7). Refusing rather than mislabelling them.'
-  );
-  exit(2);
 }
 
 // ---- build the draft ----------------------------------------------------
@@ -188,7 +218,14 @@ const analyzed = ledger.units
 const failures = analyzed.map((unit, i) => {
   const links = unit.domain_links || {};
   const isNewman = unit.identity.kind === 'newman';
-  const c = classifyUnit(unit);
+  const isExternal = unit.identity.kind === 'external';
+  const c = isExternal
+    ? {
+        classification: 'unknown_needs_human_review',
+        severity: 'yellow',
+        reason: `An imported ${unit.outcome} manual/component result: the pipeline did not run it, so whether it is a product bug is a human decision.`,
+      }
+    : classifyUnit(unit);
   const caseId = links.test_case_id || links.api_test_case_id || null;
   const linkReason =
     links.unresolved_reason ||
@@ -205,15 +242,18 @@ const failures = analyzed.map((unit, i) => {
     execution_outcome: unit.outcome,
     runner_identity: unit.identity,
     test_case_id: caseId,
-    source: isNewman ? 'newman' : 'playwright',
-    [isNewman ? 'request_id' : 'playwright_test_id']: id,
+    source: isExternal ? 'external' : isNewman ? 'newman' : 'playwright',
+    // An external result has no PW or REQ id: nothing is minted for it.
+    ...(isExternal
+      ? {}
+      : { [isNewman ? 'request_id' : 'playwright_test_id']: id }),
     classification: c.classification,
     severity: c.severity,
     classification_reason: c.reason,
     error_message: errorMessage(unit),
     evidence_paths: [LEDGER, ...(report ? [report] : [])],
   };
-  if (id === null) f.id_unresolved_reason = linkReason;
+  if (id === null && !isExternal) f.id_unresolved_reason = linkReason;
   if (caseId === null) {
     f.traceability_unresolved = true;
     f.traceability_unresolved_reason = linkReason;

@@ -29,6 +29,17 @@ import { join } from 'node:path';
 import { argv, exit } from 'node:process';
 
 const DRY = argv.includes('--dry-run');
+/** The plan/spec review and the final review of each branch. */
+const GATE3_KEYS = new Set([
+  'specs_reviewed',
+  'collection_reviewed',
+  'external_plan_reviewed',
+]);
+const GATE4_KEYS = new Set([
+  'code_reviewed',
+  'api_assertions_reviewed',
+  'external_evidence_reviewed',
+]);
 const RUNS = 'runs';
 const OUT_DIR = 'metrics';
 
@@ -158,11 +169,10 @@ for (const run of runs) {
     runsWithGateLog += 1;
     for (const d of ctx.gate_decisions) {
       if (d.decision !== 'rejected') continue;
-      // Gate 3 and Gate 4 of either branch (E2E, or the API's 3' and 4').
-      if (d.gate === 'specs_reviewed' || d.gate === 'collection_reviewed')
-        gate3Rejections += 1;
-      if (d.gate === 'code_reviewed' || d.gate === 'api_assertions_reviewed')
-        gate4Rejections += 1;
+      // Gate 3 and Gate 4 of every branch: E2E, the API's 3' and 4', and the
+      // external plan and evidence reviews (task group 7.2).
+      if (GATE3_KEYS.has(d.gate)) gate3Rejections += 1;
+      if (GATE4_KEYS.has(d.gate)) gate4Rejections += 1;
     }
   }
 

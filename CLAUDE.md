@@ -51,6 +51,7 @@ The folder ownership table in `README.md` section 5 is binding. Every folder has
 - `release/` belongs to the Reporter.
 - `release/bug-drafts/` belongs to the Failure Classifier or Reporter.
 - `release/healer-patches/` belongs to the Healer (Phase 3+).
+- `external-evidence/` belongs to the human operator, written only through `scripts/import-execution.js`; no agent writes there.
 - `schemas/`, `agents/`, `skills/`, `docs/`, `scripts/`, `examples/` belong to the human team.
 
 If a task seems to require writing into a folder owned by another agent, stop and report. Don't cross boundaries silently.

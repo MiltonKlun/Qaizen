@@ -168,13 +168,18 @@ anything but `passed` reaches Pass.
 | `passed`          | Every unit linked to the case in the ledger explicitly passed.                                                                                                             | Pass            |
 | `product_failure` | A linked unit failed and the finalized failure analysis classifies that unit as `product_bug`.                                                                             | Fail            |
 | `blocked`         | Any other failure, block, flake or expected failure; partial execution; evidence from an execution with source errors; or an unattributed failing unit of the same runner. | Blocked         |
-| `not_run`         | Intentionally skipped, manual (needs a human evidence record), or nothing linked to it ran.                                                                                | Not Run         |
+| `not_run`         | Intentionally skipped, a manual or component case with no recorded result, or nothing linked to it ran.                                                                    | Not Run         |
 
 Before any result is written, the ledger must be valid and belong to
 this story, this run and this approved scope: its
 `approved_scope_digest` must match the current approved test cases (the
 normalizer records it from `--test-cases`, which the pipeline passes).
-Gate 2 and Gate 4 must be current, and a 2.x failure analysis must be
+Manual and component cases follow the same precedence over their own
+recorded results (task group 7.2, `scripts/import-execution.js`): a pass
+needs reviewed evidence, and an automated unit never stands in for them.
+Gate 2 must be current, and so must the final review of each reported
+branch: Gate 4 for E2E cases, the external plan and evidence reviews for
+manual, component and skip cases. A 2.x failure analysis must be
 `finalized`. An apply without valid evidence is refused; a dry run shows
 every case as Not Run and says why. API cases are not reported until
 the API branch has its own review gates. The script writes nothing in

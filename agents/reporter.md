@@ -11,9 +11,14 @@ description: |
   run completed: the runner does, after validating every artifact.
 phase_introduced: 1
 phase_active: 1+
-version: 3.2.0
+version: 3.3.0
 changed_in_run: null
 changelog: |
+  - 3.3.0: MINOR (task group 7.2). Manual, component and skip scope: recorded
+    external results count per case and per risk (never in the automated
+    execution_summary), an approved skip is never a pass, and a scope with
+    nothing executed gets an explicit zero-execution summary and cannot be
+    `pass`. The precondition adds the external plan and evidence reviews.
   - 3.2.0: MINOR (task group 7.1). The precondition follows the executed
     branches: Gate 4 for Playwright results, Gate 3' and Gate 4' for Newman
     results; an API-only run is reported without a Gate 4.
@@ -118,12 +123,18 @@ recommendation stays whatever this report says.
 - `analysis/failure-analysis.json` — the Failure Classifier's
   output. **Required**, and `finalized` when it is schema 2.x.
 - `release/bug-drafts/BUG-XXX.md` — every existing draft.
+- _(Task group 7.2)_ `planner-input/[story-id].external-plan.json` — the
+  reviewed plan for manual, component and skip cases (skip exclusion
+  reasons live here).
 
 **Required precondition:** The final approval of **every branch whose results you classify** must
 be passed and current: `code_reviewed` (Gate 4) for Playwright results,
 `collection_reviewed` (Gate 3') and `api_assertions_reviewed` (Gate 4')
-for Newman results. One branch's approval never stands in for another's:
-an API-only run has no Gate 4, and Gate 4 does not cover a collection.
+for Newman results, `external_plan_reviewed` and
+`external_evidence_reviewed` for manual, component or skip scope (even when
+nothing was executed). One branch's approval never stands in for another's:
+an API-only run has no Gate 4, and Gate 4 does not cover a collection or a
+manual result.
 The Reporter follows the Failure Classifier; both require the same
 approvals.
 
@@ -218,6 +229,15 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
      with the absent branch zeroed — but the flat form is acceptable
      when there genuinely is no API branch for the story.
    - `pass_rate` is in 0..1 (e.g. 0.85 for 85%), not 0..100.
+   - **External units** (`identity.kind: "external"`, imported manual and
+     component results, task group 7.2) are not automated executions and
+     stay out of `execution_summary`. Report them per case (step 4) and in
+     the Markdown "Execution summary" as their own line: recorded N (passed,
+     failed, blocked, not run), planned but not recorded N, skipped N.
+   - **Zero executions** (e.g. a skip-only scope): use the flat form with
+     `total: 0` and `pass_rate: 0`, and say in the summary and the
+     reasoning that nothing was executed -- the 0 is not a failure rate,
+     and it is not a pass.
 4. **Compute `coverage_by_risk`** by walking the chain. Coverage spans
    **both branches**: a risk may be covered by E2E test cases, API test
    cases, or a mix.
@@ -241,6 +261,12 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
        - `covered_partial` — some TCs ran but others were
          `skipped` or did not execute (e.g. P1.5 API TCs in a
          Phase-1-only run).
+     - A `manual` or `automate_component` TC counts by its **recorded and
+       reviewed** result (the ledger's case outcome): passed with evidence
+       counts as passing, a planned case with no recorded result as not
+       executed. An approved `skip` TC is never passing: a risk whose only
+       TCs are approved skips is `accepted_without_test`, citing the
+       exclusion reasons from the external plan.
 5. **Build the failure lists.** From
    `analysis/failure-analysis.json.failures[]`:
    - `blocking_failures` — every `FAIL-XXX` with `severity: "red"`.
@@ -266,7 +292,13 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
    API endpoint is exactly as blocking as a Red failure in the UI.
    - `blocked` — `context.json.status` was `"blocked"` (a blocking
      ambiguity was never resolved) OR no tests ran at all in either
-     branch.
+     branch and no recorded manual/component result exists -- unless the
+     scope is entirely approved exclusions (below).
+   - **Zero-execution scope** (only approved skips, or nothing recorded):
+     never `pass` -- no test passed. `conditional_pass` only when every
+     risk is accounted for by a reviewed exclusion and none is
+     high-severity without a test; list each exclusion as a condition.
+     Otherwise `blocked`.
    - `fail` — there is at least one `blocking_failures` entry
      (from either branch) that is unresolved (no `Jira Issue Key` and
      no other written mitigation), AND a `coverage_by_risk` entry is
@@ -356,14 +388,15 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
     `node scripts/sync-testlink-execution.js <story-id>` (dry-run,
     prints the plan) or
     `node scripts/sync-testlink-execution.js <story-id>
---apply-testlink-execution` (real write). - The script re-checks Gates 2 and 4, considers only approved cases
+--apply-testlink-execution` (real write). - The script re-checks Gate 2 and the final review of each reported branch (Gate 4 for E2E, the external plan and evidence reviews for manual/component/skip), considers only approved cases
     that already carry a `testlink_id` (i.e. were synced by the Test
     Designer's `scripts/sync-to-testlink.js`), and derives each case's
     outcome from its units in the current run's execution ledger:
     Pass only when every linked unit passed, Fail only for a failure
     the finalized analysis confirms as `product_bug`, Blocked for any
-    other failure, and Not Run for skipped, manual, or unexecuted
-    cases. It maps the outcome via `config/testlink-status-map.json`
+    other failure, and Not Run for skipped or unexecuted cases -- a
+    manual or component case by its own recorded result only, Not Run
+    when none was recorded. It maps the outcome via `config/testlink-status-map.json`
     — **never hardcoded** — and refuses to apply without a ledger
     that matches the story, the run and the approved scope. - The Reporter does not invent statuses or reclassify; the outcome
     comes straight from the Failure Classifier's output.
@@ -576,6 +609,9 @@ Markdown, structured for a reviewer:
 - Failed: N
 - Skipped: N
 - Pass rate: N%
+- Manual/component: recorded N (passed N, failed N, blocked N, not run N);
+  planned but not recorded N; approved skips N
+  (omit when the scope has none; say "nothing was executed" when total is 0)
 
 ## Blocking failures
 

@@ -202,8 +202,8 @@
         },
         "source": {
           "type": "string",
-          "description": "Phase 1.5+ extension. 'playwright' is the Phase 1 implicit default; the value becomes load-bearing when both branches feed the same analysis.",
-          "enum": ["playwright", "newman"]
+          "description": "Phase 1.5+ extension. 'playwright' is the Phase 1 implicit default; the value becomes load-bearing when both branches feed the same analysis. 'external' (task group 7.2): an imported manual or component result; its classification is a human decision.",
+          "enum": ["playwright", "newman", "external"]
         },
         "request_id": {
           "description": "REQ-XXX for Newman failures. Same rule as playwright_test_id: in 2.x it may be null with id_unresolved_reason, never invented.",
@@ -309,6 +309,11 @@
               "type": "string"
             },
             "iteration": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "occurrence": {
+              "description": "External (task group 7.2): which recorded result of the test case, as in the ledger.",
               "type": "integer",
               "minimum": 0
             }

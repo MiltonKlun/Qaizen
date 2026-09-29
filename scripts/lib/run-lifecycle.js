@@ -57,6 +57,8 @@ export const RUN_DIRS = [
   'api-tests',
   'analysis',
   'release',
+  // Imported manual/component results and their evidence (task group 7.2).
+  'external-evidence',
 ];
 
 /** Run-scoped singletons: at most one run occupies the root at a time. */
@@ -76,6 +78,14 @@ const JSON_SCHEMAS = [
   [/^analysis\/failure-analysis\.json$/, 'failure-analysis.schema.json'],
   [/^analysis\/execution-ledger\.json$/, 'execution-ledger.schema.json'],
   [/^release\/release-report\.json$/, 'release-report.schema.json'],
+  [
+    /^planner-input\/[^/]+\.external-plan\.json$/,
+    'external-execution.schema.json',
+  ],
+  [
+    /^external-evidence\/[^/]+\.results\.json$/,
+    'external-execution.schema.json',
+  ],
 ];
 
 const posix = (p) => p.split(sep).join('/');
@@ -114,11 +124,14 @@ export function isReusable(rel) {
   );
 }
 
-/** A file named for this story (`STORY-1.json`, `STORY-1-login.spec.ts`), but
- *  never a different story that shares the prefix (`STORY-10.json`). */
+/** A file named for this story (`STORY-1.json`, `STORY-1-login.spec.ts`), or
+ *  inside a folder named exactly for it (`external-evidence/STORY-1/shot.png`),
+ *  but never a different story that shares the prefix (`STORY-10.json`). */
 function isStoryScoped(rel, storyId) {
   if (!storyId) return false;
-  const base = rel.split('/').pop();
+  const parts = rel.split('/');
+  if (parts.length > 2 && parts[1] === storyId) return true;
+  const base = parts.pop();
   const escaped = storyId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(`^${escaped}(?![0-9A-Za-z])`).test(base);
 }

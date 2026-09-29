@@ -79,11 +79,43 @@ function workspace() {
     join(dir, 'test-cases', `${STORY}.json`),
     JSON.stringify(doc, null, 2)
   );
+  // The manual and skip cases have their own reviewed plan (task group 7.2);
+  // TC-004's result was never recorded, so it stays Not Run.
+  mkdirSync(join(dir, 'planner-input'));
+  writeFileSync(
+    join(dir, 'planner-input', `${STORY}.external-plan.json`),
+    JSON.stringify(externalPlan())
+  );
   let ctx = runContext({ storyId: STORY, runId: RUN, status: 'draft' });
   ctx = bindGate(ctx, 'test_scope_reviewed', dir);
   ctx = bindGate(ctx, 'code_reviewed', dir);
+  ctx = bindGate(ctx, 'external_plan_reviewed', dir);
+  ctx = bindGate(ctx, 'external_evidence_reviewed', dir);
   writeFileSync(join(dir, 'context.json'), JSON.stringify(ctx, null, 2));
   return { dir, doc };
+}
+
+function externalPlan() {
+  return {
+    schema_version: '1.0',
+    document: 'external_plan',
+    story_id: STORY,
+    run_id: RUN,
+    cases: [
+      {
+        test_case_id: 'TC-004',
+        source: 'manual',
+        procedure: 'Open the login page and review the error styling.',
+        expected_outcome: 'The error is readable and on-brand.',
+        evidence_required: ['a screenshot of the error state'],
+      },
+      {
+        test_case_id: 'TC-005',
+        source: 'skip',
+        exclusion_reason: 'Superseded by TC-002.',
+      },
+    ],
+  };
 }
 
 const EXEC = 'exec-pw-1';
@@ -577,6 +609,30 @@ test('a draft analysis is refused; a status map that lets a non-pass reach Pass 
     const tampered = await runCli(dir, []);
     assert.equal(tampered.code, 2, tampered.out);
     assert.match(tampered.out, /"blocked" must not map to a passing status/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('manual and skip cases need their own current reviews; Gate 4 never stands in for them', async () => {
+  const { dir, doc } = workspace();
+  try {
+    writeLedger(dir, doc, [unit('TC-001', 'passed')]);
+    for (const gate of [
+      'external_plan_reviewed',
+      'external_evidence_reviewed',
+    ]) {
+      const ctxPath = join(dir, 'context.json');
+      const ctx = JSON.parse(readFileSync(ctxPath, 'utf8'));
+      const saved = ctx.review_gates[gate];
+      ctx.review_gates[gate] = false;
+      writeFileSync(ctxPath, JSON.stringify(ctx, null, 2));
+      const r = await runCli(dir, []);
+      assert.equal(r.code, 1, r.out);
+      assert.match(r.out, new RegExp(`${gate} is not approved`));
+      ctx.review_gates[gate] = saved;
+      writeFileSync(ctxPath, JSON.stringify(ctx, null, 2));
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

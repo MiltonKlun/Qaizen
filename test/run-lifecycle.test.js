@@ -352,6 +352,25 @@ test('an archive write failure preserves the old run and leaves no record', () =
   }
 });
 
+test("external evidence in the story's own folder belongs to the run; another story's does not", () => {
+  const dir = repo();
+  try {
+    const put = (rel) => {
+      mkdirSync(join(dir, rel, '..'), { recursive: true });
+      writeFileSync(join(dir, rel), 'evidence');
+    };
+    put('external-evidence/OLD-1/tc-004.png');
+    put('external-evidence/OLD-1.results.json');
+    put('external-evidence/OLD-10/tc-001.png');
+    const { owned, unknown } = classifyRootArtifacts(runContext(), dir);
+    assert.ok(owned.includes('external-evidence/OLD-1/tc-004.png'));
+    assert.ok(owned.includes('external-evidence/OLD-1.results.json'));
+    assert.deepEqual(unknown, ['external-evidence/OLD-10/tc-001.png']);
+  } finally {
+    cleanup(dir);
+  }
+});
+
 test('a file that cannot be attributed to the old run is an actionable stop', () => {
   const dir = repo();
   try {

@@ -10,9 +10,14 @@ description: |
   becomes enforceable in code.
 phase_introduced: 1
 phase_active: 1+
-version: 1.4.0
+version: 1.5.0
 changed_in_run: null
 changelog: |
+  - 1.5.0: MINOR (task group 7.2). After Gate 2, when the approved scope has
+    manual, automate_component or skip cases, the Test Designer also writes
+    the external plan (planner-input/[story-id].external-plan.json): how
+    each is executed and what evidence a result needs, or why it is skipped.
+    Additive; the test cases and planner brief are unchanged.
   - 1.4.0: MINOR (task group 6.2). The planner brief's Traceability section
     now states the per-test id convention (TC in the title, PW and SPEC in
     the annotation option) so the Planner and Generator carry it into every
@@ -121,6 +126,26 @@ After both files exist and the JSON validates, the agent updates
 `context.json.artifact_paths.planner_brief` to the relative paths,
 then re-validates `context.json`.
 
+A third output comes later, only after Gate 2 and only when the approved
+scope has `manual`, `automate_component` or `skip` cases (task group 7.2):
+
+3. `planner-input/[story-id].external-plan.json` — the external plan,
+   schema-validated against `schemas/external-execution.schema.json`
+   (`document: "external_plan"`). One entry per approved external case,
+   nothing else:
+   - `manual` → `source: "manual"`, a `procedure` a person can follow, the
+     `expected_outcome` (from the case's `expected_results`), and the
+     `evidence_required` for a pass (what screenshot, which record).
+   - `automate_component` → `source: "component"`, the external `command`
+     that produces the result (it runs outside this pipeline), the
+     `expected_outcome` and `evidence_required` (the suite output).
+   - `skip` → `source: "skip"` and the `exclusion_reason`. A skipped case
+     is reported Not Run, never passed.
+
+   The plan is reviewed at the external Gate 3 (`external_plan_reviewed`)
+   before any of this work starts. It never records a result: results are
+   recorded by the operator with `scripts/import-execution.js`.
+
 ### Lite output profile (Phase 4, when `context.track == "lite"`)
 
 When the run is on the `lite` track (`docs/context-json-guide.md`), the Test
@@ -146,12 +171,14 @@ Absent `track`, or `track` other than `lite`, behave exactly as before.
 
 ## 4. Owned files
 
-| Path                                        | Status       |
-| ------------------------------------------- | ------------ |
-| `test-cases/[story-id].json`                | Created here |
-| `planner-input/[story-id].planner-brief.md` | Created here |
-| `context.json.artifact_paths.test_cases`    | Updated here |
-| `context.json.artifact_paths.planner_brief` | Updated here |
+| Path                                          | Status                                           |
+| --------------------------------------------- | ------------------------------------------------ |
+| `test-cases/[story-id].json`                  | Created here                                     |
+| `planner-input/[story-id].planner-brief.md`   | Created here                                     |
+| `context.json.artifact_paths.test_cases`      | Updated here                                     |
+| `context.json.artifact_paths.planner_brief`   | Updated here                                     |
+| `planner-input/[story-id].external-plan.json` | Created here (after Gate 2, external scope only) |
+| `context.json.artifact_paths.external_plan`   | Updated here (same condition)                    |
 
 The Test Designer does NOT write into `specs/`, `tests/`,
 `api-tests/`, `analysis/`, or `release/`. See
@@ -238,7 +265,11 @@ before Gate 2 and they agree on scope.
    `artifact_paths.test_cases` and `artifact_paths.planner_brief`
    values. Re-validate `context.json`.
 9. **Stop at Gate 2.** Hand off. Do not run the Playwright Planner
-   Native Agent or the API Agent.
+   Native Agent or the API Agent. When the runner later asks for the
+   EXTERNAL-PLAN step (the approved scope has manual, automate_component or
+   skip cases), write the external plan described in section 3, validate
+   it, set `artifact_paths.external_plan`, and stop at the external Gate 3.
+   Never record a result and never mark a case executed.
 10. **(Optional, Phase 2 only) Sync approved cases to TestLink.** After
     Gate 2 has passed, the human MAY ask the Test Designer to push the
     approved cases to TestLink. This is OFF by default and gated by an

@@ -27,7 +27,7 @@ import { hostname } from 'node:os';
 import { join } from 'node:path';
 import { execPath } from 'node:process';
 
-import { bindGate, runContext, validTestCases } from './helpers/valid-run.js';
+import { bindGate, runContext, scopeCases } from './helpers/valid-run.js';
 import {
   classifyCreate,
   httpTimeoutMs,
@@ -56,7 +56,7 @@ function workspace({ storyKey = 'SK-1' } = {}) {
   mkdirSync(join(dir, 'test-cases'));
   // Start unsynced: the gold example shows TC-001 already linked to Jira and
   // TestLink, which would make the adapters (correctly) skip it.
-  const doc = validTestCases(STORY, RUN);
+  const doc = scopeCases(STORY, RUN);
   for (const tc of doc.test_cases) {
     delete tc.external_ids;
     delete tc.testlink_id;
