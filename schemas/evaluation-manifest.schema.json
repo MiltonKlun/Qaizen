@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://qaizen/schemas/evaluation-manifest.schema.json",
+  "title": "Evaluation expectation manifest",
+  "description": "Declares, for every fixed story in examples/stories/, which gold outputs the evaluation dataset holds (task group 8.1). scripts/evaluate-agents.js requires every story to be listed and every declared output to exist: missing work is reported as missing, never dropped from the denominator. An Analyst-only story is scored and labelled as such; it never counts as a tested Test Designer output.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "stories"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "stories": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["story", "expected"],
+        "properties": {
+          "story": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$",
+            "description": "The story file's base name (examples/stories/<story>.md)."
+          },
+          "expected": {
+            "enum": ["designer", "analyst", "none"],
+            "description": "designer: gold context AND test cases (<story>.expected-context.json + .expected-test-cases.json). analyst: gold context only. none: no gold output yet; listed so its absence is a stated fact, not a silent skip."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Why the story's gold output is partial or absent. Required unless expected is designer."
+          }
+        },
+        "if": { "properties": { "expected": { "enum": ["analyst", "none"] } } },
+        "then": { "required": ["reason"] }
+      }
+    }
+  }
+}

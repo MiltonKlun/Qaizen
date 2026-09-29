@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "stories": [
+    { "story": "api-create-user", "expected": "designer" },
+    {
+      "story": "cart-badge-count-bugfix",
+      "expected": "analyst",
+      "reason": "Bug-fix story kept to anchor the Analyst's interpretation; no gold test cases have been written for it."
+    },
+    {
+      "story": "checkout-expired-card",
+      "expected": "analyst",
+      "reason": "Payment-flow story kept to anchor the Analyst's risk and ambiguity handling; no gold test cases have been written for it."
+    },
+    {
+      "story": "checkout-order-summary",
+      "expected": "none",
+      "reason": "No gold output has been written for this story yet."
+    },
+    {
+      "story": "footer-social-links",
+      "expected": "none",
+      "reason": "No gold output has been written for this lite-track story yet."
+    },
+    { "story": "login-success", "expected": "designer" },
+    {
+      "story": "sort-products-enhancement",
+      "expected": "analyst",
+      "reason": "Enhancement story kept to anchor the Analyst's interpretation; no gold test cases have been written for it."
+    }
+  ]
+}

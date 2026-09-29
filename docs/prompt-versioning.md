@@ -3,14 +3,15 @@
 > **Status:** Phase 3 (TG8). Every custom agent prompt (`agents/*.md`)
 > carries a semantic `version` in its frontmatter. A run records which
 > version of each agent it used in `context.json.prompt_versions`. A major
-> prompt change is gated by the evaluation dataset before adoption. This is
+> prompt change is evaluated on a candidate the agent generated from the fixed
+> stories before adoption (§3; task group 8.1). This is
 > additive and backward-compatible — older runs without `prompt_versions`
 > still validate.
 
 The agent prompts ARE the product. A test suite is only as good as the
 prompt that produced it, so a prompt is a contract like a schema: when it
 changes, the change must be traceable, reviewable, and — for major changes —
-checked against the evaluation dataset before it ships. This doc defines how.
+evaluated on a candidate generated from the fixed stories before it ships. This doc defines how.
 
 It does **not** introduce a registry, a database, or any runtime machinery.
 Versions live in Git (the agent files) and are pinned per-run in
@@ -54,7 +55,7 @@ This mirrors semver, applied to _behavior the downstream contract depends on_:
 - **MAJOR** (`1.0.0 → 2.0.0`) — changes the shape, the IDs, the linkage, or the
   decision logic of an output. E.g. changing how the Test Designer assigns
   automation decisions, or restructuring `context.json` population. **A MAJOR
-  change MUST pass the evaluation gate (§3) before it is merged.**
+  change MUST be evaluated on a candidate (§3) before it is merged.**
 
 A schema change is almost always a MAJOR change to the agent(s) that produce or
 consume that schema, and the Architecture Stability Rule (`CLAUDE.md` §3.10)
@@ -101,33 +102,68 @@ metrics (TG6) and `/evolve` (TG10) read back.
 
 ---
 
-## 3. Evaluation before adopting a major change
+## 3. Evaluating a prompt change
 
-A MAJOR prompt change must be checked against the evaluation dataset before it
-is adopted. The harness is `scripts/evaluate-agents.js` (Phase 2 TG11):
+Two different things are called "evaluation" here, and only one of them says
+anything about a prompt.
 
-```bash
-# Score the gold dataset (the bar a run is held to):
-npm run evaluate
+**Expected fixture validation** (`npm run evaluate`) scores the committed gold
+outputs in `examples/expected/` against the structural invariants: schema
+validity, required fields, ID patterns, TC→RISK and TC→AC links, automation
+decision with a reason, and risk coverage. It reads no prompt and runs no
+agent, so a prompt edit cannot change its result. It proves the fixtures are
+still a sound bar. CI runs it as the informational `Expected fixture
+validation` job when `agents/` changes; that job does not evaluate the change.
 
-# Score a fresh run produced by the NEW prompt, against the same invariants:
-node scripts/evaluate-agents.js --candidate-dir runs/STORY-XXX/<run-id>
-```
+Which gold outputs exist is declared in `examples/evaluation/manifest.json`
+(`schemas/evaluation-manifest.schema.json`): every story in `examples/stories/`
+is `designer` (context and test cases), `analyst` (context only) or `none` (no
+gold output yet, with a reason). A story missing from the manifest, or a
+declared output that is missing, fails the run instead of shrinking the
+denominator. Analyst-only stories are labelled as such and never count as
+tested Test Designer outputs. The results keep the declared, scored and missing
+counts separate from the match, and the match is exact (floored, so 199 of 200
+checks is 99.5%, never a rounded 100%).
 
-The harness scores _structure and linkage_ (required fields, ID patterns,
-TC→RISK linkage, automation-decision-with-reason), not wording — two valid runs
-phrase things differently but must share the same shape.
+**Candidate evaluation** scores output that the agent produced with the prompt
+under review. This is the human prompt-change workflow:
 
-**The rule (TG8):** if a prompt change drops the match percentage by more than
-**10%** versus the prior baseline, that is a signal the change regressed the
-contract. Initially this is a **warning, not a block** (consistent with the
-`contract-stability` check) — the human decides whether the drop is acceptable
-(e.g. the dataset itself is stale) or whether the prompt change needs rework.
+1. **Record the prompt.** Bump the version (§1). The evaluator records each
+   evaluated prompt's version and a SHA-256 of its content.
+2. **Generate a candidate** by running the existing agent, with the changed
+   prompt, on one of the fixed stories in `examples/stories/`. Record the
+   versions in the candidate's `context.json.prompt_versions`. The evaluator
+   refuses a candidate for any other story, and one whose recorded versions
+   differ from the prompts on disk.
+3. **Evaluate it:**
 
-In CI, the `prompt-eval` job runs `npm run evaluate` whenever `agents/` changed
-in a PR. It is informational (`continue-on-error`): it surfaces the dataset
-match percentage on the PR so a reviewer sees, at Gate time, whether the prompt
-edit kept the evaluation green. It never blocks merge and never edits prompts.
+   ```bash
+   node scripts/evaluate-agents.js --candidate-dir <run-dir> \
+     [--stage analyst] [--baseline <previous evaluation-results.json>]
+   ```
+
+   Designer stage (the default) needs both the context and
+   `test-cases/<story-id>.json`; `--stage analyst` evaluates a deliberate
+   Analyst-only candidate.
+
+4. **Compare with the baseline**: a previous candidate's results with
+   `--baseline`, otherwise the story's gold output. The report names every
+   check that regressed or was fixed and the change in the match; a drop of
+   more than **10 points** is the documented "needs rework" signal. It is a
+   warning, not a block: the human decides whether the drop is acceptable
+   (e.g. the dataset is stale) or the prompt needs rework.
+5. **Review what the checks cannot see.** Read the candidate against the
+   review-gate rubrics (`docs/review-gates.md`): do the ACs mean what the
+   story means, are the risks real, are the automation decisions sound? Note
+   the reviewer's findings next to the results.
+6. **Keep the evidence.** The results are written to
+   `<run-dir>/evaluation-results.json`, next to the candidate that produced
+   them; attach both to the PR. The committed fixture results are never
+   overwritten by a candidate run.
+
+The model's output is what is evaluated here, not the gold fixture again.
+Scores stay structural: wording similarity is not measured, and a structural
+100% is not an assertion that the business interpretation is correct.
 
 ---
 
@@ -151,7 +187,8 @@ edit kept the evaluation green. It never blocks merge and never edits prompts.
    motivated it (or leave `null` for a non-data-driven edit).
 4. If the edit is tied to a schema change, update schema + docs + examples in
    the **same PR** (Architecture Stability Rule, `CLAUDE.md` §3.10).
-5. For a MAJOR change: regenerate the affected story outputs, run
-   `node scripts/evaluate-agents.js --candidate-dir <run>`, and confirm the
-   match percentage did not drop > 10%. Attach the result to the PR.
+5. For a MAJOR change: run the candidate workflow (§3) on the affected fixed
+   stories, confirm no check regressed and the match did not drop more than 10
+   points against the baseline, review the candidate against the gate rubrics,
+   and attach the candidate with its `evaluation-results.json` to the PR.
 6. On the next run, record the new version in `context.json.prompt_versions`.
