@@ -21,18 +21,12 @@ that:
 locator-only fix); any non-empty result means **reject**. A `[]` result is
 not a statement that the fix is correct — a human still reviews it.
 
-> **Status of the harness (review finding S3).** `scripts/run-healer.js` is
-> currently **triage scaffolding**, not a healing pipeline. It reads
-> `analysis/failure-analysis.json`, partitions failures into Green/Yellow/Red,
-> reports what would be eligible, and writes Yellow suggestion notes with
-> `--apply`.
->
-> It does **not** yet ingest a candidate patch, create an isolated workspace,
-> re-run the affected test, emit a validated `.patch`, or enforce the 3-attempt
-> cap — `generatePatch()` returns `null` unconditionally, so the guardrail and
-> rerun code inside it is unreachable. **The guardrail function itself is real
-> and usable on its own** (see below); it is the ingestion around it that is
-> missing. Candidate processing arrives in Phase 6.
+> **The harness (task group 6.3).** `scripts/run-healer.js --failure FAIL-XXX
+--candidate <file> --apply` processes a proposed fix: static check, the
+> unchanged original re-run in an isolated copy (it must still fail), the same
+> single test re-run with the candidate (it must pass), then a unified patch
+> for human review. Every submission is recorded; three per test and run.
+> See `docs/healer-guardrails.md` §2 for the full sequence.
 
 **You don't get** automatic fix _generation_. By design, the headless harness's
 patch-generation step is a no-op hook (`generatePatch` returns null): a script
@@ -52,8 +46,11 @@ node -e "import('./scripts/healer-guardrails.js').then(({guardrailViolations}) =
   console.log(guardrailViolations(origSource, patchedSource)))"
 
 # Triage a classified failure set (Green/Yellow/Red partition, no patching):
-node scripts/run-healer.js              # report what WOULD be eligible
+node scripts/run-healer.js              # what each failure can receive
 node scripts/run-healer.js --apply      # also write Yellow suggestion notes
+
+# Process a proposed fix for one Green failure:
+node scripts/run-healer.js --failure FAIL-001 --candidate fixed.spec.ts --apply
 ```
 
 ## Hard limits

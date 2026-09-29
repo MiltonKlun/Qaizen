@@ -1,0 +1,174 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://qaizen/schemas/healer-validation.schema.json",
+  "title": "Healer candidate validation record",
+  "description": "analysis/healer-validation/<FAIL-id>.attempt-<n>.json. One record per candidate submitted to scripts/run-healer.js --apply (task group 6.3). Records what was checked and what happened; it never approves anything. A 'validated' record means the candidate passed the static check and the exact failing test passed with it in an isolated copy; a human still reviews the patch.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_type",
+    "story_id",
+    "run_id",
+    "failure_id",
+    "unit",
+    "original",
+    "candidate",
+    "attempt",
+    "outcome",
+    "reason",
+    "static_check",
+    "baseline",
+    "rerun",
+    "patch",
+    "created_at",
+    "human_review"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "record_type": { "const": "candidate_validation" },
+    "story_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "failure_id": { "type": "string", "pattern": "^FAIL-[0-9]+$" },
+    "unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_id", "file", "project", "test_title", "repeat_index"],
+      "properties": {
+        "unit_id": { "type": "string", "minLength": 1 },
+        "file": { "type": "string", "minLength": 1 },
+        "project": { "type": "string" },
+        "test_title": { "type": "string", "minLength": 1 },
+        "repeat_index": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "original": { "$ref": "#/definitions/file" },
+    "candidate": { "$ref": "#/definitions/file" },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3,
+      "description": "Submission number for this (run, original digest, unit). Capped at 3."
+    },
+    "outcome": {
+      "enum": ["rejected_static", "validation_failed", "validated"],
+      "description": "rejected_static: the static check refused it, nothing ran. validation_failed: it ran and did not pass cleanly. validated: the exact failing test passed with it; a patch was written for human review."
+    },
+    "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "static_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eligible", "violations", "repairs"],
+      "properties": {
+        "eligible": { "type": "boolean" },
+        "violations": { "type": "array", "items": { "type": "string" } },
+        "repairs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["line", "from", "to"],
+            "properties": {
+              "line": { "type": "integer", "minimum": 1 },
+              "from": { "type": "string" },
+              "to": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "baseline": {
+      "description": "The unchanged original, run in the isolated copy to confirm the failure reproduces. Null when nothing ran.",
+      "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/run" }]
+    },
+    "rerun": {
+      "description": "The same single test with the candidate. Null when nothing ran.",
+      "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/run" }]
+    },
+    "patch": {
+      "description": "Only for a validated candidate: a unified diff from the original to the candidate, checked by applying it to a copy of the original.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256", "applies_cleanly"],
+          "properties": {
+            "path": { "type": "string", "minLength": 1 },
+            "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "applies_cleanly": { "const": true }
+          }
+        }
+      ]
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "human_review": {
+      "const": "required",
+      "description": "Always required. No record is an approval, and the Healer never commits or edits the live test."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "outcome": { "const": "validated" } } },
+      "then": {
+        "properties": {
+          "patch": { "type": "object" },
+          "rerun": { "type": "object" },
+          "static_check": { "properties": { "eligible": { "const": true } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "outcome": { "const": "rejected_static" } } },
+      "then": {
+        "properties": {
+          "patch": { "type": "null" },
+          "baseline": { "type": "null" },
+          "rerun": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "outcome": { "const": "validation_failed" } } },
+      "then": { "properties": { "patch": { "type": "null" } } }
+    }
+  ],
+  "definitions": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "tests_executed", "command", "exit_code"],
+      "properties": {
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "flaky",
+            "skipped",
+            "blocked",
+            "not_run",
+            "expected_failure",
+            "no_single_test",
+            "runner_error"
+          ]
+        },
+        "tests_executed": { "type": "integer", "minimum": 0 },
+        "command": {
+          "type": "string",
+          "description": "The Playwright invocation (arguments only; no environment values)."
+        },
+        "exit_code": { "type": ["integer", "null"] },
+        "error_excerpt": { "type": "string", "maxLength": 400 }
+      }
+    }
+  }
+}

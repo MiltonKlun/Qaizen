@@ -139,19 +139,42 @@ Gate-4 re-run, not Healer work.
 
 ### Phase 3 action
 
-`scripts/run-healer.js` generates a candidate patch for the affected
-file, applies it in an **isolated workspace** (a temp branch or a
-worktree — never the main checkout), re-runs the affected test, and:
+`scripts/run-healer.js` does not write fixes. It **processes** a
+candidate that a person or an agent proposes (task group 6.3):
 
-- If the patch passes, writes
-  `release/healer-patches/FAIL-XXX.patch` plus
-  `analysis/healer-validation/FAIL-XXX.md` documenting before/after
-  for the human reviewer.
-- If the patch fails, increments the attempt counter (capped at 3
-  attempts per test) and tries a different approach.
-- Never modifies the main working tree.
-- Never commits.
-- Never merges.
+```bash
+node scripts/run-healer.js --failure FAIL-001 --candidate path/to/fixed.spec.ts          # static check only
+node scripts/run-healer.js --failure FAIL-001 --candidate path/to/fixed.spec.ts --apply  # validate
+```
+
+1. The current run's context, finalized failure analysis and execution
+   ledger identify the live test file and the single failing test. Gate 4
+   must be current. API, Yellow and Red failures, an ambiguous test, and a
+   candidate that is the live file itself are refused before anything runs.
+2. The static check above must find the candidate eligible.
+3. With `--apply`, the config, the test and everything they import are
+   copied into `.healer-workspace/` (gitignored; `.env` and other state
+   are never copied). The unchanged original must still fail there; if it
+   passes, nothing is validated and no attempt is used.
+4. The **same single test** then runs with the candidate: one project,
+   `--repeat-each 1`, `--retries 0`, no snapshot updates. It must execute
+   exactly once and pass. Zero tests, a skip, an expected failure or
+   another test do not count.
+5. Only then is `release/healer-patches/FAIL-XXX.attempt-N.patch` written,
+   a unified diff proven by applying it to a copy of the original.
+
+Every submission with `--apply` is recorded in
+`analysis/healer-validation/FAIL-XXX.attempt-N.json`
+(`schemas/healer-validation.schema.json`) as `rejected_static`,
+`validation_failed` or `validated`, with digests, the commands and their
+results. At most **three** submissions per run, original source and test;
+resubmitting an identical candidate reuses its record.
+
+- Never modifies the live test or the main working tree.
+- Never commits, never merges, never approves: a validated patch still
+  needs human review before a human applies it.
+- The workspace is a filesystem separation, not a security sandbox: the
+  test code runs with your privileges and environment.
 
 ---
 

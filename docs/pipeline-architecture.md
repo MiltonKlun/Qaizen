@@ -441,7 +441,7 @@ output.
 This layer adds:
 
 - Rule-based Failure Classifier (LLM only on ambiguous cases).
-- `scripts/run-healer.js` that generates `.patch` files for **Green**
+- `scripts/run-healer.js` that validates a proposed candidate and emits a `.patch` for **Green**
   failures only — never commits, never merges, capped at 3 attempts.
 - Healer CI job (assistive, never blocking, never committing).
 - `agents/spec-reviewer.md` assists Gate 3 with a checklist; the human

@@ -17,6 +17,7 @@
 //                                    (Phase 1.5+; skipped if the schema
 //                                    file does not yet exist)
 //   *.expected-spec-review.json      schemas/spec-review.schema.json (Phase 3)
+//   *.expected-healer-validation.json schemas/healer-validation.schema.json (6.3)
 //   *.expected-benchmark-record.json schemas/benchmark-record.schema.json (Phase 5)
 //
 // Files in examples/expected/ that do not match any pattern are flagged
@@ -66,6 +67,10 @@ const PATTERNS = [
   {
     suffix: '.expected-spec-review.json',
     schema: 'schemas/spec-review.schema.json',
+  },
+  {
+    suffix: '.expected-healer-validation.json',
+    schema: 'schemas/healer-validation.schema.json',
   },
   {
     suffix: '.expected-benchmark-record.json',
