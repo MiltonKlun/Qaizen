@@ -47,7 +47,11 @@ import {
 } from './pipeline-state.js';
 import { GATE_BRIEFS, renderGateBrief } from './gate-briefs.js';
 import { trackAllowed } from './track-floor.js';
-import { gate4Findings, renderGate4Scan } from './gate4-scan.js';
+import {
+  gate4Findings,
+  loadGate4Artifacts,
+  renderGate4Scan,
+} from './gate4-scan.js';
 import {
   TRANSITION_FILE,
   readTransition,
@@ -395,9 +399,13 @@ async function runGateInteractive(step, context) {
     const testPath = context.artifact_paths?.generated_test;
     if (testPath && existsSync(testPath)) {
       console.log('');
-      console.log(
-        renderGate4Scan(testPath, gate4Findings(readFileSync(testPath, 'utf8')))
-      );
+      // With the run's context, TC/SPEC ids are checked against the
+      // approved test cases and the spec (task group 6.2).
+      const scan = gate4Findings(readFileSync(testPath, 'utf8'), {
+        fileName: testPath,
+        artifacts: loadGate4Artifacts(CONTEXT_PATH) ?? undefined,
+      });
+      console.log(renderGate4Scan(testPath, scan));
     }
   }
 

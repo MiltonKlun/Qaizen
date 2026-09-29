@@ -80,6 +80,12 @@ export function testBindings(sourceFile) {
       if (imported === 'test' || imported === 'it') names.add(el.name.text);
     }
   }
+  // No import provides the test object (a fragment, or a global setup):
+  // fall back to the global names rather than miss a registration.
+  if (names.size === 0) {
+    names.add('test');
+    names.add('it');
+  }
   // const test = base.extend({...}) — possibly chained.
   let grew = true;
   while (grew) {
@@ -410,6 +416,116 @@ export function visit(node, fn) {
 /** Every traceability id in the file, comments included. */
 export function traceIds(text) {
   return new Set(text.match(TRACE_ID) ?? []);
+}
+
+// ------------------------------------------------------- per-test identity
+
+/** The id kinds each generated test must carry (docs/traceability.md). */
+export const TEST_ID_KINDS = ['PW', 'TC', 'SPEC'];
+
+const idsIn = (text, kind) => [
+  ...new Set(String(text).match(new RegExp(`\\b${kind}-\\d+\\b`, 'g')) ?? []),
+];
+
+function staticString(node) {
+  return node &&
+    (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
+    ? node.text
+    : null;
+}
+
+/** `{ type, description }` entries of a test's `annotation` option. */
+function annotationsOf(call) {
+  const opts = call.arguments.find((a) => ts.isObjectLiteralExpression(a));
+  if (!opts) return [];
+  const prop = opts.properties.find(
+    (p) =>
+      ts.isPropertyAssignment(p) &&
+      ts.isIdentifier(p.name) &&
+      p.name.text === 'annotation'
+  );
+  if (!prop) return [];
+  const items = ts.isArrayLiteralExpression(prop.initializer)
+    ? prop.initializer.elements
+    : [prop.initializer];
+  return items.filter(ts.isObjectLiteralExpression).map((o) => {
+    const get = (key) => {
+      const p = o.properties.find(
+        (q) =>
+          ts.isPropertyAssignment(q) &&
+          ts.isIdentifier(q.name) &&
+          q.name.text === key
+      );
+      return p ? staticString(p.initializer) : null;
+    };
+    return { type: get('type'), description: get('description') };
+  });
+}
+
+/** Titles of the describe groups enclosing a registration, outermost first. */
+function describePath(call, bindings) {
+  const path = [];
+  for (let n = call.parent; n && !ts.isSourceFile(n); n = n.parent) {
+    if (ts.isCallExpression(n)) {
+      const chain = memberChain(n.expression);
+      if (chain && bindings.has(chain[0]) && chain.includes('describe')) {
+        path.unshift(staticString(n.arguments[0]) ?? '(dynamic)');
+      }
+    }
+  }
+  return path;
+}
+
+/**
+ * The traceability ids each test declares, by source:
+ *   - `annotation`: the Playwright `annotation` option ({ type, description });
+ *   - `title`: the test title, including the titles of enclosing describes —
+ *     what execution reports carry and the ledger links by;
+ *   - `comment`: comments immediately attached above the test (legacy).
+ * File-level comments that are not attached to a test give it nothing.
+ *
+ * @returns {{title: string|null, titlePath: string[], line: number,
+ *   dynamic: boolean, ids: Record<string, {annotation: string[],
+ *   title: string[], comment: string[]}>}[]}
+ */
+export function testIdentities(sourceFile) {
+  const text = sourceFile.getFullText();
+  const bindings = testBindings(sourceFile);
+  return testRegistrations(sourceFile)
+    .filter((r) => r.kind === 'test')
+    .map((r) => {
+      const call = r.node;
+      const groups = describePath(call, bindings);
+      const titleText = [...groups, r.title ?? ''].join(' > ');
+      const statement = statementOf(call);
+      const comments = (
+        ts.getLeadingCommentRanges(text, statement.getFullStart()) ?? []
+      )
+        .map((c) => text.slice(c.pos, c.end))
+        .join('\n');
+      const annotations = annotationsOf(call);
+      const ids = {};
+      for (const kind of TEST_ID_KINDS) {
+        ids[kind] = {
+          annotation: [
+            ...new Set(
+              annotations
+                .filter((a) => a.type === kind)
+                .flatMap((a) => idsIn(a.description ?? '', kind))
+            ),
+          ],
+          title: idsIn(titleText, kind),
+          comment: idsIn(comments, kind),
+        };
+      }
+      return {
+        title: r.title,
+        titlePath: [...groups, r.title ?? '(dynamic title)'],
+        line: r.line,
+        dynamic: r.dynamic,
+        ids,
+      };
+    });
 }
 
 export { ts };

@@ -131,17 +131,57 @@ stability + assertion correctness + traceability).
 
 ### 3.6 Every generated test references its spec and TC
 
-The Playwright Generator Native Agent emits each `test(...)` block
-with an annotation linking it to a `PW-XXX`, `SPEC-XXX`, and
-`TC-XXX`. The recommended carrier is
-`test.info().annotations.push({ type: 'TC', description: 'TC-001' })`,
-which then appears in `reports/results.json` and feeds the Failure
-Classifier's `test_case_id` linking.
+Each generated `test(...)` carries **its own** `PW-XXX`, `TC-XXX` and
+`SPEC-XXX`. A file header does not cover the tests below it, and one
+id kind does not stand in for the others.
 
-For Phase 1, code comments at the top of each `test(...)` are
-acceptable if the annotation pattern isn't used yet. Either way,
-the link must be machine-recoverable — the Failure Classifier
-should never have to guess.
+The accepted places, in order of preference:
+
+1. **Test metadata** — the Playwright `annotation` option, which the
+   report carries:
+
+   ```ts
+   test(
+     'adds the item to the cart [TC-001]',
+     {
+       annotation: [
+         { type: 'PW', description: 'PW-001' },
+         { type: 'SPEC', description: 'SPEC-001' },
+       ],
+     },
+     async ({ page }) => {
+       /* ... */
+     }
+   );
+   ```
+
+2. **The test title** (with any enclosing `test.describe` titles). The
+   `TC-XXX` belongs here: the execution ledger links results to cases
+   by the ids in the title (`scripts/lib/build-ledger.js`), so a TC
+   named only elsewhere gets no execution results.
+3. **Legacy:** a comment attached directly above the `test(...)` call.
+
+Rules the Gate-4 scan checks per test (`scripts/gate4-scan.js`):
+
+- exactly one `PW-XXX`, at least one `TC-XXX` and one `SPEC-XXX`;
+- the same id kind must not disagree between places (title vs
+  annotation vs comment);
+- no two tests share a `PW-XXX`;
+- a test registered in a loop or with a computed title cannot be
+  resolved statically and is reported for manual verification. Ids are
+  never expanded or invented for it.
+
+With the run's `context.json` (`--context`, and always in the runner's
+Gate-4 brief), each `TC-XXX` must be an approved case of the active
+story, and each `SPEC-XXX` must be declared in the run's spec. `PW-XXX`
+has no defining artifact, so only its presence and uniqueness are
+checked. Without the context, the scan says the references are present
+but the linkage is unverified.
+
+**The one exception** is the seed test: in `tests/seed.spec.ts`, a test
+inside a `test.describe('Seed: ...')` group is a documented
+non-business check and needs no ids. It exempts nothing else, not even
+another test in the same file.
 
 ### 3.7 Every Postman request references its TC (Phase 1.5+)
 
