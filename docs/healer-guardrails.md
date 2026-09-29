@@ -1,11 +1,11 @@
 # Healer Guardrails
 
-> **Status:** Phase 1 documents the rules. Phase 3 enforces them in code
-> (`scripts/run-healer.js`). In Phase 1 the Healer Native Agent
-> (`.claude/agents/playwright-test-healer.md`) is scaffolded but **not
-> invoked**. The Failure Classifier still marks each failure
-> Green/Yellow/Red so the data is ready when Phase 3 wires the Healer
-> up.
+> **Status:** enforced in code. `scripts/healer-guardrails.js` checks every
+> proposed fix statically, and `scripts/run-healer.js` validates it by
+> re-running the failing test in isolation before any patch exists (section
+> 2). The Playwright native healer agent only proposes candidates, under the
+> restrictions in `docs/native-healer-handoff.md`. The Failure Classifier's
+> Green/Yellow/Red decides what may be proposed at all.
 
 This document is the binding rule for what the Healer may and may not do.
 It is referenced by `CLAUDE.md` section 3.6 and is invoked by every
@@ -175,6 +175,10 @@ resubmitting an identical candidate reuses its record.
   needs human review before a human applies it.
 - The workspace is a filesystem separation, not a security sandbox: the
   test code runs with your privileges and environment.
+
+To have Playwright's native healer agent propose the candidate, use the
+constrained invocation in `docs/native-healer-handoff.md`; its installed
+prompt conflicts with these rules.
 
 ---
 
