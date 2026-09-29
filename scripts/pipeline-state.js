@@ -9,8 +9,14 @@
 // passed, the next agent must not run — the machine returns the GATE step,
 // never the step behind it.
 //
-//   analyst → gate1 → test-designer → gate2 → planner → [api] → gate3 →
-//   generator → gate4 → execute → classify → report → done
+//   analyst → gate1 → test-designer → gate2 →
+//     [E2E]  planner → gate3 → generator → gate4
+//     [API]  api → gate3-api (collection_reviewed) → gate4-api (api_assertions_reviewed)
+//   → [E2E] execute → [API] execute-api → classify → finalize → report → done
+//
+// A branch runs only when the approved scope has cases for it (task group
+// 7.1): an API-only story never meets the E2E steps, and every applicable
+// branch is fully reviewed before either suite executes.
 //
 // `hints` carries facts that live OUTSIDE context.json (file existence, the
 // automate_api split inside the test-cases file). The CLI gathers them with
@@ -45,6 +51,9 @@ export const GATE_KEYS = {
   qa_scope: 'qa_scope_approved', // lite track: consolidates Gates 1+2
   gate3: 'specs_reviewed',
   gate4: 'code_reviewed',
+  // The API branch's own reviews (task group 7.1); never an E2E approval.
+  'gate3-api': 'collection_reviewed',
+  'gate4-api': 'api_assertions_reviewed',
 };
 
 /**
@@ -53,8 +62,13 @@ export const GATE_KEYS = {
  * @param {object|null} context  Parsed context.json, or null when the run
  *                               has not started (no context.json yet).
  * @param {object} [hints]      Optional CLI-gathered facts (all optional):
- *   - hasApiCases:            true if test-cases contains automate_api cases.
+ *   - branches:               { e2e, api } from the APPROVED cases' automation
+ *                             decisions (task group 7.1). Preferred.
+ *   - hasApiCases:            legacy: true if test-cases has automate_api cases
+ *                             (used only when `branches` is absent).
  *   - apiCollectionExists:    true if the Postman collection file exists.
+ *   - apiExecuted:            true if a Newman execution of the approved
+ *                             collection exists for this run.
  *   - testCasesExist:         file-existence override for test_cases.
  *   - plannerBriefExists:     file-existence override for planner_brief.
  *   - specExists:             file-existence override for playwright_spec.
@@ -71,8 +85,9 @@ export const GATE_KEYS = {
  * filled AND (when the CLI checked) the file actually exists. Absent a hint,
  * behavior is unchanged (filled-only), so older callers are unaffected.
  * @returns {string} one of: analyst | gate1 | test-designer | gate2 |
- *   qa_scope | planner | api | gate3 | generator | gate4 | execute |
- *   classify | report | done   (qa_scope replaces gate1+gate2 on the lite
+ *   qa_scope | no-executable-scope | planner | gate3 | generator | gate4 |
+ *   api | gate3-api | gate4-api | execute | execute-api | classify |
+ *   finalize | report | done   (qa_scope replaces gate1+gate2 on the lite
  *   track — context.track === "lite" or a passed qa_scope_approved)
  */
 export function nextStep(context, hints = {}) {
@@ -115,19 +130,37 @@ export function nextStep(context, hints = {}) {
       return 'test-designer';
     if (!g2) return 'gate2';
   }
-  if (!produced(paths.playwright_spec, hints.specExists)) return 'planner';
-  if (hints.hasApiCases === true && hints.apiCollectionExists !== true)
-    return 'api';
-  if (!gatePassed(gates.specs_reviewed)) return 'gate3';
-  if (!produced(paths.generated_test, hints.generatedTestExists))
-    return 'generator';
-  if (!gatePassed(gates.code_reviewed)) return 'gate4';
-  if (!produced(paths.execution_results, hints.executionResultsExist))
+  // Which branches the APPROVED scope activates (task group 7.1). The CLI
+  // derives them from approved automation decisions; draft and rejected cases
+  // activate nothing. Without the hint, E2E is assumed and API follows the
+  // older hasApiCases hint, so callers that predate branches behave as before.
+  const e2e = hints.branches ? hints.branches.e2e === true : true;
+  const api = hints.branches
+    ? hints.branches.api === true
+    : hints.hasApiCases === true;
+  if (!e2e && !api) return 'no-executable-scope';
+
+  // Every branch collects its own approvals before anything executes: a
+  // mixed scope runs neither suite until both are fully reviewed.
+  if (e2e) {
+    if (!produced(paths.playwright_spec, hints.specExists)) return 'planner';
+    if (!gatePassed(gates.specs_reviewed)) return 'gate3';
+    if (!produced(paths.generated_test, hints.generatedTestExists))
+      return 'generator';
+    if (!gatePassed(gates.code_reviewed)) return 'gate4';
+  }
+  if (api) {
+    if (hints.apiCollectionExists !== true) return 'api';
+    if (!gatePassed(gates.collection_reviewed)) return 'gate3-api';
+    if (!gatePassed(gates.api_assertions_reviewed)) return 'gate4-api';
+  }
+
+  // Deterministic order: Playwright, then Newman. A run is not executed until
+  // every applicable branch has evidence (an API story never completes on the
+  // E2E half alone, task group 4.2).
+  if (e2e && !produced(paths.execution_results, hints.executionResultsExist))
     return 'execute';
-  // An API story has not finished executing until its Newman branch ran
-  // (task group 4.2): a run must not complete on the E2E half alone.
-  if (hints.hasApiCases === true && hints.apiExecuted === false)
-    return 'execute-api';
+  if (api && hints.apiExecuted !== true) return 'execute-api';
   if (!produced(paths.failure_analysis, hints.failureAnalysisExists))
     return 'classify';
   // The pre-classifier writes a DRAFT. The Failure Classifier Agent (or a

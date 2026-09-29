@@ -270,7 +270,11 @@ test('report metadata and a mapping that disagree leave the link unresolved', ()
 
 // --- the CLI, end to end ----------------------------------------------------
 
-/** A throwaway run workspace with a Gate-4-approved context. */
+/**
+ * A throwaway run workspace whose context approves both branches the fixtures
+ * hold: Gate 4 for the Playwright evidence, Gate 3' and 4' for the Newman
+ * evidence (task group 7.1: one branch's approval never stands in for another).
+ */
 function workspace({ gate4 = true, runId = 'run-t' } = {}) {
   const w = mkdtempSync(join(tmpdir(), 'qz-classify-'));
   writeFileSync(
@@ -287,11 +291,14 @@ function workspace({ gate4 = true, runId = 'run-t' } = {}) {
     // Bound to what exists, as the runner records it (task group 4.3); a bare
     // `true` is a legacy approval the classifier now refuses.
     const p = join(w, 'context.json');
-    const ctx = bindGate(
-      JSON.parse(readFileSync(p, 'utf8')),
+    let ctx = JSON.parse(readFileSync(p, 'utf8'));
+    for (const gate of [
       'code_reviewed',
-      w
-    );
+      'collection_reviewed',
+      'api_assertions_reviewed',
+    ]) {
+      ctx = bindGate(ctx, gate, w);
+    }
     writeFileSync(p, JSON.stringify(ctx));
   }
   return w;
@@ -446,6 +453,20 @@ test('Gate 4 must be passed before anything is classified', () => {
   const r = run(w, 'run-failure-classifier.js');
   assert.equal(r.code, 2);
   assert.match(r.out, /Gate 4/);
+});
+
+test('Newman evidence needs the API approvals; the E2E Gate 4 never stands in', () => {
+  const w = workspace();
+  const p = join(w, 'context.json');
+  const ctx = JSON.parse(readFileSync(p, 'utf8'));
+  ctx.review_gates.collection_reviewed = false;
+  ctx.review_gates.api_assertions_reviewed = false;
+  writeFileSync(p, JSON.stringify(ctx));
+  normalize(w);
+  const r = run(w, 'run-failure-classifier.js');
+  assert.equal(r.code, 2, r.out);
+  assert.match(r.out, /Gate 3': collection_reviewed is not approved/);
+  assert.equal(existsSync(join(w, 'analysis', 'failure-analysis.json')), false);
 });
 
 test('a run-level error reaches the analysis without an invented test identity', () => {

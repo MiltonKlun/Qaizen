@@ -10,6 +10,7 @@
 // JSON artifact / not validated). No I/O here; the CLI gathers, this renders.
 
 import { GATE_KEYS } from './pipeline-state.js';
+import { apiPaths } from './lib/approval-binding.js';
 
 // Per-gate brief data. `artifacts(ctx)` returns the paths the reviewer reads
 // (the things produced since the previous gate); `checklist` is the
@@ -123,6 +124,48 @@ export const GATE_BRIEFS = {
       'Approved scope covered — every approved automate_e2e TC has a test()',
     ],
     judgment: GATE4_JUDGMENT_QUESTIONS(),
+  },
+  // The API branch's own reviews (task group 7.1, docs/review-gates.md
+  // Gate 3' and Gate 4'). Independent of the E2E gates: an approval of the
+  // Playwright spec or code never stands in for these.
+  'gate3-api': {
+    name: "Gate 3' — API Collection Review",
+    requires: ['@context', 'test_cases', 'api_collection'],
+    artifacts: (ctx) => [
+      apiPaths(ctx).collection,
+      apiPaths(ctx).environment,
+      ctx?.artifact_paths?.test_cases,
+    ],
+    checklist: [
+      'Endpoints, methods and payloads match the AC and a real automate_api TC',
+      'Endpoint shapes were verified (OpenAPI or a real call), not invented',
+      'Auth and base URL come from {{variables}}; no credential or URL is hardcoded',
+      'Happy path AND the documented failure modes are requested',
+      'Traceability — each request names its REQ-XXX and TC-XXX',
+    ],
+    judgment: [
+      'Do these requests exercise what the AC means, or only what was easy to call?',
+      'Is any approved automate_api case missing a request?',
+    ],
+  },
+  'gate4-api': {
+    name: "Gate 4' — API Assertions Review (human sign-off, always)",
+    requires: ['@context', 'test_cases', 'api_collection'],
+    artifacts: (ctx) => [
+      apiPaths(ctx).collection,
+      ctx?.artifact_paths?.test_cases,
+    ],
+    checklist: [
+      'Assertions test the business behaviour in the TC expected_results, not just "no error"',
+      'Expected status codes are exact (201 / 400 / 403), not a lazy 2xx',
+      'Business-critical response fields are asserted, not only the envelope',
+      'No assertion was loosened, deleted or commented out to pass',
+      'Traceability — each pm.test name references its TC-XXX',
+    ],
+    judgment: [
+      'Would you let this collection block a release — do you trust a red AND a green from it?',
+      'Does any assertion quietly test less than the TC expected_results?',
+    ],
   },
 };
 

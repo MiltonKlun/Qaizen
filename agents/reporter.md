@@ -11,9 +11,12 @@ description: |
   run completed: the runner does, after validating every artifact.
 phase_introduced: 1
 phase_active: 1+
-version: 3.1.1
+version: 3.2.0
 changed_in_run: null
 changelog: |
+  - 3.2.0: MINOR (task group 7.1). The precondition follows the executed
+    branches: Gate 4 for Playwright results, Gate 3' and Gate 4' for Newman
+    results; an API-only run is reported without a Gate 4.
   - 3.1.1: PATCH (task group 5.3). The optional TestLink result sync is
     described as it now works: outcomes come from the execution ledger, not
     from the absence of a failure. The Reporter's own output is unchanged.
@@ -116,10 +119,13 @@ recommendation stays whatever this report says.
   output. **Required**, and `finalized` when it is schema 2.x.
 - `release/bug-drafts/BUG-XXX.md` — every existing draft.
 
-**Required precondition:** Gate 4 passed —
-`context.json.review_gates.code_reviewed` is `true` or an object with
-`status: true`. The Reporter follows the Failure Classifier; both
-require Gate 4.
+**Required precondition:** The final approval of **every branch whose results you classify** must
+be passed and current: `code_reviewed` (Gate 4) for Playwright results,
+`collection_reviewed` (Gate 3') and `api_assertions_reviewed` (Gate 4')
+for Newman results. One branch's approval never stands in for another's:
+an API-only run has no Gate 4, and Gate 4 does not cover a collection.
+The Reporter follows the Failure Classifier; both require the same
+approvals.
 
 Throughout this agent, **"a gate is `true`" means the boolean `true`
 OR the audit-field object form `{ status: true, ... }`** (Phase 2 TG6,
@@ -173,8 +179,10 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
 
 ## 5. Instructions
 
-1. **Verify Gate 4.** If `code_reviewed` is not passed (neither `true`
-   nor `{ status: true }`), stop. The approval must also be **current**: `npm run pipeline -- --status` must
+1. **Verify the final approvals.** Gate 4 (`code_reviewed`) for Playwright
+   results; Gate 3' (`collection_reviewed`) and Gate 4'
+   (`api_assertions_reviewed`) for Newman results. If any is not passed
+   (neither `true` nor `{ status: true }`), stop. The approval must also be **current**: `npm run pipeline -- --status` must
    not report it as a stale approval. An approval is bound to a digest of
    what it reviewed (task group 4.3); once those inputs change it no longer
    counts, even though `status` may still read `true` until the next

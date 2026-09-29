@@ -438,14 +438,13 @@ schema validation (step 12') then Gate 4'.
 the /register failure shape", "move the token to the environment"). Do
 not weaken assertions to pass.
 
-**Tracking:** stored as a boolean in `context.json.review_gates`
-alongside the E2E gates. The recommended key is `collection_reviewed`.
-Adding it to `schemas/context.schema.json` is a schema change and
-follows the Architecture Stability Rule (schema + agent prompts + docs +
-examples in one PR). Until the key is added, the human confirms Gate 3'
-passed for the run before execution; the E2E `specs_reviewed` boolean is
-**not** reused for the API branch — the two branches are reviewed
-independently.
+**Tracking:** `context.json.review_gates.collection_reviewed`, recorded
+by the runner (`npm run pipeline`, step `gate3-api`) with the same audit
+object and binding as every other gate. It binds to the collection's
+requests and variables (assertion scripts excluded), the environment's
+variable names (never their values) and `docs/api-spec.yaml` when present,
+chained to Gate 2. The E2E `specs_reviewed` approval is **not** reused for
+the API branch — the two branches are reviewed independently.
 
 ---
 
@@ -564,12 +563,14 @@ execution (`npm run test:api`).
 assertions manually (Gate 4' is, like Gate 4, a place where direct human
 edits to the generated artifact are normal). Repeat the gate.
 
-**Tracking:** stored as a boolean in `context.json.review_gates`
-alongside the E2E gates, independent of `code_reviewed` so the two
-branches are tracked separately. The recommended key is
-`api_assertions_reviewed`. Adding it to `schemas/context.schema.json`
-follows the Architecture Stability Rule. Until then the human confirms
-Gate 4' passed for the run before `npm run test:api`.
+**Tracking:** `context.json.review_gates.api_assertions_reviewed`
+(runner step `gate4-api`), independent of `code_reviewed`. It binds to the
+collection's assertion scripts, `scripts/run-newman.js` and
+`package-lock.json`, chained to Gate 3'. Changing an assertion stales only
+this approval; changing a request stales both API approvals. The runner
+runs Newman only after both, and `run-newman.js` refuses the active run's
+story without them (the informational CI check runs with
+`--repository-check`, which carries no approval).
 
 ---
 

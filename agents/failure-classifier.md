@@ -10,9 +10,13 @@ description: |
   does not own that path.
 phase_introduced: 1
 phase_active: 1+
-version: 2.1.2
+version: 2.2.0
 changed_in_run: null
 changelog: |
+  - 2.2.0: MINOR (task group 7.1). The precondition follows the branches in
+    the ledger: Gate 4 for Playwright results, Gate 3' and Gate 4' for Newman
+    results. API-only runs are classified without a Gate 4 or a Playwright
+    report.
   - 2.1.2: PATCH (task group 6.3). Describes the Healer handoff as it now
     works: only a finalized Green failure linked to a ledger unit can take a
     proposed candidate (scripts/run-healer.js). No output change.
@@ -106,10 +110,14 @@ This agent does NOT:
 - _(Phase 1.5+)_ `api-tests/collections/[story-id].postman_collection.json`
   — to map Newman requests back to `REQ-XXX` and `COL-XXX`.
 
-**Required precondition:** Gate 4 is passed — i.e.
-`context.json.review_gates.code_reviewed` is `true` (Phase 1 boolean
-form) OR is an object with `status: true` (Phase 2+ audit-field form).
-The agent REFUSES to run otherwise. Classifying failures of unreviewed
+**Required precondition:** The final approval of **every branch whose results you classify** must
+be passed and current: `code_reviewed` (Gate 4) for Playwright results,
+`collection_reviewed` (Gate 3') and `api_assertions_reviewed` (Gate 4')
+for Newman results. One branch's approval never stands in for another's:
+an API-only run has no Gate 4, and Gate 4 does not cover a collection.
+A gate is passed when it is `true` (Phase 1 boolean form) OR an object
+with `status: true` (Phase 2+ audit-field form). The agent REFUSES to run
+otherwise. Classifying failures of unreviewed
 code would invite the agent to "fix" tests that should never have
 shipped.
 
@@ -155,9 +163,10 @@ is the cardinal violation of the Healer guardrails.
 
 The agent runs the `skills/analyzing-logs` skill. High-level steps:
 
-1. **Verify Gate 4.** Passed when
-   `context.json.review_gates.code_reviewed` is `true` or an object with
-   `status: true`. If neither, stop. The approval must also be **current**: `npm run pipeline -- --status` must
+1. **Verify the final approvals.** Gate 4 (`code_reviewed`) for Playwright
+   results; Gate 3' (`collection_reviewed`) and Gate 4'
+   (`api_assertions_reviewed`) for Newman results. If any is not passed,
+   stop. The approval must also be **current**: `npm run pipeline -- --status` must
    not report it as a stale approval. An approval is bound to a digest of
    what it reviewed (task group 4.3); once those inputs change it no longer
    counts, even though `status` may still read `true` until the next

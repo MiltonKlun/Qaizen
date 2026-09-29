@@ -18,6 +18,11 @@
 // Usage:
 //   STORY_ID=QA-1042 npm run test:api
 //   node scripts/run-newman.js QA-1042 [--collection <id>] [--execution-id <id>]
+//   node scripts/run-newman.js QA-1042 --repository-check   # CI: no approvals
+//
+// For the active run's story, the API approvals must be current (the
+// pipeline runner runs this after Gate 3' and Gate 4'). --repository-check
+// is the informational suite check instead: no approval is read or implied.
 //
 // Exit codes:
 //   0 — newman ran, requests executed, and all assertions passed
@@ -34,6 +39,7 @@ import {
   buildPublishedNewmanView,
   assertNoSecrets,
 } from './lib/report-sanitization.js';
+import { requireCurrentGate } from './lib/approval-binding.js';
 import {
   newmanReportPaths,
   publishedPaths,
@@ -42,12 +48,17 @@ import {
   validateComponent,
 } from './lib/execution-paths.js';
 
+// Boolean flags; every other --flag takes a value.
+const BOOLEAN_FLAGS = new Set(['repository-check']);
+
 function parseFlags(args) {
   const flags = {};
   const positional = [];
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i];
-    if (a.startsWith('--')) {
+    if (a.startsWith('--') && BOOLEAN_FLAGS.has(a.slice(2))) {
+      flags[a.slice(2)] = true;
+    } else if (a.startsWith('--')) {
       const key = a.slice(2);
       const value = args[i + 1];
       if (value === undefined || value.startsWith('--')) {
@@ -79,6 +90,38 @@ if (!storyCheck.ok) {
   exit(2);
 }
 
+// Two kinds of execution (task group 7.1):
+//
+// * Live-run evidence: the story is the active run's story. Its API
+//   approvals (Gate 3' collection_reviewed, Gate 4' api_assertions_reviewed)
+//   must be current, exactly as the runner requires before it runs Newman.
+// * --repository-check: the informational CI check of the committed
+//   collections. It has no human-approved release provenance: it never reads
+//   or records an approval, and its execution id starts with "repo-", so it
+//   can never be taken for a run's evidence (those are "exec-...").
+const REPOSITORY_CHECK = flags['repository-check'] === true;
+if (!REPOSITORY_CHECK && existsSync('context.json')) {
+  let context = null;
+  try {
+    context = JSON.parse(readFileSync('context.json', 'utf8'));
+  } catch {
+    context = null;
+  }
+  if (context?.story?.id === storyId) {
+    for (const gate of ['collection_reviewed', 'api_assertions_reviewed']) {
+      const g = requireCurrentGate(context, gate, '.');
+      if (!g.ok) {
+        console.error(
+          `Refusing to run the API branch of the live run ${context.run_id}: ${g.reason}.\n` +
+            'Review the collection with `npm run pipeline`, or run the repository check ' +
+            'with --repository-check (it carries no approval).'
+        );
+        exit(2);
+      }
+    }
+  }
+}
+
 // The pipeline passes its execution id down so every step's evidence lands in
 // one directory; a standalone run mints its own so it can never be confused
 // with, or write into, another run's directory.
@@ -87,7 +130,19 @@ if (!execution.ok) {
   console.error(`Error: ${execution.message}`);
   exit(2);
 }
-const executionId = execution.value;
+let executionId = execution.value;
+if (REPOSITORY_CHECK) {
+  if (!execution.created && !executionId.startsWith('repo-')) {
+    console.error(
+      `Error: a repository check writes under a "repo-" execution id, never a run's (got "${executionId}").`
+    );
+    exit(2);
+  }
+  if (execution.created) executionId = executionId.replace(/^exec-/, 'repo-');
+  console.log(
+    'Repository-suite check: no human-approved release provenance; this is not run evidence.'
+  );
+}
 
 const collection = `api-tests/collections/${storyId}.postman_collection.json`;
 const environment = `api-tests/environments/${storyId}.postman_environment.json`;

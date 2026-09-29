@@ -322,14 +322,15 @@ The Failure Classifier and Reporter are **extended, not duplicated**
 
 ### Gate tracking for the API branch
 
-The API-branch gates (3' and 4') are tracked the same way as the E2E
-gates — as booleans in `context.json.review_gates`. Phase 1.5 may add
-`collection_reviewed` and `api_assertions_reviewed` keys next to the
-existing four; if so, that is a `schemas/context.schema.json` change and
-follows the Architecture Stability Rule. Until those keys exist, a story
-with both branches records the API-gate approvals alongside the run and
-the human confirms both branches passed their gates before execution. See
-`docs/review-gates.md` for the criteria.
+The API-branch gates are `context.json.review_gates.collection_reviewed`
+(Gate 3') and `api_assertions_reviewed` (Gate 4'), recorded by the runner
+like every other gate and bound to their own inputs (task group 7.1). The
+approved test cases decide which branches a run has: E2E-only, API-only, or
+both. Every applicable branch is fully reviewed before any suite runs; then
+the runner executes Playwright, then Newman, and classifies both. The
+Failure Classifier and Reporter require the final approval of each branch
+they report on, never another branch's. See `docs/review-gates.md` for the
+criteria and `docs/pipeline-runner.md` for the sequence.
 
 ---
 

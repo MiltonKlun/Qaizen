@@ -65,9 +65,11 @@ import {
   missingBugDrafts,
   ledgerHasApiExecution,
   latestNewmanExecution,
+  newmanEvidence,
 } from './lib/run-artifacts.js';
 import { writeJsonAtomic, formatErrors } from './lib/artifact-io.js';
 import {
+  apiPaths,
   bindingFor,
   gateDigest,
   findInvalidations,
@@ -83,6 +85,7 @@ const REPO_DIR = dirname(SCRIPT_DIR);
 const VALIDATOR = join(SCRIPT_DIR, 'validate-json.js');
 const CLASSIFIER = join(SCRIPT_DIR, 'run-failure-classifier.js');
 const NORMALIZER = join(SCRIPT_DIR, 'normalize-results.js');
+const RUN_NEWMAN = join(SCRIPT_DIR, 'run-newman.js');
 const JIRA_FETCH = join(SCRIPT_DIR, 'fetch-jira-story.js');
 const CONTEXT_PATH = 'context.json';
 const CONTEXT_SCHEMA = join(REPO_DIR, 'schemas', 'context.schema.json');
@@ -197,14 +200,25 @@ function gatherHints(context) {
     const tc = check('test_cases');
     hints.testCasesExist = tc.ok;
     if (tc.ok) {
-      hints.hasApiCases = (tc.data.test_cases || []).some(
-        (c) => c.automation_decision === 'automate_api'
+      // Branches come from APPROVED cases only (task group 7.1): a draft or
+      // rejected case activates no execution.
+      const approved = (tc.data.test_cases || []).filter(
+        (c) => c.status === 'approved'
       );
-      if (hints.hasApiCases && context.story?.id) {
-        hints.apiCollectionExists = existsSync(
-          `api-tests/collections/${context.story.id}.postman_collection.json`
-        );
-        hints.apiExecuted = latestNewmanExecution(context.story.id) !== null;
+      const has = (d) => approved.some((c) => c.automation_decision === d);
+      hints.branches = { e2e: has('automate_e2e'), api: has('automate_api') };
+      hints.hasApiCases = hints.branches.api;
+      if (hints.branches.api) {
+        const col = checkArtifact('api_collection', withApiPaths(context), '.');
+        if (!col.ok && !col.absent) {
+          hints.problems.push(`api_collection: ${col.reason}`);
+        }
+        hints.apiCollectionExists = col.ok;
+        const ev = newmanEvidence(context, apiPaths(context).collection, '.');
+        hints.apiExecuted = ev.ok;
+        if (!ev.ok && latestNewmanExecution(context.story?.id) !== null) {
+          hints.problems.push(`api execution: ${ev.reason}`);
+        }
       }
     }
   }
@@ -231,7 +245,7 @@ function gatherHints(context) {
       if (!ledger.ok) {
         hints.problems.push(`execution_ledger: ${ledger.reason}`);
         produced = false;
-      } else if (hints.hasApiCases && !ledgerHasApiExecution(ledger.data)) {
+      } else if (hints.branches?.api && !ledgerHasApiExecution(ledger.data)) {
         hints.problems.push(
           'execution_ledger: has no Newman execution for this API story; re-classify after the API run'
         );
@@ -255,6 +269,19 @@ function gatherHints(context) {
   if (paths.release_report_json)
     hints.releaseReportExists = check('release_report_json').ok;
   return hints;
+}
+
+/** The context with the API artifact paths filled in (conventional paths). */
+function withApiPaths(context) {
+  const api = apiPaths(context);
+  return {
+    ...context,
+    artifact_paths: {
+      ...context.artifact_paths,
+      api_collection: api.collection,
+      api_environment: api.environment,
+    },
+  };
 }
 
 // ------------------------------------------------- gate decision recorder --
@@ -328,6 +355,10 @@ const REDO_AFTER_REJECT = {
     'Fix planner-input/<story>.planner-brief.md and re-run the Playwright Planner, then --resume.',
   gate4:
     'Re-run the Playwright Generator with corrections, or edit the test manually (the one gate where direct human edits are normal), then --resume.',
+  'gate3-api':
+    'Re-run agents/api-agent.md with the correction notes (requests, variables, endpoint contract), then --resume.',
+  'gate4-api':
+    "Re-run the API Agent, or edit the collection's assertions yourself (normal at this gate), then --resume.",
 };
 
 async function runGateInteractive(step, context) {
@@ -522,17 +553,16 @@ const GUIDE_STEPS = {
     `Run the API AGENT: agents/api-agent.md for the automate_api cases of ${storyId(ctx)}.\n` +
     `  It writes api-tests/collections/${storyId(ctx)}.postman_collection.json (+ environment),\n` +
     '  verifying endpoint shapes via Postman MCP / OpenAPI — never invented.\n' +
-    '  Then: npm run pipeline -- --resume',
+    "  Then: npm run pipeline -- --resume   (the collection goes to Gate 3' and Gate 4')",
+  'no-executable-scope': (ctx) =>
+    `The approved scope of ${storyId(ctx)} has no automate_e2e or automate_api case,\n` +
+    '  so there is nothing for Playwright or Newman to run. Manual, component and\n' +
+    '  skipped cases are recorded through the external-evidence path, not executed here.\n' +
+    '  If a case should be automated, correct its automation_decision and re-review Gate 2.',
   generator: (ctx) =>
     `Run the PLAYWRIGHT GENERATOR native agent on specs/${storyId(ctx)}.md.\n` +
     `  It writes tests/${storyId(ctx)}.spec.ts; fill artifact_paths.generated_test.\n` +
     '  Then: npm run pipeline -- --resume',
-  'execute-api': (ctx) =>
-    `Run the API BRANCH for ${storyId(ctx)}: this story has automate_api cases and\n` +
-    '  no Newman execution yet. It must run before the failure analysis, or the\n' +
-    '  run would complete on the E2E half alone.\n' +
-    `  npm run test:api -- ${storyId(ctx)}\n` +
-    '  Then: npm run pipeline -- --resume   (classify then includes the API results)',
   finalize: (ctx) =>
     `Run the FAILURE CLASSIFIER: agents/failure-classifier.md for ${storyId(ctx)}.\n` +
     '  The rule-based pre-classifier wrote a DRAFT analysis. Confirm or correct each\n' +
@@ -565,7 +595,11 @@ function gateInputProblems(step, context) {
         problems.push(`the story file ${story} is missing or empty`);
       }
     } else {
-      const r = checkArtifact(req, context, '.');
+      const r = checkArtifact(
+        req,
+        req === 'api_collection' ? withApiPaths(context) : context,
+        '.'
+      );
       if (!r.ok) problems.push(`${req} ${r.reason}`);
       // The per-case decisions are part of the scope being approved, so they
       // are made BEFORE the approval (task group 4.3). Flipping them after
@@ -658,20 +692,66 @@ function execStep(step, context) {
     writeContext(context);
     return true;
   }
+  if (step === 'execute-api') {
+    // Newman runs only here, after both API approvals (the state machine
+    // reaches this step only then). A failing collection is data for the
+    // classifier; a run with no trustworthy evidence stops the pipeline.
+    const story = storyId(context);
+    console.log(
+      `Executing: node scripts/run-newman.js ${story}  (failures are DATA for the classifier)\n`
+    );
+    const run = spawnSync(process.execPath, [RUN_NEWMAN, story], {
+      stdio: 'inherit',
+      env,
+    });
+    if (run.error) {
+      console.error(
+        `Could not launch Newman (${run.error.message}); stopping.`
+      );
+      exit(2);
+    }
+    const ev = newmanEvidence(context, apiPaths(context).collection, '.');
+    if (!ev.ok) {
+      console.error(
+        `Newman exited ${run.status ?? `by signal ${run.signal}`} without trustworthy evidence: ${ev.reason}. Stopping.`
+      );
+      exit(2);
+    }
+    if (run.status !== 0) {
+      console.log(
+        `\nNewman exited ${run.status} with evidence (${ev.executionId}): failures are data; continuing.`
+      );
+    }
+    const api = apiPaths(context);
+    if (!context.artifact_paths.api_collection) {
+      context.artifact_paths.api_collection = api.collection;
+    }
+    if (!context.artifact_paths.api_environment) {
+      context.artifact_paths.api_environment = api.environment;
+    }
+    writeContext(context);
+    return true;
+  }
   if (step === 'classify') {
     // The classifier reads the normalized execution ledger, never raw reports
     // (task group 3.3), so the run's reports are normalized first. The run id
     // is passed through so the classifier can refuse a ledger from another run.
     const ledgerPath = 'analysis/execution-ledger.json';
+    const branches = gatherHints(context).branches ?? { e2e: true, api: false };
     const normalizeArgs = [
       NORMALIZER,
       '--story',
       storyId(context),
-      '--playwright',
-      context.artifact_paths.execution_results || 'reports/results.json',
       '--out',
       ledgerPath,
     ];
+    // API-only work has no Playwright report and needs none (task group 7.1).
+    if (branches.e2e) {
+      normalizeArgs.push(
+        '--playwright',
+        context.artifact_paths.execution_results || 'reports/results.json'
+      );
+    }
     if (context.run_id) normalizeArgs.push('--run-id', context.run_id);
     // The approved scope: recorded in the ledger so its results can only be
     // reported against the cases that were approved (task group 5.3).
@@ -688,7 +768,9 @@ function execStep(step, context) {
       pinned && existsSync(join('reports', pinned, 'newman', storyId(context)))
         ? pinned
         : latestNewmanExecution(storyId(context));
-    if (apiExecution) normalizeArgs.push('--execution', apiExecution);
+    if (branches.api && apiExecution) {
+      normalizeArgs.push('--execution', apiExecution);
+    }
     console.log('Normalizing the run into an execution ledger\n');
     const n = spawnSync('node', normalizeArgs, { stdio: 'inherit' });
     if (n.status !== 0) {
@@ -749,6 +831,11 @@ function printStatus(context, hints) {
   console.log(
     `Gates:  G1 ${mark('requirements_reviewed')} · G2 ${mark('test_scope_reviewed')} · G3 ${mark('specs_reviewed')} · G4 ${mark('code_reviewed')}`
   );
+  if (hints.branches?.api || gates.collection_reviewed !== undefined) {
+    console.log(
+      `API:    G3' ${mark('collection_reviewed')} · G4' ${mark('api_assertions_reviewed')}`
+    );
+  }
   if (gates.qa_scope_approved !== undefined) {
     console.log(
       `        qa_scope_approved (G1+G2 consolidated): ${mark('qa_scope_approved')}`
