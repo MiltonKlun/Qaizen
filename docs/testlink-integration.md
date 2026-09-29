@@ -154,19 +154,31 @@ TG4) — never hardcoded. The canonical mapping:
 | `automation_decision`            | `execution_type`                  | `automate_*` → automated(2); `manual`/`skip` → manual(1).                     |
 | `status` (`approved` only)       | — (filter)                        | Only `approved` cases are synced at all.                                      |
 
-Execution-result status mapping (our outcome → TestLink status) lives in
-`config/testlink-status-map.json` and is wired in Phase 2 TG10 via
-`scripts/sync-testlink-execution.js` (the Reporter's optional result
-sync, dry-run by default, `--apply-testlink-execution` to write). The
-outcome key is the failure's `classification`, or `skipped`, or `passed`
-for a case with a `testlink_id` and no failure. The map:
+Execution results are reported by `scripts/sync-testlink-execution.js`
+(the Reporter's optional result sync, dry-run by default,
+`--apply-testlink-execution` to write). Each approved case already in
+TestLink gets **one** outcome, derived from all of its units in the
+current run's execution ledger (`analysis/execution-ledger.json`). The
+absence of a failure is never a pass. The outcome → status mapping lives
+in `config/testlink-status-map.json`; the script refuses a map in which
+anything but `passed` reaches Pass.
 
-| Our outcome                                                                         | TestLink status |
-| ----------------------------------------------------------------------------------- | --------------- |
-| passed                                                                              | Pass            |
-| product_bug                                                                         | Fail            |
-| flaky / environment_issue / test_bug / test_data_issue / unknown_needs_human_review | Blocked         |
-| skipped                                                                             | Not Run         |
+| Our outcome       | When                                                                                                                                                                       | TestLink status |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| `passed`          | Every unit linked to the case in the ledger explicitly passed.                                                                                                             | Pass            |
+| `product_failure` | A linked unit failed and the finalized failure analysis classifies that unit as `product_bug`.                                                                             | Fail            |
+| `blocked`         | Any other failure, block, flake or expected failure; partial execution; evidence from an execution with source errors; or an unattributed failing unit of the same runner. | Blocked         |
+| `not_run`         | Intentionally skipped, manual (needs a human evidence record), or nothing linked to it ran.                                                                                | Not Run         |
+
+Before any result is written, the ledger must be valid and belong to
+this story, this run and this approved scope: its
+`approved_scope_digest` must match the current approved test cases (the
+normalizer records it from `--test-cases`, which the pipeline passes).
+Gate 2 and Gate 4 must be current, and a 2.x failure analysis must be
+`finalized`. An apply without valid evidence is refused; a dry run shows
+every case as Not Run and says why. API cases are not reported until
+the API branch has its own review gates. The script writes nothing in
+the repository.
 
 ---
 

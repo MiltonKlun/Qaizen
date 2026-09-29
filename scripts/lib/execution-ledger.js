@@ -16,9 +16,11 @@
 // WRITE ledgers; nothing writes one yet, which is why this ships with readers
 // and fixtures rather than a writer (the plan's sequencing note).
 
+import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { canonicalJson, semanticCase } from './approval-binding.js';
 import { readValidatedJson } from './artifact-io.js';
 
 // Resolved from THIS module's location, not the working directory, so the
@@ -30,6 +32,15 @@ export const LEDGER_SCHEMA = join(
   '..',
   'schemas',
   'execution-ledger.schema.json'
+);
+
+/** The test-case schema, resolved the same way as the ledger schema. */
+export const TEST_CASES_SCHEMA = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  'schemas',
+  'test-cases.schema.json'
 );
 
 /** The mutually exclusive unit outcomes, in the order totals declare them. */
@@ -274,4 +285,163 @@ export function readLedger(path, expect = {}) {
   }
 
   return { ok: true, data: ledger };
+}
+
+// ---------------------------------------------------------------- scope
+
+/**
+ * Digest of the approved test-case scope a ledger was built against
+ * (task group 5.3). Only approved cases count, without the linkage fields
+ * adapters write back, so syncing a case never changes the scope.
+ */
+export function approvedScopeDigest(testCasesDoc) {
+  const cases = (testCasesDoc.test_cases ?? [])
+    .filter((tc) => tc.status === 'approved')
+    .map(semanticCase)
+    .sort((a, b) => a.test_case_id.localeCompare(b.test_case_id));
+  return createHash('sha256')
+    .update(
+      canonicalJson({ story_id: testCasesDoc.story_id, approved_cases: cases })
+    )
+    .digest('hex');
+}
+
+// ---------------------------------------------------- per-case outcome
+
+/** The outcomes a test case can be reported with (config/testlink-status-map.json). */
+export const CASE_REPORT_OUTCOMES = [
+  'passed',
+  'product_failure',
+  'blocked',
+  'not_run',
+];
+
+const NOT_EXECUTED = new Set(['skipped', 'not_run']);
+const NON_PASSING = new Set(['failed', 'blocked', 'flaky', 'expected_failure']);
+
+const linksTo = (unit, caseId) => {
+  const l = unit.domain_links || {};
+  return l.test_case_id === caseId || l.api_test_case_id === caseId;
+};
+const unattributed = (unit) => {
+  const l = unit.domain_links || {};
+  return !l.test_case_id && !l.api_test_case_id;
+};
+
+/**
+ * One reportable outcome for one test case, from ALL of its linked units.
+ *
+ * Precedence (IMPLEMENTATION_PLAN 5.3):
+ *   intentionally skipped / manual / no linked unit           -> not_run
+ *   a failed unit the finalized analysis confirms as product_bug -> product_failure
+ *   any other failure, block, flake, expected failure, an
+ *   unattributed non-passing unit of the same runner, evidence
+ *   from an execution with source errors, or partial execution -> blocked
+ *   every linked unit skipped / not run                        -> not_run
+ *   every linked unit explicitly passed                        -> passed
+ *
+ * Set-based throughout, so the order of units or failures cannot change the
+ * result. A manual case never borrows another case's units: its outcome needs
+ * a human evidence record, which does not exist yet.
+ *
+ * @param {object} args
+ * @param {object} args.testCase   one test case
+ * @param {object} args.ledger     a validated ledger of the current run
+ * @param {Set<string>} [args.confirmedProductFailureUnits] unit ids a
+ *   finalized failure analysis classifies as product_bug
+ * @returns {{outcome: string, reason: string, unitIds: string[]}}
+ */
+export function testCaseOutcome({
+  testCase,
+  ledger,
+  confirmedProductFailureUnits = new Set(),
+}) {
+  const id = testCase.test_case_id;
+  const notRun = (reason, unitIds = []) => ({
+    outcome: 'not_run',
+    reason,
+    unitIds,
+  });
+
+  if (testCase.automation_decision === 'skip') {
+    return notRun('intentionally skipped (automation_decision: skip)');
+  }
+  if (testCase.automation_decision === 'manual') {
+    return notRun(
+      'manual case: its result needs a human evidence record, and no automated result is borrowed'
+    );
+  }
+
+  const units = ledger.units ?? [];
+  const linked = units.filter((u) => linksTo(u, id));
+  const unitIds = linked.map((u) => u.unit_id).sort();
+  if (linked.length === 0) {
+    return notRun('no executed unit links to this case', unitIds);
+  }
+
+  const confirmed = linked.filter(
+    (u) => u.outcome === 'failed' && confirmedProductFailureUnits.has(u.unit_id)
+  );
+  if (confirmed.length) {
+    return {
+      outcome: 'product_failure',
+      reason: `confirmed product failure in ${confirmed
+        .map((u) => u.unit_id)
+        .sort()
+        .join(', ')}`,
+      unitIds,
+    };
+  }
+
+  const blocked = (reason) => ({ outcome: 'blocked', reason, unitIds });
+
+  const nonPassing = linked.filter((u) => NON_PASSING.has(u.outcome));
+  if (nonPassing.length) {
+    const kinds = [...new Set(nonPassing.map((u) => u.outcome))].sort();
+    return blocked(
+      `linked unit(s) ${kinds.join('/')} without a confirmed product failure`
+    );
+  }
+
+  const executions = new Map(
+    (ledger.source_executions ?? []).map((e) => [e.execution_id, e])
+  );
+  const troubled = linked.filter((u) => {
+    const e = executions.get(u.execution_id);
+    return (
+      !e || e.process_status !== 'completed' || (e.source_errors ?? []).length
+    );
+  });
+  if (troubled.length) {
+    return blocked(
+      'its evidence comes from an execution that did not complete cleanly'
+    );
+  }
+
+  const kinds = new Set(linked.map((u) => u.identity?.kind));
+  const stray = units.filter(
+    (u) =>
+      unattributed(u) &&
+      kinds.has(u.identity?.kind) &&
+      !NOT_EXECUTED.has(u.outcome) &&
+      u.outcome !== 'passed'
+  );
+  if (stray.length) {
+    return blocked(
+      `${stray.length} unattributed non-passing unit(s) from the same runner may belong to this case`
+    );
+  }
+
+  const ran = linked.filter((u) => u.outcome === 'passed');
+  if (ran.length === 0) {
+    return notRun('its linked units did not execute', unitIds);
+  }
+  if (ran.length < linked.length) {
+    return blocked('partially executed: some linked units did not run');
+  }
+  return {
+    outcome: 'passed',
+    reason: `all ${linked.length} linked unit(s) passed`,
+    unitIds,
+  };
 }

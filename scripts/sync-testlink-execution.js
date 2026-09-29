@@ -1,200 +1,71 @@
 #!/usr/bin/env node
-// TestLink execution-result sync (Phase 2 TG10). For each test case that
-// has a testlink_id, derive its run outcome and report that result against
-// the TestLink test plan via XML-RPC (tl.reportTCResult). Dry-run by
-// default; --apply-testlink-execution performs the real writes.
+// TestLink execution-result sync (Phase 2 TG10, rebuilt in task group 5.3).
+// For each approved test case already in TestLink, derive ONE outcome from the
+// current run's execution ledger and report it against the TestLink test plan
+// (tl.reportTCResult). Dry-run by default; --apply-testlink-execution writes.
 //
-// This is the Reporter's optional downstream step. It is a SEPARATE script
-// from scripts/sync-to-testlink.js (which creates the cases) because it has
-// different inputs (failure-analysis), a different gate (Gate 4, code
-// reviewed), and a different TestLink call (reportTCResult vs createTestCase).
+// Evidence, not absence (review finding I1). A case is reported:
+//   Pass    only when every unit linked to it in the ledger explicitly passed;
+//   Fail    only for a failure the FINALIZED failure analysis confirms as a
+//           product bug on one of its units;
+//   Blocked for any other failure, block, flake, expected failure, partial
+//           execution, evidence from an unclean execution, or an unattributed
+//           failing unit that might be its own;
+//   Not Run when it is intentionally skipped, manual, or nothing ran for it.
+// The rules live in scripts/lib/execution-ledger.js (testCaseOutcome). The
+// outcome -> TestLink status mapping lives in config/testlink-status-map.json.
 //
-// Outcome -> TestLink status comes from config/testlink-status-map.json
-// (never hardcoded). The outcome for a case is:
-//   - the classification of its failure in analysis/failure-analysis.json
-//     (matched by test_case_id), if it failed;
-//   - "skipped" if automation_decision is "skip" (an intentional exclusion);
-//   - "not_run" otherwise.
-//
-// "not_run", NOT "passed" (review finding I1, task group 1.2). A linked case
-// with no failure entry is not evidence of a pass: a case that never ran, a
-// manual case, and a case whose result was lost are indistinguishable here.
-// A real Pass needs positive execution evidence from the run-scoped ledger,
-// which Phase 5 (task group 5.3) introduces.
+// The ledger must be valid and belong to this story, this run and this
+// approved scope (its approved_scope_digest). An apply without such a ledger
+// is refused; a dry run shows every case as Not Run and says why. API results
+// are withheld until the API branch's own review gates exist. Nothing in the
+// repository is written: reporting results never changes a source artifact.
 //
 // Usage:
 //   node scripts/sync-testlink-execution.js <story-id>                          # dry-run
 //   node scripts/sync-testlink-execution.js <story-id> --apply-testlink-execution
 //
-// Env (from .env or process.env): TESTLINK_URL, TESTLINK_API_KEY,
-//   TESTLINK_PROJECT_KEY, TESTLINK_TEST_PLAN_ID (required for the apply path).
+// Env (from .env or process.env): TEST_MANAGEMENT_TOOL (testlink | both),
+//   TESTLINK_URL, TESTLINK_API_KEY, TESTLINK_TEST_PLAN_ID (required to apply),
+//   QAIZEN_HTTP_TIMEOUT_MS (default 30000).
 //
-// Exit codes: 0 ok · 1 sync/gate error · 2 usage/file/env error
+// Exit codes: 0 ok · 1 sync/gate/evidence error · 2 usage/file/env/config error
 
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { argv, env, exit } from 'node:process';
+
+import {
+  readJson,
+  readValidatedJson,
+  formatErrors,
+} from './lib/artifact-io.js';
 import { requireCurrentGate } from './lib/approval-binding.js';
+import {
+  CASE_REPORT_OUTCOMES,
+  approvedScopeDigest,
+  readLedger,
+  testCaseOutcome,
+} from './lib/execution-ledger.js';
+import {
+  acquireLock,
+  checkSyncScope,
+  httpRequest,
+  httpTimeoutMs,
+  loadDotEnv,
+  planOperation,
+  sanitizeDiagnostic,
+  selectTestManagementTarget,
+} from './lib/integration-io.js';
 
-// --- tiny .env loader (CI injects env directly; this only fills gaps) ----
-if (existsSync('.env')) {
-  for (const line of readFileSync('.env', 'utf8').split('\n')) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-    if (m && !(m[1] in env)) env[m[1]] = m[2];
-  }
-}
+const TARGET = 'testlink';
+const CASES_SCHEMA = 'schemas/test-cases.schema.json';
+const ANALYSIS_SCHEMA = 'schemas/failure-analysis.schema.json';
+const LEDGER_PATH = 'analysis/execution-ledger.json';
+const ANALYSIS_PATH = 'analysis/failure-analysis.json';
+const TESTLINK_ID = /^[1-9][0-9]*$/;
+const STATUS_CODES = new Set(['p', 'f', 'b', 'n']);
 
-const APPLY = argv.includes('--apply-testlink-execution');
-const storyId = argv.find((a, i) => i >= 2 && !a.startsWith('--'));
-
-if (!storyId) {
-  console.error(
-    'Usage: node scripts/sync-testlink-execution.js <story-id> [--apply-testlink-execution]'
-  );
-  exit(2);
-}
-
-const casesPath = `test-cases/${storyId}.json`;
-const mapPath = 'config/testlink-status-map.json';
-const faPath = 'analysis/failure-analysis.json';
-
-for (const [label, p] of [
-  ['test-cases', casesPath],
-  ['status map', mapPath],
-  ['context.json', 'context.json'],
-  ['failure-analysis', faPath],
-]) {
-  if (!existsSync(p)) {
-    console.error(`Missing ${label}: ${p}`);
-    exit(2);
-  }
-}
-
-const loadJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
-const context = loadJson('context.json');
-const doc = loadJson(casesPath);
-const map = loadJson(mapPath);
-const fa = loadJson(faPath);
-
-// --- Gate 4 precondition (same rule as the Failure Classifier/Reporter) --
-// An approval counts only while it still matches what was reviewed
-// (task group 4.3): a gate approved before the test cases or code changed
-// is not a licence to sync execution results.
-const gateCheck = requireCurrentGate(context, 'code_reviewed', '.');
-if (!gateCheck.ok) {
-  console.error(
-    `Gate 4: ${gateCheck.reason}. Refusing to sync execution results.`
-  );
-  exit(1);
-}
-
-// --- A draft analysis is not a result to report (task group 3.3) --------
-// A 2.x draft is the rule-based pre-classifier's first pass: its Red
-// failures have no bug drafts yet and its links may be unresolved. Pushing
-// it to TestLink would publish a guess as the verdict. 1.x analyses predate
-// this distinction and keep their previous behaviour.
-if (/^2\./.test(fa.schema_version || '') && fa.status !== 'finalized') {
-  console.error(
-    `${faPath} is a ${fa.status || 'status-less'} ${fa.schema_version} analysis; refusing to sync ` +
-      'execution results. Finalize it first (the Failure Classifier Agent or a human ' +
-      'confirms classifications, writes bug drafts, then sets status "finalized").'
-  );
-  exit(1);
-}
-
-// --- Build TC -> outcome -------------------------------------------------
-const statusByOutcome = map.outcome_to_testlink_status || {};
-const defaultStatus = map.default_status || 'Blocked';
-const statusCodes = map.testlink_statuses || {
-  Pass: 'p',
-  Fail: 'f',
-  Blocked: 'b',
-  'Not Run': 'n',
-};
-
-// Index failures by their originating test_case_id.
-const failureByTc = new Map();
-for (const f of fa.failures || []) {
-  if (f.test_case_id) failureByTc.set(f.test_case_id, f);
-}
-
-// Only cases that were actually pushed to TestLink (have a testlink_id) can
-// have a result reported.
-const synced = (doc.test_cases || []).filter((tc) => tc.testlink_id);
-const notSynced = (doc.test_cases || []).filter((tc) => !tc.testlink_id);
-
-if (synced.length === 0) {
-  console.log(
-    `No test cases in ${casesPath} have a testlink_id. Run scripts/sync-to-testlink.js ` +
-      `--apply-testlink first. Nothing to report.`
-  );
-  exit(0);
-}
-
-// Derive the outcome to report to TestLink.
-//
-// CONSERVATIVE BY CONSTRUCTION (review finding I1, task group 1.2). The absence
-// of a failure entry is NOT evidence that a case executed and passed: a case
-// that never ran, a manual case, and a case whose result was lost all look
-// identical here. Reporting Pass from absence invented execution evidence, so
-// the fallback is now `not_run` (mapped to "Not Run"), never `passed`.
-//
-// A genuine Pass requires positive execution evidence from the run-scoped
-// ledger, which Phase 5 (task group 5.3) introduces. Until then this path can
-// only ever report a real failure, an intentional skip, or Not Run.
-//
-// Note on `skip`: the schema puts `skip` in `automation_decision`, not in
-// `status` (which is draft|approved|rejected). The previous `tc.status ===
-// 'skip'` check was dead code and could never match a schema-valid case.
-function outcomeFor(tc) {
-  const f = failureByTc.get(tc.test_case_id);
-  if (f) return f.classification || 'unknown_needs_human_review';
-  if (tc.automation_decision === 'skip') return 'skipped';
-  // No failure entry and not an intentional skip => no evidence of execution.
-  return 'not_run';
-}
-
-const planned = synced.map((tc) => {
-  const outcome = outcomeFor(tc);
-  const tlStatus = statusByOutcome[outcome] || defaultStatus;
-  return {
-    ref: tc,
-    test_case_id: tc.test_case_id,
-    testlink_id: tc.testlink_id,
-    outcome,
-    tlStatus,
-    code: statusCodes[tlStatus] || 'b',
-  };
-});
-
-// --- Report the plan -----------------------------------------------------
-console.log(`TestLink execution-result sync plan for ${storyId}`);
-console.log(`  Project: ${env.TESTLINK_PROJECT_KEY ?? '(unset)'}`);
-console.log(`  Test plan id: ${env.TESTLINK_TEST_PLAN_ID ?? '(unset)'}`);
-console.log(`  Cases with a testlink_id: ${synced.length}`);
-console.log(`  Cases without (skipped from result sync): ${notSynced.length}`);
-for (const p of planned) {
-  console.log(
-    `    - ${p.test_case_id} (TestLink ${p.testlink_id}): outcome=${p.outcome} -> ${p.tlStatus} (${p.code})`
-  );
-}
-
-if (!APPLY) {
-  console.log(
-    '\nDRY RUN (no writes). Re-run with --apply-testlink-execution to report to TestLink.'
-  );
-  exit(0);
-}
-
-// --- Apply path: real TestLink XML-RPC reportTCResult --------------------
-const url = env.TESTLINK_URL;
-const apiKey = env.TESTLINK_API_KEY;
-const planId = env.TESTLINK_TEST_PLAN_ID;
-if (!url || !apiKey || !planId) {
-  console.error(
-    'Apply requires TESTLINK_URL, TESTLINK_API_KEY, and TESTLINK_TEST_PLAN_ID.'
-  );
-  exit(2);
-}
+// ------------------------------------------------------------ XML-RPC
 
 function xmlEscape(s) {
   return String(s)
@@ -232,43 +103,325 @@ function readFault(xml) {
   }
   return null;
 }
-async function tl(method, struct) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/xml' },
-    body: buildCall(method, struct),
-  });
-  const text = await res.text();
-  if (!res.ok && !text.includes('methodResponse')) {
-    throw new Error(`${method}: HTTP ${res.status}`);
+
+/**
+ * The status map, checked: every report outcome maps to a named status with a
+ * TestLink code, and ONLY `passed` may reach Pass.
+ */
+function loadStatusMap(map) {
+  const byOutcome = map.outcome_to_testlink_status ?? {};
+  const codes = map.testlink_statuses ?? {};
+  const problems = [];
+  const resolved = {};
+  for (const outcome of CASE_REPORT_OUTCOMES) {
+    const name = byOutcome[outcome];
+    const code = typeof name === 'string' ? codes[name] : undefined;
+    if (!name) problems.push(`no status for outcome "${outcome}"`);
+    else if (!STATUS_CODES.has(code))
+      problems.push(`status "${name}" has no TestLink code (p/f/b/n)`);
+    else resolved[outcome] = { name, code };
   }
-  return text;
+  for (const [outcome, s] of Object.entries(resolved)) {
+    if (s.code === 'p' && outcome !== 'passed') {
+      problems.push(`"${outcome}" must not map to a passing status`);
+    }
+  }
+  return problems.length ? { ok: false, problems } : { ok: true, resolved };
 }
 
 async function main() {
-  let reported = 0;
-  for (const p of planned) {
-    // reportTCResult identifies the case by its external id (testcaseexternalid)
-    // OR internal id (testcaseid); we stored TestLink's internal id as
-    // testlink_id, so use testcaseid. status is the single-letter code.
-    const xml = await tl('tl.reportTCResult', {
-      devKey: apiKey,
-      testcaseid: Number(p.testlink_id),
-      testplanid: Number(planId),
-      status: p.code,
-      notes: `Auto-reported by scripts/sync-testlink-execution.js (outcome: ${p.outcome})`,
-    });
-    const fault = readFault(xml);
-    if (fault) {
-      throw new Error(`reportTCResult ${p.test_case_id}: ${fault}`);
-    }
-    reported += 1;
-    console.log(`  ${p.test_case_id} -> ${p.tlStatus} reported`);
+  loadDotEnv(env);
+
+  const APPLY = argv.includes('--apply-testlink-execution');
+  const storyId = argv.find((a, i) => i >= 2 && !a.startsWith('--'));
+  if (!storyId) {
+    console.error(
+      'Usage: node scripts/sync-testlink-execution.js <story-id> [--apply-testlink-execution]'
+    );
+    return 2;
   }
-  console.log(`\nDone. Reported ${reported} execution result(s) to TestLink.`);
+
+  const selected = selectTestManagementTarget(env.TEST_MANAGEMENT_TOOL, TARGET);
+  if (!selected.ok) {
+    console.error(selected.reason);
+    return 2;
+  }
+
+  const casesPath = `test-cases/${storyId}.json`;
+  const mapPath = 'config/testlink-status-map.json';
+  for (const [label, p] of [
+    ['test-cases', casesPath],
+    ['status map', mapPath],
+    ['context.json', 'context.json'],
+  ]) {
+    if (!existsSync(p)) {
+      console.error(`Missing ${label}: ${p}`);
+      return 2;
+    }
+  }
+
+  // --- Inputs, identity and approvals ----------------------------------
+  const docRead = readValidatedJson(casesPath, CASES_SCHEMA);
+  if (!docRead.ok) {
+    console.error(docRead.message);
+    for (const line of formatErrors(docRead.errors)) console.error(line);
+    return 2;
+  }
+  const doc = docRead.data;
+  const ctxRead = readJson('context.json');
+  const mapRead = readJson(mapPath);
+  for (const r of [ctxRead, mapRead]) {
+    if (!r.ok) {
+      console.error(r.message);
+      return 2;
+    }
+  }
+  const context = ctxRead.data;
+  const statusMap = loadStatusMap(mapRead.data);
+  if (!statusMap.ok) {
+    console.error(`${mapPath} is not usable:`);
+    for (const p of statusMap.problems) console.error(`  - ${p}`);
+    return 2;
+  }
+
+  const scope = checkSyncScope(context, doc, storyId, '.');
+  if (!scope.ok) {
+    console.error(`${scope.reason}. Refusing to sync execution results.`);
+    return 1;
+  }
+  // The E2E branch review (Gate 4). An approval counts only while it still
+  // matches what was reviewed (task group 4.3).
+  const gate4 = requireCurrentGate(context, 'code_reviewed', '.');
+  if (!gate4.ok) {
+    console.error(
+      `Gate 4: ${gate4.reason}. Refusing to sync execution results.`
+    );
+    return 1;
+  }
+
+  // --- The failure analysis: which failures are CONFIRMED product bugs --
+  const confirmed = new Set();
+  if (existsSync(ANALYSIS_PATH)) {
+    const fa = readJson(ANALYSIS_PATH);
+    if (!fa.ok) {
+      console.error(fa.message);
+      return 1;
+    }
+    const version = String(fa.data.schema_version ?? '');
+    if (/^2\./.test(version)) {
+      // A draft is the pre-classifier's first pass: publishing it would
+      // report a guess as the verdict (task group 3.3).
+      if (fa.data.status !== 'finalized') {
+        console.error(
+          `${ANALYSIS_PATH} is a ${fa.data.status || 'status-less'} ${version} analysis; refusing to sync ` +
+            'execution results. Finalize it first (the Failure Classifier Agent or a human ' +
+            'confirms classifications, writes bug drafts, then sets status "finalized").'
+        );
+        return 1;
+      }
+      const valid = readValidatedJson(ANALYSIS_PATH, ANALYSIS_SCHEMA);
+      if (!valid.ok) {
+        console.error(`${valid.message}. Refusing to sync execution results.`);
+        return 1;
+      }
+      if (fa.data.story_id !== storyId || fa.data.run_id !== context.run_id) {
+        console.error(
+          `${ANALYSIS_PATH} belongs to story ${fa.data.story_id} / run ${fa.data.run_id}, ` +
+            `not the active ${storyId} / ${context.run_id}. Refusing to sync execution results.`
+        );
+        return 1;
+      }
+      for (const f of fa.data.failures ?? []) {
+        if (f.classification === 'product_bug' && f.unit_id) {
+          confirmed.add(f.unit_id);
+        }
+      }
+    } else {
+      console.warn(
+        `${ANALYSIS_PATH} is a ${version || 'version-less'} analysis without unit ids; ` +
+          'no failure is treated as a confirmed product failure.'
+      );
+    }
+  }
+
+  // --- The ledger: this story, this run, this approved scope ------------
+  let ledger = null;
+  let ledgerProblem = null;
+  if (!existsSync(LEDGER_PATH)) {
+    ledgerProblem = `${LEDGER_PATH} does not exist (run npm run normalize, or the pipeline's classify step)`;
+  } else {
+    const read = readLedger(LEDGER_PATH, {
+      storyId,
+      runId: context.run_id,
+    });
+    if (!read.ok) {
+      ledgerProblem = [read.message, ...(read.violations ?? [])].join('; ');
+    } else if (read.data.approved_scope_digest === null) {
+      ledgerProblem = `${LEDGER_PATH} does not record the approved scope it was built for; re-normalize with --test-cases ${casesPath}`;
+    } else if (read.data.approved_scope_digest !== approvedScopeDigest(doc)) {
+      ledgerProblem = `${LEDGER_PATH} was built for a different approved scope than ${casesPath} holds now`;
+    } else {
+      ledger = read.data;
+    }
+  }
+
+  // --- Plan: one outcome per approved case already in TestLink ----------
+  const approved = doc.test_cases.filter((tc) => tc.status === 'approved');
+  const reportable = [];
+  const notReported = [];
+  for (const tc of approved) {
+    const link = planOperation({
+      record: tc.sync_state?.[TARGET],
+      remoteIds: [tc.testlink_id, tc.external_ids?.[TARGET]],
+      isValidId: (id) => TESTLINK_ID.test(id),
+    });
+    if (link.action !== 'skip') {
+      notReported.push({
+        tc,
+        why:
+          link.action === 'create'
+            ? 'not in TestLink yet'
+            : `its TestLink link is unresolved (${link.reason ?? link.action})`,
+      });
+      continue;
+    }
+    if (tc.automation_decision === 'automate_api') {
+      notReported.push({
+        tc,
+        why: 'API results wait for the API branch review gates, which are not recorded yet',
+      });
+      continue;
+    }
+    // Skipped and manual cases are Not Run for their own reasons, with or
+    // without a ledger. Anything else without valid evidence is Not Run
+    // because of the missing evidence (and an apply is refused below).
+    const ownReason = ['skip', 'manual'].includes(tc.automation_decision);
+    let derived;
+    if (ledger || ownReason) {
+      derived = testCaseOutcome({
+        testCase: tc,
+        ledger: ledger ?? { units: [], source_executions: [] },
+        confirmedProductFailureUnits: confirmed,
+      });
+    } else {
+      derived = {
+        outcome: 'not_run',
+        reason: `no valid ledger: ${ledgerProblem}`,
+        unitIds: [],
+      };
+    }
+    reportable.push({
+      tc,
+      testlinkId: link.id,
+      ...derived,
+      status: statusMap.resolved[derived.outcome],
+    });
+  }
+
+  console.log(`TestLink execution-result sync plan for ${storyId}`);
+  console.log(`  Run: ${context.run_id}`);
+  console.log(`  Test plan id: ${env.TESTLINK_TEST_PLAN_ID ?? '(unset)'}`);
+  console.log(
+    `  Evidence: ${ledger ? `${LEDGER_PATH} (${ledger.units.length} unit(s))` : `NONE — ${ledgerProblem}`}`
+  );
+  console.log(`  To report: ${reportable.length}`);
+  for (const r of reportable) {
+    console.log(
+      `    - ${r.tc.test_case_id} (TestLink ${r.testlinkId}): ${r.outcome} -> ${r.status.name} (${r.status.code}) — ${r.reason}`
+    );
+  }
+  if (notReported.length) {
+    console.log(`  Not reported: ${notReported.length}`);
+    for (const n of notReported) {
+      console.log(`    - ${n.tc.test_case_id}: ${n.why}`);
+    }
+  }
+
+  if (!APPLY) {
+    console.log(
+      '\nDRY RUN (no writes). Re-run with --apply-testlink-execution to report to TestLink.'
+    );
+    return 0;
+  }
+
+  // --- Apply ------------------------------------------------------------
+  if (!ledger) {
+    console.error(
+      `\nRefusing to report results without valid execution evidence: ${ledgerProblem}.`
+    );
+    return 1;
+  }
+  if (!reportable.length) {
+    console.log('\nNothing to report.');
+    return 0;
+  }
+  const url = env.TESTLINK_URL;
+  const apiKey = env.TESTLINK_API_KEY;
+  const planId = env.TESTLINK_TEST_PLAN_ID;
+  if (!url || !apiKey || !TESTLINK_ID.test(planId ?? '')) {
+    console.error(
+      'Apply requires TESTLINK_URL, TESTLINK_API_KEY, and a numeric TESTLINK_TEST_PLAN_ID.'
+    );
+    return 2;
+  }
+  let timeoutMs;
+  try {
+    timeoutMs = httpTimeoutMs(env);
+  } catch (e) {
+    console.error(e.message);
+    return 2;
+  }
+
+  const lock = acquireLock('.', TARGET);
+  if (!lock.ok) {
+    console.error(`Refusing to report: ${lock.reason}`);
+    return 1;
+  }
+  try {
+    let reported = 0;
+    for (const r of reportable) {
+      // testlink_id holds TestLink's internal id, so identify by testcaseid.
+      const res = await httpRequest(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/xml' },
+        body: buildCall('tl.reportTCResult', {
+          devKey: apiKey,
+          testcaseid: Number(r.testlinkId),
+          testplanid: Number(planId),
+          status: r.status.code,
+          notes: `Qaizen run ${context.run_id}: ${r.outcome} — ${r.reason}`,
+        }),
+        timeoutMs,
+      });
+      const problem =
+        res.kind !== 'response'
+          ? `${res.error}; the result may or may not have been recorded`
+          : !res.text.includes('methodResponse')
+            ? `HTTP ${res.status}: ${sanitizeDiagnostic(res.text, [apiKey])}`
+            : readFault(res.text);
+      if (problem) {
+        console.error(
+          `reportTCResult ${r.tc.test_case_id}: ${sanitizeDiagnostic(problem, [apiKey])}\n` +
+            `Reported ${reported} of ${reportable.length} before stopping.`
+        );
+        return 1;
+      }
+      reported += 1;
+      console.log(`  ${r.tc.test_case_id} -> ${r.status.name} reported`);
+    }
+    console.log(
+      `\nDone. Reported ${reported} execution result(s) to TestLink.`
+    );
+    return 0;
+  } finally {
+    lock.release();
+  }
 }
 
-main().catch((e) => {
-  console.error(`\nTestLink execution sync FAILED: ${e.message}`);
-  exit(1);
-});
+main().then(
+  (code) => exit(code),
+  (e) => {
+    console.error(`\nTestLink execution sync FAILED: ${e.message}`);
+    exit(1);
+  }
+);

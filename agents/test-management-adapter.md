@@ -10,9 +10,14 @@ description: |
   to another tool's adapter (Open/Closed Principle).
 phase_introduced: 2
 phase_active: 2+
-version: 1.3.0
+version: 1.4.0
 changed_in_run: null
 changelog: |
+  - 1.4.0: MINOR (task group 5.3). pushExecutionResults derives one
+    outcome per case from the current run's execution ledger (matched
+    by story, run and approved_scope_digest): Pass only with complete
+    positive evidence, Fail only for a confirmed product failure,
+    Blocked otherwise, Not Run for skipped/manual/unexecuted cases.
   - 1.3.0: MINOR (task group 5.2). A recorded remote id is trusted only
     when well formed and consistent (field, external_ids, sync record);
     otherwise the case is BLOCKED, neither created nor skipped. A linked
@@ -131,9 +136,12 @@ each adapter realizes them via its tool's MCP or REST API.
 
 ### `pushExecutionResults(results)`
 
-- Input: per-TC execution outcomes derived from
-  `analysis/failure-analysis.json` + the release report. A schema 2.x
-  analysis must be `finalized`; a `draft` is refused, never pushed.
+- Input: one outcome per approved case, derived from all of its units in
+  the current run's execution ledger (`analysis/execution-ledger.json`),
+  which must match the story, the run and the approved scope. A failure
+  counts as a product failure only when the `finalized` failure
+  analysis says so; a `draft` analysis is refused, never pushed. The
+  absence of a failure is never a pass.
 - Maps each outcome to the tool's status vocabulary via the adapter's
   status map (e.g. `config/testlink-status-map.json` in Phase 2 TG10).
 - Only acts on cases that have an `external_id` (i.e. were pushed

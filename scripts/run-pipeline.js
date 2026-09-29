@@ -665,6 +665,14 @@ function execStep(step, context) {
       ledgerPath,
     ];
     if (context.run_id) normalizeArgs.push('--run-id', context.run_id);
+    // The approved scope: recorded in the ledger so its results can only be
+    // reported against the cases that were approved (task group 5.3).
+    if (
+      context.artifact_paths.test_cases &&
+      existsSync(context.artifact_paths.test_cases)
+    ) {
+      normalizeArgs.push('--test-cases', context.artifact_paths.test_cases);
+    }
     // This story's Newman reports from ONE execution: the one named by
     // QAIZEN_EXECUTION_ID when it holds them, otherwise the newest that does.
     const pinned = env.QAIZEN_EXECUTION_ID;
