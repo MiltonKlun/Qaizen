@@ -111,6 +111,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
       - name: Did this PR change agent prompts?
         id: detect
         shell: bash
@@ -122,6 +123,11 @@ jobs:
             echo "agents_changed=false" >> "$GITHUB_OUTPUT"
             echo "No agents/ changes in this PR; fixture validation not run."
           fi
+      # The validator checks schemas with AJV (task group 8.1), so it needs the
+      # project's dependencies.
+      - name: Install dependencies
+        if: steps.detect.outputs.agents_changed == 'true'
+        run: npm ci
       - name: Validate the expected fixtures (structural; not a prompt evaluation)
         if: steps.detect.outputs.agents_changed == 'true'
         run: npm run evaluate
