@@ -42,8 +42,10 @@ Confidence is deterministic, from occurrence counts — the plan's rule:
   clobber, recovery/rework, CI/merge friction). A theme mentioned 3+ times
   across summaries surfaces as a 🔴 high-confidence finding.
 - Recurring fix/recover commit subjects raise a friction finding.
-- Metrics flags (untested high-risk, prompt-stability not met) raise coverage /
-  prompt findings.
+- Metrics flags raise coverage / prompt findings: untested high-risk items,
+  each prompt-version cohort whose stability verdict is `not_met`, and — as a
+  low-confidence finding — too little evidence for any verdict (never read as
+  stability).
 - Usage patterns and input gaps are surfaced as ⚪ low-confidence context.
 
 Findings sort high → medium → low.

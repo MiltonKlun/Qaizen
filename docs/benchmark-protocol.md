@@ -124,7 +124,8 @@ same reviewer, ideally without knowing which arm produced the file.
    metrics. `npm run benchmark:capture -- --story <id> --arm raw ...`.
 2. **Arm B:** `npm run pipeline -- --story <id>`; drive the gates
    (`docs/pipeline-runner.md`). Archive with `npm run new-run <id>` (so the
-   run **also** counts toward the 10-run `prompt_stability_met` threshold —
+   run **also** counts toward the 10-run prompt-stability sample of its
+   prompt-version cohort (when it records `prompt_versions`) —
    IP-5.7, one effort closing two gaps). Score the metrics.
    `npm run benchmark:capture -- --story <id> --arm pipeline --track <t> ...`.
 3. After each pipeline run:
@@ -182,8 +183,8 @@ exploit. `docs/evidence.md` reports the split, per story class.
   won**, the measured **median minutes-per-gate** from the Phase-1 telemetry
   (`opened_at`/`decided_at`), and the verdict against §5. Linked from
   `README.md`.
-- `npm run metrics` after the series — whether `prompt_stability_met` now
-  computes (≥10 logged runs).
+- `npm run metrics` after the series — whether any prompt-version cohort now
+  has the 10 eligible runs `prompt_stability` needs for a verdict.
 
 ---
 
@@ -275,8 +276,8 @@ npm run benchmark:survival -- --tests <that-arm's-spec.ts> \
 # (=> null) and explain in docs/evidence.md.
 ```
 
-After the series: `npm run metrics` (does `prompt_stability_met` now compute at
-≥10 logged runs?), then write `docs/evidence.md` against the §5 thresholds —
+After the series: `npm run metrics` (does a prompt-version cohort now have 10
+eligible runs for a `prompt_stability` verdict?), then write `docs/evidence.md` against the §5 thresholds —
 **including where raw prompting won.**
 
 ---

@@ -184,19 +184,55 @@ if (metrics) {
       targets: ['test-cases/', 'agents/test-designer.md'],
     });
   }
-  const stability =
-    metrics.prompt_stability_met ?? metrics.promptStabilityMet ?? null;
-  if (stability === false) {
+  // Prompt stability is reported per prompt-version cohort (task group 8.2):
+  // each failing cohort is its own finding, and too little evidence is said
+  // plainly rather than read as stability.
+  const stability = metrics.prompt_stability;
+  if (!stability || !Array.isArray(stability.cohorts)) {
     add({
-      theme: 'prompt-stability-not-met',
-      confidence: 'medium',
-      evidence: ['metrics report: prompt-stability threshold not met'],
+      theme: 'prompt-stability-unreadable',
+      confidence: 'low',
+      evidence: [
+        'metrics/pipeline-metrics.json has no per-cohort prompt_stability result',
+      ],
       proposed_action:
-        'Gate rejection rate is above the <10%/10-run threshold. Review the ' +
-        'agent prompt(s) driving the rejected stage; consider a versioned ' +
-        'prompt change validated against the evaluation dataset (TG8).',
-      targets: ['agents/', 'docs/prompt-versioning.md'],
+        'Regenerate the metrics with `npm run metrics`; an older metrics file ' +
+        'cannot say which prompt versions a stability verdict covers.',
+      targets: ['metrics/'],
     });
+  } else {
+    for (const c of stability.cohorts.filter((x) => x.verdict === 'not_met')) {
+      add({
+        theme: 'prompt-stability-not-met',
+        confidence: 'medium',
+        evidence: [
+          `cohort ${c.cohort}: ${c.affected_runs}/${c.sample_size} sampled runs had a Gate 3/4 rejection (${c.rejection_events} event(s))`,
+          ...c.sample.slice(0, 5),
+        ],
+        proposed_action:
+          'Humans sent back more than the <10%-of-10-runs threshold allows for ' +
+          'this prompt-version set. Review the prompt(s) behind the rejected ' +
+          'stage; evaluate a versioned change on a candidate (docs/prompt-versioning.md).',
+        targets: ['agents/', 'docs/prompt-versioning.md'],
+      });
+    }
+    if (stability.qualifying_cohorts.length === 0) {
+      add({
+        theme: 'prompt-stability-insufficient-evidence',
+        confidence: 'low',
+        evidence: [
+          `${stability.eligible_runs}/${stability.runs_considered} run(s) eligible; no prompt-version cohort has 10`,
+          ...Object.entries(stability.excluded_by_reason).map(
+            ([reason, n]) => `excluded (${reason}): ${n}`
+          ),
+        ],
+        proposed_action:
+          'Prompt stability cannot be judged yet. Record prompt_versions for ' +
+          'every agent that runs and keep gate_decisions for Gate 3/4 so ' +
+          'completed runs become eligible; this is not evidence of stability.',
+        targets: ['agents/analyst.md', 'docs/prompt-versioning.md'],
+      });
+    }
   }
 } else {
   add({
