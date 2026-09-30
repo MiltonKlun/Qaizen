@@ -1,5 +1,10 @@
 <div align="center">
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/Qaizen_logo_dark.png">
+  <img src="docs/assets/Qaizen_logo.png" alt="Qaizen logo" width="200">
+</picture>
+
 # Qaizen
 
 **Agile-aligned QA where Artificial Intelligence and Human judgment work in balance.**
