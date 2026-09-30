@@ -12,6 +12,17 @@
 //   node scripts/selector-survival.js --probe examples/selector-probes/demo-shop.probe.mjs \
 //     --baseline v1=http://127.0.0.1:<n1>/ --version v2=http://127.0.0.1:<n2>/
 
+/** @typedef {import('@playwright/test').Page} Page */
+/** @typedef {import('@playwright/test').Locator} Locator */
+/**
+ * @typedef {{ id: string, cardinality: 1, locate: (page: Page) => Locator,
+ *   usable?: (locator: Locator) => Promise<boolean> }} Probe
+ */
+
+/**
+ * @param {Page} page
+ * @param {{ baseURL: string }} options
+ */
 export async function prepare(page, { baseURL }) {
   await page.goto(baseURL);
   await page.locator('[data-test="username"]').fill('demo');
@@ -20,6 +31,7 @@ export async function prepare(page, { baseURL }) {
   await page.locator('[data-test="title"]').waitFor({ state: 'visible' });
 }
 
+/** @type {Probe[]} */
 export const probes = [
   {
     id: 'inventory-title',

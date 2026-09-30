@@ -2,10 +2,40 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://qaizen/schemas/benchmark-record.schema.json",
   "title": "Benchmark Measurement Record",
-  "description": "One measurement of ONE story under ONE arm of the pipeline-vs-raw-prompting benchmark (IMPROVEMENT-PLAN Phase 5, docs/benchmark-protocol.md). Records are appended as JSONL to evidence/benchmark.jsonl by scripts/benchmark-capture.js; each LINE validates against this schema. Arm A = raw prompting; Arm B = the pipeline via the runner. Metrics are defined in the protocol doc; absent metrics are recorded as null (not omitted) so a gap is explicit, never silently a zero.",
+  "description": "One measurement of ONE story under ONE arm of the pipeline-vs-raw-prompting benchmark (IMPROVEMENT-PLAN Phase 5, docs/benchmark-protocol.md). Records are appended as JSONL to evidence/benchmark.jsonl by scripts/benchmark-capture.js; each LINE validates against this schema. Arm A = raw prompting; Arm B = the pipeline via the runner. Metrics are defined in the protocol doc; absent metrics are recorded as null (not omitted) so a gap is explicit, never silently a zero. Schema 1.1 (task group 9.2) adds the provenance and the separate timings a quantitative series needs, and requires them; 1.0 records stay valid as they were.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "story_id", "arm", "recorded_at", "metrics"],
+  "allOf": [
+    {
+      "if": {
+        "properties": { "schema_version": { "pattern": "^1\\.1" } },
+        "required": ["schema_version"]
+      },
+      "then": {
+        "required": ["provenance", "timing"],
+        "properties": { "operator": { "type": "string", "minLength": 1 } }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": { "pattern": "^1\\.1" },
+          "arm": { "const": "pipeline" }
+        },
+        "required": ["schema_version", "arm"]
+      },
+      "then": {
+        "properties": {
+          "provenance": {
+            "properties": {
+              "prompt_versions": { "type": "object", "minProperties": 1 }
+            }
+          }
+        }
+      }
+    }
+  ],
   "properties": {
     "schema_version": {
       "type": "string",
@@ -69,7 +99,7 @@
         },
         "selector_survival_rate": {
           "type": ["number", "null"],
-          "description": "Fraction (0..1) of locators that still resolve after replay against >=2 later app versions (scripts/selector-survival.js). Higher is better. Null when app history is unavailable — record the justification in docs/evidence.md, do not fake a number.",
+          "description": "Fraction (0..1) of reviewed probes that still find exactly one usable target on every later app version, over the probes valid on the named baseline (scripts/selector-survival.js --probe, task group 9.1). Higher is better. Null when it cannot be measured — record the reason in docs/evidence.md, do not fake a number.",
           "minimum": 0,
           "maximum": 1
         },
@@ -84,6 +114,109 @@
           "description": "Fraction (0..1) of produced tests that carry a resolvable STORY->RISK->TC->test link. Expected ~0 for the raw arm (it produces no traceability chain) — say so rather than treating it as a defect of the measurement.",
           "minimum": 0,
           "maximum": 1
+        }
+      }
+    },
+    "series_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "OPTIONAL (1.1). The pre-registered series this measurement belongs to (docs/benchmark-series-checklist.md)."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "1.1: what produced this measurement, so a result can be attributed and reproduced. Supplied by the operator or read from the run and the machine; never guessed.",
+      "required": ["app", "prompt_versions", "tools", "runtime", "measurement"],
+      "properties": {
+        "app": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The app version measured against (the baseline for the arm's own run, e.g. Bench Shop v1)."
+            },
+            "commit": {
+              "type": ["string", "null"],
+              "description": "The app source commit, when the app is versioned in git."
+            }
+          }
+        },
+        "prompt_versions": {
+          "type": ["object", "null"],
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+          },
+          "description": "The pipeline arm's agent prompt versions, read from the run's context.json prompt_versions. Null for the raw arm, which runs no pipeline prompt."
+        },
+        "tools": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "version"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "version": { "type": "string", "minLength": 1 }
+            }
+          },
+          "description": "Tool and model identifiers as the operator supplies them (e.g. the model id, the coding assistant and its version). No provider statistics are invented."
+        },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["os", "node"],
+          "properties": {
+            "os": { "type": "string", "minLength": 1 },
+            "node": { "type": "string", "minLength": 1 },
+            "playwright": { "type": ["string", "null"] }
+          },
+          "description": "The machine/runtime configuration, read from the machine that captured the record."
+        },
+        "measurement": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["protocol_version", "selector_survival_method"],
+          "properties": {
+            "protocol_version": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The version of docs/benchmark-protocol.md the measurement followed."
+            },
+            "selector_survival_method": {
+              "type": "string",
+              "minLength": 1,
+              "description": "How selector survival was measured (e.g. 'probe-baseline-v1': reviewed probes on a named baseline, task group 9.1)."
+            }
+          }
+        }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "1.1: the three times the protocol keeps apart. Each is null when it was not recorded; none is ever estimated.",
+      "required": ["wall_clock_min", "gate_review_min", "agent_tool_min"],
+      "properties": {
+        "wall_clock_min": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Elapsed minutes from starting the arm to finishing it."
+        },
+        "gate_review_min": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Minutes of actual human review attention at the gates (from the runner's gate telemetry, or the operator's own record)."
+        },
+        "agent_tool_min": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Minutes of agent/tool execution, only as reported by the tools themselves."
         }
       }
     },

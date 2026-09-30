@@ -120,6 +120,13 @@ test catches the bug._
 - **Verifiable by:** the start/first-green timestamps. Objective, but read with
   the operator caveat.
 
+### Timing is recorded apart (schema 1.1)
+
+Beside `time_to_first_green_test_min`, a 1.1 record keeps `timing.wall_clock_min`,
+`timing.gate_review_min` (human review attention) and `timing.agent_tool_min`
+(only as the tools report it). Each is `null` when it was not recorded; do not
+estimate any of them (`docs/benchmark-series-checklist.md` §5).
+
 ## 6. `selector_survival_rate` (0..1, higher better)
 
 - **Procedure:** only via `scripts/selector-survival.js --probe`, running

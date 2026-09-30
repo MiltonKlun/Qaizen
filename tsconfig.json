@@ -9,8 +9,15 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node"],
+    "allowJs": true,
+    "checkJs": true
   },
-  "include": ["tests/**/*.ts", "playwright.config.ts", "scripts/**/*.ts"],
+  "include": [
+    "tests/**/*.ts",
+    "playwright.config.ts",
+    "scripts/**/*.ts",
+    "examples/**/*.probe.mjs"
+  ],
   "exclude": ["node_modules"]
 }

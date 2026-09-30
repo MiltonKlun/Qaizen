@@ -6,12 +6,22 @@ benchmark can measure the two metrics **public SauceDemo cannot**:
 - **`known_bug_catch_rate`** — inject a known bug and a test catches it _iff_ it
   goes red. Public SauceDemo has no bugs to catch, so that metric tied 1.0/1.0
   twice (`docs/evidence.md`). Here a bug is a runtime switch.
-- **`selector_survival_rate`** — serve `v1` vs a drifted `v2` and measure how
-  many of a test's locators still resolve. One public app version can never
-  produce this number; the replay harness refuses to invent it.
+- **`selector_survival_rate`** — serve the `v1` baseline and a drifted `v2`
+  and measure how many reviewed probes still find their one usable target.
+  One public app version can never produce this number; the harness refuses
+  to invent it.
 
-No new dependencies: vanilla HTML/JS, a `node:http` server extending the
-zero-dependency pattern in `examples/demo-run/serve.js`.
+No new dependencies: vanilla HTML/JS, served by the zero-dependency static
+server the demo app also uses (`examples/shared/static-server.js`).
+
+**One app, two versions** (task group 9.2). `app/shop.js` holds all of the
+behavior — router, cart, bug switches, money math — so a change there reaches
+every version. `app/versions.js` holds only what differs between versions
+(hook names, two class names, the overview markup): the drift below, and
+nothing else. Before this split, `v2` was a ~91% copy of `v1`; the refactor was
+checked by capturing the rendered DOM of every screen of a full purchase flow,
+for both versions, clean and with each bug injected, before and after: every
+screen was identical except the duplicate-label fix below.
 
 ## Serve it
 
@@ -74,6 +84,13 @@ change is listed here so scoring is against a known truth, not a guess.
 | Page headings  | `class="title"`                      | `class="page-title"`           | renamed class    |
 | Overview totals| `<div class="summary_info">` + `.summary_row` rows | `<ul class="summary-list">` + `.summary-line` items | restructured container |
 
+**Overview labels (fixed in task group 9.2, both versions):** each total is
+one element whose text carries its label (`Item total: $…`). v1 used to also
+render a separate `Item total:` / `Tax:` / `Total:` label beside it, so a text
+locator such as `getByText('Item total:')` matched two elements and failed
+strictness for a reason no real app shared, penalizing text/role-based arms.
+The `data-test` hooks and containers above are unchanged.
+
 **Unchanged (these hooks survive v2):** `login-button`, `title` (the
 `data-test`, not the class), `error`, `shopping-cart-link`,
 `shopping-cart-badge`, `checkout`, `continue`, `finish`, `firstName`,
@@ -86,7 +103,7 @@ change is listed here so scoring is against a known truth, not a guess.
 `scripts/selector-survival.js --probe` runs reviewed probe functions (the
 exact locators, plus the preparation they need) on a named baseline and on each
 later version. A probe survives only when it still finds exactly one usable
-target (`scripts/lib/selector-probes.js`). `login.survival-probe.mjs` probes
+target (`scripts/lib/selector-probes.js`). `probes/login-surface.probe.mjs` probes
 the five login-surface hooks on the landing page:
 
 ```powershell
@@ -94,7 +111,7 @@ the five login-surface hooks on the landing page:
 node examples/benchmark-app/serve.js --version v1 --port 4173
 node examples/benchmark-app/serve.js --version v2 --port 4174
 # then, in another shell:
-npm run benchmark:survival -- --probe examples/benchmark-app/login.survival-probe.mjs --baseline v1=http://127.0.0.1:4173/ --version v2=http://127.0.0.1:4174/
+npm run benchmark:survival -- --probe examples/benchmark-app/probes/login-surface.probe.mjs --baseline v1=http://127.0.0.1:4173/ --version v2=http://127.0.0.1:4174/
 ```
 
 Measured (task group 9.1): **2/5 = 40% survival** — `login-button` and the
@@ -103,11 +120,16 @@ the `.title` class find none (they were drifted in v2). That maps 1:1 to the
 table above. Every probe resolves its unique target on v1 first; if one did
 not, or the page could not be prepared, the rate would be null with the reason.
 
+`npm run benchmark:check` does all of this in one command (both servers on
+ephemeral ports) and fails unless the result matches the drift table; CI runs it
+in the Playwright job. Run it before any benchmark series.
+
 ## Files
 
 | Path                          | What                                                       |
 | ----------------------------- | ---------------------------------------------------------- |
 | `serve.js`                    | The server (`--version`, `--port`, repeatable `--bug`)     |
-| `v1/index.html`               | Correct-behavior app                                       |
-| `v2/index.html`               | Same app with the documented DOM drift                     |
-| `login.survival-probe.mjs`    | Reviewed login-surface probes for the survival script      |
+| `app/index.html`              | The page shell (styles, header, script tags)               |
+| `app/shop.js`                 | The shared behavior of every version                       |
+| `app/versions.js`             | The only differences between versions: the drift table     |
+| `probes/login-surface.probe.mjs` | Reviewed login-surface probes (typechecked; run by `npm run benchmark:check`) |

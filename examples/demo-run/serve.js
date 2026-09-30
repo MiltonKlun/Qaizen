@@ -7,37 +7,15 @@
 // prints `PORT <n>` on its first stdout line so the driver can read it.
 //
 // Offline only: serves files under ./app, nothing else. No network egress.
+// The serving itself is shared with the benchmark app
+// (examples/shared/static-server.js).
 
-import { createServer } from 'node:http';
-import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, extname, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 
-const APP_DIR = resolve(join(dirname(fileURLToPath(import.meta.url)), 'app'));
-const MIME = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript',
-  '.css': 'text/css',
-};
+import { serveStatic } from '../shared/static-server.js';
 
-const server = createServer((req, res) => {
-  const urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
-  const rel = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '');
-  const file = resolve(join(APP_DIR, rel));
-  if (!file.startsWith(APP_DIR) || !existsSync(file)) {
-    res.writeHead(404);
-    res.end('not found');
-    return;
-  }
-  const body = readFileSync(file);
-  res.writeHead(200, {
-    'content-type': MIME[extname(file)] || 'text/plain',
-    'content-length': body.length,
-  });
-  res.end(body);
-});
-
-server.listen(0, '127.0.0.1', () => {
-  // First stdout line is the contract the driver parses.
-  process.stdout.write(`PORT ${server.address().port}\n`);
+await serveStatic({
+  root: join(dirname(fileURLToPath(import.meta.url)), 'app'),
+  port: 0,
 });

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bench Shop</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        color: #132;
+      }
+      header {
+        background: #132a13;
+        color: #fff;
+        padding: 12px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .item {
+        border-bottom: 1px solid #ddd;
+        padding: 12px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .item_name {
+        font-weight: 600;
+      }
+      .item_price {
+        color: #2a6;
+      }
+      .price-tag {
+        color: #2a6;
+      }
+      button {
+        cursor: pointer;
+        padding: 6px 12px;
+        border: 1px solid #132a13;
+        background: #fff;
+        border-radius: 4px;
+      }
+      button.primary {
+        background: #132a13;
+        color: #fff;
+      }
+      input {
+        display: block;
+        width: 100%;
+        padding: 8px;
+        margin: 6px 0;
+        box-sizing: border-box;
+      }
+      .cart_badge {
+        background: #e33;
+        color: #fff;
+        border-radius: 10px;
+        padding: 1px 7px;
+        font-size: 12px;
+      }
+      .summary_row {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+      }
+      .summary-list {
+        list-style: none;
+        padding: 0;
+      }
+      .summary-line {
+        padding: 4px 0;
+      }
+      .error {
+        color: #c00;
+        min-height: 18px;
+      }
+      .hidden {
+        display: none;
+      }
+      a {
+        color: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <span class="app_title">Bench Shop</span>
+      <a
+        href="#cart"
+        class="shopping_cart_link"
+        data-test="shopping-cart-link"
+        aria-label="cart"
+      >
+        🛒
+        <span class="cart_badge hidden" data-test="shopping-cart-badge"></span>
+      </a>
+    </header>
+    <main id="app"><!-- rendered by shop.js --></main>
+
+    <!-- __BENCH_INJECT__ -->
+    <script>
+      // The server replaces the sentinel comment above with
+      // window.__BENCH__ = { version, bugs: [...] }. This fallback keeps the
+      // file working when opened directly from disk (v1, bug-free).
+      window.__BENCH__ = window.__BENCH__ || { version: 'v1', bugs: [] };
+    </script>
+    <script src="versions.js"></script>
+    <script src="shop.js"></script>
+  </body>
+</html>

@@ -210,6 +210,12 @@ jobs:
         run: npx playwright install --with-deps
       - name: Run Playwright tests
         run: npm test
+      # The benchmark tooling check needs a browser, which this job has: the
+      # Bench Shop v1 -> v2 survival probes must match the README drift table
+      # (task group 9.2). Runs even when the suite above is red.
+      - name: Check the benchmark tooling (selector-survival probes)
+        if: always()
+        run: npm run benchmark:check
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
