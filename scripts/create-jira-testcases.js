@@ -55,17 +55,20 @@ import {
   checkSyncScope,
   httpTimeoutMs,
   jiraClient,
-  loadDotEnv,
   operationKey,
   operationMarker,
-  parseLimit,
-  parseResolutions,
   payloadDigest,
   describeSkip,
   planOperation,
   sourceDigest,
   selectTestManagementTarget,
 } from './lib/integration-io.js';
+import {
+  loadDotEnv,
+  parseCli,
+  parseResolutions,
+  validateStoryId,
+} from './lib/cli.js';
 
 const TARGET = 'jira';
 const SCHEMA = 'schemas/test-cases.schema.json';
@@ -73,33 +76,41 @@ const SCHEMA = 'schemas/test-cases.schema.json';
 async function main() {
   loadDotEnv(env);
 
-  const APPLY = argv.includes('--apply');
-  const RECONCILE = argv.includes('--reconcile');
-  const RELEASE_STALE = argv.includes('--release-stale-lock');
-  let LIMIT;
+  const USAGE =
+    'Usage: node scripts/create-jira-testcases.js <story-id> [--apply [--limit N] | --reconcile | --resolve TC-ID=KEY|none] [--release-stale-lock]\n' +
+    '  Options may come before or after <story-id>.';
+  const cli = parseCli(argv.slice(2), {
+    usage: USAGE,
+    positionals: [{ name: 'story-id', validate: validateStoryId }],
+    options: {
+      apply: { type: 'boolean' },
+      limit: { type: 'integer', min: 1 },
+      reconcile: { type: 'boolean' },
+      resolve: { type: 'string', multiple: true },
+      'release-stale-lock': { type: 'boolean' },
+    },
+    exclusive: [['apply', 'reconcile', 'resolve']],
+  });
+  if (!cli.ok) {
+    console.error(`Error: ${cli.error}`);
+    console.error(USAGE);
+    return 2;
+  }
+  const APPLY = cli.values.apply === true;
+  const RECONCILE = cli.values.reconcile === true;
+  const RELEASE_STALE = cli.values['release-stale-lock'] === true;
+  const LIMIT =
+    /** @type {number | undefined} */ (cli.values.limit) ?? Infinity;
   let resolutions;
   try {
-    LIMIT = parseLimit(argv);
-    resolutions = parseResolutions(argv);
+    resolutions = parseResolutions(
+      /** @type {string[] | undefined} */ (cli.values.resolve) ?? []
+    );
   } catch (e) {
     console.error(e.message);
     return 2;
   }
-  const valueFlags = new Set(['--limit', '--resolve']);
-  const storyId = argv.find(
-    (a, i) => i >= 2 && !a.startsWith('--') && !valueFlags.has(argv[i - 1])
-  );
-  if (!storyId) {
-    console.error(
-      'Usage: node scripts/create-jira-testcases.js <story-id> [--apply [--limit N] | --reconcile | --resolve TC-ID=KEY|none] [--release-stale-lock]'
-    );
-    return 2;
-  }
-  const modes = [APPLY, RECONCILE, resolutions.length > 0].filter(Boolean);
-  if (modes.length > 1) {
-    console.error('Use only one of --apply, --reconcile, --resolve at a time.');
-    return 2;
-  }
+  const storyId = cli.positionals['story-id'];
 
   // --- Destination selection (the port's TEST_MANAGEMENT_TOOL) -----------
   const selected = selectTestManagementTarget(env.TEST_MANAGEMENT_TOOL, TARGET);

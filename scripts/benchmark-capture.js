@@ -224,7 +224,9 @@ const record = {
 const tmp = join(tmpdir(), `benchmark-record-${Date.now()}.json`);
 writeFileSync(tmp, JSON.stringify(record, null, 2));
 try {
-  const r = spawnSync('node', [VALIDATOR, SCHEMA, tmp], { encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [VALIDATOR, SCHEMA, tmp], {
+    encoding: 'utf8',
+  });
   if (r.status !== 0) {
     console.error('Record failed schema validation; nothing appended:');
     console.error((r.stdout || '') + (r.stderr || ''));

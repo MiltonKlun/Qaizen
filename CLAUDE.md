@@ -202,7 +202,7 @@ You can install and use these. Anything else needs explicit human approval.
 
 **Runtime and tooling:**
 
-- Node.js 20+.
+- Node.js 22.13+ or 24+ (`package.json` `engines`; Node 20 reached end-of-life on 2026-04-30). CI tests 22.13.0 and 24.21.0 on Ubuntu and Windows.
 - TypeScript 5+ with `strict: true`.
 - Playwright 1.56+ (required for Native Agents).
 - ESLint v9 with `eslint.config.mjs` and `eslint-plugin-playwright`.

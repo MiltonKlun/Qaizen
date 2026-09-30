@@ -33,7 +33,7 @@
 // Exit codes: 0 ok / step instruction printed · 1 gate pending (non-TTY),
 //   gate rejected, or blocked · 2 usage/validation/safety error
 
-import { readFileSync, writeFileSync, existsSync, copyFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
 import { argv, env, exit, stdin, stdout } from 'node:process';
@@ -69,6 +69,7 @@ import {
   newmanEvidence,
 } from './lib/run-artifacts.js';
 import { writeJsonAtomic, formatErrors } from './lib/artifact-io.js';
+import { playwrightCli } from './lib/cli.js';
 import { approvedScopeDigest, externalSource } from './lib/execution-ledger.js';
 import {
   apiPaths,
@@ -177,7 +178,7 @@ function writeContext(context) {
 }
 
 function validateJson(schemaPath, dataPath) {
-  const r = spawnSync('node', [VALIDATOR, schemaPath, dataPath], {
+  const r = spawnSync(process.execPath, [VALIDATOR, schemaPath, dataPath], {
     encoding: 'utf8',
   });
   return r.status === 0;
@@ -570,10 +571,12 @@ async function runGateInteractive(step, context) {
           : 'Notes (optional): '
       )
     ).trim();
-    while (decision === 'rejected' && !notes) {
-      notes = (
-        await rl.question('A rejection needs a reason — what must change: ')
-      ).trim();
+    if (decision === 'rejected') {
+      while (!notes) {
+        notes = (
+          await rl.question('A rejection needs a reason — what must change: ')
+        ).trim();
+      }
     }
 
     const bindings = Object.fromEntries(
@@ -618,7 +621,7 @@ function storyId(context) {
 }
 
 const GUIDE_STEPS = {
-  analyst: (ctx) =>
+  analyst: () =>
     'Run the ANALYST: agents/analyst.md against story.md.\n' +
     '  It writes context.json (risks, ACs, ambiguities; all gates false).\n' +
     stagedRunLine() +
@@ -735,19 +738,20 @@ function execStep(step, context) {
     // (the demo, driven from a workspace), we run Playwright with cwd=repo and
     // tell the config where to write reports via PIPELINE_REPORT_DIR — so the
     // report lands in the workspace the classifier then reads.
-    const pwArgs = ['playwright', 'test'];
+    const pwArgs = ['test'];
     const customConfig = env.PIPELINE_PW_CONFIG;
     if (customConfig) pwArgs.push('--config', customConfig);
     const cwd = customConfig ? REPO_DIR : process.cwd();
     const reportDir = customConfig ? join(process.cwd(), 'reports') : 'reports';
     console.log(
-      `Executing: npx ${pwArgs.join(' ')}  (failures are DATA for the`
+      `Executing: playwright ${pwArgs.join(' ')}  (failures are DATA for the`
     );
     console.log('classifier, not a runner error)\n');
-    const run = spawnSync('npx', pwArgs, {
+    // Playwright's own CLI under this Node, with no shell and no npx lookup:
+    // every argument reaches it literally (task group 10.1).
+    const run = spawnSync(process.execPath, [playwrightCli(env), ...pwArgs], {
       cwd,
       stdio: 'inherit',
-      shell: process.platform === 'win32',
       env: { ...env, PIPELINE_REPORT_DIR: reportDir },
     });
     // A failing SUITE is data for the classifier. A runner that could not
@@ -890,7 +894,7 @@ function execStep(step, context) {
       }
     }
     console.log('Normalizing the run into an execution ledger\n');
-    const n = spawnSync('node', normalizeArgs, { stdio: 'inherit' });
+    const n = spawnSync(process.execPath, normalizeArgs, { stdio: 'inherit' });
     if (n.status !== 0) {
       console.error(
         'Normalization did not complete (see output above). Fix and --resume.'
@@ -900,9 +904,13 @@ function execStep(step, context) {
     context.artifact_paths.execution_ledger = ledgerPath;
 
     console.log('\nClassifying failures: the rule-based pre-classifier\n');
-    const r = spawnSync('node', [CLASSIFIER, '--ledger', ledgerPath], {
-      stdio: 'inherit',
-    });
+    const r = spawnSync(
+      process.execPath,
+      [CLASSIFIER, '--ledger', ledgerPath],
+      {
+        stdio: 'inherit',
+      }
+    );
     if (r.status !== 0) {
       console.error(
         'Classifier did not complete (see output above). Fix and --resume.'
@@ -1063,7 +1071,7 @@ async function main() {
       complete: runIsComplete(current),
       fetchJira: (key, out) => {
         console.log(`Fetching ${key} from Jira (read-only)...`);
-        const r = spawnSync('node', [JIRA_FETCH, key, '--out', out], {
+        const r = spawnSync(process.execPath, [JIRA_FETCH, key, '--out', out], {
           stdio: 'inherit',
         });
         return r.status ?? 2;

@@ -117,7 +117,7 @@ cpSync(join(FIXTURES, 'story.md'), join(WORKSPACE, 'story.md'));
 // process's event loop). An in-process server would be unable to answer the
 // browser while Playwright runs, so the server must be its own process. We
 // read its ephemeral port from its first stdout line ("PORT <n>").
-const serverProc = spawn('node', [SERVE], {
+const serverProc = spawn(process.execPath, [SERVE], {
   stdio: ['ignore', 'pipe', 'inherit'],
 });
 
@@ -208,7 +208,7 @@ function setPaths(patch) {
 }
 
 function runnerStatus() {
-  const r = spawnSync('node', [RUNNER, '--status'], {
+  const r = spawnSync(process.execPath, [RUNNER, '--status'], {
     cwd: WORKSPACE,
     encoding: 'utf8',
     env: { ...process.env, BASE_URL: baseURL },
@@ -219,7 +219,7 @@ function runnerStatus() {
 
 function advanceRunner() {
   // Interactive: gates inherit our stdin (the human decides); exec steps run.
-  const r = spawnSync('node', [RUNNER, '--resume'], {
+  const r = spawnSync(process.execPath, [RUNNER, '--resume'], {
     cwd: WORKSPACE,
     stdio: 'inherit',
     env: {

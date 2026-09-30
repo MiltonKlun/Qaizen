@@ -58,13 +58,12 @@ import {
   checkSyncScope,
   httpTimeoutMs,
   jiraClient,
-  loadDotEnv,
   operationKey,
   operationMarker,
-  parseResolutions,
   payloadDigest,
   planOperation,
 } from './lib/integration-io.js';
+import { loadDotEnv, parseCli, parseResolutions } from './lib/cli.js';
 
 const TARGET = 'jira';
 const SCHEMA = 'schemas/test-cases.schema.json';
@@ -156,25 +155,38 @@ const isPlaceholder = (s) => !s || /^\[.*\]$/.test(s);
 async function main() {
   loadDotEnv(env);
 
-  const APPLY = argv.includes('--apply');
-  const RECONCILE = argv.includes('--reconcile');
-  const RELEASE_STALE = argv.includes('--release-stale-lock');
+  const USAGE =
+    'Usage: node scripts/create-jira-bugs.js [--apply | --reconcile | --resolve BUG-ID=KEY|none] [--dir <path>] [--release-stale-lock]';
+  const cli = parseCli(argv.slice(2), {
+    usage: USAGE,
+    options: {
+      apply: { type: 'boolean' },
+      reconcile: { type: 'boolean' },
+      resolve: { type: 'string', multiple: true },
+      dir: { type: 'string' },
+      'release-stale-lock': { type: 'boolean' },
+    },
+    exclusive: [['apply', 'reconcile', 'resolve']],
+  });
+  if (!cli.ok) {
+    console.error(`Error: ${cli.error}`);
+    console.error(USAGE);
+    return 2;
+  }
+  const APPLY = cli.values.apply === true;
+  const RECONCILE = cli.values.reconcile === true;
+  const RELEASE_STALE = cli.values['release-stale-lock'] === true;
   let resolutions;
   try {
-    resolutions = parseResolutions(argv);
+    resolutions = parseResolutions(
+      /** @type {string[] | undefined} */ (cli.values.resolve) ?? []
+    );
   } catch (e) {
     console.error(e.message);
     return 2;
   }
-  if ([APPLY, RECONCILE, resolutions.length > 0].filter(Boolean).length > 1) {
-    console.error('Use only one of --apply, --reconcile, --resolve at a time.');
-    return 2;
-  }
-  const dirFlagIdx = argv.indexOf('--dir');
   const draftsDir =
-    dirFlagIdx !== -1 && argv[dirFlagIdx + 1]
-      ? argv[dirFlagIdx + 1]
-      : 'release/bug-drafts';
+    /** @type {string | undefined} */ (cli.values.dir) ?? 'release/bug-drafts';
 
   const mapPath = 'config/jira-priority-map.json';
   for (const [label, p] of [

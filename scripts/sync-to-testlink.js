@@ -56,10 +56,8 @@ import {
   classifyCreate,
   httpRequest,
   httpTimeoutMs,
-  loadDotEnv,
   operationKey,
   operationMarker,
-  parseResolutions,
   payloadDigest,
   describeSkip,
   planOperation,
@@ -67,6 +65,12 @@ import {
   sanitizeDiagnostic,
   selectTestManagementTarget,
 } from './lib/integration-io.js';
+import {
+  loadDotEnv,
+  parseCli,
+  parseResolutions,
+  validateStoryId,
+} from './lib/cli.js';
 
 const TARGET = 'testlink';
 const SCHEMA = 'schemas/test-cases.schema.json';
@@ -160,31 +164,38 @@ function allValues(xml, field) {
 async function main() {
   loadDotEnv(env);
 
-  const APPLY = argv.includes('--apply-testlink');
-  const RECONCILE = argv.includes('--reconcile');
-  const RELEASE_STALE = argv.includes('--release-stale-lock');
+  const USAGE =
+    'Usage: node scripts/sync-to-testlink.js <story-id> [--apply-testlink | --reconcile | --resolve TC-ID=ID|none] [--release-stale-lock]\n' +
+    '  Options may come before or after <story-id>.';
+  const cli = parseCli(argv.slice(2), {
+    usage: USAGE,
+    positionals: [{ name: 'story-id', validate: validateStoryId }],
+    options: {
+      'apply-testlink': { type: 'boolean' },
+      reconcile: { type: 'boolean' },
+      resolve: { type: 'string', multiple: true },
+      'release-stale-lock': { type: 'boolean' },
+    },
+    exclusive: [['apply-testlink', 'reconcile', 'resolve']],
+  });
+  if (!cli.ok) {
+    console.error(`Error: ${cli.error}`);
+    console.error(USAGE);
+    return 2;
+  }
+  const APPLY = cli.values['apply-testlink'] === true;
+  const RECONCILE = cli.values.reconcile === true;
+  const RELEASE_STALE = cli.values['release-stale-lock'] === true;
   let resolutions;
   try {
-    resolutions = parseResolutions(argv);
+    resolutions = parseResolutions(
+      /** @type {string[] | undefined} */ (cli.values.resolve) ?? []
+    );
   } catch (e) {
     console.error(e.message);
     return 2;
   }
-  const storyId = argv.find(
-    (a, i) => i >= 2 && !a.startsWith('--') && argv[i - 1] !== '--resolve'
-  );
-  if (!storyId) {
-    console.error(
-      'Usage: node scripts/sync-to-testlink.js <story-id> [--apply-testlink | --reconcile | --resolve TC-ID=ID|none] [--release-stale-lock]'
-    );
-    return 2;
-  }
-  if ([APPLY, RECONCILE, resolutions.length > 0].filter(Boolean).length > 1) {
-    console.error(
-      'Use only one of --apply-testlink, --reconcile, --resolve at a time.'
-    );
-    return 2;
-  }
+  const storyId = cli.positionals['story-id'];
 
   const selected = selectTestManagementTarget(env.TEST_MANAGEMENT_TOOL, TARGET);
   if (!selected.ok) {

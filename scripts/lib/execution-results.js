@@ -42,6 +42,7 @@ const PW_ATTEMPT_STATUS = {
   skipped: 'skipped',
 };
 
+// eslint-disable-next-line no-control-regex -- ANSI escape sequences start with ESC (\x1b); matching it is the point.
 const ANSI = /\u001b\[[0-9;]*m/g;
 
 function excerpt(text, secrets) {
@@ -126,7 +127,8 @@ export function playwrightOutcome(test) {
  * @param {object} opts
  * @param {string} opts.executionId  the source execution these units belong to
  * @param {string[]} [opts.secrets]  values to redact from error excerpts
- * @returns {{units: object[], sourceErrors: object[]}}
+ * @returns {{units: import('./execution-ledger.js').Unit[],
+ *   sourceErrors: import('./execution-ledger.js').SourceError[]}}
  */
 export function adaptPlaywrightReport(report, { executionId, secrets = [] }) {
   if (!report || typeof report !== 'object') {
@@ -235,7 +237,8 @@ export function newmanOutcome(execution) {
  * @param {string} opts.executionId
  * @param {string} [opts.collectionId]
  * @param {string[]} [opts.secrets]
- * @returns {{units: object[], sourceErrors: object[]}}
+ * @returns {{units: import('./execution-ledger.js').Unit[],
+ *   sourceErrors: import('./execution-ledger.js').SourceError[]}}
  */
 export function adaptNewmanReport(
   report,

@@ -4,8 +4,12 @@
   "description": "Qaizen: AI-assisted, human-gated QA pipeline — user story -> validated test cases -> Playwright E2E + Postman API -> classified failures -> release report.",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "^22.13.0 || >=24"
+  },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && npm run typecheck:scripts",
+    "typecheck:scripts": "tsc -p tsconfig.scripts.json && node scripts/typecheck-coverage.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format:check": "prettier --check .",

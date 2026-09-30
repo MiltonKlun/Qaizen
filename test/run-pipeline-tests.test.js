@@ -65,7 +65,9 @@ test('wrapper: an all-passing suite exits 0 and runs every file', () => {
     const r = runWrapper(dir);
     assert.equal(r.code, 0, r.out);
     assert.match(r.out, /Discovered 2 test file\(s\)/);
-    assert.match(r.out, /# pass 2/);
+    // Node 22 prints TAP (`# pass 2`) when output is not a terminal; Node 23+
+    // prints the spec reporter (`ℹ pass 2`). Both are supported (task group 10.1).
+    assert.match(r.out, /(?:#|ℹ) pass 2/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -94,7 +96,7 @@ test('wrapper: --list prints discovered files without running them', () => {
     assert.equal(r.code, 0, r.out);
     assert.match(r.out, /a\.test\.js/);
     assert.match(r.out, /b\.test\.js/);
-    assert.doesNotMatch(r.out, /# pass/);
+    assert.doesNotMatch(r.out, /(?:#|ℹ) pass/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

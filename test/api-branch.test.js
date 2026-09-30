@@ -13,7 +13,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import {
-  chmodSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -23,7 +22,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { delimiter, join } from 'node:path';
+import { join } from 'node:path';
 import { execPath } from 'node:process';
 
 import {
@@ -151,7 +150,7 @@ async function apiServer() {
   return { url: `http://127.0.0.1:${port}`, stop: () => child.kill() };
 }
 
-/** A fake `npx` whose Playwright run writes a failing report. */
+/** A stand-in Playwright CLI (QAIZEN_PLAYWRIGHT_CLI) that writes a failing report. */
 function failingPlaywright(dir) {
   const report = readFileSync(
     join(REPO, 'test', 'fixtures', 'playwright-all-outcomes.json'),
@@ -169,10 +168,7 @@ writeFileSync('reports/results.json', ${JSON.stringify(report)});
 process.exit(1);
 `
   );
-  writeFileSync(join(bin, 'npx'), `#!/bin/sh\nexec node "${js}" "$@"\n`);
-  chmodSync(join(bin, 'npx'), 0o755);
-  writeFileSync(join(bin, 'npx.cmd'), `@echo off\r\nnode "${js}" %*\r\n`);
-  return { PATH: `${bin}${delimiter}${process.env.PATH}` };
+  return { QAIZEN_PLAYWRIGHT_CLI: js };
 }
 
 const newmanReports = (dir) => {

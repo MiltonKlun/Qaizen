@@ -10,7 +10,7 @@
 **Agile-aligned QA where Artificial Intelligence and Human judgment work in balance.**
 
 [![QA Pipeline](https://github.com/MiltonKlun/Qaizen/actions/workflows/qa-pipeline.yml/badge.svg)](https://github.com/MiltonKlun/Qaizen/actions/workflows/qa-pipeline.yml)
-![Node](https://img.shields.io/badge/node-%E2%89%A520-339933?logo=node.js&logoColor=white)
+![Node](https://img.shields.io/badge/node-22.13%2B%20%7C%2024%2B-339933?logo=node.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![Playwright](https://img.shields.io/badge/Playwright-1.56%2B-2EAD33?logo=playwright&logoColor=white)
 ![Human-in-the-loop gates](https://img.shields.io/badge/Human--in--the--loop%20gates-4-blue)
@@ -158,7 +158,7 @@ flowchart LR
 | **Custom agents** | analyst · test-designer · api-agent · failure-classifier · reporter · spec-reviewer |
 | **Playwright Native Agents** | planner · generator · healer |
 | **Official MCPs** _(reused, never rewritten)_ | Atlassian (Jira) · Playwright · Postman · TestLink |
-| **Runtime** | Node 20+ · TypeScript (strict) · Playwright 1.56+ · Newman · ESLint · Prettier · GitHub Actions CI |
+| **Runtime** | Node 22.13+ or 24+ · TypeScript (strict) · Playwright 1.56+ · Newman · ESLint · Prettier · GitHub Actions CI |
 
 ---
 

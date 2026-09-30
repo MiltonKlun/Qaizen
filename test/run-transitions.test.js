@@ -17,7 +17,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import {
-  chmodSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -27,7 +26,7 @@ import {
   utimesSync,
   writeFileSync,
 } from 'node:fs';
-import { delimiter, join } from 'node:path';
+import { join } from 'node:path';
 
 import {
   bindGate,
@@ -56,11 +55,13 @@ function write(dir, rel, content) {
 }
 
 /**
- * Install a fake `npx` that records each launch in launches.log and then,
+ * A stand-in Playwright CLI that records each launch in launches.log and then,
  * depending on `mode`: writes nothing, writes `{}`, or writes a valid
  * (failing) Playwright report -- exiting 1 in every case, like a failing run.
+ * The runner starts Playwright's CLI directly under Node (no shell, no npx);
+ * QAIZEN_PLAYWRIGHT_CLI points it here instead.
  */
-function fakeNpx(dir, mode) {
+function fakePlaywright(dir, mode) {
   const bin = join(dir, '.fakebin');
   mkdirSync(bin, { recursive: true });
   const js = join(bin, 'fake-npx.mjs');
@@ -75,10 +76,7 @@ if (mode === 'valid-report') writeFileSync('reports/results.json', ${JSON.string
 process.exit(1);
 `
   );
-  writeFileSync(join(bin, 'npx'), `#!/bin/sh\nexec node "${js}" "$@"\n`);
-  chmodSync(join(bin, 'npx'), 0o755);
-  writeFileSync(join(bin, 'npx.cmd'), `@echo off\r\nnode "${js}" %*\r\n`);
-  return { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}` };
+  return { ...process.env, QAIZEN_PLAYWRIGHT_CLI: js };
 }
 
 function pipeline(dir, args = [], env = process.env) {
@@ -229,7 +227,7 @@ test('B4: a runner that produces no report stops after ONE launch', () => {
   const dir = repo();
   try {
     readyToExecute(dir);
-    const r = pipeline(dir, ['--resume'], fakeNpx(dir, 'no-report'));
+    const r = pipeline(dir, ['--resume'], fakePlaywright(dir, 'no-report'));
     assert.equal(r.code, 2, r.out);
     assert.equal(launches(dir), 1, 'exactly one launch');
     assert.match(r.out, /execution\/startup error/);
@@ -243,7 +241,7 @@ test('a `{}` report is a startup/report error, not a failing suite', () => {
   const dir = repo();
   try {
     readyToExecute(dir);
-    const r = pipeline(dir, ['--resume'], fakeNpx(dir, 'empty-report'));
+    const r = pipeline(dir, ['--resume'], fakePlaywright(dir, 'empty-report'));
     assert.equal(r.code, 2, r.out);
     assert.equal(launches(dir), 1);
     assert.match(r.out, /not a Playwright JSON report/);
@@ -256,7 +254,7 @@ test('a failing suite WITH a valid report is data: it proceeds to classification
   const dir = repo();
   try {
     readyToExecute(dir);
-    const r = pipeline(dir, ['--resume'], fakeNpx(dir, 'valid-report'));
+    const r = pipeline(dir, ['--resume'], fakePlaywright(dir, 'valid-report'));
     assert.equal(launches(dir), 1, r.out);
     assert.match(r.out, /failures are data; continuing to classification/);
     // The classifier wrote a DRAFT; the next step finalizes it, not "done".

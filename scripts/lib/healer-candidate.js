@@ -1,3 +1,4 @@
+// @ts-check
 // Candidate processing for the Healer (task group 6.3, review finding S3).
 //
 // The Healer does not write fixes; a person or an agent proposes a candidate
@@ -25,7 +26,6 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { createRequire } from 'node:module';
 import {
   basename,
   dirname,
@@ -37,6 +37,7 @@ import {
   sep,
 } from 'node:path';
 
+import { playwrightCli } from './cli.js';
 import { adaptPlaywrightReport } from './execution-results.js';
 import { sanitizeDiagnostic } from './integration-io.js';
 import { parseTestSource, ts, visit } from './test-source.js';
@@ -46,8 +47,17 @@ export const VALIDATION_DIR = 'analysis/healer-validation';
 export const PATCH_DIR = 'release/healer-patches';
 export const WORKSPACE_ROOT = '.healer-workspace';
 
-export const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
-const posix = (p) => p.split(sep).join('/');
+/** @typedef {import('./execution-ledger.js').Unit} Unit */
+/** @typedef {import('./execution-ledger.js').Ledger} Ledger */
+/**
+ * The single unit a candidate is validated against.
+ * @typedef {{ unit_id: string, file: string, project: string,
+ *   test_title: string, repeat_index: number }} TargetUnit
+ */
+
+export const sha256 = (/** @type {string | Buffer} */ buf) =>
+  createHash('sha256').update(buf).digest('hex');
+const posix = (/** @type {string} */ p) => p.split(sep).join('/');
 
 // ---------------------------------------------------------------- target
 
@@ -55,7 +65,13 @@ const posix = (p) => p.split(sep).join('/');
  * Resolve a failure to the live test file and the single unit it names.
  * Every check here happens before anything runs.
  *
- * @returns {{ok: true, failure: object, unit: object, testPath: string}
+ * @param {object} args
+ * @param {import('./approval-binding.js').Context} args.context
+ * @param {{ failures?: any[] }} args.analysis parsed failure analysis
+ * @param {Pick<Ledger, 'units'>} args.ledger
+ * @param {string} args.failureId
+ * @param {string} [args.root]
+ * @returns {{ok: true, failure: any, unit: TargetUnit, testPath: string}
  *   | {ok: false, reason: string}}
  */
 export function resolveTarget({
@@ -144,10 +160,16 @@ export function resolveTarget({
 
 // ---------------------------------------------------------------- attempts
 
-/** Every candidate record already written for this failure's unit. */
+/**
+ * Every candidate record already written for this failure's unit.
+ * @param {string} root
+ * @param {{ runId: string, originalDigest: string, unitId: string }} key
+ * @returns {any[]} the parsed records, each with its `file`
+ */
 export function readAttempts(root, key) {
   const dir = join(root, VALIDATION_DIR);
   if (!existsSync(dir)) return [];
+  /** @type {any[]} */
   const out = [];
   for (const name of readdirSync(dir)) {
     if (!/\.attempt-\d+\.json$/.test(name)) continue;
@@ -173,12 +195,18 @@ export function readAttempts(root, key) {
 
 const CODE_EXT = ['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs'];
 
-/** Relative module specifiers a source file imports (static, dynamic, re-export). */
+/**
+ * Relative module specifiers a source file imports (static, dynamic, re-export).
+ * @param {string} text
+ * @param {string} fileName
+ * @returns {string[]}
+ */
 function relativeImports(text, fileName) {
   const parsed = parseTestSource(text, fileName);
   if (!parsed.ok) return [];
+  /** @type {string[]} */
   const specs = [];
-  visit(parsed.sourceFile, (n) => {
+  visit(parsed.sourceFile, (/** @type {import('typescript').Node} */ n) => {
     if (
       (ts.isImportDeclaration(n) || ts.isExportDeclaration(n)) &&
       n.moduleSpecifier &&
@@ -198,6 +226,11 @@ function relativeImports(text, fileName) {
   return specs.filter((s) => s.startsWith('./') || s.startsWith('../'));
 }
 
+/**
+ * @param {string} fromFile
+ * @param {string} spec
+ * @returns {string | null}
+ */
 function resolveModule(fromFile, spec) {
   const base = resolve(dirname(fromFile), spec);
   const tries = [
@@ -210,6 +243,7 @@ function resolveModule(fromFile, spec) {
   return tries.find((p) => existsSync(p) && !readdirSafe(p)) ?? null;
 }
 
+/** @param {string} p */
 function readdirSafe(p) {
   try {
     readdirSync(p);
@@ -223,14 +257,18 @@ function readdirSafe(p) {
  * The files a single test needs: the config, the test, everything they import
  * relatively (transitively), and package.json for module resolution. Only
  * code inside the repository is copied; secrets and state never are.
+ * @param {string} root
+ * @param {string} configPath
+ * @param {string} testPath
  */
 export function collectSources(root, configPath, testPath) {
   const rootAbs = resolve(root);
+  /** @type {Set<string>} */
   const wanted = new Set();
   const queue = [resolve(rootAbs, configPath), resolve(rootAbs, testPath)];
+  /** @type {string[]} */
   const problems = [];
-  while (queue.length) {
-    const abs = queue.shift();
+  for (let abs = queue.shift(); abs !== undefined; abs = queue.shift()) {
     const rel = relative(rootAbs, abs);
     if (rel.startsWith('..') || isAbsolute(rel)) {
       problems.push(`${abs} is outside the repository`);
@@ -254,7 +292,12 @@ export function collectSources(root, configPath, testPath) {
   return { files: [...wanted].map(posix), problems };
 }
 
-/** Create a task-owned workspace inside the repository and copy the sources. */
+/**
+ * Create a task-owned workspace inside the repository and copy the sources.
+ * @param {string} root
+ * @param {string} label
+ * @param {string[]} files
+ */
 export function createWorkspace(root, label, files) {
   // Absolute: the runner's child process works inside it, so a relative path
   // would be resolved twice.
@@ -271,6 +314,7 @@ export function createWorkspace(root, label, files) {
   return dir;
 }
 
+/** @param {string} dir */
 export function removeWorkspace(dir) {
   try {
     rmSync(dir, { recursive: true, force: true });
@@ -281,18 +325,25 @@ export function removeWorkspace(dir) {
 
 // ---------------------------------------------------------------- run
 
-/** The Playwright CLI to invoke: QAIZEN_PLAYWRIGHT_CLI, or the installed one. */
-export function playwrightCli(env = process.env) {
-  if (env.QAIZEN_PLAYWRIGHT_CLI) return resolve(env.QAIZEN_PLAYWRIGHT_CLI);
-  return createRequire(import.meta.url).resolve('@playwright/test/cli');
-}
+// The Playwright CLI to invoke (QAIZEN_PLAYWRIGHT_CLI, or the installed one),
+// shared with the pipeline runner.
+export { playwrightCli };
 
-const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const escapeRe = (/** @type {string} */ s) =>
+  s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * Run exactly one test in the workspace, with retries, repeats and snapshot
  * updates pinned off, and read its outcome from the JSON report.
  *
+ * @param {object} args
+ * @param {string} args.workspace
+ * @param {string} args.configPath
+ * @param {string} args.testPath
+ * @param {TargetUnit} args.unit
+ * @param {string} args.label
+ * @param {Record<string, string | undefined>} [args.env]
+ * @param {number} [args.timeoutMs]
  * @returns {{status: string, tests_executed: number, command: string,
  *   exit_code: number|null, error_excerpt?: string}}
  */
@@ -306,7 +357,7 @@ export function runSingleTest({
   timeoutMs = 300000,
 }) {
   const reportPath = join(workspace, `.report-${label}.json`);
-  const title = unit.test_title.split(' > ').pop();
+  const title = unit.test_title.split(' > ').pop() ?? unit.test_title;
   const args = [
     'test',
     posix(testPath),
@@ -355,7 +406,8 @@ export function runSingleTest({
       ),
     };
   }
-  const { units } = adaptPlaywrightReport(report, { executionId: label });
+  /** @type {Unit[]} */
+  const units = adaptPlaywrightReport(report, { executionId: label }).units;
   const executed = units.filter((u) => u.outcome !== 'not_run');
   if (units.length !== 1 || units[0].identity.test_title !== unit.test_title) {
     return {
@@ -381,6 +433,10 @@ export function runSingleTest({
 
 // ---------------------------------------------------------------- patch
 
+/**
+ * @param {string[]} args
+ * @param {string} cwd
+ */
 function git(args, cwd) {
   // The workspace lives inside the repository. Without a ceiling, git would
   // find the enclosing repo and resolve patch paths from its root, silently
@@ -396,6 +452,8 @@ function git(args, cwd) {
 /**
  * A unified diff from original to candidate for `relPath`, proven by applying
  * it to a copy of the original and comparing the result with the candidate.
+ * @param {{ workspace: string, relPath: string, original: string,
+ *   candidate: string }} args
  * @returns {{ok: true, patch: string} | {ok: false, reason: string}}
  */
 export function buildPatch({ workspace, relPath, original, candidate }) {
