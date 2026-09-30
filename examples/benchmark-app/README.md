@@ -83,22 +83,25 @@ change is listed here so scoring is against a known truth, not a guess.
 
 ## Measure selector survival
 
-`scripts/selector-survival.js` loads each version's **landing (login) page** and
-checks which of a spec's locators still resolve there, so a survival probe
-should list **login-surface** hooks. `login.survival-probe.spec.ts` does exactly
-that:
+`scripts/selector-survival.js --probe` runs reviewed probe functions (the
+exact locators, plus the preparation they need) on a named baseline and on each
+later version. A probe survives only when it still finds exactly one usable
+target (`scripts/lib/selector-probes.js`). `login.survival-probe.mjs` probes
+the five login-surface hooks on the landing page:
 
 ```powershell
 # start both versions
 node examples/benchmark-app/serve.js --version v1 --port 4173
 node examples/benchmark-app/serve.js --version v2 --port 4174
 # then, in another shell:
-npm run benchmark:survival -- --tests examples/benchmark-app/login.survival-probe.spec.ts --version http://127.0.0.1:4173 --version http://127.0.0.1:4174
+npm run benchmark:survival -- --probe examples/benchmark-app/login.survival-probe.mjs --baseline v1=http://127.0.0.1:4173/ --version v2=http://127.0.0.1:4174/
 ```
 
-Expected: **40% survival** — `login-button` and the `title` test-id survive;
-`username`, `password`, and the `.title` class do not (they were drifted in v2).
-That maps 1:1 to the table above.
+Measured (task group 9.1): **2/5 = 40% survival** — `login-button` and the
+`title` test-id each still find one usable target; `username`, `password`, and
+the `.title` class find none (they were drifted in v2). That maps 1:1 to the
+table above. Every probe resolves its unique target on v1 first; if one did
+not, or the page could not be prepared, the rate would be null with the reason.
 
 ## Files
 
@@ -107,4 +110,4 @@ That maps 1:1 to the table above.
 | `serve.js`                    | The server (`--version`, `--port`, repeatable `--bug`)     |
 | `v1/index.html`               | Correct-behavior app                                       |
 | `v2/index.html`               | Same app with the documented DOM drift                     |
-| `login.survival-probe.spec.ts`| Login-surface locator probe for the survival script        |
+| `login.survival-probe.mjs`    | Reviewed login-surface probes for the survival script      |

@@ -103,14 +103,14 @@ Recorded per story × arm in `evidence/benchmark.jsonl`
 (`schemas/benchmark-record.schema.json`). An unmeasured metric is `null`, never
 `0` — an explicit gap.
 
-| Metric (field)                 | Definition / formula                                                                                                                         | Better |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| `time_to_first_green_test_min` | Wall-clock minutes from starting the arm to the first test that runs **green** against the app.                                              | lower  |
-| `gate4_corrections`            | B: corrections at Gate 4 before the code was acceptable. A: corrections-to-acceptable judged against the **same** §4 Gate-4 checklist.       | lower  |
-| `fictional_test_rate`          | (assertions about behavior **never observed in the running app**) ÷ (all assertions). The rule-8 signal; the pipeline should drive it to ~0. | lower  |
-| `selector_survival_rate`       | (locators that still resolve after replay against ≥2 later app versions) ÷ (all locators). `scripts/selector-survival.js`.                   | higher |
-| `known_bug_catch_rate`         | (the story's known post-ship bugs this arm's tests would have caught) ÷ (known bugs).                                                        | higher |
-| `traceability_coverage`        | (tests carrying a resolvable STORY→RISK→TC→test link) ÷ (all tests). **Expected ~0 for Arm A** — that's a real property, not a defect.       | higher |
+| Metric (field)                 | Definition / formula                                                                                                                                             | Better |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `time_to_first_green_test_min` | Wall-clock minutes from starting the arm to the first test that runs **green** against the app.                                                                  | lower  |
+| `gate4_corrections`            | B: corrections at Gate 4 before the code was acceptable. A: corrections-to-acceptable judged against the **same** §4 Gate-4 checklist.                           | lower  |
+| `fictional_test_rate`          | (assertions about behavior **never observed in the running app**) ÷ (all assertions). The rule-8 signal; the pipeline should drive it to ~0.                     | lower  |
+| `selector_survival_rate`       | (reviewed probes still finding exactly one usable target on every later version) ÷ (probes valid on the named baseline). `scripts/selector-survival.js --probe`. | higher |
+| `known_bug_catch_rate`         | (the story's known post-ship bugs this arm's tests would have caught) ÷ (known bugs).                                                                            | higher |
+| `traceability_coverage`        | (tests carrying a resolvable STORY→RISK→TC→test link) ÷ (all tests). **Expected ~0 for Arm A** — that's a real property, not a defect.                           | higher |
 
 **Judging is blind where it can be.** Gate-4 correction counts and the
 fictional-test rate for both arms are scored against the same checklist by the
@@ -131,11 +131,14 @@ same reviewer, ideally without knowing which arm produced the file.
 3. After each pipeline run:
    `npm run session-summary -- --friction "<what rubbed>"`.
 4. **Selector survival.** Preferred (local app): serve Bench Shop `v1` and `v2`
-   and run `npm run benchmark:survival -- --tests <file> --version <v1-url>
---version <v2-url>` — see `examples/benchmark-app/README.md`. Against public
-   SauceDemo, do this only if you genuinely have ≥2 app versions; otherwise
-   record `selector_survival_rate: null` and say why in `docs/evidence.md` —
-   **do not fake it** (`scripts/selector-survival.js` refuses to).
+   and run `npm run benchmark:survival -- --probe <probe module> --baseline
+v1=<v1-url> --version v2=<v2-url>` — see `examples/benchmark-app/README.md`.
+   The probes are reviewed code: the exact locators the arm's tests rely on,
+   checked against the running app, never rebuilt from text (`--tests <file>`
+   only lists a spec's locators for writing them). Against public SauceDemo, do
+   this only if you genuinely have ≥2 app versions; otherwise record
+   `selector_survival_rate: null` and say why in `docs/evidence.md` — **do not
+   fake it** (`scripts/selector-survival.js` refuses to).
 5. **Known-bug catch (mutation, local app only).** For a story with a bug the
    Bench Shop can inject, serve with `--bug <id>` and run the arm's tests: the
    bug is **caught iff ≥1 test fails** (green on the clean app, red on the
@@ -265,15 +268,19 @@ npm run benchmark:capture -- --story <your-lite-story> --arm pipeline --track li
 ```
 
 Selector survival is **not** a capture flag you guess — produce it with the
-replay harness when you have ≥2 app versions, then pass the result:
+probe harness when you have a baseline and at least one later app version,
+then pass the result:
 
 ```bash
-# Replay one arm's tests against later app versions to get the rate:
-npm run benchmark:survival -- --tests <that-arm's-spec.ts> \
-  --version http://localhost:PORT_v2 --version http://localhost:PORT_v3
+# List the locators an arm's spec relies on (source inspection, no rate):
+npm run benchmark:survival -- --tests <that-arm's-spec.ts>
+# Write them as reviewed probes (see examples/selector-probes/), then measure:
+npm run benchmark:survival -- --probe <probes.mjs> \
+  --baseline v1=http://localhost:PORT_v1 --version v2=http://localhost:PORT_v2
 # …then add --selector-survival <rate> to that story×arm's capture line.
-# With <2 versions the harness refuses to invent a number; leave the flag off
-# (=> null) and explain in docs/evidence.md.
+# Without two distinct versions, a working setup, and probes that resolve on
+# the baseline, the harness reports no number; leave the flag off (=> null)
+# and explain in docs/evidence.md.
 ```
 
 After the series: `npm run metrics` (does a prompt-version cohort now have 10
@@ -286,7 +293,8 @@ eligible runs for a `prompt_stability` verdict?), then write `docs/evidence.md` 
 
 - `schemas/benchmark-record.schema.json` — the record contract.
 - `scripts/benchmark-capture.js` — the validated write path.
-- `scripts/selector-survival.js` — the replay harness (honest about gaps).
+- `scripts/selector-survival.js` — the probe harness (honest about gaps);
+  `examples/selector-probes/` and `examples/benchmark-app/` hold reviewed probes.
 - `docs/pipeline-runner.md` — how Arm B is driven.
 - `docs/review-gates.md` §4 — the Gate-4 checklist both arms are judged by.
 - `README.md` §"Why it exists" — the question this benchmark exists to answer.
