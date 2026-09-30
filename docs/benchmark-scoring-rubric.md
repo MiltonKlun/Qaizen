@@ -122,14 +122,18 @@ test catches the bug._
 
 ## 6. `selector_survival_rate` (0..1, higher better)
 
-- **Procedure:** only via `scripts/selector-survival.js` replaying the arm's
-  tests against **≥2 later app versions**. With fewer than 2 versions the
-  harness refuses to produce a number ⇒ record `null` and state why.
+- **Procedure:** only via `scripts/selector-survival.js --probe`, running
+  reviewed probes (the arm's exact locators and the preparation they need) on a
+  named baseline and at least one later version. A probe survives only when it
+  still finds exactly one usable target; duplicates fail. Without two distinct
+  versions, a working setup, or probes that resolve on the baseline, the
+  harness produces no number ⇒ record `null` and state why.
 - **Now measurable locally:** the Bench Shop app ships `v1` and a drifted `v2`
   (`examples/benchmark-app/`), so this metric no longer has to be `null` for
-  lack of app history. Serve both and pass each with `--version`; the app
-  README documents the exact v1→v2 drift as ground truth (a login-surface probe
-  yields ~40% survival). Public SauceDemo still has one version ⇒ `null` there.
+  lack of app history. Serve both and pass them as `--baseline v1=...` and
+  `--version v2=...`; the app README documents the exact v1→v2 drift as ground
+  truth (its reviewed login-surface probes measure 2/5 = 40% survival). Public
+  SauceDemo still has one version ⇒ `null` there.
 - **Verifiable by:** the replay command + its output, or the documented reason
   it is `null`.
 

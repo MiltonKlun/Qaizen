@@ -409,16 +409,17 @@ test('benchmark:capture requires --arm (usage error, exit 2)', () => {
   assert.equal(r.code, 2, r.out);
 });
 
-test('selector-survival extracts locators incl. inner quotes; honest no-versions exit', () => {
+test('selector-survival lists locators incl. inner quotes; source inspection gives no rate', () => {
   const r = run([
     'scripts/selector-survival.js',
     '--tests',
     'examples/demo-run/tests/demo-login.spec.ts',
   ]);
-  // Exit 3 = qualitative-only (no app versions) — an honest gap, not failure.
+  // Exit 3 = no rate: --tests is source inspection only (task group 9.1); a
+  // rate comes from reviewed probes (--probe). An honest gap, not a failure.
   assert.equal(r.code, 3, r.out);
   assert.match(r.out, /\[data-test="username"\]/);
-  assert.match(r.out, /QUALITATIVE ONLY/);
+  assert.match(r.out, /SOURCE INSPECTION ONLY/);
 });
 
 test('normalize-results refuses to run with no execution inputs (exit 2)', () => {
