@@ -552,13 +552,22 @@ rule).
 
 | Metric                                | What it tells you                                                                  |
 | ------------------------------------- | ---------------------------------------------------------------------------------- |
-| Average pass rate by story            | Suite health per area; a falling rate flags regressions or flaky growth.           |
-| Top failing test cases                | Which TCs break most — candidates for redesign or a real recurring product bug.    |
-| Flakiest tests                        | Tests classified `flaky` repeatedly — stabilize or push down the pyramid.          |
-| Healer patch validation rate          | Of Green patches the Healer proposed, how many validated — confidence in auto-fix. |
+| Pass rate by story                    | Suite health per area, with how many runs each average covers.                     |
+| Top failing test cases                | Which TCs break most, keyed by story + TC and naming the runs behind each count.   |
+| Flakiest tests                        | Units classified `flaky` repeatedly, keyed by story + runner identity (+ project). |
+| Healer patch validation rate          | Validated / unique structured candidate submissions; null when there are none.     |
 | Product bugs found by generated tests | The pipeline's core value signal — is it catching real bugs?                       |
 | Untested high-risk items              | High-severity risks with no covering TC — the coverage gap to close first.         |
 | Gate 3 / Gate 4 rejection rate        | **Prompt quality signals** (see below). Counted from `context.gate_decisions[]`.   |
+
+Every metric reports the sample it was computed over (`samples` in the JSON:
+runs with a release report, a failure analysis, risk coverage, healer
+evidence), and a metric with no sample is shown as unknown, never as zero or
+success (task group 8.3). The same run archived twice counts once. The healer
+rate counts only schema-valid `analysis/healer-validation/*.attempt-N.json`
+records, each unique submission once; Yellow suggestion notes, exhaustion
+notices and invalid records are listed apart, and older Markdown-only notes
+are shown as unverified legacy evidence without being counted.
 
 **Interpreting gate rejection rates:**
 

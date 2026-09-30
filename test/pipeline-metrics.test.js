@@ -20,6 +20,7 @@ import {
   promptStability,
   renderPromptStability,
 } from '../scripts/lib/prompt-stability.js';
+import { failureMetrics, healerMetrics } from '../scripts/lib/run-metrics.js';
 
 const REPO = process.cwd();
 const V1 = {
@@ -386,5 +387,251 @@ test('/evolve reports a failing cohort, and too little evidence as exactly that'
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Task group 8.3: metric identities and healer denominators.
+
+const pwFailure = (
+  tc,
+  { title = 'logs in', project = 'chromium', ...over } = {}
+) => ({
+  failure_id: 'FAIL-001',
+  test_case_id: tc,
+  source: 'playwright',
+  classification: 'flaky',
+  runner_identity: {
+    kind: 'playwright',
+    file: 'tests/a.spec.ts',
+    test_title: title,
+    project,
+  },
+  ...over,
+});
+
+test('two stories sharing a TC id stay two rows, each naming its runs', () => {
+  const m = failureMetrics([
+    { story: 'STORY-001', runId: 'r1', failures: [pwFailure('TC-001')] },
+    { story: 'STORY-002', runId: 'r2', failures: [pwFailure('TC-001')] },
+    { story: 'STORY-001', runId: 'r3', failures: [pwFailure('TC-001')] },
+  ]);
+  assert.deepEqual(
+    m.top_failing_test_cases.map((r) => [
+      r.story,
+      r.test_case_id,
+      r.failures,
+      r.runs,
+    ]),
+    [
+      ['STORY-001', 'TC-001', 2, ['r1', 'r3']],
+      ['STORY-002', 'TC-001', 1, ['r2']],
+    ]
+  );
+});
+
+test('flaky units are keyed by runner identity and project, never by a FAIL id', () => {
+  const m = failureMetrics([
+    {
+      story: 'S-1',
+      runId: 'r1',
+      failures: [
+        pwFailure('TC-001'),
+        pwFailure('TC-001', { project: 'firefox' }),
+        { failure_id: 'FAIL-003', classification: 'flaky', test_case_id: null },
+      ],
+    },
+    { story: 'S-1', runId: 'r2', failures: [pwFailure('TC-001')] },
+  ]);
+  assert.deepEqual(
+    m.flakiest_tests.map((r) => [r.project, r.flaky_count, r.runs]),
+    [
+      ['chromium', 2, ['r1', 'r2']],
+      ['firefox', 1, ['r1']],
+    ]
+  );
+  assert.equal(m.flaky_without_identity, 1);
+  assert.equal(m.failures_without_test_case, 1);
+});
+
+const record = (i, outcome) => ({
+  run_id: 'run-1',
+  outcome,
+  unit: { unit_id: `u${i}` },
+  original: { sha256: 'a'.repeat(64) },
+  candidate: { sha256: String(i).repeat(64) },
+});
+const file = (name, value) => ({
+  name,
+  text: typeof value === 'string' ? value : JSON.stringify(value),
+});
+
+test('the healer rate is validated over unique submissions; notes are never successes', () => {
+  const m = healerMetrics(
+    [
+      {
+        files: [
+          file('FAIL-001.attempt-1.json', record(1, 'validated')),
+          file(
+            'FAIL-001.attempt-1.md',
+            '# FAIL-001 — candidate attempt 1: validated'
+          ),
+          file('FAIL-002.attempt-1.json', record(2, 'validation_failed')),
+          file('FAIL-003.attempt-1.json', record(3, 'rejected_static')),
+          file(
+            'FAIL-004.md',
+            '# FAIL-004 — Yellow (suggestion only)\n\nno patch'
+          ),
+          file(
+            'FAIL-005.exhausted.md',
+            '# FAIL-005 — healing attempts exhausted'
+          ),
+          file(
+            'FAIL-006.md',
+            '# FAIL-006 validated patch (old free-form note)'
+          ),
+          file('FAIL-007.attempt-1.json', '{not json'),
+        ],
+      },
+      // The same run's evidence archived a second time.
+      { files: [file('FAIL-001.attempt-1.json', record(1, 'validated'))] },
+    ],
+    () => true
+  );
+  assert.equal(m.submissions, 3);
+  assert.equal(m.validated, 1);
+  assert.equal(m.success_rate, 1 / 3);
+  assert.equal(m.duplicate_records, 1);
+  assert.equal(m.yellow_suggestions, 1);
+  assert.equal(m.exhausted_notices, 1);
+  assert.equal(m.legacy_markdown_notes, 1);
+  assert.equal(m.invalid_records, 1);
+});
+
+test('Yellow-only, legacy-only or invalid evidence leaves the rate unknown, not 100%', () => {
+  for (const files of [
+    [file('FAIL-001.md', '# FAIL-001 — Yellow (suggestion only)')],
+    [file('FAIL-002.md', 'Patch looks good')],
+    [file('FAIL-003.attempt-1.json', record(1, 'validated'))],
+  ]) {
+    const m = healerMetrics([{ files }], () => false);
+    assert.equal(m.submissions, 0);
+    assert.equal(m.success_rate, null);
+  }
+});
+
+test('the CLI: duplicate archives count once, real records are schema-checked, and no sample reads as unknown', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'qaizen-metrics-'));
+  try {
+    mkdirSync(join(dir, 'runs'));
+    const rec = JSON.parse(
+      readFileSync(
+        join(
+          REPO,
+          'examples/expected/locator-repair.expected-healer-validation.json'
+        ),
+        'utf8'
+      )
+    );
+    const put = (story, dirName, id, withHealer) => {
+      const base = join(dir, 'runs', story, dirName);
+      mkdirSync(join(base, 'analysis', 'healer-validation'), {
+        recursive: true,
+      });
+      mkdirSync(join(base, 'release'), { recursive: true });
+      writeFileSync(
+        join(base, 'context.json'),
+        JSON.stringify({
+          status: 'completed',
+          run_id: id,
+          risks: [{ risk_id: 'RISK-001', severity: 'high' }],
+        })
+      );
+      writeFileSync(
+        join(base, 'analysis', 'failure-analysis.json'),
+        JSON.stringify({
+          run_id: id,
+          failures: [pwFailure('TC-001', { classification: 'product_bug' })],
+        })
+      );
+      writeFileSync(
+        join(base, 'release', 'release-report.json'),
+        JSON.stringify({
+          coverage_by_risk: [{ risk_id: 'RISK-001', status: 'uncovered' }],
+        })
+      );
+      if (withHealer) {
+        const hv = join(base, 'analysis', 'healer-validation');
+        writeFileSync(join(hv, 'FAIL-001.attempt-1.json'), JSON.stringify(rec));
+        writeFileSync(
+          join(hv, 'FAIL-002.attempt-1.json'),
+          JSON.stringify({ ...rec, patch: null })
+        );
+      }
+    };
+    put('STORY-001', 'a', 'run-1', true);
+    put('STORY-001', 'b-copy', 'run-1', true); // the same run, archived twice
+    put('STORY-002', 'a', 'run-2', false);
+
+    const r = spawnSync(
+      execPath,
+      [join(REPO, 'scripts', 'pipeline-metrics.js')],
+      { cwd: dir, encoding: 'utf8' }
+    );
+    assert.equal(r.status, 0, r.stderr);
+    const m = JSON.parse(
+      readFileSync(join(dir, 'metrics', 'pipeline-metrics.json'), 'utf8')
+    );
+    assert.equal(m.total_runs, 2);
+    assert.equal(m.duplicate_run_archives, 1);
+    assert.equal(m.product_bugs_found_by_generated_tests.count, 2);
+    assert.deepEqual(
+      m.top_failing_test_cases.map((t) => `${t.story} ${t.test_case_id}`),
+      ['STORY-001 TC-001', 'STORY-002 TC-001']
+    );
+    assert.equal(m.healer_patch_validation.submissions, 1);
+    assert.equal(m.healer_patch_validation.success_rate, 1);
+    assert.equal(
+      m.healer_patch_validation.invalid_records,
+      1,
+      'a validated record without its patch is not valid evidence'
+    );
+    assert.deepEqual(
+      m.untested_high_risk_items.map((u) => `${u.story}:${u.risk_id}`),
+      ['STORY-001:RISK-001', 'STORY-002:RISK-001']
+    );
+
+    const e = spawnSync(
+      execPath,
+      [join(REPO, 'scripts', 'evolve.js'), '--json'],
+      { cwd: dir, encoding: 'utf8' }
+    );
+    assert.match(e.stdout, /"theme": "untested-high-risk-items"/);
+    assert.match(e.stdout, /STORY-001 \(run-1\): RISK-001/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+
+  const empty = mkdtempSync(join(tmpdir(), 'qaizen-metrics-'));
+  try {
+    mkdirSync(join(empty, 'runs', 'S-1', 'r'), { recursive: true });
+    writeFileSync(join(empty, 'runs', 'S-1', 'r', 'run-manifest.json'), '{}');
+    const r = spawnSync(
+      execPath,
+      [join(REPO, 'scripts', 'pipeline-metrics.js'), '--dry-run'],
+      { cwd: empty, encoding: 'utf8' }
+    );
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(
+      r.stdout,
+      /Unknown: no run has a failure analysis, so absence here proves nothing/
+    );
+    assert.match(r.stdout, /Unknown: no run has risk coverage/);
+    assert.match(
+      r.stdout,
+      /Success rate \(validated \/ submissions\): n\/a — no structured submission yet/
+    );
+  } finally {
+    rmSync(empty, { recursive: true, force: true });
   }
 });

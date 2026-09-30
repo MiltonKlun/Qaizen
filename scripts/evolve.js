@@ -169,14 +169,20 @@ if (frictionCommits.length > 0) {
 
 // Knowledge decay / coverage gaps from metrics.
 if (metrics) {
-  const untested = metrics.untested_high_risk ?? metrics.untestedHighRisk;
+  // The key the metrics actually write (task group 8.3): this used to read
+  // `untested_high_risk`, which never existed, so the finding never fired.
+  const untested = metrics.untested_high_risk_items;
   if (Array.isArray(untested) && untested.length > 0) {
     add({
       theme: 'untested-high-risk-items',
       confidence: confFromCount(untested.length),
       evidence: untested
         .slice(0, 8)
-        .map((u) => (typeof u === 'string' ? u : JSON.stringify(u))),
+        .map((u) =>
+          typeof u === 'string'
+            ? u
+            : `${u.story}${u.run_id ? ` (${u.run_id})` : ''}: ${u.risk_id}`
+        ),
       proposed_action:
         'High-risk items have no covering test. Propose adding cases (Test ' +
         'Designer) or, if intentionally manual, recording the reason. Do not ' +
