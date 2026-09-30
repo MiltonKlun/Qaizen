@@ -11,10 +11,22 @@
 // numbers the operator supplies. Unset metrics are stored as null (an explicit
 // gap), never coerced to 0.
 //
-// Usage:
-//   npm run benchmark:capture -- --story <id> --arm <raw|pipeline> [flags]
+// Records are schema 1.1 (task group 9.2): every new record carries its
+// provenance and keeps three timings apart. The app, operator and tools are
+// supplied by the operator; the pipeline arm's prompt versions are READ from
+// its run's context.json; the runtime is read from this machine; the
+// measurement-method version is fixed below. A timing that was not recorded
+// stays null — nothing is estimated, and no provider statistic is invented.
 //
-// Required: --story, --arm
+// Usage:
+//   npm run benchmark:capture -- --story <id> --arm <raw|pipeline> \
+//     --operator <who> --app <name@version> --tool <name@version> [flags]
+//
+// Required: --story, --arm, --operator, --app, at least one --tool (or
+//   --model), and for the pipeline arm --context <run's context.json>
+// Provenance: --app-commit <sha> --series <id> --model <id> (also a tool)
+// Timing (omit => null): --wall-clock-min <n> --gate-review-min <n>
+//   --agent-time-min <n>
 // Optional metric flags (omit => null):
 //   --time-to-green <min>        time_to_first_green_test_min
 //   --gate4-corrections <n>      gate4_corrections
@@ -22,8 +34,7 @@
 //   --selector-survival <0..1>   selector_survival_rate
 //   --known-bug-catch <0..1>     known_bug_catch_rate
 //   --traceability <0..1>        traceability_coverage
-// Optional metadata: --model <id> --operator <who> --track <lite|standard|full>
-//   --note "<free text>"
+// Optional metadata: --track <lite|standard|full> --note "<free text>"
 // Other:
 //   --dry-run   validate + print the record; do not append
 //
@@ -40,8 +51,8 @@ import {
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { tmpdir } from 'node:os';
-import { argv, exit } from 'node:process';
+import { platform, release, tmpdir } from 'node:os';
+import { argv, exit, version as nodeVersion } from 'node:process';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO = dirname(SCRIPT_DIR);
@@ -50,6 +61,12 @@ const SCHEMA = join(REPO, 'schemas', 'benchmark-record.schema.json');
 const OUT = join(REPO, 'evidence', 'benchmark.jsonl');
 
 const DRY = argv.includes('--dry-run');
+
+/** How this record was measured; bump with docs/benchmark-protocol.md. */
+const MEASUREMENT = {
+  protocol_version: '2.0',
+  selector_survival_method: 'probe-baseline-v1',
+};
 
 // Tiny flag parser: --key value (value-less flags handled explicitly above).
 // Single-token: metadata (--model, --operator, --track) and numeric metrics.
@@ -74,18 +91,85 @@ function textFlag(name) {
   return parts.length ? parts.join(' ') : undefined;
 }
 
-const story = flag('story');
-const arm = flag('arm');
-if (!story || !arm) {
+function usage(message) {
   console.error(
-    'Usage: npm run benchmark:capture -- --story <id> --arm <raw|pipeline> [metric flags]\n' +
+    `Error: ${message}\n` +
+      'Usage: npm run benchmark:capture -- --story <id> --arm <raw|pipeline> --operator <who> ' +
+      '--app <name@version> --tool <name@version> [--context <context.json>] [flags]\n' +
       'See the header of scripts/benchmark-capture.js for all flags.'
   );
   exit(2);
 }
+
+/** Every value of a repeatable flag. */
+function flags(name) {
+  const out = [];
+  for (let i = 2; i < argv.length; i++) {
+    if (argv[i] === `--${name}` && argv[i + 1] && !argv[i + 1].startsWith('--'))
+      out.push(argv[i + 1]);
+  }
+  return out;
+}
+
+/** `name@version` -> { name, version }. */
+function nameAtVersion(v, what) {
+  const i = v.lastIndexOf('@');
+  if (i <= 0 || i === v.length - 1)
+    usage(`${what} must be <name>@<version> (got "${v}")`);
+  return { name: v.slice(0, i), version: v.slice(i + 1) };
+}
+
+const story = flag('story');
+const arm = flag('arm');
+if (!story || !arm) usage('--story and --arm are required');
 if (arm !== 'raw' && arm !== 'pipeline') {
-  console.error(`--arm must be "raw" or "pipeline" (got "${arm}").`);
-  exit(2);
+  usage(`--arm must be "raw" or "pipeline" (got "${arm}")`);
+}
+const operator = flag('operator');
+if (!operator) usage('--operator is required: who ran this arm');
+if (!flag('app'))
+  usage('--app <name@version> is required: the app measured against');
+const app = nameAtVersion(flag('app'), '--app');
+const tools = flags('tool').map((t) => nameAtVersion(t, '--tool'));
+if (flag('model')) tools.push({ name: 'model', version: flag('model') });
+if (tools.length === 0) {
+  usage('at least one --tool <name@version> (or --model <id>) is required');
+}
+
+// The pipeline arm's prompt versions come from its run, never from memory.
+let promptVersions = null;
+if (arm === 'pipeline') {
+  const ctxPath = flag('context');
+  if (!ctxPath)
+    usage("--context <run's context.json> is required for the pipeline arm");
+  let ctx;
+  try {
+    ctx = JSON.parse(readFileSync(ctxPath, 'utf8'));
+  } catch {
+    usage(`--context ${ctxPath} is not a readable context.json`);
+  }
+  const pv = ctx.prompt_versions;
+  if (!pv || typeof pv !== 'object' || Object.keys(pv).length === 0) {
+    usage(
+      `${ctxPath} records no prompt_versions; this run cannot be attributed to its prompts ` +
+        '(docs/prompt-versioning.md)'
+    );
+  }
+  promptVersions = pv;
+}
+
+/** The installed Playwright version, or null when it cannot be read. */
+function playwrightVersion() {
+  try {
+    return JSON.parse(
+      readFileSync(
+        join(REPO, 'node_modules', '@playwright', 'test', 'package.json'),
+        'utf8'
+      )
+    ).version;
+  } catch {
+    return null;
+  }
 }
 
 // A metric flag becomes a number, or null when omitted (an explicit gap).
@@ -101,13 +185,30 @@ const num = (name) => {
 };
 
 const record = {
-  schema_version: '1.0',
+  schema_version: '1.1',
   story_id: story,
   arm,
   recorded_at: new Date().toISOString(),
   ...(flag('model') ? { model: flag('model') } : {}),
-  operator: flag('operator') ?? null,
+  operator,
   ...(flag('track') ? { track: flag('track') } : {}),
+  ...(flag('series') ? { series_id: flag('series') } : {}),
+  provenance: {
+    app: { ...app, commit: flag('app-commit') ?? null },
+    prompt_versions: promptVersions,
+    tools,
+    runtime: {
+      os: `${platform()} ${release()}`,
+      node: nodeVersion,
+      playwright: playwrightVersion(),
+    },
+    measurement: MEASUREMENT,
+  },
+  timing: {
+    wall_clock_min: num('wall-clock-min'),
+    gate_review_min: num('gate-review-min'),
+    agent_tool_min: num('agent-time-min'),
+  },
   metrics: {
     time_to_first_green_test_min: num('time-to-green'),
     gate4_corrections: num('gate4-corrections'),

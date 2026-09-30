@@ -41,6 +41,7 @@
     "scan:gate4": "node scripts/gate4-scan.js",
     "benchmark:capture": "node scripts/benchmark-capture.js",
     "benchmark:survival": "node scripts/selector-survival.js",
+    "benchmark:check": "node scripts/benchmark-check.js",
     "evolve": "node scripts/evolve.js",
     "session-summary": "node scripts/session-summary.js"
   },

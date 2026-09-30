@@ -351,6 +351,16 @@ test('metrics skips DEMO_RUN-sentinel runs (IP-3.3)', () => {
 
 // --- benchmark evidence tooling (IMPROVEMENT-PLAN Phase 5) -----------------
 
+// The provenance every new record carries (schema 1.1, task group 9.2).
+const PROVENANCE = [
+  '--operator',
+  'A. Tester',
+  '--app',
+  'bench-shop@v1',
+  '--tool',
+  'claude-code@2.1',
+];
+
 test('benchmark:capture --dry-run builds a valid record; null for omitted metrics', () => {
   const r = run([
     'scripts/benchmark-capture.js',
@@ -360,6 +370,7 @@ test('benchmark:capture --dry-run builds a valid record; null for omitted metric
     'raw',
     '--time-to-green',
     '9',
+    ...PROVENANCE,
     '--dry-run',
   ]);
   assert.equal(r.code, 0, r.out);
@@ -382,6 +393,7 @@ test('benchmark:capture --note joins multi-word values (T1.2)', () => {
     'several',
     'words',
     'here',
+    ...PROVENANCE,
     '--dry-run',
   ]);
   assert.equal(r.code, 0, r.out);
@@ -398,10 +410,111 @@ test('benchmark:capture rejects an out-of-range metric (exit 1, nothing appended
     'raw',
     '--fictional-rate',
     '5',
+    ...PROVENANCE,
     '--dry-run',
   ]);
   assert.equal(r.code, 1, r.out);
   assert.match(r.out, /failed schema validation/);
+});
+
+test('benchmark:capture records provenance and keeps three timings apart, never estimating one', () => {
+  const r = run([
+    'scripts/benchmark-capture.js',
+    '--story',
+    'sort-products-enhancement',
+    '--arm',
+    'pipeline',
+    ...PROVENANCE,
+    '--app-commit',
+    'abc1234',
+    '--model',
+    'claude-opus-5-5',
+    '--context',
+    'examples/expected/login-success-prompt-versioned.expected-context.json',
+    '--gate-review-min',
+    '9',
+    '--series',
+    'series-2026-10',
+    '--dry-run',
+  ]);
+  assert.equal(r.code, 0, r.out);
+  const json = JSON.parse(r.out.split('\n').filter(Boolean).pop());
+  assert.equal(json.schema_version, '1.1');
+  assert.equal(json.series_id, 'series-2026-10');
+  assert.deepEqual(json.provenance.app, {
+    name: 'bench-shop',
+    version: 'v1',
+    commit: 'abc1234',
+  });
+  // Read from the run, not typed by the operator.
+  assert.equal(json.provenance.prompt_versions.analyst, '1.0.0');
+  assert.deepEqual(json.provenance.tools, [
+    { name: 'claude-code', version: '2.1' },
+    { name: 'model', version: 'claude-opus-5-5' },
+  ]);
+  assert.match(json.provenance.runtime.node, /^v\d+/);
+  assert.equal(json.provenance.measurement.protocol_version, '2.0');
+  assert.deepEqual(json.timing, {
+    wall_clock_min: null,
+    gate_review_min: 9,
+    agent_tool_min: null,
+  });
+});
+
+test('benchmark:capture refuses a record it cannot attribute', () => {
+  const base = ['scripts/benchmark-capture.js', '--story', 'SK-1', '--dry-run'];
+  for (const [args, reason] of [
+    [
+      ['--arm', 'raw', '--app', 'a@1', '--tool', 't@1'],
+      /--operator is required/,
+    ],
+    [
+      ['--arm', 'raw', '--operator', 'x', '--tool', 't@1'],
+      /--app <name@version> is required/,
+    ],
+    [
+      ['--arm', 'raw', '--operator', 'x', '--app', 'a@1'],
+      /at least one --tool/,
+    ],
+    [
+      ['--arm', 'raw', '--operator', 'x', '--app', 'nover', '--tool', 't@1'],
+      /--app must be <name>@<version>/,
+    ],
+    [
+      ['--arm', 'pipeline', ...PROVENANCE],
+      /--context .* is required for the pipeline arm/,
+    ],
+    [
+      [
+        '--arm',
+        'pipeline',
+        ...PROVENANCE,
+        '--context',
+        'examples/expected/login-success.expected-context.json',
+      ],
+      /records no prompt_versions/,
+    ],
+  ]) {
+    const r = run([...base, ...args]);
+    assert.equal(r.code, 2, r.out);
+    assert.match(r.out, reason);
+  }
+});
+
+test('the committed 1.0 benchmark records stay valid; a 1.1 record needs its provenance', async () => {
+  const { validateValue } = await import('../scripts/lib/artifact-io.js');
+  const schema = 'schemas/benchmark-record.schema.json';
+  const lines = readFileSync('evidence/benchmark.jsonl', 'utf8')
+    .split('\n')
+    .filter(Boolean);
+  assert.ok(lines.length > 0);
+  for (const l of lines)
+    assert.equal(validateValue(JSON.parse(l), schema).ok, true);
+  const bare = JSON.parse(lines[0]);
+  assert.equal(
+    validateValue({ ...bare, schema_version: '1.1' }, schema).ok,
+    false
+  );
 });
 
 test('benchmark:capture requires --arm (usage error, exit 2)', () => {

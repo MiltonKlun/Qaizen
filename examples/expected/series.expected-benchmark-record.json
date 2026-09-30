@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.1",
+  "story_id": "SAMPLE-002",
+  "arm": "pipeline",
+  "recorded_at": "2026-10-05T14:20:00Z",
+  "model": "claude-opus-5-5",
+  "operator": "A. Tester",
+  "track": "standard",
+  "series_id": "series-2026-10",
+  "provenance": {
+    "app": { "name": "bench-shop", "version": "v1", "commit": "5a1f0c2" },
+    "prompt_versions": {
+      "analyst": "2.0.2",
+      "test-designer": "1.5.0",
+      "failure-classifier": "2.3.0",
+      "reporter": "3.3.0"
+    },
+    "tools": [
+      { "name": "claude-code", "version": "2.1.0" },
+      { "name": "model", "version": "claude-opus-5-5" }
+    ],
+    "runtime": {
+      "os": "linux 6.8.0",
+      "node": "v20.20.2",
+      "playwright": "1.60.0"
+    },
+    "measurement": {
+      "protocol_version": "2.0",
+      "selector_survival_method": "probe-baseline-v1"
+    }
+  },
+  "timing": {
+    "wall_clock_min": 38,
+    "gate_review_min": 6.5,
+    "agent_tool_min": null
+  },
+  "metrics": {
+    "time_to_first_green_test_min": 21,
+    "gate4_corrections": 1,
+    "fictional_test_rate": 0,
+    "selector_survival_rate": null,
+    "known_bug_catch_rate": 1,
+    "traceability_coverage": 1
+  },
+  "notes": "Illustrative example only (not real benchmark data). Shows a schema 1.1 series record: provenance read from the run (prompt_versions) and the machine (runtime), the operator-supplied tools, and three timings kept apart — agent_tool_min is null because no tool reported it, and it is not estimated. selector_survival_rate is null because this arm's probes were not measured. Real records live in evidence/benchmark.jsonl."
+}

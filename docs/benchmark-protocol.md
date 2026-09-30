@@ -9,6 +9,12 @@
 > recorded afterward into `evidence/benchmark.jsonl` and written up in
 > `docs/evidence.md`.
 >
+> **Protocol version 2.0** (task group 9.2). New records are schema 1.1: each
+> carries its provenance (operator, app version, prompt versions, tools,
+> runtime, measurement method) and keeps three timings apart (§3). The story
+> criteria (§2) and the thresholds (§5) are unchanged. Records captured under
+> 1.0 stay as they were recorded; nothing is backfilled.
+>
 > **Pre-registration matters.** The thresholds in §5 are fixed **before** the
 > runs, so the conclusion can't be drawn to fit the result. We commit, up
 > front, to what would count as "pipeline worth it" **and** to what would count
@@ -112,6 +118,21 @@ Recorded per story × arm in `evidence/benchmark.jsonl`
 | `known_bug_catch_rate`         | (the story's known post-ship bugs this arm's tests would have caught) ÷ (known bugs).                                                                            | higher |
 | `traceability_coverage`        | (tests carrying a resolvable STORY→RISK→TC→test link) ÷ (all tests). **Expected ~0 for Arm A** — that's a real property, not a defect.                           | higher |
 
+**Timing is recorded three ways, kept apart** (schema 1.1 `timing`): the
+wall-clock time of the arm, the human attention actually spent reviewing gates
+(for the pipeline, the sum of `decided_at − opened_at` over the run's gate
+decisions), and the agent/tool execution time only as the tools report it. A
+time that was not recorded is `null`; none is estimated, and no provider token
+or compute figure is invented. `time_to_first_green_test_min` stays the §5
+metric.
+
+**Baseline and later versions** (selector survival, task group 9.1): the
+_baseline_ is the named app version an arm's tests were written against, on
+which every reviewed probe must resolve its one intended target; a _later
+version_ is a subsequent release measured for drift. Earlier text called both
+"later versions"; the historic `null` survival results are unchanged by this
+wording.
+
 **Judging is blind where it can be.** Gate-4 correction counts and the
 fictional-test rate for both arms are scored against the same checklist by the
 same reviewer, ideally without knowing which arm produced the file.
@@ -191,80 +212,19 @@ exploit. `docs/evidence.md` reports the split, per story class.
 
 ---
 
-## 7. Ready-to-run capture commands (per the candidate slate)
+## 7. Running the series
 
-Exact `benchmark:capture` command lines for the §2 candidate slate — **two
-records per story (raw + pipeline)**. The metric values below are
-**placeholders (`0`/`?`-style)**: replace each with what you actually measured
-while running the arm. **`--dry-run` first** on each (it validates and prints
-without appending), then re-run without `--dry-run` to write the line.
-
-> Flag → metric: `--time-to-green` → time_to_first_green_test_min ·
-> `--gate4-corrections` → gate4_corrections (raw arm: read as
-> "corrections-to-acceptable" vs the same §4 checklist) · `--fictional-rate` ·
-> `--selector-survival` (omit ⇒ `null`; do **not** pass a made-up number) ·
-> `--known-bug-catch` · `--traceability` (raw arm is ~0 by construction).
-> Always add `--model <id>`, `--operator <you>`, and a `--note`.
+The ready-to-run checklist — registration, ground-truth fields, the arm order
+recorded in advance, set-up, per-arm commands, capture fields and the
+missing-evidence rules — is `docs/benchmark-series-checklist.md`. Every record
+captures its provenance (schema 1.1):
 
 ```bash
-# ── login-success (red: security; standard) ──────────────────────────────
-npm run benchmark:capture -- --story login-success --arm raw \
-  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
-  --known-bug-catch ? --traceability 0 \
-  --model <model-id> --operator you@example.com --note "raw arm" --dry-run
-npm run benchmark:capture -- --story login-success --arm pipeline --track standard \
-  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
-  --known-bug-catch ? --traceability ? \
-  --model <model-id> --operator you@example.com --note "pipeline arm" --dry-run
-
-# ── cart-badge-count-bugfix (red: pricing; standard; a real bugfix) ───────
-npm run benchmark:capture -- --story cart-badge-count-bugfix --arm raw \
-  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
-  --known-bug-catch ? --traceability 0 \
-  --model <model-id> --operator you@example.com --note "raw arm" --dry-run
-npm run benchmark:capture -- --story cart-badge-count-bugfix --arm pipeline --track standard \
-  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
-  --known-bug-catch ? --traceability ? \
-  --model <model-id> --operator you@example.com --note "pipeline arm" --dry-run
-
-# ── sort-products-enhancement (red: pricing; standard) ────────────────────
-npm run benchmark:capture -- --story sort-products-enhancement --arm raw \
-  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
-  --known-bug-catch ? --traceability 0 \
-  --model <model-id> --operator you@example.com --note "raw arm" --dry-run
-npm run benchmark:capture -- --story sort-products-enhancement --arm pipeline --track standard \
-  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
-  --known-bug-catch ? --traceability ? \
-  --model <model-id> --operator you@example.com --note "pipeline arm" --dry-run
-
-# ── checkout-expired-card (red: payment+pricing+business-logic; standard) ─
-npm run benchmark:capture -- --story checkout-expired-card --arm raw \
-  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
-  --known-bug-catch ? --traceability 0 \
-  --model <model-id> --operator you@example.com --note "raw arm" --dry-run
-npm run benchmark:capture -- --story checkout-expired-card --arm pipeline --track standard \
-  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
-  --known-bug-catch ? --traceability ? \
-  --model <model-id> --operator you@example.com --note "pipeline arm" --dry-run
-
-# ── api-create-user (red: security; standard; API branch) ─────────────────
-npm run benchmark:capture -- --story api-create-user --arm raw \
-  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
-  --known-bug-catch ? --traceability 0 \
-  --model <model-id> --operator you@example.com --note "raw arm; API/Newman" --dry-run
-npm run benchmark:capture -- --story api-create-user --arm pipeline --track standard \
-  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
-  --known-bug-catch ? --traceability ? \
-  --model <model-id> --operator you@example.com --note "pipeline arm; API/Newman" --dry-run
-
-# ── YOUR lite story (required ≥1 lite-eligible — supply a real routine one) ─
-npm run benchmark:capture -- --story <your-lite-story> --arm raw \
-  --time-to-green ? --fictional-rate ? --known-bug-catch ? --traceability 0 \
-  --model <model-id> --operator you@example.com --note "raw arm; lite-eligible" --dry-run
-npm run benchmark:capture -- --story <your-lite-story> --arm pipeline --track lite \
-  --time-to-green ? --gate4-corrections ? --fictional-rate ? \
-  --known-bug-catch ? --traceability ? \
-  --model <model-id> --operator you@example.com --note "pipeline arm; lite track" --dry-run
+npm run benchmark:capture -- --story <id> --arm <raw|pipeline> [--track <t>] \
+  --series <series-id> --operator "<you>" --app <app>@<baseline-version> \
+  --model <model-id> --tool <tool>@<version> \
+  [--context runs/<story>/<run-id>/context.json]   # pipeline arm: required
+  <metric flags> [timing flags] --note "..." --dry-run
 ```
 
 Selector survival is **not** a capture flag you guess — produce it with the
@@ -284,8 +244,8 @@ npm run benchmark:survival -- --probe <probes.mjs> \
 ```
 
 After the series: `npm run metrics` (does a prompt-version cohort now have 10
-eligible runs for a `prompt_stability` verdict?), then write `docs/evidence.md` against the §5 thresholds —
-**including where raw prompting won.**
+eligible runs for a `prompt_stability` verdict?), then write `docs/evidence.md`
+against the §5 thresholds — **including where raw prompting won.**
 
 ---
 
@@ -293,6 +253,9 @@ eligible runs for a `prompt_stability` verdict?), then write `docs/evidence.md` 
 
 - `schemas/benchmark-record.schema.json` — the record contract.
 - `scripts/benchmark-capture.js` — the validated write path.
+- `docs/benchmark-series-checklist.md` — the ready-to-run series checklist.
+- `npm run benchmark:check` — confirms the Bench Shop and its survival probes
+  still match the documented drift before a series.
 - `scripts/selector-survival.js` — the probe harness (honest about gaps);
   `examples/selector-probes/` and `examples/benchmark-app/` hold reviewed probes.
 - `docs/pipeline-runner.md` — how Arm B is driven.
