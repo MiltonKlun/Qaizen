@@ -25,9 +25,12 @@ import {
   readdirSync,
   mkdirSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { argv, exit } from 'node:process';
+import { fileURLToPath } from 'node:url';
 
+import { validateValue } from './lib/artifact-io.js';
+import { failureMetrics, healerMetrics } from './lib/run-metrics.js';
 import {
   GATE3_KEYS,
   GATE4_KEYS,
@@ -38,6 +41,12 @@ import {
 const DRY = argv.includes('--dry-run');
 const RUNS = 'runs';
 const OUT_DIR = 'metrics';
+const HEALER_RECORD_SCHEMA = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'schemas',
+  'healer-validation.schema.json'
+);
 
 if (!existsSync(RUNS)) {
   console.error(
@@ -59,17 +68,17 @@ const runs = [];
 // Demo runs are kept apart: they count toward nothing, but the prompt-stability
 // result lists them as excluded so the sample is accounted for (task group 8.2).
 const demoRuns = [];
-for (const story of readdirSync(RUNS)) {
+for (const story of readdirSync(RUNS).sort()) {
   if (story === 'latest.json') continue;
   const storyDir = join(RUNS, story);
   let entries;
   try {
-    entries = readdirSync(storyDir);
+    entries = readdirSync(storyDir).sort();
   } catch {
     continue;
   }
-  for (const runId of entries) {
-    const base = join(storyDir, runId);
+  for (const dirName of entries) {
+    const base = join(storyDir, dirName);
     if (
       !existsSync(join(base, 'run-manifest.json')) &&
       !existsSync(join(base, 'context.json'))
@@ -79,33 +88,40 @@ for (const story of readdirSync(RUNS)) {
     // the run folder marks a replayed demo — it must never count toward
     // pass rate, gate-cost, or the prompt_stability threshold (IP-3.3).
     if (existsSync(join(base, 'DEMO_RUN'))) {
-      demoRuns.push({ story, runId, base });
+      demoRuns.push({ story, runId: dirName, base });
       continue;
     }
-    runs.push({ story, runId, base });
+    runs.push({ story, dir: dirName, base });
   }
 }
 
 // ---- accumulate metrics --------------------------------------------------
-let totalRuns = runs.length;
+// A run is identified by its story and the run id it records; the same run
+// archived twice is one run (task group 8.3). A run that records no id falls
+// back to its archive folder name.
+const seen = new Set();
+let duplicateArchives = 0;
+const samples = {
+  runs: 0,
+  with_release_report: 0,
+  with_failure_analysis: 0,
+  with_risk_coverage: 0,
+  with_healer_evidence: 0,
+};
 const passRateByStory = {}; // story -> [pass_rate,...]
-const tcFailCounts = {}; // TC id -> times it appears in a failure
-const flakyCounts = {}; // PW/REQ id -> flaky count (from failure classification)
+const analyses = []; // {story, runId, failures}
+const healerDirs = []; // {story, runId, files}
 let productBugsFound = 0;
-let healerTotal = 0;
-let healerValidated = 0;
 // Gate rejections per run come from context.gate_decisions[] (the optional
-// append-only log). gate3 = specs_reviewed, gate4 = code_reviewed. A run with
-// no gate_decisions contributes nothing (older runs) — we track how many runs
-// actually carry the log so the metric is honest about its sample.
+// append-only log). A run with no gate_decisions contributes nothing (older
+// runs) — we track how many runs actually carry the log so the metric is
+// honest about its sample.
 let gate3Rejections = 0;
 let gate4Rejections = 0;
 let runsWithGateLog = 0;
-// How many runs carry a non-empty prompt_versions map. This is the runtime
-// linkage the prompt-stability signal needs; without it the metric can never
-// leave null, so we surface the count (T4.2).
+// How many runs carry a non-empty prompt_versions map (T4.2).
 let runsWithPromptVersions = 0;
-const untestedHighRisk = []; // {story, risk_id}
+const untestedHighRisk = []; // {story, run_id, risk_id}
 // What the prompt-stability computation reads per run (demo runs included, as
 // exclusions).
 const stabilityRuns = demoRuns.map((r) => ({
@@ -119,14 +135,23 @@ for (const run of runs) {
   const ctx = readJson(join(run.base, 'context.json'));
   const report = readJson(join(run.base, 'release', 'release-report.json'));
   const fa = readJson(join(run.base, 'analysis', 'failure-analysis.json'));
+  const runId = ctx?.run_id || fa?.run_id || run.dir;
+  const identity = `${run.story}|${runId}`;
+  if (seen.has(identity)) {
+    duplicateArchives += 1;
+    continue;
+  }
+  seen.add(identity);
+  samples.runs += 1;
   stabilityRuns.push({
     story: run.story,
-    runId: run.runId,
+    runId,
     context: ctx,
     failureAnalysis: fa,
   });
 
   // pass rate (from release report execution_summary; flat or grouped)
+  if (report) samples.with_release_report += 1;
   if (report?.execution_summary) {
     const es = report.execution_summary;
     const rate =
@@ -136,48 +161,40 @@ for (const run of runs) {
     }
   }
 
-  // failing TCs + flaky + product bugs (from failure-analysis)
-  for (const f of fa?.failures || []) {
-    if (f.test_case_id)
-      tcFailCounts[f.test_case_id] = (tcFailCounts[f.test_case_id] || 0) + 1;
-    if (f.classification === 'flaky') {
-      // unit_id (failure-analysis 2.x) is stable across runs; FAIL-ids are
-      // per-analysis, so falling back to them would merge unrelated tests.
-      const id =
-        f.playwright_test_id || f.request_id || f.unit_id || f.failure_id;
-      flakyCounts[id] = (flakyCounts[id] || 0) + 1;
-    }
-    if (f.classification === 'product_bug') productBugsFound += 1;
+  // failing test cases + flaky units + product bugs (from failure-analysis)
+  if (fa) {
+    samples.with_failure_analysis += 1;
+    analyses.push({ story: run.story, runId, failures: fa.failures ?? [] });
+    productBugsFound += (fa.failures ?? []).filter(
+      (f) => f.classification === 'product_bug'
+    ).length;
   }
 
   // untested high-risk (from release report coverage_by_risk + context severities)
   if (report?.coverage_by_risk && ctx?.risks) {
+    samples.with_risk_coverage += 1;
     const sevById = Object.fromEntries(
       ctx.risks.map((r) => [r.risk_id, r.severity])
     );
     for (const c of report.coverage_by_risk) {
       if (c.status === 'uncovered' && sevById[c.risk_id] === 'high') {
-        untestedHighRisk.push({ story: run.story, risk_id: c.risk_id });
+        untestedHighRisk.push({
+          story: run.story,
+          run_id: runId,
+          risk_id: c.risk_id,
+        });
       }
     }
   }
-  // Phase 2.6 explicit field, if present
-  if (
-    typeof report?.uncovered_high_severity_count === 'number' &&
-    report.uncovered_high_severity_count > 0
-  ) {
-    // already captured per-risk above when coverage_by_risk present
-  }
 
-  // healer validation success rate (from analysis/healer-validation/)
+  // healer evidence (analysis/healer-validation/), judged in lib/run-metrics.js
   const hv = join(run.base, 'analysis', 'healer-validation');
   if (existsSync(hv)) {
-    for (const file of readdirSync(hv)) {
-      if (!file.endsWith('.md')) continue;
-      healerTotal += 1;
-      const body = readFileSync(join(hv, file), 'utf8');
-      if (!/REJECTED/i.test(body)) healerValidated += 1;
-    }
+    const files = readdirSync(hv)
+      .sort()
+      .map((name) => ({ name, text: readFileSync(join(hv, name), 'utf8') }));
+    if (files.length) samples.with_healer_evidence += 1;
+    healerDirs.push({ story: run.story, runId, files });
   }
 
   // gate rejection counts from the optional gate_decisions[] log.
@@ -202,32 +219,35 @@ for (const run of runs) {
   }
 }
 
+const totalRuns = samples.runs;
 const avg = (arr) =>
   arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
 const passRateSummary = Object.fromEntries(
-  Object.entries(passRateByStory).map(([s, rates]) => [s, avg(rates)])
+  Object.entries(passRateByStory).map(([s, rates]) => [
+    s,
+    { average_pass_rate: avg(rates), runs_with_rate: rates.length },
+  ])
 );
-const topFailingTcs = Object.entries(tcFailCounts)
-  .sort((a, b) => b[1] - a[1])
-  .slice(0, 10)
-  .map(([id, n]) => ({ test_case_id: id, failures: n }));
-const topFlaky = Object.entries(flakyCounts)
-  .sort((a, b) => b[1] - a[1])
-  .slice(0, 10)
-  .map(([id, n]) => ({ id, flaky_count: n }));
+const failureStats = failureMetrics(analyses);
+const healer = healerMetrics(
+  healerDirs,
+  (rec) => validateValue(rec, HEALER_RECORD_SCHEMA).ok
+);
 
 const metrics = {
   generated_at: new Date().toISOString(),
   total_runs: totalRuns,
-  average_pass_rate_by_story: passRateSummary,
-  top_failing_test_cases: topFailingTcs,
-  flakiest_tests: topFlaky,
-  product_bugs_found_by_generated_tests: productBugsFound,
-  healer_patch_validation: {
-    total: healerTotal,
-    validated: healerValidated,
-    success_rate: healerTotal ? healerValidated / healerTotal : null,
+  duplicate_run_archives: duplicateArchives,
+  // How many runs each metric could actually read. A metric over zero
+  // samples is unknown, not zero (task group 8.3).
+  samples,
+  pass_rate_by_story: passRateSummary,
+  ...failureStats,
+  product_bugs_found_by_generated_tests: {
+    count: productBugsFound,
+    runs_with_failure_analysis: samples.with_failure_analysis,
   },
+  healer_patch_validation: healer,
   gate_rejections: {
     runs_with_gate_log: runsWithGateLog,
     total_runs: totalRuns,
@@ -248,47 +268,70 @@ metrics.runs_with_prompt_versions = runsWithPromptVersions;
 
 // ---- markdown ------------------------------------------------------------
 const pct = (r) => (r === null ? 'n/a' : `${Math.round(r * 100)}%`);
+const of = (n) => `${n}/${totalRuns} run(s)`;
+const unknownOrNone = (sampleCount, what) =>
+  sampleCount === 0
+    ? `- Unknown: no run has ${what}, so absence here proves nothing.`
+    : '- (none)';
 const md = [
   '# Pipeline Metrics',
   '',
   `Generated: ${metrics.generated_at}`,
-  `Runs analyzed (from runs/): **${totalRuns}**`,
+  `Runs analyzed (from runs/): **${totalRuns}**` +
+    (duplicateArchives
+      ? ` (${duplicateArchives} duplicate archive(s) of the same run ignored)`
+      : ''),
   '',
-  '## Average pass rate by story',
+  '## Pass rate by story',
   '',
-  Object.keys(passRateSummary).length
-    ? Object.entries(passRateSummary)
-        .map(([s, r]) => `- ${s}: ${pct(r)}`)
-        .join('\n')
-    : '- (no release reports in archived runs yet)',
+  `- Sample: ${of(samples.with_release_report)} with a release report.`,
+  ...(Object.keys(passRateSummary).length
+    ? Object.entries(passRateSummary).map(
+        ([s, r]) =>
+          `- ${s}: ${pct(r.average_pass_rate)} (average of ${r.runs_with_rate} run(s))`
+      )
+    : [unknownOrNone(samples.with_release_report, 'a release report')]),
   '',
   '## Top failing test cases',
   '',
-  topFailingTcs.length
-    ? topFailingTcs
-        .map((t) => `- ${t.test_case_id}: ${t.failures} failure(s)`)
-        .join('\n')
-    : '- (none)',
+  `- Sample: ${of(samples.with_failure_analysis)} with a failure analysis; ${failureStats.failures_without_test_case} failure(s) not linked to a test case.`,
+  ...(failureStats.top_failing_test_cases.length
+    ? failureStats.top_failing_test_cases.map(
+        (t) =>
+          `- ${t.story} ${t.test_case_id}: ${t.failures} failure(s) in ${t.runs.join(', ')}`
+      )
+    : [unknownOrNone(samples.with_failure_analysis, 'a failure analysis')]),
   '',
   '## Flakiest tests',
   '',
-  topFlaky.length
-    ? topFlaky.map((t) => `- ${t.id}: ${t.flaky_count}`).join('\n')
-    : '- (none)',
+  `- Sample: ${of(samples.with_failure_analysis)} with a failure analysis; ${failureStats.flaky_without_identity} flaky failure(s) with no provable unit identity.`,
+  ...(failureStats.flakiest_tests.length
+    ? failureStats.flakiest_tests.map(
+        (t) =>
+          `- ${t.story} ${t.source} ${t.unit}${t.project ? ` [${t.project}]` : ''}: ${t.flaky_count} in ${t.runs.join(', ')}`
+      )
+    : [unknownOrNone(samples.with_failure_analysis, 'a failure analysis')]),
   '',
   '## Healer patch validation',
   '',
-  `- Patches: ${healerTotal} · validated: ${healerValidated} · success rate: ${pct(metrics.healer_patch_validation.success_rate)}`,
+  `- Structured submissions: ${healer.submissions} · validated: ${healer.validated} · validation failed: ${healer.validation_failed} · rejected by the static check: ${healer.rejected_static}`,
+  `- Success rate (validated / submissions): ${pct(healer.success_rate)}` +
+    (healer.success_rate === null ? ' — no structured submission yet' : ''),
+  `- Not counted as patches: ${healer.yellow_suggestions} Yellow suggestion(s), ${healer.exhausted_notices} exhausted notice(s), ${healer.invalid_records} invalid record(s), ${healer.duplicate_records} duplicate record(s)`,
+  `- Legacy Markdown notes (unverified, never counted): ${healer.legacy_markdown_notes}`,
   '',
   '## Product bugs found by generated tests',
   '',
-  `- ${productBugsFound}`,
+  samples.with_failure_analysis
+    ? `- ${productBugsFound} (over ${of(samples.with_failure_analysis)} with a failure analysis)`
+    : unknownOrNone(0, 'a failure analysis'),
   '',
   '## Untested high-risk items',
   '',
-  untestedHighRisk.length
-    ? untestedHighRisk.map((u) => `- ${u.story}: ${u.risk_id}`).join('\n')
-    : '- (none)',
+  `- Sample: ${of(samples.with_risk_coverage)} with risk coverage in their report.`,
+  ...(untestedHighRisk.length
+    ? untestedHighRisk.map((u) => `- ${u.story} (${u.run_id}): ${u.risk_id}`)
+    : [unknownOrNone(samples.with_risk_coverage, 'risk coverage')]),
   '',
   '## Gate rejections',
   '',
