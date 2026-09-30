@@ -9,7 +9,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execPath } from 'node:process';
@@ -61,6 +67,22 @@ function probeModule(dir, body) {
 
 const scratch = () => mkdtempSync(join(tmpdir(), 'qaizen-survival-'));
 
+/**
+ * The probe runs need a browser. CI's quality job installs none, so there they
+ * skip with a message (the same rule as test/run-healer.test.js); the survival
+ * rule itself, source inspection and every no-rate path run everywhere.
+ */
+async function browserInstalled() {
+  try {
+    const { chromium } = await import('@playwright/test');
+    return existsSync(chromium.executablePath());
+  } catch {
+    return false;
+  }
+}
+const NO_BROWSER =
+  'no Playwright browser installed (CI quality job); run locally for the real measurement';
+
 // ------------------------------------------------------------ measurement
 
 const IMG =
@@ -104,7 +126,11 @@ export const probes = [
 ];
 `;
 
-test('real locator semantics decide survival: named-role drift, strictness, scope, and non-text locators', async () => {
+test('real locator semantics decide survival: named-role drift, strictness, scope, and non-text locators', async (t) => {
+  if (!(await browserInstalled())) {
+    t.skip(NO_BROWSER);
+    return;
+  }
   const app = await serve({ '/v1/': V1, '/v2/': V2 });
   const dir = scratch();
   try {
@@ -169,7 +195,11 @@ export const probes = [
 ];
 `;
 
-test('preparation runs before probing; a version whose setup fails makes the rate null', async () => {
+test('preparation runs before probing; a version whose setup fails makes the rate null', async (t) => {
+  if (!(await browserInstalled())) {
+    t.skip(NO_BROWSER);
+    return;
+  }
   const app = await serve({
     '/v1/': LOGIN_APP,
     '/v2/': LOGIN_APP,
@@ -213,7 +243,11 @@ test('preparation runs before probing; a version whose setup fails makes the rat
   }
 });
 
-test('a baseline probe that is not unique makes the measurement invalid, not a failure rate', async () => {
+test('a baseline probe that is not unique makes the measurement invalid, not a failure rate', async (t) => {
+  if (!(await browserInstalled())) {
+    t.skip(NO_BROWSER);
+    return;
+  }
   const app = await serve({ '/v1/': V1, '/v2/': V1 });
   const dir = scratch();
   try {
