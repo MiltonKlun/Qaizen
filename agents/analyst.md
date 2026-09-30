@@ -9,9 +9,12 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 2.0.1
+version: 2.0.2
 changed_in_run: null
 changelog: |
+  - 2.0.2: PATCH (task group 8.2). The prompt_versions guidance names the
+    metric it feeds as it now works: a run missing a version for an agent
+    that ran is excluded from prompt_stability. No behavior change.
   - 2.0.1: PATCH. Reference update only: the design-decision records moved to
     `docs/design-decisions.md` (IDs D1-D7). No behavior change.
   - 2.0.0: MAJOR (task group 4.1, finding B3). The run id now comes from the
@@ -265,8 +268,9 @@ true`, set `status` to `"blocked"` instead and stop.)
    `failure-classifier`, and `reporter` (read each from
    `agents/<name>.md`); add `api-agent` and `spec-reviewer` when the run
    uses them. This is what lets `npm run metrics` link an archived run to
-   the prompt revisions that produced it (the prompt-stability threshold);
-   without it, `prompt_stability_met` stays `null`. Do not guess a version
+   the prompt revisions that produced it (the prompt-stability cohorts);
+   a run missing the version of any agent that ran is excluded from
+   `prompt_stability`, with that reason. Do not guess a version
    — read it from the file. The field already exists in the schema, so
    this is Analyst discipline, not a schema change.
 10. **Write `context.json`** at the project root.

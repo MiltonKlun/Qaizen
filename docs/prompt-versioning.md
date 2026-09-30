@@ -89,6 +89,11 @@ rate moves between run N and run N+1, the `prompt_versions` diff tells you
 whether a prompt change is a candidate cause. Without it, a regression and a
 prompt change are two facts with no link between them.
 
+The same pin decides prompt stability (task group 8.2): `npm run metrics`
+groups completed runs by their exact `prompt_versions` vector and judges each
+group on its latest 10 runs; a run that lacks the version of any agent that ran
+is excluded, not guessed. See `docs/pipeline-architecture.md` §8.2.
+
 When you archive a run with `scripts/new-run.js`, the run-local `context.json`
 carries its `prompt_versions` with it — so `runs/` becomes an honest record of
 _which prompts produced which results_, which is exactly what the pipeline

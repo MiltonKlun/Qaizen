@@ -28,18 +28,14 @@ import {
 import { join } from 'node:path';
 import { argv, exit } from 'node:process';
 
+import {
+  GATE3_KEYS,
+  GATE4_KEYS,
+  promptStability,
+  renderPromptStability,
+} from './lib/prompt-stability.js';
+
 const DRY = argv.includes('--dry-run');
-/** The plan/spec review and the final review of each branch. */
-const GATE3_KEYS = new Set([
-  'specs_reviewed',
-  'collection_reviewed',
-  'external_plan_reviewed',
-]);
-const GATE4_KEYS = new Set([
-  'code_reviewed',
-  'api_assertions_reviewed',
-  'external_evidence_reviewed',
-]);
 const RUNS = 'runs';
 const OUT_DIR = 'metrics';
 
@@ -60,6 +56,9 @@ const readJson = (p) => {
 
 // Discover archived runs: runs/<story>/<run-id>/.
 const runs = [];
+// Demo runs are kept apart: they count toward nothing, but the prompt-stability
+// result lists them as excluded so the sample is accounted for (task group 8.2).
+const demoRuns = [];
 for (const story of readdirSync(RUNS)) {
   if (story === 'latest.json') continue;
   const storyDir = join(RUNS, story);
@@ -79,7 +78,10 @@ for (const story of readdirSync(RUNS)) {
     // Skip demo runs (scripts/demo-pipeline.js). A DEMO_RUN sentinel file in
     // the run folder marks a replayed demo — it must never count toward
     // pass rate, gate-cost, or the prompt_stability threshold (IP-3.3).
-    if (existsSync(join(base, 'DEMO_RUN'))) continue;
+    if (existsSync(join(base, 'DEMO_RUN'))) {
+      demoRuns.push({ story, runId, base });
+      continue;
+    }
     runs.push({ story, runId, base });
   }
 }
@@ -104,11 +106,25 @@ let runsWithGateLog = 0;
 // leave null, so we surface the count (T4.2).
 let runsWithPromptVersions = 0;
 const untestedHighRisk = []; // {story, risk_id}
+// What the prompt-stability computation reads per run (demo runs included, as
+// exclusions).
+const stabilityRuns = demoRuns.map((r) => ({
+  story: r.story,
+  runId: r.runId,
+  demo: true,
+  context: null,
+}));
 
 for (const run of runs) {
   const ctx = readJson(join(run.base, 'context.json'));
   const report = readJson(join(run.base, 'release', 'release-report.json'));
   const fa = readJson(join(run.base, 'analysis', 'failure-analysis.json'));
+  stabilityRuns.push({
+    story: run.story,
+    runId: run.runId,
+    context: ctx,
+    failureAnalysis: fa,
+  });
 
   // pass rate (from release report execution_summary; flat or grouped)
   if (report?.execution_summary) {
@@ -225,24 +241,10 @@ const metrics = {
   untested_high_risk_items: untestedHighRisk,
 };
 
-// Prompt-stability signal (Phase 3 §6: <10% gate rejection over 10 runs).
-// Only meaningful once runs carry gate logs; computed over those that do.
-const gateDecisionRuns = runsWithGateLog;
-const promptStabilityMet =
-  gateDecisionRuns >= 10
-    ? (gate3Rejections + gate4Rejections) / gateDecisionRuns < 0.1
-    : null; // null = not enough logged runs to judge
-metrics.prompt_stability_met = promptStabilityMet;
+// Prompt stability (Phase 3 §6, rebuilt in task group 8.2): one result, per
+// prompt-version cohort, that the JSON, the Markdown and /evolve all read.
+metrics.prompt_stability = promptStability(stabilityRuns);
 metrics.runs_with_prompt_versions = runsWithPromptVersions;
-
-// When the signal is null, say WHY in one line (T4.2): the two things it needs
-// are 10 logged runs and runtime prompt-version linkage. Without prompt_versions
-// on runs, the threshold can never be evaluated no matter how many runs accrue.
-const promptStabilityExplainer =
-  promptStabilityMet === null
-    ? `prompt_stability: not computable — ${gateDecisionRuns}/10 runs, ` +
-      `${runsWithPromptVersions} runs carry prompt_versions`
-    : null;
 
 // ---- markdown ------------------------------------------------------------
 const pct = (r) => (r === null ? 'n/a' : `${Math.round(r * 100)}%`);
@@ -292,15 +294,16 @@ const md = [
   '',
   `- Gate 3 (specs) rejections: ${gate3Rejections} · Gate 4 (code) rejections: ${gate4Rejections}`,
   `- Counted over ${runsWithGateLog}/${totalRuns} run(s) carrying a gate_decisions log.`,
-  runsWithGateLog === 0
-    ? '- No run records gate_decisions yet — record them (a rejection event when a gate is sent back) to make this real. 0 here means "unrecorded", not "never happened".'
-    : `- Prompt-stability (<10% rejection over 10+ logged runs): ${promptStabilityMet === null ? 'not enough logged runs yet' : promptStabilityMet ? 'MET' : 'NOT met'}.`,
+  ...(runsWithGateLog === 0
+    ? [
+        '- No run records gate_decisions yet — record them (a rejection event when a gate is sent back) to make this real. 0 here means "unrecorded", not "never happened".',
+      ]
+    : []),
   '',
   '## Prompt stability',
   '',
-  promptStabilityExplainer
-    ? `- ${promptStabilityExplainer}. It needs BOTH: 10+ logged runs AND runs that carry a prompt_versions map (Analyst v1.3.0+). Until archived runs record prompt_versions, this stays null no matter how many runs accrue.`
-    : `- Prompt-stability MET across ${gateDecisionRuns} logged runs (${runsWithPromptVersions} carry prompt_versions).`,
+  ...renderPromptStability(metrics.prompt_stability),
+  `- Runs carrying prompt_versions: ${runsWithPromptVersions}/${totalRuns}.`,
   '',
   '> Metrics guide improvement; they never rewrite prompts or contracts',
   '> automatically. See docs/pipeline-architecture.md "Metrics and Monitoring".',

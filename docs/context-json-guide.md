@@ -403,8 +403,10 @@ rather than guessing (`agents/analyst.md` §5 step 9). Include at minimum
 
 The field is **optional in the schema** (an open map, so new agents register
 without a schema change) but **required by Analyst discipline** — it is what
-lets `npm run metrics` compute `prompt_stability_met`. Runs that omit it (every
-pre-1.3.0 archive) leave that metric `null`; the pipeline otherwise runs
+lets `npm run metrics` judge prompt stability. A run is eligible only when it
+records a version for every agent that ran (the four above, plus `api-agent`
+when the API branch ran); a run that omits one is excluded from
+`prompt_stability` and counted with that reason. The pipeline otherwise runs
 identically. See `docs/prompt-versioning.md`.
 
 ```json

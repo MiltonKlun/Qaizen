@@ -571,14 +571,24 @@ rule).
   spike above it is the cue to revisit the prompt (and, in Phase 3 TG10, to
   run `/evolve`).
 
-Gate rejection counts are now recorded per-run in the optional
+Gate rejection counts are recorded per-run in the optional
 `context.gate_decisions[]` log (an append-only list of approval/rejection
 events; see `docs/review-gates.md`). `npm run metrics` counts the `rejected`
-events for `specs_reviewed` (Gate 3) and `code_reviewed` (Gate 4), and once
-**10+ runs carry the log** it computes the `< 10%` prompt-stability signal
-(`prompt_stability_met`). Until then it reports the counts honestly over the
-subset of runs that have a log, and notes that `0` means "unrecorded", not
-"never happened".
+events for the Gate 3 and Gate 4 equivalents of every branch (E2E, API,
+external) over the runs that have a log, and notes that `0` means
+"unrecorded", not "never happened".
+
+Prompt stability (`prompt_stability` in `metrics/pipeline-metrics.json`,
+task group 8.2) is judged per **identical prompt-version vector**, never
+across versions. An eligible run is a completed, non-demo run with a Gate 3/4
+decision record and a known `prompt_versions` entry for every agent that ran;
+every other run is excluded and counted with its reason. Each cohort takes its
+latest 10 eligible runs (by execution time, then run id); the rate is the share
+of those runs with at least one Gate 3/4-equivalent rejection (several in one
+run count once; raw events are kept). The verdict is `met` only below 10%
+(one affected run in ten is `not_met`), and `not_computable` with fewer than
+10 runs. There is no verdict across cohorts, and the JSON and the Markdown
+render the same result.
 
 ---
 
