@@ -1,3 +1,4 @@
+// @ts-check
 // Execution-ledger reader + semantic invariants (task group 2.2a).
 //
 // The ledger is the canonical cross-runner counting model for a run. AJV proves
@@ -61,10 +62,44 @@ const PASSING = new Set(['passed']);
 const UNTRUSTWORTHY = new Set(['errored', 'interrupted', 'not_started']);
 
 /**
+ * The ledger's shapes (schemas/execution-ledger.schema.json). AJV enforces
+ * them at the boundary; these types let the checker follow them inside.
+ * @typedef {{ status: string, duration_ms?: number, error_message?: string }} Attempt
+ * @typedef {{ name: string, passed: boolean, error_message?: string }} Assertion
+ * @typedef {{ kind: string, test_title?: string, file?: string,
+ *   project?: string, repeat_index?: number, collection_id?: string,
+ *   request_name?: string, iteration?: number, occurrence?: number }} UnitIdentity
+ * @typedef {{ test_case_id?: string | null, api_test_case_id?: string | null,
+ *   playwright_test_id?: string | null, request_id?: string | null,
+ *   spec_id?: string | null, unresolved_reason?: string | null }} DomainLinks
+ * @typedef {{ unit_id: string, execution_id: string, identity: UnitIdentity,
+ *   domain_links?: DomainLinks, outcome: string, attempts?: Attempt[],
+ *   assertions?: Assertion[] }} Unit
+ * @typedef {{ message: string, phase?: string }} SourceError
+ * @typedef {{ execution_id: string, runner: string, started_at: string,
+ *   completed_at?: string | null, command_identity?: string,
+ *   config_identity?: string, process_status: string,
+ *   exit_code?: number | null, report_reference?: string | null,
+ *   report_digest?: string | null, source_errors?: SourceError[] }} SourceExecution
+ * @typedef {{ test_case_id: string, outcome: string,
+ *   linked_unit_ids?: string[], reason?: string }} CaseOutcome
+ * @typedef {Record<string, number | null | undefined>} Totals
+ * @typedef {{ schema_version: string, run_id: string, story_id: string,
+ *   generated_at: string, approved_scope_digest?: string | null,
+ *   source_executions: SourceExecution[], units: Unit[],
+ *   case_outcomes?: CaseOutcome[], totals: Totals }} Ledger
+ * @typedef {{ test_case_id: string, automation_decision: string,
+ *   status: string, [field: string]: any }} TestCase
+ * @typedef {{ story_id: string, test_cases?: TestCase[] }} TestCasesDoc
+ */
+
+/**
  * Check the invariants AJV cannot express.
+ * @param {Ledger} ledger
  * @returns {{ok: true} | {ok: false, violations: string[]}}
  */
 export function ledgerInvariants(ledger) {
+  /** @type {string[]} */
   const v = [];
   const units = ledger.units || [];
   const totals = ledger.totals || {};
@@ -159,6 +194,7 @@ export function ledgerInvariants(ledger) {
     // A null link needs a stated reason; IDs are never invented (B6).
     const links = u.domain_links;
     if (links) {
+      /** @type {(keyof DomainLinks)[]} */
       const idKeys = [
         'test_case_id',
         'api_test_case_id',
@@ -238,9 +274,10 @@ export function ledgerInvariants(ledger) {
  * The legacy flat projection, for reports that still carry flat fields.
  * Defined by the plan so the projection is stated once rather than re-derived
  * (and mis-derived) per consumer.
+ * @param {Totals} totals
  */
 export function legacySummaryProjection(totals) {
-  const n = (k) => totals[k] ?? 0;
+  const n = (/** @type {string} */ k) => totals[k] ?? 0;
   return {
     passed: n('passed'),
     failed: n('failed') + n('blocked') + n('flaky'),
@@ -252,11 +289,17 @@ export function legacySummaryProjection(totals) {
 /**
  * Load a ledger: schema-validate, then check semantic invariants, then confirm
  * it belongs to the run the caller asked about.
+ * @param {string} path
+ * @param {{ storyId?: string, runId?: string }} [expect]
+ * @returns {{ ok: true, data: Ledger }
+ *   | import('./artifact-io.js').IoFailure
+ *   | { ok: false, kind: string, message: string, violations: string[] }}
  */
 export function readLedger(path, expect = {}) {
   const read = readValidatedJson(path, LEDGER_SCHEMA);
   if (!read.ok) return read;
 
+  /** @type {Ledger} */
   const ledger = read.data;
 
   if (expect.storyId && ledger.story_id !== expect.storyId) {
@@ -293,6 +336,7 @@ export function readLedger(path, expect = {}) {
  * Digest of the approved test-case scope a ledger was built against
  * (task group 5.3). Only approved cases count, without the linkage fields
  * adapters write back, so syncing a case never changes the scope.
+ * @param {TestCasesDoc} testCasesDoc
  */
 export function approvedScopeDigest(testCasesDoc) {
   const cases = (testCasesDoc.test_cases ?? [])
@@ -324,6 +368,7 @@ const NOT_EXECUTED = new Set(['skipped', 'not_run']);
  * and results (schemas/external-execution.schema.json). Component tests run
  * outside the pipeline (docs/automation-decision-model.md section 5).
  */
+/** @type {Readonly<Record<string, string>>} */
 export const EXTERNAL_SOURCE = {
   manual: 'manual',
   automate_component: 'component',
@@ -331,7 +376,7 @@ export const EXTERNAL_SOURCE = {
 };
 
 /** The external source of an automation decision, or null when automated. */
-export const externalSource = (decision) =>
+export const externalSource = (/** @type {string} */ decision) =>
   Object.prototype.hasOwnProperty.call(EXTERNAL_SOURCE, decision)
     ? EXTERNAL_SOURCE[decision]
     : null;
@@ -340,11 +385,11 @@ export const externalSource = (decision) =>
 const RECORDED_DECISIONS = new Set(['manual', 'automate_component']);
 const NON_PASSING = new Set(['failed', 'blocked', 'flaky', 'expected_failure']);
 
-const linksTo = (unit, caseId) => {
+const linksTo = (/** @type {Unit} */ unit, /** @type {string} */ caseId) => {
   const l = unit.domain_links || {};
   return l.test_case_id === caseId || l.api_test_case_id === caseId;
 };
-const unattributed = (unit) => {
+const unattributed = (/** @type {Unit} */ unit) => {
   const l = unit.domain_links || {};
   return !l.test_case_id && !l.api_test_case_id;
 };
@@ -367,8 +412,9 @@ const unattributed = (unit) => {
  * by an external one. Without a recorded result a manual case is not_run.
  *
  * @param {object} args
- * @param {object} args.testCase   one test case
- * @param {object} args.ledger     a validated ledger of the current run
+ * @param {TestCase} args.testCase   one test case
+ * @param {Pick<Ledger, 'units' | 'source_executions'>} args.ledger  a
+ *   validated ledger of the current run
  * @param {Set<string>} [args.confirmedProductFailureUnits] unit ids a
  *   finalized failure analysis classifies as product_bug
  * @returns {{outcome: string, reason: string, unitIds: string[]}}
@@ -379,7 +425,10 @@ export function testCaseOutcome({
   confirmedProductFailureUnits = new Set(),
 }) {
   const id = testCase.test_case_id;
-  const notRun = (reason, unitIds = []) => ({
+  const notRun = (
+    /** @type {string} */ reason,
+    /** @type {string[]} */ unitIds = []
+  ) => ({
     outcome: 'not_run',
     reason,
     unitIds,
@@ -417,7 +466,11 @@ export function testCaseOutcome({
     };
   }
 
-  const blocked = (reason) => ({ outcome: 'blocked', reason, unitIds });
+  const blocked = (/** @type {string} */ reason) => ({
+    outcome: 'blocked',
+    reason,
+    unitIds,
+  });
 
   const nonPassing = linked.filter((u) => NON_PASSING.has(u.outcome));
   if (nonPassing.length) {

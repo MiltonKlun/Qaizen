@@ -33,6 +33,7 @@
 
 import { redDomainsInText } from '../red-domains.js';
 
+// eslint-disable-next-line no-control-regex -- ANSI escape sequences start with ESC (\x1b); matching it is the point.
 const ANSI = /\u001b\[[0-9;]*m/g;
 
 /** Remove terminal colour codes. Real Playwright messages are full of them. */

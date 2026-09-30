@@ -799,7 +799,7 @@ test('TEST_MANAGEMENT_TOOL must select the adapter; bad arguments are usage erro
         'create-jira-testcases.js',
         [STORY, '--apply', '--limit', 'two'],
         { TEST_MANAGEMENT_TOOL: 'jira' },
-        /--limit expects a positive integer/,
+        /--limit expects an integer of at least 1/,
       ],
       [
         'create-jira-testcases.js',

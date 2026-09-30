@@ -15,6 +15,9 @@
 //   node scripts/export-to-jira.js <story-id> --include-risks       # also list context risks
 //   node scripts/export-to-jira.js <story-id> --approved-only       # only status=approved TCs
 //
+// Options may come before or after <story-id>. An unknown option, a missing
+// value, or a repeated option is a usage error (scripts/lib/cli.js).
+//
 // Env (from .env or process.env, optional): JIRA_PROJECT_KEY (prefills the
 // CSV "Project Key" column), JIRA_TESTCASE_ISSUETYPE (default "Test").
 //
@@ -23,35 +26,27 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { argv, env, exit } from 'node:process';
 
-if (existsSync('.env')) {
-  for (const line of readFileSync('.env', 'utf8').split('\n')) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-    if (m && !(m[1] in env)) env[m[1]] = m[2];
-  }
-}
+import { loadDotEnv, parseCliOrExit, validateStoryId } from './lib/cli.js';
 
-const FORMAT = (() => {
-  const i = argv.indexOf('--format');
-  return i !== -1 && argv[i + 1] ? argv[i + 1] : 'markdown';
-})();
-const OUT = (() => {
-  const i = argv.indexOf('--out');
-  return i !== -1 && argv[i + 1] ? argv[i + 1] : null;
-})();
-const INCLUDE_RISKS = argv.includes('--include-risks');
-const APPROVED_ONLY = argv.includes('--approved-only');
-const storyId = argv.find((a, i) => i >= 2 && !a.startsWith('--'));
+loadDotEnv(env);
 
-if (!storyId) {
-  console.error(
-    'Usage: node scripts/export-to-jira.js <story-id> [--format markdown|csv] [--out file] [--include-risks] [--approved-only]'
-  );
-  exit(2);
-}
-if (!['markdown', 'csv'].includes(FORMAT)) {
-  console.error(`Unknown --format "${FORMAT}". Use "markdown" or "csv".`);
-  exit(2);
-}
+const cli = parseCliOrExit(argv.slice(2), {
+  usage:
+    'Usage: node scripts/export-to-jira.js <story-id> [--format markdown|csv] [--out file] [--include-risks] [--approved-only]\n' +
+    '  Options may come before or after <story-id>.',
+  positionals: [{ name: 'story-id', validate: validateStoryId }],
+  options: {
+    format: { type: 'string', choices: ['markdown', 'csv'] },
+    out: { type: 'string' },
+    'include-risks': { type: 'boolean' },
+    'approved-only': { type: 'boolean' },
+  },
+});
+const FORMAT = /** @type {string} */ (cli.values.format ?? 'markdown');
+const OUT = /** @type {string | undefined} */ (cli.values.out) ?? null;
+const INCLUDE_RISKS = cli.values['include-risks'] === true;
+const APPROVED_ONLY = cli.values['approved-only'] === true;
+const storyId = cli.positionals['story-id'];
 
 const casesPath = `test-cases/${storyId}.json`;
 if (!existsSync(casesPath)) {

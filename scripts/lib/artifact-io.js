@@ -1,3 +1,4 @@
+// @ts-check
 // Shared artifact I/O: one AJV configuration, validated atomic writes, and a
 // run-scoped loader (IMPLEMENTATION_PLAN task group 2.1, review finding I6).
 //
@@ -49,21 +50,38 @@ export const IO_ERROR = {
   WRITE_FAILED: 'write_failed',
 };
 
+/**
+ * A failed I/O or validation step. `kind` is one of IO_ERROR.
+ * @typedef {{ ok: false, kind: string, message: string,
+ *   errors?: import('ajv').ErrorObject[] }} IoFailure
+ */
+/**
+ * @typedef {{ ok: true, validate: import('ajv').ValidateFunction,
+ *   id: string | null }} CompiledSchema
+ */
+
+/** A thrown value's message (errors thrown by Node and AJV are Errors). */
+export const messageOf = (/** @type {unknown} */ err) =>
+  err instanceof Error ? err.message : String(err);
+
 /** The ONE AJV instance configuration for the whole pipeline. */
 const ajv = new Ajv({ allErrors: true, strict: false });
 addFormats(ajv);
 
 // Cache compiled schemas by RESOLVED path, so two callers spelling the same
 // schema differently ("schemas/x.json" vs an absolute path) share one compile.
+/** @type {Map<string, CompiledSchema>} */
 const compiledByPath = new Map();
 
 /**
  * Compile a schema, caching by resolved path.
- * @returns {{ok: true, validate: Function} | {ok: false, kind: string, message: string}}
+ * @param {string} schemaPath
+ * @returns {CompiledSchema | IoFailure}
  */
 export function compileSchema(schemaPath) {
   const key = resolve(schemaPath);
-  if (compiledByPath.has(key)) return compiledByPath.get(key);
+  const cached = compiledByPath.get(key);
+  if (cached) return cached;
 
   if (!existsSync(key)) {
     // Absence is REPORTED, not interpreted — the caller decides whether a
@@ -82,7 +100,7 @@ export function compileSchema(schemaPath) {
     return {
       ok: false,
       kind: IO_ERROR.INVALID_SCHEMA,
-      message: `Schema ${schemaPath} is not valid JSON: ${err.message}`,
+      message: `Schema ${schemaPath} is not valid JSON: ${messageOf(err)}`,
     };
   }
 
@@ -93,10 +111,11 @@ export function compileSchema(schemaPath) {
     return {
       ok: false,
       kind: IO_ERROR.INVALID_SCHEMA,
-      message: `Schema ${schemaPath} failed to compile: ${err.message}`,
+      message: `Schema ${schemaPath} failed to compile: ${messageOf(err)}`,
     };
   }
 
+  /** @type {CompiledSchema} */
   const result = { ok: true, validate, id: parsed.$id ?? null };
   compiledByPath.set(key, result);
   return result;
@@ -108,6 +127,9 @@ export function compileSchema(schemaPath) {
  * the sync record embedded in a Markdown bug draft, for instance. Uses the
  * same AJV instance: the parent schema is compiled first, which registers its
  * `$id`, and the fragment is resolved against it.
+ * @param {string} schemaPath
+ * @param {string} pointer
+ * @returns {{ ok: true, validate: import('ajv').ValidateFunction } | IoFailure}
  */
 function compileFragment(schemaPath, pointer) {
   const parent = compileSchema(schemaPath);
@@ -126,7 +148,7 @@ function compileFragment(schemaPath, pointer) {
     return {
       ok: false,
       kind: IO_ERROR.INVALID_SCHEMA,
-      message: `${schemaPath}${pointer} failed to compile: ${err.message}`,
+      message: `${schemaPath}${pointer} failed to compile: ${messageOf(err)}`,
     };
   }
   if (!validate) {
@@ -141,8 +163,9 @@ function compileFragment(schemaPath, pointer) {
 
 /**
  * Read + parse a JSON file, distinguishing missing from unreadable from
- * malformed.
- * @returns {{ok: true, data: unknown} | {ok: false, kind: string, message: string}}
+ * malformed. `data` is parsed JSON: its shape is the caller's schema's job.
+ * @param {string} path
+ * @returns {{ ok: true, data: any } | IoFailure}
  */
 export function readJson(path) {
   const full = resolve(path);
@@ -160,7 +183,7 @@ export function readJson(path) {
     return {
       ok: false,
       kind: IO_ERROR.UNREADABLE,
-      message: `Could not read ${path}: ${err.message}`,
+      message: `Could not read ${path}: ${messageOf(err)}`,
     };
   }
   try {
@@ -169,7 +192,7 @@ export function readJson(path) {
     return {
       ok: false,
       kind: IO_ERROR.MALFORMED_JSON,
-      message: `${path} is not valid JSON: ${err.message}`,
+      message: `${path} is not valid JSON: ${messageOf(err)}`,
     };
   }
 }
@@ -180,6 +203,9 @@ export function readJson(path) {
  * Deliberately prints the instance path, the message and AJV's params — never
  * the offending VALUE. An artifact can carry sensitive data, and a validation
  * diagnostic is exactly the kind of text that ends up in CI logs and issues.
+ * @param {import('ajv').ErrorObject[] | null | undefined} errors
+ * @param {{ includeParams?: boolean }} [opts]
+ * @returns {string[]}
  */
 export function formatErrors(errors, { includeParams = true } = {}) {
   return (errors ?? []).map((err) => {
@@ -194,7 +220,10 @@ export function formatErrors(errors, { includeParams = true } = {}) {
 
 /**
  * Validate an in-memory value against a schema.
- * @returns {{ok: true} | {ok: false, kind: string, message: string, errors?: object[]}}
+ * @param {unknown} value
+ * @param {string} schemaPath
+ * @param {{ fragment?: string }} [opts]
+ * @returns {{ ok: true } | IoFailure}
  */
 export function validateValue(value, schemaPath, { fragment } = {}) {
   const compiled = fragment
@@ -212,6 +241,9 @@ export function validateValue(value, schemaPath, { fragment } = {}) {
 
 /**
  * Read a file and validate it in one step.
+ * @param {string} path
+ * @param {string} schemaPath
+ * @returns {{ ok: true, data: any } | IoFailure}
  */
 export function readValidatedJson(path, schemaPath) {
   const read = readJson(path);
@@ -232,6 +264,9 @@ export function readValidatedJson(path, schemaPath) {
  * Checks the RESOLVED path, and where the parent directory already exists also
  * its realpath — so a symlink or Windows junction pointing outside the root is
  * caught rather than followed on write.
+ * @param {string} targetPath
+ * @param {string} root
+ * @returns {{ ok: true } | IoFailure}
  */
 export function assertWithinRoot(targetPath, root) {
   const rootResolved = resolve(root);
@@ -295,6 +330,7 @@ export function assertWithinRoot(targetPath, root) {
  * @param {object} [opts]
  * @param {string} [opts.schemaPath] validate against this schema first
  * @param {string} [opts.root] reject destinations escaping this root
+ * @returns {{ ok: true } | IoFailure}
  */
 export function writeJsonAtomic(path, value, opts = {}) {
   const { schemaPath, root } = opts;
@@ -325,7 +361,7 @@ export function writeJsonAtomic(path, value, opts = {}) {
     return {
       ok: false,
       kind: IO_ERROR.WRITE_FAILED,
-      message: `Refusing to write ${path}: value is not serializable (${err.message})`,
+      message: `Refusing to write ${path}: value is not serializable (${messageOf(err)})`,
     };
   }
 
@@ -339,6 +375,10 @@ export function writeJsonAtomic(path, value, opts = {}) {
 const TRANSIENT_RENAME = new Set(['EPERM', 'EACCES', 'EBUSY']);
 const RENAME_RETRY_MS = 2000;
 
+/**
+ * @param {string} from
+ * @param {string} to
+ */
 function renameWithRetry(from, to) {
   const deadline = Date.now() + RENAME_RETRY_MS;
   let wait = 10;
@@ -348,7 +388,10 @@ function renameWithRetry(from, to) {
       return;
     } catch (err) {
       const transient =
-        process.platform === 'win32' && TRANSIENT_RENAME.has(err.code);
+        process.platform === 'win32' &&
+        TRANSIENT_RENAME.has(
+          /** @type {NodeJS.ErrnoException} */ (err).code ?? ''
+        );
       if (!transient || Date.now() >= deadline) throw err;
       // Synchronous pause: this module's writes are synchronous by contract.
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, wait);
@@ -367,6 +410,7 @@ function renameWithRetry(from, to) {
  * @param {string} text the complete new contents
  * @param {object} [opts]
  * @param {string} [opts.root] reject destinations escaping this root
+ * @returns {{ ok: true } | IoFailure}
  */
 export function writeTextAtomic(path, text, opts = {}) {
   if (opts.root) {
@@ -382,7 +426,7 @@ export function writeTextAtomic(path, text, opts = {}) {
     return {
       ok: false,
       kind: IO_ERROR.WRITE_FAILED,
-      message: `Could not create directory for ${path}: ${err.message}`,
+      message: `Could not create directory for ${path}: ${messageOf(err)}`,
     };
   }
 
@@ -405,7 +449,7 @@ export function writeTextAtomic(path, text, opts = {}) {
     return {
       ok: false,
       kind: IO_ERROR.WRITE_FAILED,
-      message: `Could not write ${path}: ${err.message}`,
+      message: `Could not write ${path}: ${messageOf(err)}`,
     };
   }
 }
@@ -414,6 +458,8 @@ export function writeTextAtomic(path, text, opts = {}) {
  * Extract the story/run identity an artifact claims, across the shapes the
  * pipeline uses (`context.json` nests it under `story`; other artifacts carry
  * `story_id` at the top level).
+ * @param {any} data parsed artifact JSON
+ * @returns {{ storyId: string | null, runId: string | null }}
  */
 export function artifactIdentity(data) {
   const story =
@@ -431,7 +477,10 @@ export function artifactIdentity(data) {
  *
  * @param {string} path
  * @param {string} schemaPath
- * @param {object} [expect] `{storyId, runId}` — each checked only when given
+ * @param {{ storyId?: string, runId?: string }} [expect] each checked only
+ *   when given
+ * @returns {{ ok: true, data: any, identity: { storyId: string | null,
+ *   runId: string | null } } | IoFailure}
  */
 export function loadRunArtifact(path, schemaPath, expect = {}) {
   const read = readValidatedJson(path, schemaPath);

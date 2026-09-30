@@ -55,11 +55,11 @@ import {
   checkSyncScope,
   httpRequest,
   httpTimeoutMs,
-  loadDotEnv,
   planOperation,
   sanitizeDiagnostic,
   selectTestManagementTarget,
 } from './lib/integration-io.js';
+import { loadDotEnv, parseCli, validateStoryId } from './lib/cli.js';
 
 const TARGET = 'testlink';
 const CASES_SCHEMA = 'schemas/test-cases.schema.json';
@@ -136,14 +136,22 @@ function loadStatusMap(map) {
 async function main() {
   loadDotEnv(env);
 
-  const APPLY = argv.includes('--apply-testlink-execution');
-  const storyId = argv.find((a, i) => i >= 2 && !a.startsWith('--'));
-  if (!storyId) {
+  const cli = parseCli(argv.slice(2), {
+    usage:
+      'Usage: node scripts/sync-testlink-execution.js <story-id> [--apply-testlink-execution]\n' +
+      '  Options may come before or after <story-id>.',
+    positionals: [{ name: 'story-id', validate: validateStoryId }],
+    options: { 'apply-testlink-execution': { type: 'boolean' } },
+  });
+  if (!cli.ok) {
+    console.error(`Error: ${cli.error}`);
     console.error(
       'Usage: node scripts/sync-testlink-execution.js <story-id> [--apply-testlink-execution]'
     );
     return 2;
   }
+  const APPLY = cli.values['apply-testlink-execution'] === true;
+  const storyId = cli.positionals['story-id'];
 
   const selected = selectTestManagementTarget(env.TEST_MANAGEMENT_TOOL, TARGET);
   if (!selected.ok) {

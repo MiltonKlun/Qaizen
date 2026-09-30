@@ -1,3 +1,4 @@
+// @ts-check
 // Bind each human approval to the exact inputs it reviewed (task group 4.3).
 //
 // A gate used to be a boolean (or an audit object with `status: true`). Once
@@ -50,6 +51,7 @@ export const BOUND_GATES = [
  * Approvals that stop meaning anything when a gate becomes stale. The lite
  * consolidated gate stands for Gates 1+2, so either side invalidates the other.
  */
+/** @type {Record<string, string[]>} */
 const DOWNSTREAM = {
   requirements_reviewed: [
     'test_scope_reviewed',
@@ -90,7 +92,25 @@ const DOWNSTREAM = {
   external_evidence_reviewed: [],
 };
 
-/** The story's Postman collection and environment (conventional paths). */
+/**
+ * The run's parsed context.json (schemas/context.schema.json). Read loosely:
+ * every access here tolerates an absent field.
+ * @typedef {Record<string, any>} Context
+ */
+/**
+ * How one approval stands against today's inputs.
+ * @typedef {{ state: 'pending' } | { state: 'legacy' } | { state: 'current' }
+ *   | { state: 'stale', changed: string[], current_digest: string }} BindingState
+ */
+/**
+ * @typedef {{ gate: string, reason: string, approved_digest: string | null,
+ *   current_digest: string | null, changed_inputs: string[] }} Invalidation
+ */
+
+/**
+ * The story's Postman collection and environment (conventional paths).
+ * @param {Context | null | undefined} context
+ */
 export function apiPaths(context) {
   const paths = context?.artifact_paths ?? {};
   const id = context?.story?.id ?? '<story>';
@@ -104,7 +124,10 @@ export function apiPaths(context) {
   };
 }
 
-/** The story's external plan and imported results (conventional paths). */
+/**
+ * The story's external plan and imported results (conventional paths).
+ * @param {Context | null | undefined} context
+ */
 export function externalPaths(context) {
   const paths = context?.artifact_paths ?? {};
   const id = context?.story?.id ?? '<story>';
@@ -117,6 +140,9 @@ export function externalPaths(context) {
 /**
  * The evidence files the imported results cite, each by its CURRENT bytes: a
  * screenshot replaced after review is a different input (null = missing).
+ * @param {string} root
+ * @param {string} rel
+ * @returns {Record<string, string | null>}
  */
 function evidenceDigests(root, rel) {
   const abs = join(root, rel);
@@ -127,6 +153,7 @@ function evidenceDigests(root, rel) {
   } catch {
     return {};
   }
+  /** @type {Record<string, string | null>} */
   const out = {};
   for (const r of Array.isArray(doc?.results) ? doc.results : []) {
     for (const e of Array.isArray(r?.evidence) ? r.evidence : []) {
@@ -139,8 +166,14 @@ function evidenceDigests(root, rel) {
   return out;
 }
 
-/** Every item of a collection, with its folder path, depth first. */
+/**
+ * Every item of a collection, with its folder path, depth first.
+ * @param {any[] | undefined} items
+ * @param {string[]} [path]
+ * @returns {{ path: string, item: any }[]}
+ */
 function collectionItems(items, path = []) {
+  /** @type {{ path: string, item: any }[]} */
   const out = [];
   for (const it of items ?? []) {
     const here = [...path, it?.name ?? ''];
@@ -150,16 +183,19 @@ function collectionItems(items, path = []) {
   return out;
 }
 
-const isTestEvent = (e) => e?.listen === 'test';
+const isTestEvent = (/** @type {any} */ e) => e?.listen === 'test';
 
 /**
  * What Gate 3' reviews: the requests and variables, without the assertion
  * scripts (those are Gate 4'). Pre-request scripts stay: they shape requests.
+ * @param {any} col parsed Postman collection
  */
 function collectionRequests(col) {
+  /** @type {(node: any) => any} */
   const strip = (node) => {
     if (Array.isArray(node)) return node.map(strip);
     if (!node || typeof node !== 'object') return node;
+    /** @type {Record<string, any>} */
     const out = {};
     for (const [k, v] of Object.entries(node)) {
       out[k] =
@@ -172,10 +208,14 @@ function collectionRequests(col) {
   return strip(col);
 }
 
-/** What Gate 4' reviews: every assertion script, by where it runs. */
+/**
+ * What Gate 4' reviews: every assertion script, by where it runs.
+ * @param {any} col parsed Postman collection
+ */
 function collectionAssertions(col) {
+  /** @type {{ where: string, exec: string }[]} */
   const scripts = [];
-  const add = (where, events) => {
+  const add = (/** @type {string} */ where, /** @type {any[]} */ events) => {
     for (const e of (events ?? []).filter(isTestEvent)) {
       const exec = e.script?.exec;
       scripts.push({
@@ -193,17 +233,26 @@ function collectionAssertions(col) {
 /**
  * The environment's keys with their values replaced by placeholders: the
  * approval binds to WHICH variables exist, never to secret values.
+ * @param {any} env parsed Postman environment
  */
 function environmentShape(env) {
   return (env?.values ?? [])
-    .map((v) => ({
+    .map((/** @type {any} */ v) => ({
       key: v?.key ?? null,
       enabled: v?.enabled !== false,
       value: /^\{\{.*\}\}$/.test(String(v?.value ?? '')) ? v.value : '<value>',
     }))
-    .sort((a, b) => String(a.key).localeCompare(String(b.key)));
+    .sort(
+      (/** @type {{ key: unknown }} */ a, /** @type {{ key: unknown }} */ b) =>
+        String(a.key).localeCompare(String(b.key))
+    );
 }
 
+/**
+ * @param {string} root
+ * @param {string | undefined} rel
+ * @param {(parsed: any) => unknown} view
+ */
 function jsonFileView(root, rel, view) {
   const abs = rel ? join(root, rel) : null;
   if (!abs || !existsSync(abs) || !statSync(abs).isFile()) return null;
@@ -227,9 +276,14 @@ const TC_WRITEBACK_FIELDS = [
   'qmetry_fields',
 ];
 
-const sha256 = (s) => createHash('sha256').update(s).digest('hex');
+const sha256 = (/** @type {string | Buffer} */ s) =>
+  createHash('sha256').update(s).digest('hex');
 
-/** Deterministic JSON: object keys sorted at every depth, no whitespace. */
+/**
+ * Deterministic JSON: object keys sorted at every depth, no whitespace.
+ * @param {any} value
+ * @returns {string}
+ */
 export function canonicalJson(value) {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   if (value && typeof value === 'object') {
@@ -245,12 +299,19 @@ export function canonicalJson(value) {
 /**
  * Text digest with line endings normalized: the same file checked out on
  * Windows (CRLF) and Linux (LF) must not look like a different review input.
+ * @param {Buffer} buf
  */
 function textDigest(buf) {
   return sha256(buf.toString('utf8').replace(/\r\n/g, '\n'));
 }
 
-/** A file's digest, or null when it does not exist. JSON is canonicalized. */
+/**
+ * A file's digest, or null when it does not exist. JSON is canonicalized.
+ * @param {string} root
+ * @param {string | undefined | null} rel
+ * @param {{ json?: boolean, strip?: ((parsed: any) => unknown) | null }} [opts]
+ * @returns {string | null}
+ */
 function fileDigest(root, rel, { json = false, strip = null } = {}) {
   if (!rel) return null;
   const abs = join(root, rel);
@@ -266,14 +327,20 @@ function fileDigest(root, rel, { json = false, strip = null } = {}) {
   }
 }
 
-/** The semantic content of a test-cases file: writeback ids removed. */
-/** A test case without the linkage fields adapters write back. */
+/**
+ * A test case without the linkage fields adapters write back.
+ * @param {Record<string, any>} tc
+ */
 export function semanticCase(tc) {
   const copy = { ...tc };
   for (const k of TC_WRITEBACK_FIELDS) delete copy[k];
   return copy;
 }
 
+/**
+ * The semantic content of a test-cases file: writeback ids removed.
+ * @param {any} doc parsed test-cases file
+ */
 function semanticTestCases(doc) {
   return {
     ...doc,
@@ -281,9 +348,15 @@ function semanticTestCases(doc) {
   };
 }
 
+/**
+ * @param {string} root
+ * @param {string} rel
+ * @returns {string[]}
+ */
 function walk(root, rel) {
   const abs = join(root, rel);
   if (!existsSync(abs)) return [];
+  /** @type {string[]} */
   const out = [];
   for (const e of readdirSync(abs, { withFileTypes: true })) {
     const child = `${rel}/${e.name}`;
@@ -295,6 +368,9 @@ function walk(root, rel) {
 
 /**
  * The named inputs a gate reviews, each reduced to a digest (null = absent).
+ * @param {string} gate
+ * @param {Context} context
+ * @param {string} [root]
  * @returns {Record<string, string|null>}
  */
 export function gateInputs(gate, context, root = '.') {
@@ -349,6 +425,7 @@ export function gateInputs(gate, context, root = '.') {
       };
     }
     case 'code_reviewed': {
+      /** @type {Record<string, string | null>} */
       const inputs = {
         'gate:specs_reviewed': gateDigest('specs_reviewed', context, root),
         generated_test: fileDigest(root, paths.generated_test),
@@ -422,7 +499,13 @@ export function gateInputs(gate, context, root = '.') {
   }
 }
 
-/** The aggregate digest a gate's approval is bound to: inputs + run identity. */
+/**
+ * The aggregate digest a gate's approval is bound to: inputs + run identity.
+ * @param {string} gate
+ * @param {Context} context
+ * @param {string} [root]
+ * @returns {string}
+ */
 export function gateDigest(gate, context, root = '.') {
   const inputs = gateInputs(gate, context, root);
   return sha256(
@@ -435,7 +518,12 @@ export function gateDigest(gate, context, root = '.') {
   );
 }
 
-/** What to store on the gate value at the moment of human approval. */
+/**
+ * What to store on the gate value at the moment of human approval.
+ * @param {string} gate
+ * @param {Context} context
+ * @param {string} [root]
+ */
 export function bindingFor(gate, context, root = '.') {
   return {
     input_digest: gateDigest(gate, context, root),
@@ -443,13 +531,15 @@ export function bindingFor(gate, context, root = '.') {
   };
 }
 
-const passed = (v) =>
+const passed = (/** @type {any} */ v) =>
   v === true || (v && typeof v === 'object' && v.status === true);
 
 /**
  * How one approval stands against today's inputs.
- * @returns {{state: 'pending'|'current'|'stale'|'legacy', changed?: string[],
- *            current_digest?: string}}
+ * @param {string} gate
+ * @param {Context} context
+ * @param {string} [root]
+ * @returns {BindingState}
  */
 export function bindingState(gate, context, root = '.') {
   const value = context?.review_gates?.[gate];
@@ -469,12 +559,17 @@ export function bindingState(gate, context, root = '.') {
  * Every approval that no longer stands, with the reason, including the
  * downstream approvals that depended on it. Nothing is written here.
  *
- * @returns {Array<{gate: string, reason: string, approved_digest: string|null,
- *                  current_digest: string|null, changed_inputs: string[]}>}
+ * @param {Context} context
+ * @param {string} [root]
+ * @returns {Invalidation[]}
  */
 export function findInvalidations(context, root = '.') {
+  /** @type {Map<string, Invalidation>} */
   const out = new Map();
-  const add = (gate, entry) => {
+  const add = (
+    /** @type {string} */ gate,
+    /** @type {Invalidation} */ entry
+  ) => {
     if (!out.has(gate)) out.set(gate, entry);
   };
   for (const gate of BOUND_GATES) {
@@ -489,8 +584,11 @@ export function findInvalidations(context, root = '.') {
           : `reviewed inputs changed since approval: ${s.changed.join(', ')}`,
       approved_digest:
         typeof value === 'object' ? (value.input_digest ?? null) : null,
-      current_digest: s.current_digest ?? gateDigest(gate, context, root),
-      changed_inputs: s.changed ?? [],
+      current_digest:
+        s.state === 'stale'
+          ? s.current_digest
+          : gateDigest(gate, context, root),
+      changed_inputs: s.state === 'stale' ? s.changed : [],
     });
     for (const d of DOWNSTREAM[gate]) {
       if (!passed(context.review_gates?.[d])) continue;
@@ -512,6 +610,9 @@ export function findInvalidations(context, root = '.') {
  * Apply invalidations to a context (in memory): the gate returns to pending
  * and a separate invalidation event records why. No rejection is invented and
  * gate_decisions[] — the human history — is left exactly as it was.
+ * @param {Context} context
+ * @param {Invalidation[]} invalidations
+ * @param {Date} [now]
  */
 export function applyInvalidations(context, invalidations, now = new Date()) {
   if (!invalidations.length) return context;
@@ -545,6 +646,9 @@ export function applyInvalidations(context, invalidations, now = new Date()) {
 /**
  * For entry points outside the runner (classifier, TestLink/Jira adapters):
  * is this gate approved AND still bound to what exists? Never mutates.
+ * @param {Context} context
+ * @param {string} gate
+ * @param {string} [root]
  * @returns {{ok: true} | {ok: false, reason: string}}
  */
 export function requireCurrentGate(context, gate, root = '.') {

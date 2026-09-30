@@ -1,3 +1,4 @@
+// @ts-check
 // Recoverable external synchronization (task group 5.1, review finding I2).
 //
 // The Jira and TestLink adapters used to create every remote item, keep the
@@ -23,7 +24,6 @@
 import { createHash } from 'node:crypto';
 import {
   closeSync,
-  existsSync,
   mkdirSync,
   openSync,
   readFileSync,
@@ -37,7 +37,26 @@ import { canonicalJson, requireCurrentGate } from './approval-binding.js';
 import { redactText } from './report-sanitization.js';
 import { gatePassed } from '../pipeline-state.js';
 
-const sha256 = (s) => createHash('sha256').update(s).digest('hex');
+const sha256 = (/** @type {string} */ s) =>
+  createHash('sha256').update(s).digest('hex');
+
+/**
+ * One item's sync record for one target
+ * (schemas/test-cases.schema.json#/definitions/syncRecord).
+ * @typedef {{ state: string, remote_id?: string | null, intent_at?: string,
+ *   link_state?: string, source_digest?: string, last_error?: string | null,
+ *   [field: string]: any }} SyncRecord
+ */
+/**
+ * @typedef {{ kind: 'response', status: number, ok: boolean, text: string }
+ *   | { kind: 'not_sent', error: string }
+ *   | { kind: 'ambiguous', error: string }} HttpResult
+ */
+/**
+ * @typedef {{ outcome: 'created', id: string }
+ *   | { outcome: 'rejected' | 'ambiguous', detail: string, status?: number }}
+ *   CreateOutcome
+ */
 
 // ------------------------------------------------------------ operations
 
@@ -52,6 +71,8 @@ export const SYNC_STATE = {
 /**
  * Stable identity of one remote create: the same target, project, story,
  * local item and operation kind always yield the same key, across runs.
+ * @param {{ target: string, project: string, storyId: string,
+ *   localId: string, kind: string }} parts
  */
 export function operationKey({ target, project, storyId, localId, kind }) {
   for (const [name, v] of Object.entries({
@@ -68,12 +89,18 @@ export function operationKey({ target, project, storyId, localId, kind }) {
   return [target, project, storyId, localId, kind].join(':');
 }
 
-/** Short, search-friendly marker for an operation key. */
+/**
+ * Short, search-friendly marker for an operation key.
+ * @param {string} key
+ */
 export function operationMarker(key) {
   return `qaizen-op-${sha256(key).slice(0, 12)}`;
 }
 
-/** Digest of a request payload, independent of key order. */
+/**
+ * Digest of a request payload, independent of key order.
+ * @param {unknown} payload
+ */
 export function payloadDigest(payload) {
   return sha256(canonicalJson(payload));
 }
@@ -82,6 +109,7 @@ export function payloadDigest(payload) {
  * Digest of a local item's content (a test case without its sync linkage),
  * recorded when it is pushed. A later mismatch means the local item changed
  * after the push; adapters report that and never update the remote copy.
+ * @param {unknown} item
  */
 export function sourceDigest(item) {
   return sha256(canonicalJson(item));
@@ -98,7 +126,7 @@ export function sourceDigest(item) {
  * treated as linked, until a human corrects the file.
  *
  * @param {object} args
- * @param {object} [args.record] the item's sync record for this target
+ * @param {SyncRecord | null} [args.record] the item's sync record for this target
  * @param {Array<string|undefined|null>} args.remoteIds recorded remote ids
  * @param {(id: string) => boolean} args.isValidId the target's id format
  * @param {boolean} [args.linkWanted] a story link applies to this target
@@ -151,13 +179,19 @@ export function planOperation({
     linkWanted &&
     record?.state === SYNC_STATE.CREATED &&
     (record.link_state === 'pending' || record.link_state === 'failed');
-  return { action: retryLink ? 'link' : 'skip', id: ids[0] };
+  return {
+    action: retryLink ? 'link' : 'skip',
+    id: /** @type {string} */ (ids[0]),
+  };
 }
 
 /**
  * Plan wording for an item that is already in the remote tool. Adapters
  * never update an existing remote item; this says so, and says when the local
  * copy has changed since it was pushed.
+ * @param {SyncRecord | null | undefined} record
+ * @param {string} currentDigest
+ * @param {string} tool
  */
 export function describeSkip(record, currentDigest, tool) {
   const changed =
@@ -169,13 +203,14 @@ export function describeSkip(record, currentDigest, tool) {
 
 // ------------------------------------------------------------ lock
 
+/** @param {number} pid */
 function pidAlive(pid) {
   try {
     process.kill(pid, 0);
     return true;
   } catch (err) {
     // EPERM: the process exists but belongs to someone else.
-    return err.code === 'EPERM';
+    return /** @type {NodeJS.ErrnoException} */ (err).code === 'EPERM';
   }
 }
 
@@ -186,6 +221,9 @@ function pidAlive(pid) {
  * explicit `releaseStale`, and only when its death is provable here (same host,
  * process gone); anything else is left for a human to inspect.
  *
+ * @param {string} root
+ * @param {string} target
+ * @param {{ releaseStale?: boolean, now?: Date }} [opts]
  * @returns {{ok: true, release: () => void} | {ok: false, reason: string}}
  */
 export function acquireLock(
@@ -207,7 +245,8 @@ export function acquireLock(
     try {
       fd = openSync(path, 'wx');
     } catch (err) {
-      if (err.code === 'EEXIST') return false;
+      if (/** @type {NodeJS.ErrnoException} */ (err).code === 'EEXIST')
+        return false;
       throw err;
     }
     try {
@@ -275,7 +314,10 @@ export function acquireLock(
 
 export const DEFAULT_TIMEOUT_MS = 30000;
 
-/** Request timeout from QAIZEN_HTTP_TIMEOUT_MS, bounded to 1s..120s. */
+/**
+ * Request timeout from QAIZEN_HTTP_TIMEOUT_MS, bounded to 1s..120s.
+ * @param {Record<string, string | undefined>} [env]
+ */
 export function httpTimeoutMs(env = process.env) {
   const raw = env.QAIZEN_HTTP_TIMEOUT_MS;
   if (raw === undefined || raw === '') return DEFAULT_TIMEOUT_MS;
@@ -299,6 +341,10 @@ const NOT_SENT_CODES = new Set([
   'ERR_INVALID_URL',
 ]);
 
+/**
+ * @param {any} err a fetch failure
+ * @returns {HttpResult}
+ */
 function transportFailure(err) {
   const code = err?.cause?.code ?? err?.code ?? null;
   if (code && NOT_SENT_CODES.has(code)) {
@@ -315,8 +361,10 @@ function transportFailure(err) {
 
 /**
  * One HTTP request with a hard timeout covering the whole exchange.
- * @returns {Promise<{kind: 'response', status: number, ok: boolean, text: string}
- *   | {kind: 'not_sent' | 'ambiguous', error: string}>}
+ * @param {string} url
+ * @param {{ method?: string, headers?: Record<string, string>,
+ *   body?: string, timeoutMs?: number }} [opts]
+ * @returns {Promise<HttpResult>}
  */
 export async function httpRequest(
   url,
@@ -349,6 +397,11 @@ export async function httpRequest(
  *   created   — the remote id is known
  *   rejected  — the remote definitely did not create anything
  *   ambiguous — it may have; reconcile before any new create
+ *
+ * @param {HttpResult} result
+ * @param {(text: string) => ({ id?: string, rejected?: string } | null)} parse
+ * @param {Array<string | undefined | null>} [secrets]
+ * @returns {CreateOutcome}
  */
 export function classifyCreate(result, parse, secrets = []) {
   if (result.kind === 'not_sent') {
@@ -388,9 +441,16 @@ export function classifyCreate(result, parse, secrets = []) {
   };
 }
 
-/** Make a remote diagnostic safe to print and to store in last_error. */
+/**
+ * Make a remote diagnostic safe to print and to store in last_error.
+ * @param {unknown} text
+ * @param {Array<string | undefined | null>} [secrets]
+ */
 export function sanitizeDiagnostic(text, secrets = []) {
-  let out = redactText(String(text ?? ''), secrets.filter(Boolean));
+  let out = redactText(
+    String(text ?? ''),
+    /** @type {string[]} */ (secrets.filter(Boolean))
+  );
   out = out
     .replace(
       /(<name>devKey<\/name>\s*<value>\s*(?:<string>)?)[^<]*/gi,
@@ -404,7 +464,10 @@ export function sanitizeDiagnostic(text, secrets = []) {
 
 // ------------------------------------------------------------ scope checks
 
-/** The approval that covers a run's test scope: Gate 2, or the lite gate. */
+/**
+ * The approval that covers a run's test scope: Gate 2, or the lite gate.
+ * @param {import('./approval-binding.js').Context} context
+ */
 export function scopeGate(context) {
   return context.track === 'lite' ||
     gatePassed(context.review_gates?.qa_scope_approved)
@@ -415,6 +478,10 @@ export function scopeGate(context) {
 /**
  * Before any request: the artifact belongs to the active story and run, and
  * the scope approval is current.
+ * @param {import('./approval-binding.js').Context} context
+ * @param {{ story_id?: string, run_id?: string }} doc
+ * @param {string} storyId
+ * @param {string} [root]
  * @returns {{ok: true} | {ok: false, reason: string}}
  */
 export function checkSyncScope(context, doc, storyId, root = '.') {
@@ -444,7 +511,10 @@ export function checkSyncScope(context, doc, storyId, root = '.') {
   return { ok: true };
 }
 
-/** TEST_MANAGEMENT_TOOL values and the adapters each one selects. */
+/**
+ * TEST_MANAGEMENT_TOOL values and the adapters each one selects.
+ * @type {Readonly<Record<string, string[]>>}
+ */
 export const TEST_MANAGEMENT_TOOLS = {
   testlink: ['testlink'],
   jira: ['jira'],
@@ -457,6 +527,8 @@ export const TEST_MANAGEMENT_TOOLS = {
 /**
  * Does TEST_MANAGEMENT_TOOL select this adapter? An unset or unknown value is
  * an error, never a silent default.
+ * @param {string | undefined} raw
+ * @param {string} target
  * @returns {{ok: true, tool: string} | {ok: false, reason: string}}
  */
 export function selectTestManagementTarget(raw, target) {
@@ -489,6 +561,7 @@ export function selectTestManagementTarget(raw, target) {
 
 export const JIRA_KEY = /^[A-Z][A-Z0-9_]*-[1-9][0-9]*$/;
 
+/** @param {string} text */
 function parseJiraCreate(text) {
   try {
     const key = JSON.parse(text)?.key;
@@ -498,7 +571,10 @@ function parseJiraCreate(text) {
   }
 }
 
-/** Atlassian Document Format: one paragraph per line of plain text. */
+/**
+ * Atlassian Document Format: one paragraph per line of plain text.
+ * @param {string} text
+ */
 export function adf(text) {
   return {
     type: 'doc',
@@ -513,6 +589,8 @@ export function adf(text) {
 /**
  * The three Jira REST calls the adapters need. Credentials stay inside the
  * client; every diagnostic it returns is sanitized.
+ * @param {{ baseUrl: string, user: string, token: string,
+ *   timeoutMs?: number }} opts
  */
 export function jiraClient({ baseUrl, user, token, timeoutMs }) {
   const auth = 'Basic ' + Buffer.from(`${user}:${token}`).toString('base64');
@@ -523,24 +601,34 @@ export function jiraClient({ baseUrl, user, token, timeoutMs }) {
     Accept: 'application/json',
   };
   const base = baseUrl.replace(/\/$/, '');
-  const call = (path, method, body) =>
+  const call = (
+    /** @type {string} */ path,
+    /** @type {string} */ method,
+    /** @type {unknown} */ body = undefined
+  ) =>
     httpRequest(`${base}${path}`, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
       timeoutMs,
     });
-  const describe = (r) =>
+  const describe = (/** @type {HttpResult} */ r) =>
     r.kind === 'response'
       ? `HTTP ${r.status}: ${sanitizeDiagnostic(r.text, secrets)}`
       : r.error;
 
   return {
     secrets,
+    /** @param {Record<string, unknown>} fields */
     async createIssue(fields) {
       const r = await call('/rest/api/3/issue', 'POST', { fields });
       return classifyCreate(r, parseJiraCreate, secrets);
     },
+    /**
+     * @param {string} key
+     * @param {string} storyKey
+     * @param {string} linkType
+     */
     async linkToStory(key, storyKey, linkType) {
       const r = await call('/rest/api/3/issueLink', 'POST', {
         type: { name: linkType },
@@ -551,7 +639,11 @@ export function jiraClient({ baseUrl, user, token, timeoutMs }) {
         ? { ok: true }
         : { ok: false, detail: describe(r) };
     },
-    /** Read-only: issues in the project carrying the marker label. */
+    /**
+     * Read-only: issues in the project carrying the marker label.
+     * @param {string} projectKey
+     * @param {string} marker
+     */
     async findByMarker(projectKey, marker) {
       const jql = `project = "${projectKey}" AND labels = "${marker}"`;
       const r = await call(
@@ -570,7 +662,7 @@ export function jiraClient({ baseUrl, user, token, timeoutMs }) {
       if (!Array.isArray(issues)) {
         return { ok: false, detail: 'search response had no issues array' };
       }
-      const keys = issues.map((i) => i?.key);
+      const keys = issues.map((/** @type {any} */ i) => i?.key);
       if (!keys.every((k) => typeof k === 'string' && JIRA_KEY.test(k))) {
         return {
           ok: false,
@@ -580,45 +672,4 @@ export function jiraClient({ baseUrl, user, token, timeoutMs }) {
       return { ok: true, keys };
     },
   };
-}
-
-// ------------------------------------------------------------ CLI helpers
-
-/** Parse --resolve ID=REMOTE|none (repeatable). */
-export function parseResolutions(argv) {
-  const out = [];
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i] !== '--resolve') continue;
-    const spec = argv[i + 1] ?? '';
-    const m = spec.match(/^([A-Za-z]+-[0-9]+)=(.+)$/);
-    if (!m) {
-      throw new Error(
-        `--resolve expects LOCAL-ID=REMOTE-ID or LOCAL-ID=none (got "${spec}")`
-      );
-    }
-    out.push({ localId: m[1], remote: m[2] === 'none' ? null : m[2] });
-    i++;
-  }
-  return out;
-}
-
-/** Parse --limit N as a positive integer (Infinity when absent). */
-export function parseLimit(argv) {
-  const i = argv.indexOf('--limit');
-  if (i === -1) return Infinity;
-  const raw = argv[i + 1];
-  const n = Number(raw);
-  if (!Number.isInteger(n) || n < 1) {
-    throw new Error(`--limit expects a positive integer (got "${raw ?? ''}")`);
-  }
-  return n;
-}
-
-/** Fill process.env gaps from a local .env file; never overrides real env. */
-export function loadDotEnv(env = process.env, path = '.env') {
-  if (!existsSync(path)) return;
-  for (const line of readFileSync(path, 'utf8').split('\n')) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
-    if (m && !(m[1] in env)) env[m[1]] = m[2];
-  }
 }

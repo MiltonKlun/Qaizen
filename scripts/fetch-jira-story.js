@@ -18,32 +18,39 @@
 //   node scripts/fetch-jira-story.js SK-10 --out story.md   # default: story.md
 //   node scripts/fetch-jira-story.js SK-10 --print          # print, do not write
 //
+// Options may come before or after the issue key. An unknown option, a
+// missing value, or a repeated option is a usage error (scripts/lib/cli.js).
+//
 // Env (from .env or process.env): JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN.
 //
 // Exit codes: 0 ok · 1 fetch error · 2 usage/env error
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { argv, env, exit } from 'node:process';
 
-if (existsSync('.env')) {
-  for (const line of readFileSync('.env', 'utf8').split('\n')) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-    if (m && !(m[1] in env)) env[m[1]] = m[2];
-  }
-}
+import { loadDotEnv, parseCliOrExit } from './lib/cli.js';
+import { JIRA_KEY } from './lib/integration-io.js';
 
-const PRINT = argv.includes('--print');
-const outIdx = argv.indexOf('--out');
+loadDotEnv(env);
+
+const cli = parseCliOrExit(argv.slice(2), {
+  usage:
+    'Usage: node scripts/fetch-jira-story.js <ISSUE-KEY> [--out story.md] [--print]\n' +
+    '  Options may come before or after <ISSUE-KEY>.',
+  positionals: [
+    {
+      name: 'ISSUE-KEY',
+      validate: (v) =>
+        JIRA_KEY.test(v) ? null : `"${v}" is not a Jira issue key (e.g. SK-10)`,
+    },
+  ],
+  options: { out: { type: 'string' }, print: { type: 'boolean' } },
+  exclusive: [['out', 'print']],
+});
+const PRINT = cli.values.print === true;
 const outPath =
-  outIdx !== -1 && argv[outIdx + 1] ? argv[outIdx + 1] : 'story.md';
-const key = argv.find((a, i) => i >= 2 && !a.startsWith('--'));
-
-if (!key) {
-  console.error(
-    'Usage: node scripts/fetch-jira-story.js <ISSUE-KEY> [--out story.md] [--print]'
-  );
-  exit(2);
-}
+  /** @type {string | undefined} */ (cli.values.out) ?? 'story.md';
+const key = cli.positionals['ISSUE-KEY'];
 
 const url = (env.JIRA_URL || '').replace(/\/$/, '');
 const user = env.JIRA_USERNAME;
