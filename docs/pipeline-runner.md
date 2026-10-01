@@ -172,8 +172,11 @@ a broken machine-readable contract is not a judgment call.
 
 The run is **complete** only when every gate is passed, the execution evidence
 is valid (including the Newman branch for a story with API cases), the failure
-analysis is **finalized** with a bug draft on disk for every Red failure, and
-the release report is valid. Only then does the runner set
+analysis is **finalized** with a bug draft on disk for every Red failure and
+flat totals that match its outcome breakdown, and the release report is valid.
+For a 2.x analysis the report must be 2.0, and its `execution_summary` must be
+exactly the one `npm run report:summary` derives from the ledger
+(`docs/execution-normalization.md`). Only then does the runner set
 `status: "completed"` — the Reporter no longer does. "Pipeline complete" is
 not "release passed": the runner prints the report's recommendation alongside.
 
@@ -284,6 +287,24 @@ file behind it still routes to `execute`). Facts outside the manifest — the
 `automate_api` split, collection existence — are gathered by the CLI and
 passed to the pure state machine as hints, so the module stays I/O-free and
 unit-testable.
+
+### Migrating an active run (`npm run migrate`)
+
+A run started under older contracts is brought up to date with one explicit
+command: `npm run migrate` shows what each step would change, and
+`npm run migrate -- --apply` writes it. It runs, on the files the root
+`context.json` names, the per-artifact migrations: gate values to audit
+objects and the `gate_decisions[]` log, `testlink_id` mirrored into
+`external_ids`, and the derivable rollups of a 1.x release report. Running it
+again changes nothing.
+
+It never binds an approval. A gate approved before approvals were bound to
+their inputs keeps its decision but no digest, so the runner returns it to
+pending and a human re-reviews it before anything executes; the command lists
+those gates. A 1.x failure analysis or release report keeps its original
+meaning (a 2.x analysis comes from the ledger: `npm run normalize`, then
+`npm run classify`), and archives under `runs/` are never migrated. It refuses
+while a new-story transition is pending.
 
 ## 7. The ten-minute offline demo (`npm run demo:pipeline`)
 

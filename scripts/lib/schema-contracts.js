@@ -84,7 +84,7 @@ export const SCHEMA_CONTRACTS = {
     discovery:
       'validate:all (context.json and archived runs); validate:examples',
     migration:
-      'scripts/migrate-context-v1-to-v2.js (boolean gates to audit objects) and scripts/migrate-context-gate-decisions.js; later fields are optional.',
+      'scripts/migrate-context-v1-to-v2.js (boolean gates to audit objects) and scripts/migrate-context-gate-decisions.js, both run by npm run migrate for the active run; later fields are optional. No migration binds an approval.',
   },
   'schemas/evaluation-manifest.schema.json': {
     artifact: 'examples/evaluation/manifest.json',

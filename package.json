@@ -31,6 +31,7 @@
     "fetch-story": "node scripts/fetch-jira-story.js",
     "export:jira": "node scripts/export-to-jira.js",
     "sync:jira-testcases": "node scripts/create-jira-testcases.js",
+    "migrate": "node scripts/migrate-run.js",
     "migrate:external-ids": "node scripts/migrate-testcases-external-ids.js",
     "migrate:release-report-tg12": "node scripts/migrate-release-report-tg12.js",
     "migrate:gate-decisions": "node scripts/migrate-context-gate-decisions.js",
