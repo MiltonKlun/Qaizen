@@ -5,11 +5,46 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 
-const files = execFileSync('git', ['ls-files', '*.md'], { encoding: 'utf8' })
-  .split('\n')
-  .filter((f) => f && !f.startsWith('runs/'));
+/**
+ * The Markdown files to check: the tracked ones in a git checkout (so the
+ * maintainer's gitignored local notes are not checked), or every one on disk
+ * in a plain export, which has no local notes. node_modules, dot-directories
+ * and runs/ are never checked.
+ * @returns {string[]}
+ */
+function markdownFiles() {
+  try {
+    return execFileSync('git', ['ls-files', '*.md'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .split('\n')
+      .filter((f) => f && !f.startsWith('runs/'));
+  } catch {
+    /** @type {string[]} */
+    const out = [];
+    const walk = (/** @type {string} */ dir) => {
+      for (const e of readdirSync(dir || '.', { withFileTypes: true })) {
+        const rel = dir ? `${dir}/${e.name}` : e.name;
+        if (e.isDirectory()) {
+          if (
+            e.name.startsWith('.') ||
+            rel === 'node_modules' ||
+            rel === 'runs'
+          )
+            continue;
+          walk(rel);
+        } else if (e.name.endsWith('.md')) out.push(rel);
+      }
+    };
+    walk('');
+    return out.sort();
+  }
+}
+
+const files = markdownFiles();
 const scripts = JSON.parse(readFileSync('package.json', 'utf8')).scripts;
 const BUILTIN = new Set(['install', 'ci', 'test']);
 

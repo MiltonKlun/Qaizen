@@ -7,7 +7,8 @@ name: QA Pipeline
 #                     lint, format, any committed JSON artifact is invalid,
 #                     or the pipeline's own unit + smoke tests fail. This is
 #                     the gate that protects main.
-#   pipeline-tests  — BLOCKING (fails the run). The pipeline's own tests on
+#   pipeline-tests  — BLOCKING (fails the run). The pipeline's own tests,
+#                     browser-backed ones included (Chromium is installed), on
 #                     Ubuntu and Windows, at the supported Node floor and the
 #                     current LTS (package.json engines: ^22.13.0 || >=24;
 #                     Node 20 is end-of-life since 2026-04-30). Versions are
@@ -95,6 +96,10 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: 'npm'
       - run: npm ci
+      # The healer and selector-survival acceptance tests drive a real
+      # browser; without one they skip (task group 11.1).
+      - name: Install Chromium for the browser-backed tests
+        run: npx playwright install --with-deps chromium
       - name: Pipeline tests (all discovered test/*.test.js)
         run: npm run test:pipeline
 
