@@ -1,3 +1,4 @@
+// @ts-check
 // Evidence-based failure classification (task group 3.3).
 //
 // Pure functions: a normalized ledger unit in, a cause + severity + stated
@@ -33,10 +34,26 @@
 
 import { redDomainsInText } from '../red-domains.js';
 
+/** @typedef {import('./execution-ledger.js').Unit} Unit */
+/**
+ * @typedef {{
+ *   kind: 'assertion'|'action'|'navigation'|'test_timeout'|'unknown',
+ *   matcher: string|null, operation: string|null, locator: string|null,
+ *   expected: string|null, received: string|null,
+ *   elementNotFound: boolean, network: string|null, timedOut: boolean
+ * }} ErrorEvidence
+ * @typedef {ErrorEvidence & { status: string }} AttemptEvidence
+ * @typedef {{ classification: string, severity: 'red'|'yellow'|'green',
+ *   reason: string, evidence: AttemptEvidence[] }} Classification
+ */
+
 // eslint-disable-next-line no-control-regex -- ANSI escape sequences start with ESC (\x1b); matching it is the point.
 const ANSI = /\u001b\[[0-9;]*m/g;
 
-/** Remove terminal colour codes. Real Playwright messages are full of them. */
+/**
+ * Remove terminal colour codes. Real Playwright messages are full of them.
+ * @param {unknown} text
+ */
 export function stripAnsi(text) {
   return String(text ?? '').replace(ANSI, '');
 }
@@ -50,22 +67,19 @@ const NETWORK_CODE =
  * Only the message's own structure is read. File paths, snippets and call-log
  * noise are never keyword-matched for a cause.
  *
- * @returns {{
- *   kind: 'assertion'|'action'|'navigation'|'test_timeout'|'unknown',
- *   matcher: string|null, operation: string|null, locator: string|null,
- *   expected: string|null, received: string|null,
- *   elementNotFound: boolean, network: string|null, timedOut: boolean
- * }}
+ * @param {string | undefined} message
+ * @returns {ErrorEvidence}
  */
 export function parsePlaywrightError(message) {
   const text = stripAnsi(message);
   const lines = text.split('\n');
-  const field = (name) => {
+  const field = (/** @type {string} */ name) => {
     const re = new RegExp(`^\\s*${name}(?: [a-z]+)?:\\s*(.*)$`, 'mi');
     const m = text.match(re);
     return m ? m[1].trim() : null;
   };
 
+  /** @type {ErrorEvidence} */
   const evidence = {
     kind: 'unknown',
     matcher: null,
@@ -119,7 +133,10 @@ export function parsePlaywrightError(message) {
   return evidence;
 }
 
-/** A real value was observed and it differs from what the test required. */
+/**
+ * A real value was observed and it differs from what the test required.
+ * @param {ErrorEvidence} ev
+ */
 function isValueMismatch(ev) {
   if (ev.kind !== 'assertion') return false;
   if (ev.elementNotFound) return false;
@@ -133,6 +150,8 @@ function isValueMismatch(ev) {
  * Every attempt is inspected, not just the last: a flaky test whose failed
  * attempt showed a wrong total carries a stronger (red) cause than its
  * eventual pass.
+ * @param {Unit} unit
+ * @returns {Classification}
  */
 export function classifyPlaywrightUnit(unit) {
   const attempts = (unit.attempts || []).filter(
@@ -217,6 +236,8 @@ export function classifyPlaywrightUnit(unit) {
 /**
  * Classify one Newman unit. The healer never targets API tests, so nothing
  * here is ever green.
+ * @param {Unit} unit
+ * @returns {Classification}
  */
 export function classifyNewmanUnit(unit) {
   const transport = (unit.attempts || []).find((a) => a.status === 'failed');
@@ -268,19 +289,32 @@ export function classifyNewmanUnit(unit) {
   );
 }
 
-/** Dispatch on runner kind. */
+/**
+ * Dispatch on runner kind.
+ * @param {Unit} unit
+ */
 export function classifyUnit(unit) {
   return unit.identity?.kind === 'newman'
     ? classifyNewmanUnit(unit)
     : classifyPlaywrightUnit(unit);
 }
 
-/** Playwright already quotes string values; do not quote them twice. */
+/**
+ * Playwright already quotes string values; do not quote them twice.
+ * @param {string | null | undefined} value
+ */
 function quote(value) {
   if (value === null || value === undefined) return 'nothing';
   return /^".*"$/.test(value) ? value : `"${value}"`;
 }
 
+/**
+ * @param {string} classification
+ * @param {Classification['severity']} severity
+ * @param {AttemptEvidence[]} evidence
+ * @param {string[]} reasons
+ * @returns {Classification}
+ */
 function result(classification, severity, evidence, reasons) {
   return { classification, severity, reason: reasons.join('; '), evidence };
 }

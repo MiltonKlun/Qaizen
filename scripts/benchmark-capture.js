@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Benchmark capture (IMPROVEMENT-PLAN Phase 5, IP-5.3). Appends ONE
 // measurement record (one story x one arm) to evidence/benchmark.jsonl after
 // validating it against schemas/benchmark-record.schema.json via the single
@@ -70,6 +71,10 @@ const MEASUREMENT = {
 
 // Tiny flag parser: --key value (value-less flags handled explicitly above).
 // Single-token: metadata (--model, --operator, --track) and numeric metrics.
+/**
+ * @param {string} name
+ * @returns {string | undefined}
+ */
 function flag(name) {
   const i = argv.indexOf(`--${name}`);
   return i !== -1 && argv[i + 1] && !argv[i + 1].startsWith('--')
@@ -81,9 +86,14 @@ function flag(name) {
 // flag up to the next `--flag`, so unquoted/shell-split multi-word values are
 // not truncated to their first word. Returns undefined if the flag is absent
 // or has no value tokens.
+/**
+ * @param {string} name
+ * @returns {string | undefined}
+ */
 function textFlag(name) {
   const i = argv.indexOf(`--${name}`);
   if (i === -1) return undefined;
+  /** @type {string[]} */
   const parts = [];
   for (let j = i + 1; j < argv.length && !argv[j].startsWith('--'); j++) {
     parts.push(argv[j]);
@@ -91,6 +101,10 @@ function textFlag(name) {
   return parts.length ? parts.join(' ') : undefined;
 }
 
+/**
+ * @param {string} message
+ * @returns {never}
+ */
 function usage(message) {
   console.error(
     `Error: ${message}\n` +
@@ -101,8 +115,12 @@ function usage(message) {
   exit(2);
 }
 
-/** Every value of a repeatable flag. */
+/**
+ * Every value of a repeatable flag.
+ * @param {string} name
+ */
 function flags(name) {
+  /** @type {string[]} */
   const out = [];
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === `--${name}` && argv[i + 1] && !argv[i + 1].startsWith('--'))
@@ -111,7 +129,11 @@ function flags(name) {
   return out;
 }
 
-/** `name@version` -> { name, version }. */
+/**
+ * `name@version` -> { name, version }.
+ * @param {string} v
+ * @param {string} what
+ */
 function nameAtVersion(v, what) {
   const i = v.lastIndexOf('@');
   if (i <= 0 || i === v.length - 1)
@@ -127,11 +149,13 @@ if (arm !== 'raw' && arm !== 'pipeline') {
 }
 const operator = flag('operator');
 if (!operator) usage('--operator is required: who ran this arm');
-if (!flag('app'))
+const appSpec = flag('app');
+if (!appSpec)
   usage('--app <name@version> is required: the app measured against');
-const app = nameAtVersion(flag('app'), '--app');
+const app = nameAtVersion(appSpec, '--app');
 const tools = flags('tool').map((t) => nameAtVersion(t, '--tool'));
-if (flag('model')) tools.push({ name: 'model', version: flag('model') });
+const model = flag('model');
+if (model) tools.push({ name: 'model', version: model });
 if (tools.length === 0) {
   usage('at least one --tool <name@version> (or --model <id>) is required');
 }
@@ -173,7 +197,7 @@ function playwrightVersion() {
 }
 
 // A metric flag becomes a number, or null when omitted (an explicit gap).
-const num = (name) => {
+const num = (/** @type {string} */ name) => {
   const v = flag(name);
   if (v === undefined) return null;
   const n = Number(v);

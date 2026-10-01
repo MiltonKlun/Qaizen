@@ -1,3 +1,4 @@
+// @ts-check
 // Healer guardrails — the static check on a candidate patch (CLAUDE.md §3.6).
 // Shared by the harness (scripts/run-healer.js) and the demo
 // (scripts/demo-healer-green-red.js). Pure: no I/O, no side effects.
@@ -42,6 +43,18 @@ import {
   visit,
 } from './lib/test-source.js';
 
+/**
+ * @typedef {import('./lib/test-source.js').Registration} Registration
+ * @typedef {{ eligible: boolean, violations: string[],
+ *   repairs: {line: number, from: string, to: string}[]}} CandidateCheck
+ * A differing region: a node of the original (`a`) and of the candidate
+ * (`b`); null on the side where it was added or removed.
+ * @typedef {{ a: ts.Node | null, b: ts.Node | null }} Region
+ * @typedef {{ canonA: (n: ts.Node) => string, canonB: (n: ts.Node) => string,
+ *   regions: Region[] }} DiffContext
+ * @typedef {{ expect: boolean, matchers: string[] }} CallInfo
+ */
+
 /** What a clean result means — for every consumer that prints one. */
 export const ELIGIBILITY_NOTE =
   'eligible under static checks; human review still required (equal structure does not prove the new selector targets the same element)';
@@ -65,8 +78,10 @@ export const WEAK_MATCHERS = new Set([
 /**
  * Compare a candidate with the original test source.
  *
- * @returns {{eligible: boolean, violations: string[],
- *   repairs: {line: number, from: string, to: string}[]}}
+ * @param {string} originalSource
+ * @param {string} candidateSource
+ * @param {{ fileName?: string }} [opts]
+ * @returns {CandidateCheck}
  */
 export function checkCandidate(
   originalSource,
@@ -83,17 +98,22 @@ export function checkCandidate(
   if (!b.ok) return reject([`the candidate is ${b.reason}`]);
   const A = a.sourceFile;
   const B = b.sourceFile;
+  /** @type {string[]} */
   const v = [];
 
   // --- test registrations, resolved through imports -------------------
   const ra = testRegistrations(A);
   const rb = testRegistrations(B);
   if (ra.some((r) => r.dynamic) || rb.some((r) => r.dynamic)) {
-    const r = [...rb, ...ra].find((x) => x.dynamic);
+    // some() above guarantees a dynamic registration exists.
+    const r = /** @type {Registration} */ (
+      [...rb, ...ra].find((x) => x.dynamic)
+    );
     v.push(
       `registers tests dynamically (line ${r.line}); how many tests exist cannot be checked statically — manual review`
     );
   }
+  /** @type {(list: Registration[], pred: (r: Registration) => boolean) => number} */
   const count = (list, pred) => list.filter(pred).length;
   if (
     count(rb, (r) => r.kind === 'test') < count(ra, (r) => r.kind === 'test')
@@ -105,19 +125,19 @@ export function checkCandidate(
   ) {
     v.push('removes a hook (setup/teardown must not change)');
   }
+  /** @type {Record<string, string>} */
+  const SUPPRESSION_REASON = {
+    skip: 'adds test suppression (.skip) — forbidden',
+    fixme: 'adds test suppression (.fixme) — forbidden',
+    only: 'adds a focused test (.only) — forbidden',
+    fail: 'adds an expected-failure declaration (.fail) — forbidden',
+  };
   for (const s of SUPPRESSION) {
     if (
       count(rb, (r) => r.suppression.includes(s)) >
       count(ra, (r) => r.suppression.includes(s))
     ) {
-      v.push(
-        {
-          skip: 'adds test suppression (.skip) — forbidden',
-          fixme: 'adds test suppression (.fixme) — forbidden',
-          only: 'adds a focused test (.only) — forbidden',
-          fail: 'adds an expected-failure declaration (.fail) — forbidden',
-        }[s]
-      );
+      v.push(SUPPRESSION_REASON[s]);
     }
   }
 
@@ -131,12 +151,14 @@ export function checkCandidate(
   // --- executable structure, with the one repairable position masked ---
   const maskA = repairableLocators(A);
   const maskB = repairableLocators(B);
+  /** @type {DiffContext} */
   const ctx = {
     canonA: memo((n) => canonical(n, (x) => maskA.has(x))),
     canonB: memo((n) => canonical(n, (x) => maskB.has(x))),
     regions: [],
   };
   diff(A, B, ctx);
+  /** @type {Set<string>} */
   const seen = new Set();
   for (const region of ctx.regions) {
     const msg = classify(region, A, B);
@@ -150,10 +172,17 @@ export function checkCandidate(
   if (unique.length) return reject(unique);
 
   // Structure equal: list the locator literals that changed.
+  // Masked nodes are the string literals repairableLocators() selected.
+  /** @type {ts.StringLiteralLike[]} */
   const litsA = [];
+  /** @type {ts.StringLiteralLike[]} */
   const litsB = [];
-  visit(A, (n) => maskA.has(n) && litsA.push(n));
-  visit(B, (n) => maskB.has(n) && litsB.push(n));
+  visit(A, (n) => {
+    if (maskA.has(n)) litsA.push(/** @type {ts.StringLiteralLike} */ (n));
+  });
+  visit(B, (n) => {
+    if (maskB.has(n)) litsB.push(/** @type {ts.StringLiteralLike} */ (n));
+  });
   const repairs = litsA
     .map((n, i) => ({
       line: lineOf(litsB[i]),
@@ -167,26 +196,47 @@ export function checkCandidate(
 /**
  * Compatible entry point for existing callers: [] means eligible under static
  * checks (see ELIGIBILITY_NOTE), anything else lists why it is not.
+ * @param {string} originalSource
+ * @param {string} patchedSource
+ * @param {{ fileName?: string }} [opts]
  */
 export function guardrailViolations(originalSource, patchedSource, opts) {
   return checkCandidate(originalSource, patchedSource, opts).violations;
 }
 
+/**
+ * @param {string[]} violations
+ * @returns {CandidateCheck}
+ */
 function reject(violations) {
   return { eligible: false, violations, repairs: [] };
 }
 
+/**
+ * @param {(n: ts.Node) => string} fn
+ * @returns {(n: ts.Node) => string}
+ */
 function memo(fn) {
+  /** @type {Map<ts.Node, string>} */
   const cache = new Map();
   return (n) => {
-    if (!cache.has(n)) cache.set(n, fn(n));
-    return cache.get(n);
+    let value = cache.get(n);
+    if (value === undefined) {
+      value = fn(n);
+      cache.set(n, value);
+    }
+    return value;
   };
 }
 
 // ---------------------------------------------------------------- diff
 
-/** Collect minimal differing regions between two trees. */
+/**
+ * Collect minimal differing regions between two trees.
+ * @param {ts.Node} a
+ * @param {ts.Node} b
+ * @param {DiffContext} ctx
+ */
 function diff(a, b, ctx) {
   if (ctx.canonA(a) === ctx.canonB(b)) return;
   const ka = childrenOf(a);
@@ -237,10 +287,16 @@ function diff(a, b, ctx) {
   }
 }
 
-/** Index pairs of a longest common subsequence of two string arrays. */
+/**
+ * Index pairs of a longest common subsequence of two string arrays.
+ * @param {string[]} x
+ * @param {string[]} y
+ * @returns {[number, number][]}
+ */
 function lcs(x, y) {
   const m = x.length;
   const n = y.length;
+  /** @type {number[][]} */
   const t = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
   for (let i = m - 1; i >= 0; i--) {
     for (let j = n - 1; j >= 0; j--) {
@@ -250,6 +306,7 @@ function lcs(x, y) {
           : Math.max(t[i + 1][j], t[i][j + 1]);
     }
   }
+  /** @type {[number, number][]} */
   const out = [];
   let i = 0;
   let j = 0;
@@ -266,7 +323,13 @@ function lcs(x, y) {
 
 // ---------------------------------------------------------------- reasons
 
+/**
+ * @param {ts.Node | null} node
+ * @param {Set<string>} expects
+ * @returns {CallInfo}
+ */
 function callsIn(node, expects) {
+  /** @type {CallInfo} */
   const info = { expect: false, matchers: [] };
   if (!node) return info;
   visit(node, (n) => {
@@ -282,6 +345,10 @@ function callsIn(node, expects) {
   return info;
 }
 
+/**
+ * @param {ts.Node | null} stmt
+ * @param {Set<string>} bindings
+ */
 function isRegistration(stmt, bindings) {
   if (!stmt || !ts.isExpressionStatement(stmt)) return false;
   let e = stmt.expression;
@@ -292,17 +359,24 @@ function isRegistration(stmt, bindings) {
   return ts.isIdentifier(root) && bindings.has(root.text);
 }
 
-/** One human-readable reason for a differing region. */
+/**
+ * One human-readable reason for a differing region.
+ * @param {Region} region
+ * @param {ts.SourceFile} A
+ * @param {ts.SourceFile} B
+ */
 function classify({ a, b }, A, B) {
   const expects = new Set([...expectBindings(A), ...expectBindings(B)]);
   const bindings = new Set([...testBindings(A), ...testBindings(B)]);
   const sa = a ? statementOf(a) : null;
   const sb = b ? statementOf(b) : null;
-  const where = ` (line ${lineOf(sb ?? sa)})`;
+  // A region always has at least one side.
+  const where = ` (line ${lineOf(/** @type {ts.Node} */ (sb ?? sa))})`;
   const ia = callsIn(sa, expects);
   const ib = callsIn(sb, expects);
+  /** @type {(info: CallInfo, set: Set<string>) => boolean} */
   const has = (info, set) => info.matchers.some((m) => set.has(m));
-  const weakCount = (info) =>
+  const weakCount = (/** @type {CallInfo} */ info) =>
     info.matchers.filter((m) => WEAK_MATCHERS.has(m)).length;
 
   if (has(ia, SNAPSHOT_MATCHERS) || has(ib, SNAPSHOT_MATCHERS)) {

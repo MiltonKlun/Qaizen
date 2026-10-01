@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Selector survival (IMPROVEMENT-PLAN Phase 5, IP-5.5; rebuilt in task group
 // 9.1, review finding I7). Measures whether the locators a test relies on
 // still identify their intended element after the app moved on — the "did
@@ -49,15 +50,26 @@ import {
   survivalResult,
 } from './lib/selector-probes.js';
 
+/**
+ * @typedef {import('./lib/selector-probes.js').VersionEvidence} VersionEvidence
+ */
+
+/** @param {string} name */
 function flags(name) {
+  /** @type {string[]} */
   const out = [];
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === `--${name}`) out.push(argv[i + 1]);
   }
   return out;
 }
+/** @type {(name: string) => string | undefined} */
 const flag = (name) => flags(name)[0];
 
+/**
+ * @param {string} [message]
+ * @returns {never}
+ */
 function usage(message) {
   if (message) console.error(`Error: ${message}`);
   console.error(
@@ -109,6 +121,7 @@ if (testArg) {
 }
 
 // ------------------------------------------------------------ measurement --
+/** @type {(v: string | undefined, what: string) => { name: string, url: string }} */
 const parseVersion = (v, what) => {
   const m = /^([A-Za-z0-9._-]+)=(\S+)$/.exec(v ?? '');
   if (!m) usage(`${what} must be <name>=<url> (got ${v ?? 'nothing'})`);
@@ -127,10 +140,13 @@ if (names.size !== all.length || urls.size !== all.length) {
   usage('every version needs a distinct name and a distinct URL');
 }
 
-if (!existsSync(probeArg)) usage(`probe module not found: ${probeArg}`);
+// The mutual-exclusion check above leaves --probe set on this path.
+const probePath = /** @type {string} */ (probeArg);
+if (!existsSync(probePath)) usage(`probe module not found: ${probePath}`);
+/** @type {any} the imported probe module, checked by probeModuleProblems */
 let mod;
 try {
-  mod = await import(pathToFileURL(resolve(probeArg)).href);
+  mod = await import(pathToFileURL(resolve(probePath)).href);
 } catch (e) {
   usage(
     `probe module ${probeArg} failed to load: ${e instanceof Error ? e.message : e}`
@@ -138,8 +154,14 @@ try {
 }
 const problems = probeModuleProblems(mod);
 if (problems.length) usage(`probe module ${probeArg}: ${problems.join('; ')}`);
+/** @type {import('./lib/selector-probes.js').Probe[]} */
 const probes = mod.probes;
 
+/**
+ * @param {ReturnType<typeof survivalResult>} result
+ * @param {VersionEvidence[]} evidence
+ * @returns {never}
+ */
 function report(result, evidence) {
   const doc = {
     probe_module: probeArg,
@@ -179,6 +201,7 @@ if (later.length === 0) {
   );
 }
 
+/** @type {import('@playwright/test').BrowserType} */
 let chromium;
 try {
   ({ chromium } = await import('@playwright/test'));
@@ -187,12 +210,14 @@ try {
 }
 
 const browser = await chromium.launch();
+/** @type {(VersionEvidence & { url: string })[]} */
 const evidence = [];
 try {
   for (const v of all) {
     const context = await browser.newContext();
     const page = await context.newPage();
     page.setDefaultTimeout(10000);
+    /** @type {VersionEvidence & { url: string }} */
     const entry = { name: v.name, url: v.url };
     try {
       await mod.prepare(page, { baseURL: v.url });
@@ -208,7 +233,7 @@ try {
       `${v === baseline ? 'baseline' : 'version'} ${v.name}: ` +
         (entry.setup_error
           ? `setup failed (${entry.setup_error})`
-          : entry.results
+          : (entry.results ?? [])
               .map(
                 (r) =>
                   `${r.probe}=${r.error ? 'error' : r.resolved ? 'ok' : `${r.count} target(s)`}`

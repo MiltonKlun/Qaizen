@@ -1,3 +1,4 @@
+// @ts-check
 // Pipeline state machine (IMPROVEMENT-PLAN Phase 2, IP-2.1). PURE module:
 // no I/O, no side effects — `nextStep(context)` derives the next pipeline
 // step from the run manifest alone (context.json IS the state source of
@@ -31,27 +32,52 @@
 // without them the machine trusts artifact_paths ("" = not yet produced,
 // docs/context-json-guide.md §4).
 
+/** @typedef {import('./lib/approval-binding.js').Context} Context */
+/**
+ * Facts the CLI gathers for nextStep (documented there).
+ * @typedef {{ branches?: { e2e?: boolean, api?: boolean, external?: boolean,
+ *     externalRuns?: boolean },
+ *   hasApiCases?: boolean, apiCollectionExists?: boolean,
+ *   apiExecuted?: boolean, externalPlanExists?: boolean,
+ *   externalResultsExist?: boolean, testCasesExist?: boolean,
+ *   plannerBriefExists?: boolean, specExists?: boolean,
+ *   generatedTestExists?: boolean, executionResultsExist?: boolean,
+ *   failureAnalysisExists?: boolean, failureAnalysisFinalized?: boolean,
+ *   bugDraftsMissing?: number, releaseReportExists?: boolean }} StepHints
+ */
+
 /**
  * A gate is passed when its value is boolean `true` or an audit object with
  * `status: true`. Anything else (false, { status: false }, absent) is NOT
  * passed. This is the binding rule from docs/review-gates.md.
+ * @param {unknown} value
  */
 export function gatePassed(value) {
-  return value === true || (!!value && value.status === true);
+  return (
+    value === true ||
+    (!!value && /** @type {{ status?: unknown }} */ (value).status === true)
+  );
 }
 
 /**
  * Blocking ambiguities (CLAUDE.md §3.7) — the runner halts on these before
  * computing any step. Returns the list of blocking descriptions ([] if none).
+ * @param {Context | null} context
+ * @returns {string[]}
  */
 export function blockingAmbiguities(context) {
   if (!context || !Array.isArray(context.ambiguities)) return [];
-  return context.ambiguities
+  /** @type {{ blocking?: boolean, description?: string }[]} */
+  const ambiguities = context.ambiguities;
+  return ambiguities
     .filter((a) => a && a.blocking === true)
     .map((a) => a.description || '(no description)');
 }
 
-/** Runner step → the review_gates key it decides. */
+/**
+ * Runner step → the review_gates key it decides.
+ * @type {Record<string, string>}
+ */
 export const GATE_KEYS = {
   gate1: 'requirements_reviewed',
   gate2: 'test_scope_reviewed',
@@ -69,9 +95,9 @@ export const GATE_KEYS = {
 /**
  * Derive the next step for a run.
  *
- * @param {object|null} context  Parsed context.json, or null when the run
+ * @param {Context|null} context  Parsed context.json, or null when the run
  *                               has not started (no context.json yet).
- * @param {object} [hints]      Optional CLI-gathered facts (all optional):
+ * @param {StepHints} [hints]   Optional CLI-gathered facts (all optional):
  *   - branches:               { e2e, api, external, externalRuns } from the
  *                             APPROVED cases' automation decisions (task
  *                             groups 7.1, 7.2). Preferred. `external`: any
@@ -111,10 +137,12 @@ export function nextStep(context, hints = {}) {
 
   const paths = context.artifact_paths || {};
   const gates = context.review_gates || {};
-  const filled = (p) => typeof p === 'string' && p.length > 0;
+  const filled = (/** @type {unknown} */ p) =>
+    typeof p === 'string' && p.length > 0;
   // A path counts as "produced" when it is filled AND (if the CLI checked)
   // the file actually exists — a prefilled conventional path with no file
   // behind it is not a produced artifact.
+  /** @type {(p: unknown, exists: boolean | undefined) => boolean} */
   const produced = (p, exists) => filled(p) && exists !== false;
 
   // qa_scope_approved consolidates Gates 1+2 when passed (Phase 2 TG7);
@@ -196,7 +224,10 @@ export function nextStep(context, hints = {}) {
   // The pre-classifier writes a DRAFT. The Failure Classifier Agent (or a
   // human) finalizes it and writes a bug draft for every Red failure before
   // the Reporter may run on it.
-  if (hints.failureAnalysisFinalized === false || hints.bugDraftsMissing > 0)
+  if (
+    hints.failureAnalysisFinalized === false ||
+    (hints.bugDraftsMissing ?? 0) > 0
+  )
     return 'finalize';
   if (!produced(paths.release_report_json, hints.releaseReportExists))
     return 'report';

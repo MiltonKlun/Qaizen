@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Pipeline test discovery wrapper (IMPLEMENTATION_PLAN task group 0.2).
 //
 // WHY THIS EXISTS: `test:pipeline` used to hardcode a list of six filenames.

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // List run history (Phase 3 TG11, multi-feature support). Walks runs/ and
 // prints one row per archived run: story_id, run_id, status, timestamp, label.
 // It is the read-only companion to scripts/new-run.js (which WRITES runs/) —
@@ -34,6 +35,10 @@ const asJson = argv.includes('--json');
 const storyIdx = argv.indexOf('--story');
 const onlyStory = storyIdx !== -1 ? argv[storyIdx + 1] : null;
 
+/**
+ * @param {string} p
+ * @returns {any} parsed JSON, or null when unreadable
+ */
 function loadJson(p) {
   try {
     return JSON.parse(readFileSync(p, 'utf8'));
@@ -43,6 +48,7 @@ function loadJson(p) {
 }
 
 // A directory entry that is a real subdirectory (not latest.json / .gitkeep).
+/** @param {string} dir */
 function subdirs(dir) {
   if (!existsSync(dir)) return [];
   return readdirSync(dir).filter((name) => {
@@ -60,6 +66,7 @@ if (!existsSync(RUNS_DIR)) {
   exit(0);
 }
 
+/** @type {Record<string, any>[]} */
 const rows = [];
 
 const stories = subdirs(RUNS_DIR)
@@ -121,11 +128,12 @@ const cols = [
   { key: 'archived_at', head: 'ARCHIVED AT' },
   { key: 'label', head: 'LABEL' },
 ];
+/** @type {(r: Record<string, unknown>, k: string) => string} */
 const cell = (r, k) => String(r[k] ?? '-');
 const widths = cols.map((c) =>
   Math.max(c.head.length, ...rows.map((r) => cell(r, c.key).length))
 );
-const line = (vals) =>
+const line = (/** @type {unknown[]} */ vals) =>
   vals.map((v, i) => String(v).padEnd(widths[i])).join('  ');
 
 console.log(line(cols.map((c) => c.head)));

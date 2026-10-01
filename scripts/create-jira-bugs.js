@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Jira bug promotion — reads human-reviewed Red bug drafts from
 // release/bug-drafts/BUG-*.md and (only with --apply) files them as Jira
 // issues, links each to the story issue when context.story.jira_issue_key
@@ -41,6 +42,15 @@
 // Exit codes: 0 ok · 1 promotion/parse/scope/recovery error · 2 usage/file/env error
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+/** @typedef {import('./lib/integration-io.js').SyncRecord} SyncRecord */
+/** @typedef {import('./lib/execution-ledger.js').TestCase} TestCase */
+/** @typedef {ReturnType<typeof import('./lib/integration-io.js').jiraClient>} JiraClient */
+/**
+ * One bug draft, parsed.
+ * @typedef {{ bugId: string, sections: Record<string, string>, file: string,
+ *   path: string, md: string, syncState: Record<string, SyncRecord>,
+ *   existingKey?: string | null }} Draft
+ */
 import { argv, env, exit } from 'node:process';
 
 import {
@@ -87,12 +97,19 @@ const REQUIRED_SECTIONS = [
 // --- Parse a bug draft into its level-2 sections -------------------------
 // Splits on lines that are exactly "## Heading"; the H1 ("# BUG-XXX") is
 // captured separately. Returns { bugId, sections: { Summary, Severity, ... } }.
+/**
+ * @param {string} md
+ * @param {string} file
+ */
 function parseDraft(md, file) {
   const lines = md.split(/\r?\n/);
   const h1 = lines.find((l) => /^#\s+\S/.test(l));
   const bugId = h1 ? h1.replace(/^#\s+/, '').trim() : null;
+  /** @type {Record<string, string>} */
   const sections = {};
+  /** @type {string | null} */
   let current = null;
+  /** @type {string[]} */
   let buf = [];
   const flush = () => {
     if (current) sections[current] = buf.join('\n').trim();
@@ -112,7 +129,11 @@ function parseDraft(md, file) {
   return { bugId, sections, file };
 }
 
-/** The JSON inside "## Sync State" (a ```json fenced block), or null. */
+/**
+ * The JSON inside "## Sync State" (a ```json fenced block), or null.
+ * @param {string | undefined} body
+ * @param {string} file
+ */
 function parseSyncState(body, file) {
   if (body === undefined) return null;
   const m = body.match(/```json\s*\n([\s\S]*?)\n```/);
@@ -121,7 +142,7 @@ function parseSyncState(body, file) {
     return JSON.parse(m[1]);
   } catch (e) {
     throw new Error(
-      `${file}: "## Sync State" is not valid JSON (${e.message})`
+      `${file}: "## Sync State" is not valid JSON (${e instanceof Error ? e.message : e})`
     );
   }
 }
@@ -129,6 +150,9 @@ function parseSyncState(body, file) {
 /**
  * Replace a level-2 section's body, or append the section when absent.
  * Keeps the file's line endings.
+ * @param {string} md
+ * @param {string} heading
+ * @param {string} body
  */
 function setSection(md, heading, body) {
   const eol = md.includes('\r\n') ? '\r\n' : '\n';
@@ -150,7 +174,8 @@ function setSection(md, heading, body) {
   return out.join(eol);
 }
 
-const isPlaceholder = (s) => !s || /^\[.*\]$/.test(s);
+const isPlaceholder = (/** @type {string | undefined} */ s) =>
+  !s || /^\[.*\]$/.test(s);
 
 async function main() {
   loadDotEnv(env);
@@ -182,7 +207,7 @@ async function main() {
       /** @type {string[] | undefined} */ (cli.values.resolve) ?? []
     );
   } catch (e) {
-    console.error(e.message);
+    console.error(e instanceof Error ? e.message : e);
     return 2;
   }
   const draftsDir =
@@ -205,11 +230,13 @@ async function main() {
 
   const ctxRead = readJson('context.json');
   const mapRead = readJson(mapPath);
-  for (const r of [ctxRead, mapRead]) {
-    if (!r.ok) {
-      console.error(r.message);
-      return 2;
-    }
+  if (!ctxRead.ok) {
+    console.error(ctxRead.message);
+    return 2;
+  }
+  if (!mapRead.ok) {
+    console.error(mapRead.message);
+    return 2;
   }
   const context = ctxRead.data;
   const map = mapRead.data;
@@ -231,6 +258,7 @@ async function main() {
     return 0;
   }
 
+  /** @type {Draft[]} */
   let drafts;
   try {
     drafts = draftFiles.map((f) => {
@@ -245,7 +273,7 @@ async function main() {
       };
     });
   } catch (e) {
-    console.error(e.message);
+    console.error(e instanceof Error ? e.message : e);
     return 1;
   }
 
@@ -292,8 +320,8 @@ async function main() {
   }
   const approvedIds = new Set(
     casesRead.data.test_cases
-      .filter((tc) => tc.status === 'approved')
-      .map((tc) => tc.test_case_id)
+      .filter((/** @type {TestCase} */ tc) => tc.status === 'approved')
+      .map((/** @type {TestCase} */ tc) => tc.test_case_id)
   );
   for (const d of drafts) {
     const linkedStory = d.sections['Linked Story'].split(/\s+/)[0];
@@ -317,17 +345,19 @@ async function main() {
   }
 
   // --- Plan -----------------------------------------------------------------
+  /** @type {(d: Draft) => SyncRecord | undefined} */
   const recordOf = (d) => d.syncState[TARGET];
   const plan = drafts.map((d) => ({
     d,
     ...planOperation({
       record: recordOf(d),
       remoteIds: [d.existingKey],
-      isValidId: (id) => JIRA_KEY.test(id),
+      isValidId: (/** @type {string} */ id) => JIRA_KEY.test(id),
       linkWanted: Boolean(storyKey),
     }),
   }));
-  const byAction = (a) => plan.filter((p) => p.action === a);
+  const byAction = (/** @type {string} */ a) =>
+    plan.filter((p) => p.action === a);
   const projectKey = env.JIRA_PROJECT_KEY || null;
 
   console.log(`Jira bug promotion plan`);
@@ -354,8 +384,10 @@ async function main() {
       `  Outcome unknown (pending; must be reconciled before any create): ${byAction('reconcile').length}`
     );
     for (const { d } of byAction('reconcile')) {
+      // A reconcile action always has its pending record (planOperation).
+      const r = /** @type {SyncRecord} */ (recordOf(d));
       console.log(
-        `    - ${d.bugId} (marker ${recordOf(d).marker}, since ${recordOf(d).intent_at})`
+        `    - ${d.bugId} (marker ${r.marker}, since ${r.intent_at})`
       );
     }
   }
@@ -396,6 +428,8 @@ async function main() {
     console.error('JIRA_PROJECT_KEY is required to identify the operations.');
     return 2;
   }
+  // Set from here on; the nested functions below read this binding.
+  const project = projectKey;
 
   const lock = acquireLock('.', TARGET, { releaseStale: RELEASE_STALE });
   if (!lock.ok) {
@@ -404,7 +438,7 @@ async function main() {
   }
   try {
     const now = () => new Date().toISOString();
-    const persist = (d) => {
+    const persist = (/** @type {Draft} */ d) => {
       const valid = validateValue(d.syncState, SCHEMA, {
         fragment: SYNC_FRAGMENT,
       });
@@ -437,7 +471,7 @@ async function main() {
     try {
       timeoutMs = httpTimeoutMs(env);
     } catch (e) {
-      console.error(e.message);
+      console.error(e instanceof Error ? e.message : e);
       return 2;
     }
     const jira = jiraClient({
@@ -482,24 +516,30 @@ async function main() {
     return 0;
 
     // ------------------------------------------------------------------
+    /**
+     * @param {JiraClient} client
+     * @param {{ d: Draft, severity: string, priority: string }} c
+     */
     async function create(client, c) {
       const { d } = c;
       const key = operationKey({
         target: TARGET,
-        project: projectKey,
+        project,
         storyId,
         localId: d.bugId,
         kind: 'create_bug',
       });
       const marker = operationMarker(key);
+      /** @type {Record<string, any>} the Jira issue fields */
       const fields = {
-        project: { key: projectKey },
+        project: { key: project },
         summary: d.sections['Summary'].split('\n')[0].slice(0, 250),
         issuetype: { name: issueType },
         description: adf(buildDescription(d)),
         priority: { name: c.priority },
         labels: [marker],
       };
+      /** @type {SyncRecord} */
       const record = {
         operation_key: key,
         marker,
@@ -596,9 +636,17 @@ async function main() {
       return 'ambiguous';
     }
 
+    /**
+     * @param {JiraClient} client
+     * @param {Draft} d a draft whose create is recorded (planOperation)
+     */
     async function link(client, d) {
-      const record = recordOf(d);
-      const res = await client.linkToStory(d.existingKey, storyKey, linkType);
+      const record = /** @type {SyncRecord} */ (recordOf(d));
+      const res = await client.linkToStory(
+        /** @type {string} */ (d.existingKey),
+        storyKey,
+        linkType
+      );
       if (res.ok) {
         Object.assign(record, {
           link_state: 'linked',
@@ -628,6 +676,7 @@ async function main() {
       return res.ok;
     }
 
+    /** @param {JiraClient} client */
     async function reconcile(client) {
       const pending = byAction('reconcile');
       if (!pending.length) {
@@ -636,7 +685,8 @@ async function main() {
       }
       let unresolved = 0;
       for (const { d } of pending) {
-        const record = recordOf(d);
+        // A pending operation always has its record (planOperation).
+        const record = /** @type {SyncRecord} */ (recordOf(d));
         if (record.marker_searchable === false) {
           unresolved += 1;
           console.error(
@@ -645,7 +695,7 @@ async function main() {
           );
           continue;
         }
-        const found = await client.findByMarker(projectKey, record.marker);
+        const found = await client.findByMarker(project, record.marker);
         if (!found.ok) {
           unresolved += 1;
           console.error(
@@ -679,6 +729,7 @@ async function main() {
       return unresolved ? 1 : 0;
     }
 
+    /** @param {{ localId: string, remote: string | null }[]} list */
     function resolve(list) {
       for (const { localId, remote } of list) {
         const d = drafts.find((x) => x.bugId === localId);
@@ -711,20 +762,28 @@ async function main() {
       return 0;
     }
 
+    /**
+     * @param {Draft} d
+     * @param {string} remote
+     */
     function adopt(d, remote) {
       d.existingKey = remote;
-      Object.assign(recordOf(d), {
+      // Callers adopt only a draft with a pending record.
+      const record = /** @type {SyncRecord} */ (recordOf(d));
+      Object.assign(record, {
         state: SYNC_STATE.CREATED,
         remote_id: remote,
         reconciled_at: now(),
         updated_at: now(),
         link_state: storyKey ? 'pending' : 'not_applicable',
       });
-      delete recordOf(d).last_error;
+      delete record.last_error;
     }
 
+    /** @param {Draft} d */
     function markNotFound(d) {
-      Object.assign(recordOf(d), {
+      // Callers mark only a draft with a pending record.
+      Object.assign(/** @type {SyncRecord} */ (recordOf(d)), {
         state: SYNC_STATE.NOT_FOUND,
         reconciled_at: now(),
         updated_at: now(),
@@ -735,6 +794,7 @@ async function main() {
   }
 
   // Build the Jira description (plain text; the REST v3 call wraps it in ADF).
+  /** @param {Draft} d */
   function buildDescription(d) {
     const s = d.sections;
     return [

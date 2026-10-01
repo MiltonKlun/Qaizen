@@ -1,3 +1,4 @@
+// @ts-check
 // Locators as the test source writes them (task group 9.1, review finding I7).
 //
 // The selector-survival script used to pull locators out with regexes: it
@@ -32,7 +33,16 @@ const LOCATE = new Set([
 const REFINE = new Set(['first', 'last', 'nth', 'filter']);
 const STEP = new Set([...LOCATE, ...REFINE]);
 
-const stepName = (call) =>
+/**
+ * A static value (`value`) or the reason it is not one (`dynamic`).
+ * @typedef {{ value?: any, dynamic?: string }} StaticResult
+ * @typedef {{ method: string, args: any[] }} Step
+ * @typedef {{ id?: string, line: number, root: string, steps: Step[],
+ *   expression: string, measurable: boolean, reason?: string }} Locator
+ */
+
+/** @returns {string | null} */
+const stepName = (/** @type {ts.Node} */ call) =>
   ts.isCallExpression(call) && ts.isPropertyAccessExpression(call.expression)
     ? call.expression.name.text
     : null;
@@ -40,6 +50,8 @@ const stepName = (call) =>
 /**
  * A static argument value, or `{ dynamic: reason }`.
  * Strings are the cooked value (escapes resolved), regexes keep their source.
+ * @param {ts.Expression} node
+ * @returns {StaticResult}
  */
 export function staticValue(node) {
   if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
@@ -59,6 +71,7 @@ export function staticValue(node) {
   if (node.kind === ts.SyntaxKind.TrueKeyword) return { value: true };
   if (node.kind === ts.SyntaxKind.FalseKeyword) return { value: false };
   if (ts.isObjectLiteralExpression(node)) {
+    /** @type {Record<string, any>} */
     const out = {};
     for (const p of node.properties) {
       if (
@@ -78,13 +91,17 @@ export function staticValue(node) {
   if (ts.isTemplateExpression(node)) {
     return { dynamic: 'a template string with substitutions' };
   }
-  if (ts.isCallExpression(node) && STEP.has(stepName(node))) {
+  if (ts.isCallExpression(node) && STEP.has(stepName(node) ?? '')) {
     return { dynamic: 'a nested locator' };
   }
   return { dynamic: `a ${ts.SyntaxKind[node.kind]} expression` };
 }
 
-/** A value rendered back as a JS literal. */
+/**
+ * A value rendered back as a JS literal.
+ * @param {any} v
+ * @returns {string}
+ */
 function render(v) {
   if (v && typeof v === 'object' && 'regex' in v) return v.regex;
   if (v && typeof v === 'object') {
@@ -101,17 +118,18 @@ function render(v) {
 
 /**
  * Every locator chain in a test source, outermost chains only.
- * @returns {{ok: true, locators: Array<{id: string, line: number,
- *   root: string, steps: Array<{method: string, args: any[]}>,
- *   expression: string, measurable: boolean, reason?: string}>}
+ * @returns {{ok: true, locators: Array<Locator & { id: string }>}
  *   | {ok: false, reason: string}}
+ * @param {string} text
+ * @param {string} [fileName]
  */
 export function extractLocators(text, fileName = 'test.spec.ts') {
   const parsed = parseTestSource(text, fileName);
   if (!parsed.ok) return parsed;
+  /** @type {Locator[]} */
   const locators = [];
-  const walk = (node) => {
-    if (ts.isCallExpression(node) && STEP.has(stepName(node))) {
+  const walk = (/** @type {ts.Node} */ node) => {
+    if (ts.isCallExpression(node) && STEP.has(stepName(node) ?? '')) {
       // Only the outermost call of a chain: an inner call is its scope.
       const access = node.parent;
       const continued =
@@ -119,7 +137,7 @@ export function extractLocators(text, fileName = 'test.spec.ts') {
         ts.isPropertyAccessExpression(access) &&
         access.expression === node &&
         access.parent &&
-        STEP.has(stepName(access.parent));
+        STEP.has(stepName(access.parent) ?? '');
       if (!continued) {
         const chain = chainOf(node);
         if (chain) locators.push(chain);
@@ -129,19 +147,31 @@ export function extractLocators(text, fileName = 'test.spec.ts') {
   };
   walk(parsed.sourceFile);
   locators.forEach((l, i) => (l.id = `L${i + 1}`));
-  return { ok: true, locators };
+  return {
+    ok: true,
+    locators: /** @type {Array<Locator & { id: string }>} */ (locators),
+  };
 }
 
+/**
+ * @param {ts.CallExpression} outer
+ * @returns {Locator | null}
+ */
 function chainOf(outer) {
+  /** @type {ts.CallExpression[]} */
   const calls = [];
+  /** @type {ts.Expression} */
   let node = outer;
-  while (ts.isCallExpression(node) && STEP.has(stepName(node))) {
+  while (ts.isCallExpression(node) && STEP.has(stepName(node) ?? '')) {
     calls.unshift(node);
-    node = node.expression.expression;
+    // stepName() is non-null only for a property-access callee.
+    node = /** @type {ts.PropertyAccessExpression} */ (node.expression)
+      .expression;
   }
   // A chain with no locating step (an array's .filter()) is not a locator.
-  if (!calls.some((c) => LOCATE.has(stepName(c)))) return null;
+  if (!calls.some((c) => LOCATE.has(stepName(c) ?? ''))) return null;
   const root = node.getText();
+  /** @type {string[]} */
   const reasons = [];
   if (!ts.isIdentifier(node) || node.text !== 'page') {
     reasons.push(
@@ -149,7 +179,7 @@ function chainOf(outer) {
     );
   }
   const steps = calls.map((c) => {
-    const method = stepName(c);
+    const method = stepName(c) ?? '';
     const args = c.arguments.map((a, i) => {
       const v = staticValue(a);
       if (v.dynamic)

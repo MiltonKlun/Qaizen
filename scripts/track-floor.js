@@ -1,3 +1,4 @@
+// @ts-check
 // Track floor (IMPROVEMENT-PLAN Phase 4, IP-4.2).
 //
 // The lite track (PFI-1) lets a routine story skip ceremony it does not need.
@@ -31,7 +32,12 @@ export const MAX_LITE_RISKS = 5;
 
 export const TRACK_ORDER = ['lite', 'standard', 'full'];
 
-/** Numeric rank so floors can be compared (lite < standard < full). */
+/** @typedef {'lite' | 'standard' | 'full'} Track */
+
+/**
+ * Numeric rank so floors can be compared (lite < standard < full).
+ * @param {string} track
+ */
 export function trackRank(track) {
   const i = TRACK_ORDER.indexOf(track);
   return i === -1 ? 1 : i; // unknown => treat as standard
@@ -39,13 +45,16 @@ export function trackRank(track) {
 
 /**
  * Compute the minimum allowable track for a run.
- * @param {object} context  Parsed context.json.
- * @returns {{ minimum: 'lite'|'standard'|'full', reasons: string[] }}
+ * @param {import('./lib/approval-binding.js').Context | null} context  Parsed context.json.
+ * @returns {{ minimum: Track, reasons: string[] }}
  */
 export function minimumTrack(context) {
+  /** @type {string[]} */
   const reasons = [];
+  /** @type {Track} */
   let minimum = 'lite';
 
+  /** @type {(track: Track, reason: string) => void} */
   const raiseTo = (track, reason) => {
     reasons.push(reason);
     if (trackRank(track) > trackRank(minimum)) minimum = track;
@@ -60,7 +69,7 @@ export function minimumTrack(context) {
       ? context.acceptance_criteria
       : []),
     ...(Array.isArray(context?.risks)
-      ? context.risks.map((r) => r && r.description)
+      ? context.risks.map((/** @type {any} */ r) => r && r.description)
       : []),
   ].filter((t) => typeof t === 'string' && t.length > 0);
 
@@ -86,7 +95,7 @@ export function minimumTrack(context) {
   // A high-severity risk alone is enough to leave routine territory.
   const hasHighRisk =
     Array.isArray(context?.risks) &&
-    context.risks.some((r) => r && r.severity === 'high');
+    context.risks.some((/** @type {any} */ r) => r && r.severity === 'high');
   if (hasHighRisk) {
     raiseTo('standard', 'at least one high-severity risk');
   }
@@ -97,6 +106,8 @@ export function minimumTrack(context) {
 /**
  * Is the proposed track allowed for this context? A track at or above the
  * floor is allowed; below it is refused.
+ * @param {import('./lib/approval-binding.js').Context | null} context
+ * @param {string} proposed
  * @returns {{ allowed: boolean, minimum: string, reasons: string[] }}
  */
 export function trackAllowed(context, proposed) {

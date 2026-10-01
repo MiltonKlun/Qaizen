@@ -1,3 +1,4 @@
+// @ts-check
 // Per-execution report layout (task group 3.2).
 //
 // Raw reporter outputs used to go to ONE constant path:
@@ -34,7 +35,17 @@ export const LEGACY_NEWMAN_JSON = join('reports', 'newman-results.json');
  */
 const SAFE_COMPONENT = /^[A-Za-z0-9._-]+$/;
 
-/** Reject a component that could escape or collide. */
+/**
+ * @typedef {{ ok: false, message: string }} PathFailure
+ * @typedef {{ ok: true, dir: string, json: string, html: string }} ReportPaths
+ */
+
+/**
+ * Reject a component that could escape or collide.
+ * @param {unknown} value
+ * @param {string} label
+ * @returns {{ ok: true, value: string } | PathFailure}
+ */
 export function validateComponent(value, label) {
   if (typeof value !== 'string' || value.length === 0) {
     return { ok: false, message: `${label} is required` };
@@ -73,6 +84,11 @@ export function newExecutionId(now = new Date()) {
  * malformed inherited id is rejected rather than sanitized, because silently
  * rewriting it would put reports somewhere the caller does not expect.
  */
+/**
+ * @param {string | undefined} explicit
+ * @param {Record<string, string | undefined>} [env]
+ * @returns {{ ok: true, value: string, created: boolean } | PathFailure}
+ */
 export function resolveExecutionId(explicit, env = {}) {
   const candidate = explicit || env.QAIZEN_EXECUTION_ID;
   if (!candidate) return { ok: true, value: newExecutionId(), created: true };
@@ -83,7 +99,9 @@ export function resolveExecutionId(explicit, env = {}) {
 
 /**
  * Directory holding every Newman report for one story in one execution.
- * @returns {{ok: true, value: string} | {ok: false, message: string}}
+ * @param {string} executionId
+ * @param {string} storyId
+ * @returns {{ok: true, value: string} | PathFailure}
  */
 export function newmanStoryDir(executionId, storyId) {
   for (const [value, label] of [
@@ -101,7 +119,10 @@ export function newmanStoryDir(executionId, storyId) {
 
 /**
  * Paths for one collection's raw reports.
- * @returns {{ok: true, dir: string, json: string, html: string} | {ok: false, message: string}}
+ * @param {string} executionId
+ * @param {string} storyId
+ * @param {string} collectionId
+ * @returns {ReportPaths | PathFailure}
  */
 export function newmanReportPaths(executionId, storyId, collectionId) {
   const dir = newmanStoryDir(executionId, storyId);
@@ -116,7 +137,10 @@ export function newmanReportPaths(executionId, storyId, collectionId) {
   };
 }
 
-/** Create the directory for a set of report paths. */
+/**
+ * Create the directory for a set of report paths.
+ * @param {ReportPaths} paths
+ */
 export function ensureReportDir(paths) {
   mkdirSync(paths.dir, { recursive: true });
   return paths;
@@ -127,6 +151,10 @@ export function ensureReportDir(paths) {
  *
  * Published files stay grouped per execution too, so a CI upload of
  * `reports/<execution-id>/published` cannot pick up an unrelated run.
+ * @param {string} executionId
+ * @param {string} storyId
+ * @param {string} collectionId
+ * @returns {{ ok: true, dir: string, json: string } | PathFailure}
  */
 export function publishedPaths(executionId, storyId, collectionId) {
   for (const [value, label] of [

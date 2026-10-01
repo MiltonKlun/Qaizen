@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Newman runner for the API branch (Phase 1.5+; report layout from task
 // group 3.2).
 //
@@ -51,8 +52,15 @@ import {
 // Boolean flags; every other --flag takes a value.
 const BOOLEAN_FLAGS = new Set(['repository-check']);
 
+/**
+ * @param {string[]} args
+ * @returns {{ flags: Record<string, any>, positional: string[] }} flag
+ *   values are strings, except BOOLEAN_FLAGS, which are `true` when present
+ */
 function parseFlags(args) {
+  /** @type {Record<string, any>} */
   const flags = {};
+  /** @type {string[]} */
   const positional = [];
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i];
@@ -207,13 +215,16 @@ ensureReportDir(paths);
 // file. Passed as API values, not shell arguments: nothing is interpolated
 // into a command line. The raw reports below still contain these values --
 // they stay under reports/ (gitignored) and are never uploaded.
+/** @type {string[]} */
 const injectedSecrets = [];
+/** @type {{ key: string, value: string }[]} */
 const envVars = [];
 if (env.REQRES_API_KEY) {
   envVars.push({ key: 'api_key', value: env.REQRES_API_KEY });
   injectedSecrets.push(env.REQRES_API_KEY);
 }
 
+/** @type {import('newman').RunOptions} */
 const runOptions = {
   collection,
   reporters: ['cli', 'json', 'htmlextra'],

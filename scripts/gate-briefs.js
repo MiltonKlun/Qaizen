@@ -1,3 +1,4 @@
+// @ts-check
 // Gate briefs (IMPROVEMENT-PLAN Phase 2, IP-2.2). Pure data + renderer for
 // the one-screen brief the runner shows when it halts at a gate. The
 // checklist items are taken from docs/review-gates.md (the binding criteria);
@@ -16,6 +17,14 @@ import { apiPaths, externalPaths } from './lib/approval-binding.js';
 // (the things produced since the previous gate); `checklist` is the
 // auto-checkable-adjacent criteria summary; `judgment` is what only a human
 // can answer (the reason the gate exists).
+/**
+ * @typedef {import('./lib/approval-binding.js').Context} Context
+ * @typedef {{ name: string, requires: string[],
+ *   artifacts: (ctx: Context | null) => (string | null | undefined)[],
+ *   checklist: string[], judgment: string[] }} GateBrief
+ * @typedef {{ path: string, exists: boolean, valid: boolean | null }} ArtifactStatus
+ */
+/** @type {Record<string, GateBrief>} */
 export const GATE_BRIEFS = {
   gate1: {
     name: 'Gate 1 — Requirement Interpretation',
@@ -222,6 +231,7 @@ export function GATE4_JUDGMENT_QUESTIONS() {
   ];
 }
 
+/** @param {ArtifactStatus} a */
 function fmtArtifact(a) {
   const exist = a.exists ? 'found' : 'MISSING';
   const valid =
@@ -233,6 +243,8 @@ function fmtArtifact(a) {
  * Render the one-screen brief for a gate step ('gate1'..'gate4').
  * `artifacts`: [{ path, exists, valid }] gathered by the CLI.
  * Returns a string (the CLI prints it).
+ * @param {{ step: string, context: Context | null,
+ *   artifacts?: ArtifactStatus[] }} args
  */
 export function renderGateBrief({ step, context, artifacts = [] }) {
   const brief = GATE_BRIEFS[step];

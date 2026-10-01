@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // /evolve — self-improvement loop (Phase 3 TG10), adapted from the
 // ai-qa-workflow /evolve concept. It READS signals about how the pipeline is
 // actually being used and PROPOSES grouped improvements. It never applies a
@@ -49,10 +50,15 @@ const DAYS = daysIdx !== -1 ? Number(argv[daysIdx + 1]) || 90 : 90;
 const ALSO_JSON = argv.includes('--json');
 const OUT_DIR = 'evolve';
 
+/** @param {string[]} args */
 function git(args) {
   const r = spawnSync('git', args, { encoding: 'utf8' });
   return r.status === 0 ? (r.stdout || '').trim() : '';
 }
+/**
+ * @param {string} p
+ * @returns {any} parsed JSON, or null when unreadable
+ */
 function loadJson(p) {
   try {
     return JSON.parse(readFileSync(p, 'utf8'));
@@ -94,10 +100,16 @@ sources.session_summaries = summaries.length;
 
 // --- Detect findings ------------------------------------------------------
 
+/**
+ * One proposal finding (docs/evolve-loop.md).
+ * @typedef {{ confidence: 'high' | 'medium' | 'low', [field: string]: any }} Finding
+ */
+/** @type {Finding[]} */
 const findings = [];
-const add = (f) => findings.push(f);
+const add = (/** @type {Finding} */ f) => findings.push(f);
 
 // Confidence from occurrence count, per the plan's 3+ rule.
+/** @type {(n: number) => Finding['confidence']} */
 const confFromCount = (n) => (n >= 3 ? 'high' : n === 2 ? 'medium' : 'low');
 
 // Human-reported friction (session summaries) — highest signal. Group bullets
@@ -207,7 +219,9 @@ if (metrics) {
       targets: ['metrics/'],
     });
   } else {
-    for (const c of stability.cohorts.filter((x) => x.verdict === 'not_met')) {
+    for (const c of stability.cohorts.filter(
+      (/** @type {{ verdict: string }} */ x) => x.verdict === 'not_met'
+    )) {
       add({
         theme: 'prompt-stability-not-met',
         confidence: 'medium',
@@ -253,6 +267,7 @@ if (metrics) {
 }
 
 // Usage pattern: where the work concentrated (by commit-subject prefix).
+/** @type {Record<string, number>} */
 const areas = {};
 for (const s of nonMerge) {
   const m = s.match(/^(\w+)(?:\([^)]*\))?:/); // conventional-commit type

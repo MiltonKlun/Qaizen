@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 // @ts-check
-// Which runtime scripts the JSDoc type check covers (task group 10.1).
+// Every runtime script stays under the JSDoc type check (task group 10.1).
 //
-// tsconfig.scripts.json checks, under `strict`, every script that opts in with
-// `// @ts-check` on its first line (after a shebang, when it has one).
-// Coverage is being extended file by file; this prints exactly which files are
-// checked and which are not yet, so a passing `npm run typecheck:scripts` is
-// never read as "every script is type-checked".
+// tsconfig.scripts.json checks every scripts/**/*.js under `strict`
+// (`checkJs: true`), so a new script is covered without opting in. The one
+// way out is a `// @ts-nocheck` comment, which would silently drop a file from
+// the check while `npm run typecheck:scripts` still passed. This fails when
+// any script carries one, so full coverage cannot erode unnoticed.
+//
+// The `// @ts-check` line at the top of each script is kept for editors,
+// which read the root tsconfig.json rather than tsconfig.scripts.json.
 //
 // Usage: node scripts/typecheck-coverage.js [--json]
-// Exit codes: 0 always (a report, not a gate); 2 on a usage error.
+// Exit codes: 0 every script is checked · 1 a script opts out · 2 usage error
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
@@ -41,18 +44,18 @@ function jsFiles(dir) {
   return out.sort();
 }
 
-/** `// @ts-check` as the first line, or the second after a shebang. */
-const OPT_IN = /^(?:#![^\n]*\r?\n)?[ \t]*\/\/[ \t]*@ts-check\b/;
+/** A `// @ts-nocheck` comment anywhere in the file (TypeScript honours any line). */
+const OPT_OUT = /^[ \t]*\/\/[ \t]*@ts-nocheck\b/m;
 
 /**
- * Does this file opt in to the type check?
+ * Does this file opt out of the type check?
  * @param {string} file
  */
-export const optedIn = (file) => OPT_IN.test(readFileSync(file, 'utf8'));
+const optedOut = (file) => OPT_OUT.test(readFileSync(file, 'utf8'));
 
 const files = jsFiles(SCRIPTS).map((f) => ({
   path: relative(REPO, f).split(sep).join('/'),
-  checked: optedIn(f),
+  checked: !optedOut(f),
 }));
 const checked = files.filter((f) => f.checked).map((f) => f.path);
 const unchecked = files.filter((f) => !f.checked).map((f) => f.path);
@@ -63,11 +66,12 @@ if (argv.includes('--json')) {
   );
 } else {
   console.log(
-    `JSDoc type check (strict) covers ${checked.length}/${files.length} runtime scripts:`
+    `JSDoc type check (strict) covers ${checked.length}/${files.length} runtime scripts.`
   );
-  for (const f of checked) console.log(`  checked    ${f}`);
-  console.log(
-    `Not yet checked (${unchecked.length}): ${unchecked.join(', ') || '(none)'}`
-  );
+  if (unchecked.length) {
+    console.error(
+      `Opted out with // @ts-nocheck (remove it and fix the types): ${unchecked.join(', ')}`
+    );
+  }
 }
-exit(0);
+exit(unchecked.length ? 1 : 0);

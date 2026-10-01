@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Thin gated pipeline runner (IMPROVEMENT-PLAN Phase 2, IP-2.3 / PFI-2).
 // The single entry point: it sequences the pipeline, HALTS AT EVERY GATE,
 // renders a one-screen gate brief, records the human decision as a full
@@ -146,17 +147,30 @@ if (STATUS_MODE && (STORY_ARG || RESUME_MODE)) {
   exit(2);
 }
 
+/** @typedef {import('./lib/approval-binding.js').Context} Context */
+/** @typedef {import('./lib/execution-ledger.js').TestCase} TestCase */
+/** @typedef {import('./lib/run-lifecycle.js').TransitionRecord} TransitionRecord */
+/**
+ * The state machine's hints plus the reasons artifacts were not accepted.
+ * @typedef {import('./pipeline-state.js').StepHints
+ *   & { problems: string[] }} Hints
+ */
+
 // ------------------------------------------------------------------ I/O ---
+/** @returns {any} the parsed context.json (validated by callers), or null */
 function loadContext() {
   if (!existsSync(CONTEXT_PATH)) return null;
   try {
     return JSON.parse(readFileSync(CONTEXT_PATH, 'utf8'));
   } catch (e) {
-    console.error(`context.json is not valid JSON: ${e.message}`);
+    console.error(
+      `context.json is not valid JSON: ${e instanceof Error ? e.message : e}`
+    );
     exit(2);
   }
 }
 
+/** @param {Context} context */
 function writeContext(context) {
   // Validate the candidate IN MEMORY and write atomically, through the shared
   // implementation behind scripts/validate-json.js (CLAUDE.md §3.3). The old
@@ -177,6 +191,10 @@ function writeContext(context) {
   }
 }
 
+/**
+ * @param {string} schemaPath
+ * @param {string} dataPath
+ */
 function validateJson(schemaPath, dataPath) {
   const r = spawnSync(process.execPath, [VALIDATOR, schemaPath, dataPath], {
     encoding: 'utf8',
@@ -193,11 +211,16 @@ function validateJson(schemaPath, dataPath) {
 // artifact that fails is listed in hints.problems so the runner can say WHY a
 // step is being asked for again. The Analyst pre-fills conventional paths
 // before the files exist; an unset path keeps its plain "not produced" meaning.
+/**
+ * @param {Context | null} context
+ * @returns {Hints}
+ */
 function gatherHints(context) {
+  /** @type {Hints} */
   const hints = { problems: [] };
   if (!context) return hints;
   const paths = context.artifact_paths || {};
-  const check = (key) => {
+  const check = (/** @type {string} */ key) => {
     const r = checkArtifact(key, context, '.');
     // Only defects are reported; "not produced yet" is ordinary progress.
     if (!r.ok && !r.absent) {
@@ -212,10 +235,12 @@ function gatherHints(context) {
     if (tc.ok) {
       // Branches come from APPROVED cases only (task group 7.1): a draft or
       // rejected case activates no execution.
+      /** @type {TestCase[]} */
       const approved = (tc.data.test_cases || []).filter(
-        (c) => c.status === 'approved'
+        (/** @type {TestCase} */ c) => c.status === 'approved'
       );
-      const has = (d) => approved.some((c) => c.automation_decision === d);
+      const has = (/** @type {string} */ d) =>
+        approved.some((c) => c.automation_decision === d);
       hints.branches = {
         e2e: has('automate_e2e'),
         api: has('automate_api'),
@@ -285,7 +310,7 @@ function gatherHints(context) {
       }
     }
     hints.failureAnalysisExists = produced;
-    if (produced) {
+    if (produced && fa.ok) {
       hints.failureAnalysisFinalized = fa.data.status === 'finalized';
       const missing = hints.failureAnalysisFinalized
         ? missingBugDrafts(fa.data, '.')
@@ -307,6 +332,9 @@ function gatherHints(context) {
  * The external plan and results as they stand (task group 7.2). A plan or
  * results file that does not validate, belongs to another run, or was recorded
  * against a different approved scope is not produced.
+ * @param {Context} context
+ * @param {import('./lib/execution-ledger.js').TestCasesDoc} testCases
+ * @param {Hints} hints
  */
 function externalHints(context, testCases, hints) {
   const view = withConventionalPaths(context);
@@ -332,14 +360,21 @@ function externalHints(context, testCases, hints) {
   hints.externalResultsExist = current;
 }
 
-/** SHA-256 of a file's bytes, or null when it does not exist. */
+/**
+ * SHA-256 of a file's bytes, or null when it does not exist.
+ * @param {string} path
+ */
 function fileSha256(path) {
   return existsSync(path)
     ? createHash('sha256').update(readFileSync(path)).digest('hex')
     : null;
 }
 
-/** Was the ledger built from the external results that exist now? */
+/**
+ * Was the ledger built from the external results that exist now?
+ * @param {import('./lib/execution-ledger.js').Ledger} ledger
+ * @param {Context} context
+ */
 function ledgerHasCurrentExternal(ledger, context) {
   const digest = fileSha256(externalPaths(context).results);
   return (ledger?.source_executions ?? []).some(
@@ -347,7 +382,11 @@ function ledgerHasCurrentExternal(ledger, context) {
   );
 }
 
-/** The context with the API and external paths filled in (conventional). */
+/**
+ * The context with the API and external paths filled in (conventional).
+ * @param {Context} context
+ * @returns {Context}
+ */
 function withConventionalPaths(context) {
   const api = apiPaths(context);
   const ext = externalPaths(context);
@@ -369,6 +408,11 @@ function withConventionalPaths(context) {
  * CLI only calls this AFTER an interactive TTY session captured the
  * decision). Writes the gateValue audit object and appends the
  * gate_decisions[] telemetry event. Returns the same context, mutated.
+ * @param {Context} context
+ * @param {string} gateKey
+ * @param {{ decision: string, reviewer?: string | null,
+ *   notes?: string | null, openedAt: string, decidedAt: string,
+ *   bindings?: Record<string, object> }} decision
  */
 export function applyGateDecision(
   context,
@@ -424,6 +468,7 @@ export function applyGateDecision(
 }
 
 // What to redo when a gate is rejected (docs/review-gates.md "On rejection").
+/** @type {Record<string, string>} */
 const REDO_AFTER_REJECT = {
   gate1: 'Re-run agents/analyst.md with the correction notes, then --resume.',
   gate2:
@@ -444,6 +489,10 @@ const REDO_AFTER_REJECT = {
     'Record the missing or corrected results with `node scripts/import-execution.js` (a re-import replaces that case), then --resume.',
 };
 
+/**
+ * @param {string} step
+ * @param {Context} context
+ */
 async function runGateInteractive(step, context) {
   const gateKey = GATE_KEYS[step];
 
@@ -487,7 +536,7 @@ async function runGateInteractive(step, context) {
   // Gather + validate the artifacts this gate reviews, then render the brief.
   const artifacts = GATE_BRIEFS[step]
     .artifacts(context)
-    .filter(Boolean)
+    .flatMap((p) => (p ? [p] : []))
     .map((p) => {
       const exists = existsSync(p);
       let valid = null;
@@ -616,10 +665,12 @@ async function runGateInteractive(step, context) {
 }
 
 // ------------------------------------------------------------ step output --
+/** @param {Context | null} context */
 function storyId(context) {
   return context?.story?.id || '<story-id>';
 }
 
+/** @type {Record<string, (ctx: Context) => string>} */
 const GUIDE_STEPS = {
   analyst: () =>
     'Run the ANALYST: agents/analyst.md against story.md.\n' +
@@ -682,8 +733,12 @@ const GUIDE_STEPS = {
  * Why a gate's mechanical inputs are not ready (empty when they are).
  * '@context' / '@story' are the run's context.json and story file; the rest
  * are artifact_paths keys checked through the shared validator.
+ * @param {string} step
+ * @param {Context} context
+ * @returns {string[]}
  */
 function gateInputProblems(step, context) {
+  /** @type {string[]} */
   const problems = [];
   for (const req of GATE_BRIEFS[step]?.requires ?? []) {
     if (req === '@context') {
@@ -711,7 +766,9 @@ function gateInputProblems(step, context) {
         r.ok &&
         (step === 'gate2' || step === 'qa_scope')
       ) {
-        const drafts = (r.data.test_cases ?? [])
+        /** @type {TestCase[]} */
+        const cases = r.data.test_cases ?? [];
+        const drafts = cases
           .filter((c) => c.status === 'draft')
           .map((c) => c.test_case_id);
         if (drafts.length) {
@@ -726,6 +783,10 @@ function gateInputProblems(step, context) {
   return problems;
 }
 
+/**
+ * @param {string} step
+ * @param {Context} context
+ */
 function execStep(step, context) {
   if (step === 'execute') {
     // PIPELINE_PW_CONFIG lets a caller point Playwright at a non-root config
@@ -934,6 +995,7 @@ function execStep(step, context) {
 /**
  * The run as it stands once stale approvals are taken into account, WITHOUT
  * writing anything (for --status and completion checks).
+ * @param {Context | null} context
  */
 function currentView(context) {
   if (!context) return { view: context, invalidations: [] };
@@ -943,6 +1005,10 @@ function currentView(context) {
   return { view, invalidations };
 }
 
+/**
+ * @param {Context | null} context
+ * @param {Hints} hints
+ */
 function printStatus(context, hints) {
   if (!context) {
     console.log('No run in progress (no context.json).');
@@ -952,7 +1018,8 @@ function printStatus(context, hints) {
     return;
   }
   const gates = context.review_gates || {};
-  const mark = (k) => (gatePassed(gates[k]) ? 'PASSED' : 'pending');
+  const mark = (/** @type {string} */ k) =>
+    gatePassed(gates[k]) ? 'PASSED' : 'pending';
   console.log(`Story:  ${storyId(context)}  ·  status: ${context.status}`);
   console.log(
     `Gates:  G1 ${mark('requirements_reviewed')} · G2 ${mark('test_scope_reviewed')} · G3 ${mark('specs_reviewed')} · G4 ${mark('code_reviewed')}`
@@ -989,8 +1056,10 @@ function printStatus(context, hints) {
  * again on unchanged validated state (the same hints and the same context).
  * An exec step that "succeeds" without changing what the state machine sees
  * would otherwise repeat forever (finding B4, task group 4.2).
+ * @returns {(step: string, hints: unknown, context: unknown) => boolean}
  */
 export function progressGuard() {
+  /** @type {Set<string>} */
   const seen = new Set();
   return (step, hints, context) => {
     const key = [step, JSON.stringify(hints), JSON.stringify(context)].join(
@@ -1006,8 +1075,10 @@ export function progressGuard() {
 function stagedRunLine() {
   const rec = readTransition('.');
   if (rec?.phase !== 'installed') return '';
+  // An installed record is one the runner wrote whole.
+  const { new_story } = /** @type {TransitionRecord} */ (rec);
   return (
-    `  Use run_id "${rec.new_story.run_id}" for this run (staged by the runner; ` +
+    `  Use run_id "${new_story.run_id}" for this run (staged by the runner; ` +
     `recorded in ${TRANSITION_FILE}). Do not mint a new one.\n`
   );
 }
@@ -1016,6 +1087,7 @@ function stagedRunLine() {
  * Has the current run finished? Only by the validated definition: a
  * `status: "completed"` set by hand or by an agent is not proof (task group
  * 4.2), because the old Reporter set it on file existence alone.
+ * @param {Context | null} context
  */
 function runIsComplete(context) {
   if (!context || !checkContext(context).ok) return false;
@@ -1038,8 +1110,10 @@ async function main() {
         '  It is finished or undone by: npm run pipeline -- --resume'
       );
     } else if (pending?.phase === 'installed' && !context) {
+      // An installed record is one the runner wrote whole.
+      const { new_story } = /** @type {TransitionRecord} */ (pending);
       console.log(
-        `Staged run ${pending.new_story.run_id} (${pending.new_story.ref}) is waiting for the Analyst.`
+        `Staged run ${new_story.run_id} (${new_story.ref}) is waiting for the Analyst.`
       );
     }
     const { view, invalidations } = currentView(context);
@@ -1091,7 +1165,12 @@ async function main() {
   // that run (same run id, unchanged story).
   const staged = readTransition('.');
   if (context && staged?.phase === 'installed') {
-    const adopted = adoptStagedContext('.', context, staged);
+    const adopted = adoptStagedContext(
+      '.',
+      context,
+      // An installed record is one the runner wrote whole.
+      /** @type {TransitionRecord} */ (staged)
+    );
     if (!adopted.ok) {
       console.error('Refusing to continue with this context.json:');
       console.error(adopted.message);

@@ -1,3 +1,4 @@
+// @ts-check
 // Run lifecycle: ownership, verified archiving, and the recoverable
 // new-story transition (task group 4.1, finding B3).
 //
@@ -40,8 +41,31 @@ import { fileURLToPath } from 'node:url';
 import { IO_ERROR, validateValue, writeJsonAtomic } from './artifact-io.js';
 import { validateComponent } from './execution-paths.js';
 
+/** @typedef {import('./approval-binding.js').Context} Context */
+/**
+ * One archived file, as the run manifest records it.
+ * @typedef {{ path: string, sha256: string, bytes: number,
+ *   json?: 'unparseable', schema?: string, valid?: boolean,
+ *   schema_unavailable?: boolean }} ArchiveRecord
+ */
+/**
+ * The transition record in .qaizen/transition.json.
+ * @typedef {{ txid: string, phase: string, started_at: string,
+ *   previous_run: { story_id: string | null, run_id: string | null } | null,
+ *   new_story: { source: 'jira' | 'file', ref: string,
+ *     story_key: string | null, staged_path: string, digest: string,
+ *     run_id: string },
+ *   archive_dir?: string,
+ *   archived_files?: { path: string, sha256: string }[] }} TransitionRecord
+ */
+/**
+ * What readTransition returns: a record as written, or `{ phase: 'corrupt' }`
+ * when the file cannot be parsed.
+ * @typedef {Partial<TransitionRecord> & { phase: string }} TransitionReading
+ */
+
 const REPO_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const schema = (name) => join(REPO_DIR, 'schemas', name);
+const schema = (/** @type {string} */ name) => join(REPO_DIR, 'schemas', name);
 
 /** Transient runner state. Local only; never versioned. */
 export const STATE_DIR = '.qaizen';
@@ -71,7 +95,10 @@ const RUN_SCOPED = [
   /^release\/healer-patches\//,
 ];
 
-/** JSON artifacts whose copy is schema-validated in the archive. */
+/**
+ * JSON artifacts whose copy is schema-validated in the archive.
+ * @type {[RegExp, string][]}
+ */
 const JSON_SCHEMAS = [
   [/^context\.json$/, 'context.schema.json'],
   [/^test-cases\/[^/]+\.json$/, 'test-cases.schema.json'],
@@ -88,7 +115,7 @@ const JSON_SCHEMAS = [
   ],
 ];
 
-const posix = (p) => p.split(sep).join('/');
+const posix = (/** @type {string} */ p) => p.split(sep).join('/');
 
 /**
  * Best-effort cleanup that never throws. `rmSync({force: true})` only ignores
@@ -96,6 +123,7 @@ const posix = (p) => p.split(sep).join('/');
  * archive-failure path as a raw crash and left the transition record behind
  * (caught by CI; Windows reports the same path as missing). A cleanup failure
  * must never mask the error that caused it.
+ * @param {string} path
  */
 function removeQuietly(path) {
   try {
@@ -106,15 +134,20 @@ function removeQuietly(path) {
   }
 }
 
+/** @param {import('node:crypto').BinaryLike} buf */
 export function sha256Buffer(buf) {
   return createHash('sha256').update(buf).digest('hex');
 }
 
+/** @param {string} path */
 export function sha256File(path) {
   return sha256Buffer(readFileSync(path));
 }
 
-/** Shared by every run: never archived, never removed. */
+/**
+ * Shared by every run: never archived, never removed.
+ * @param {string} rel
+ */
 export function isReusable(rel) {
   const base = rel.split('/').pop();
   return (
@@ -126,19 +159,28 @@ export function isReusable(rel) {
 
 /** A file named for this story (`STORY-1.json`, `STORY-1-login.spec.ts`), or
  *  inside a folder named exactly for it (`external-evidence/STORY-1/shot.png`),
- *  but never a different story that shares the prefix (`STORY-10.json`). */
+ *  but never a different story that shares the prefix (`STORY-10.json`).
+ * @param {string} rel
+ * @param {string | null} storyId
+ */
 function isStoryScoped(rel, storyId) {
   if (!storyId) return false;
   const parts = rel.split('/');
   if (parts.length > 2 && parts[1] === storyId) return true;
-  const base = parts.pop();
+  const base = parts.pop() ?? '';
   const escaped = storyId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(`^${escaped}(?![0-9A-Za-z])`).test(base);
 }
 
+/**
+ * @param {string} root
+ * @param {string} dir
+ * @returns {string[]}
+ */
 function walkFiles(root, dir) {
   const abs = join(root, dir);
   if (!existsSync(abs)) return [];
+  /** @type {string[]} */
   const out = [];
   for (const entry of readdirSync(abs, { withFileTypes: true })) {
     const rel = `${dir}/${entry.name}`;
@@ -157,11 +199,15 @@ function walkFiles(root, dir) {
  * Anything else inside the run directories is UNKNOWN: a transition that
  * cannot say whose it is must stop rather than archive or delete it.
  *
+ * @param {Context | null} context
+ * @param {string} [root]
  * @returns {{owned: string[], unknown: string[], outside: string[]}}
  */
 export function classifyRootArtifacts(context, root = '.') {
   const storyId = context?.story?.id ?? null;
+  /** @type {Set<string>} */
   const owned = new Set();
+  /** @type {string[]} */
   const outside = [];
   const rootAbs = resolve(root);
 
@@ -183,6 +229,7 @@ export function classifyRootArtifacts(context, root = '.') {
     for (const f of files) if (!isReusable(f)) owned.add(f);
   }
 
+  /** @type {string[]} */
   const unknown = [];
   for (const dir of RUN_DIRS) {
     for (const rel of walkFiles(root, dir)) {
@@ -201,7 +248,11 @@ export function classifyRootArtifacts(context, root = '.') {
   return { owned: [...owned].sort(), unknown: unknown.sort(), outside };
 }
 
-/** A sortable, unique id: `2026-09-22T23-30-00Z-<7 hex>`. */
+/**
+ * A sortable, unique id: `2026-09-22T23-30-00Z-<7 hex>`.
+ * @param {Date} [now]
+ * @param {string} [seed]
+ */
 export function newRunId(now = new Date(), seed = randomUUID()) {
   const stamp = now
     .toISOString()
@@ -218,19 +269,28 @@ export function newRunId(now = new Date(), seed = randomUUID()) {
  * archived -- it is evidence -- but the manifest says so). On any failure the
  * partial archive is removed and the ROOT IS UNTOUCHED.
  *
- * @returns {{ok: true, archiveDir: string, manifest: object} |
+ * @param {object} p
+ * @param {string} [p.root]
+ * @param {string | null | undefined} p.storyId
+ * @param {Context | null} [p.context]
+ * @param {string[]} p.files
+ * @param {string | null} [p.label]
+ * @param {Date} [p.now]
+ * @returns {{ok: true, archiveDir: string,
+ *   manifest: Record<string, any> & { files: ArchiveRecord[] }} |
  *           {ok: false, message: string}}
  */
 export function archiveRun({
   root = '.',
-  storyId,
+  storyId: requestedId,
   context,
   files,
   label = null,
   now = new Date(),
 }) {
-  const check = validateComponent(storyId, 'story id');
+  const check = validateComponent(requestedId, 'story id');
   if (!check.ok) return check;
+  const storyId = check.value;
 
   const archiveId = newRunId(now);
   const archiveRel = posix(join('runs', storyId, archiveId));
@@ -239,6 +299,7 @@ export function archiveRun({
     return { ok: false, message: `archive ${archiveRel} already exists` };
   }
 
+  /** @type {ArchiveRecord[]} */
   const records = [];
   try {
     mkdirSync(archiveAbs, { recursive: true });
@@ -252,6 +313,7 @@ export function archiveRun({
       if (after !== before) {
         throw new Error(`copy of ${rel} does not match its source digest`);
       }
+      /** @type {ArchiveRecord} */
       const rec = { path: rel, sha256: before, bytes: statSync(dst).size };
       if (rel.endsWith('.json')) {
         let parsed;
@@ -302,6 +364,7 @@ export function archiveRun({
 
     // Update the per-project latest pointer last: the archive is complete.
     const latestPath = join(root, 'runs', 'latest.json');
+    /** @type {Record<string, unknown>} */
     let latest = {};
     if (existsSync(latestPath)) {
       try {
@@ -330,9 +393,13 @@ export function archiveRun({
 /**
  * Remove archived root files -- only those still byte-identical to what was
  * archived. A file edited after archiving is left in place and reported.
+ * @param {string} root
+ * @param {{ path: string, sha256: string }[]} records
  */
 export function clearArchived(root, records) {
+  /** @type {string[]} */
   const removed = [];
+  /** @type {string[]} */
   const changed = [];
   for (const { path: rel, sha256 } of records) {
     const abs = join(root, rel);
@@ -349,6 +416,10 @@ export function clearArchived(root, records) {
 
 // ---- the transition record ------------------------------------------------
 
+/**
+ * @param {string} [root]
+ * @returns {TransitionReading | null}
+ */
 export function readTransition(root = '.') {
   const p = join(root, TRANSITION_FILE);
   if (!existsSync(p)) return null;
@@ -359,18 +430,27 @@ export function readTransition(root = '.') {
   }
 }
 
+/**
+ * @param {string} root
+ * @param {TransitionRecord} record
+ */
 export function writeTransition(root, record) {
   mkdirSync(join(root, STATE_DIR), { recursive: true });
   const r = writeJsonAtomic(join(root, TRANSITION_FILE), record);
   if (!r.ok) throw new Error(r.message);
 }
 
+/** @param {string} [root] */
 export function removeTransition(root = '.') {
   removeQuietly(join(root, TRANSITION_FILE));
   removeQuietly(join(root, STAGING_DIR));
 }
 
-/** A task-owned staging directory for one transition. */
+/**
+ * A task-owned staging directory for one transition.
+ * @param {string} root
+ * @param {string} txid
+ */
 export function stagingDir(root, txid) {
   const dir = join(root, STAGING_DIR, txid);
   mkdirSync(dir, { recursive: true });
@@ -386,6 +466,7 @@ export function stagingDir(root, txid) {
  *   cleared     old run is safe; finish clearing and install the new story.
  *   installed -> nothing to recover; a staged run is waiting for the Analyst.
  *
+ * @param {string} [root]
  * @returns {{action: 'none'|'rolled_back'|'rolled_forward', message: string,
  *            ok: boolean}}
  */
@@ -410,7 +491,13 @@ export function recoverTransition(root = '.') {
   }
 
   if (rec.phase === 'archived' || rec.phase === 'cleared') {
-    return finishTransition(root, rec, 'rolled_forward');
+    // A record reaches these phases only after writeTransition stored it whole.
+    const done = finishTransition(
+      root,
+      /** @type {TransitionRecord} */ (rec),
+      'rolled_forward'
+    );
+    return { ...done, action: done.ok ? 'rolled_forward' : 'none' };
   }
 
   return {
@@ -439,9 +526,10 @@ const JIRA_KEY = /^[A-Z][A-Z0-9_]*-\d+$/;
  * @param {object} p
  * @param {string} p.root
  * @param {string} p.ref           a story file path or a Jira key
- * @param {object|null} p.context  the current context.json, if any
+ * @param {Context|null} p.context  the current context.json, if any
  * @param {boolean} p.complete     is the current run finished?
  * @param {(key: string, out: string) => number} p.fetchJira  exit status
+ * @param {Date} [p.now]
  * @returns {{ok: boolean, code: number, message: string, runId?: string}}
  */
 export function startNewStory({
@@ -470,6 +558,7 @@ export function startNewStory({
   const currentId = context?.story?.id ?? null;
 
   // ---- decide, without writing ----------------------------------------
+  /** @type {string[]} */
   let archiveFiles = [];
   if (context && !complete) {
     const same = isJira
@@ -568,6 +657,7 @@ export function startNewStory({
 
   const digest = sha256File(join(stageAbs, 'story.md'));
   const runId = newRunId(now, digest + txid);
+  /** @type {TransitionRecord} */
   const rec = {
     txid,
     phase: 'staging',
@@ -617,8 +707,12 @@ export function startNewStory({
  * The Analyst has produced context.json for a staged run. Accept it only if it
  * is that run: the staged run id preserved, the story unchanged since staging,
  * and (for a Jira story) the same key.
+ * @param {string} root
+ * @param {Context | null} context
+ * @param {TransitionRecord} rec
  */
 export function adoptStagedContext(root, context, rec) {
+  /** @type {string[]} */
   const problems = [];
   if (context?.run_id !== rec.new_story.run_id) {
     problems.push(
@@ -648,7 +742,13 @@ export function adoptStagedContext(root, context, rec) {
   };
 }
 
-/** Clear the verified archive's root copies and install the staged story. */
+/**
+ * Clear the verified archive's root copies and install the staged story.
+ * @param {string} root
+ * @param {TransitionRecord} rec
+ * @param {string} [action]
+ * @returns {{ ok: boolean, action: string, message: string }}
+ */
 export function finishTransition(root, rec, action = 'completed') {
   rec.phase = 'cleared';
   writeTransition(root, rec);

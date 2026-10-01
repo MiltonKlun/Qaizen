@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Structural evaluation of the Analyst and Test Designer outputs (Phase 2
 // TG11; reworked in task group 8.1, review finding I5).
 //
@@ -68,12 +69,25 @@ const SCHEMA_DIR = join(
   '..',
   'schemas'
 );
-const schema = (name) => join(SCHEMA_DIR, name);
+const schema = (/** @type {string} */ name) => join(SCHEMA_DIR, name);
 const CONTEXT_SCHEMA = schema('context.schema.json');
 const TEST_CASES_SCHEMA = schema('test-cases.schema.json');
 const MANIFEST_SCHEMA = schema('evaluation-manifest.schema.json');
 
-/** The agents whose outputs each stage evaluates. */
+/**
+ * One structural check of an output.
+ * @typedef {{ name: string, pass: boolean, detail: string }} Check
+ * @typedef {{ story: string, expected: 'designer' | 'analyst' | 'none',
+ *   reason?: string }} ManifestEntry
+ * @typedef {ReturnType<typeof score>} Score
+ * @typedef {ReturnType<typeof promptIdentity>
+ *   & { recorded_by_candidate: string | null }} PromptRecord
+ */
+
+/**
+ * The agents whose outputs each stage evaluates.
+ * @type {Record<string, string[]>}
+ */
 const STAGE_AGENTS = {
   analyst: ['analyst'],
   designer: ['analyst', 'test-designer'],
@@ -82,12 +96,20 @@ const STAGE_AGENTS = {
 /** Drop the documented "needs rework" signal fires at (percentage points). */
 const REGRESSION_POINTS = 10;
 
+/**
+ * @param {string} message
+ * @returns {never}
+ */
 function fail(message) {
   console.error(message);
   exit(2);
 }
 
 // ---------------------------------------------------------------- flags --
+/**
+ * @param {string} name
+ * @returns {string | null | undefined}
+ */
 function flagValue(name) {
   const i = argv.indexOf(name);
   if (i === -1) return undefined;
@@ -134,18 +156,31 @@ const AUTOMATION_DECISIONS = [
   'skip',
 ];
 
+/** @type {(p: string) => any} */
 const loadJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 
-/** First schema error as `path message`, for a check's detail. */
+/**
+ * First schema error as `path message`, for a check's detail.
+ * @param {{ ok: boolean, errors?: import('ajv').ErrorObject[] }} v
+ */
 function schemaDetail(v) {
   const e = (v.errors ?? [])[0];
   return e ? `${e.instancePath || '(root)'} ${e.message}` : '';
 }
 
 // One check = { name, pass, detail }. A story's score is passed/total.
+/**
+ * @param {any} ctx the context under evaluation; its shape is what is checked
+ * @returns {Check[]}
+ */
 function checkContext(ctx) {
+  /** @type {Check[]} */
   const checks = [];
-  const add = (name, pass, detail = '') => checks.push({ name, pass, detail });
+  const add = (
+    /** @type {string} */ name,
+    /** @type {boolean} */ pass,
+    detail = ''
+  ) => checks.push({ name, pass, detail });
 
   const valid = validateValue(ctx, CONTEXT_SCHEMA);
   add('context validates against its schema', valid.ok, schemaDetail(valid));
@@ -219,9 +254,19 @@ function checkContext(ctx) {
   return checks;
 }
 
+/**
+ * @param {any} tcDoc the test cases under evaluation
+ * @param {any} ctx their context
+ * @returns {Check[]}
+ */
 function checkTestCases(tcDoc, ctx) {
+  /** @type {Check[]} */
   const checks = [];
-  const add = (name, pass, detail = '') => checks.push({ name, pass, detail });
+  const add = (
+    /** @type {string} */ name,
+    /** @type {boolean} */ pass,
+    detail = ''
+  ) => checks.push({ name, pass, detail });
 
   const valid = validateValue(tcDoc, TEST_CASES_SCHEMA);
   add(
@@ -240,7 +285,9 @@ function checkTestCases(tcDoc, ctx) {
     `${tcDoc.story_id} vs ${(ctx.story || {}).id}`
   );
 
-  const riskIds = new Set((ctx.risks || []).map((r) => r.risk_id));
+  const riskIds = new Set(
+    (ctx.risks || []).map((/** @type {{ risk_id: string }} */ r) => r.risk_id)
+  );
   const acCount = (ctx.acceptance_criteria || []).length;
 
   let idsOk = true;
@@ -312,11 +359,21 @@ function checkTestCases(tcDoc, ctx) {
 /**
  * Match percentage, floored to one decimal: 199/200 is 99.5, never a rounded
  * 100. Null when nothing was checked (an empty score is not a score).
+ * @param {number} passed
+ * @param {number} total
  */
 function matchPct(passed, total) {
   return total > 0 ? Math.floor((passed * 1000) / total) / 10 : null;
 }
 
+/**
+ * @param {string} story
+ * @param {string} stage
+ * @param {any} ctx
+ * @param {string} ctxPath
+ * @param {any} tcDoc
+ * @param {string | null} tcPath
+ */
 function score(story, stage, ctx, ctxPath, tcDoc, tcPath) {
   const checks = [...checkContext(ctx)];
   if (stage === 'designer') checks.push(...checkTestCases(tcDoc, ctx));
@@ -344,6 +401,7 @@ if (!manifestRead.ok) {
       `${manifestRead.message}. It declares which gold outputs each story has.`
   );
 }
+/** @type {ManifestEntry[]} */
 const manifest = manifestRead.data.stories;
 {
   const listed = manifest.map((s) => s.story);
@@ -371,12 +429,18 @@ const manifest = manifestRead.data.stories;
   }
 }
 const byStory = [...manifest].sort((a, b) => a.story.localeCompare(b.story));
-const goldPaths = (story) => ({
+const goldPaths = (/** @type {string} */ story) => ({
   ctx: `${EXPECTED_DIR}/${story}.expected-context.json`,
   tc: `${EXPECTED_DIR}/${story}.expected-test-cases.json`,
 });
 
-/** The gold output a manifest entry declares, scored at `stage` (or a reason it cannot be). */
+/**
+ * The gold output a manifest entry declares, scored at `stage` (or a reason it cannot be).
+ * @param {ManifestEntry} entry
+ * @param {string} stage
+ * @returns {{ missing: string, result?: undefined }
+ *   | { result: Score, missing?: undefined }}
+ */
 function scoreGold(entry, stage) {
   const p = goldPaths(entry.story);
   if (!existsSync(p.ctx))
@@ -397,7 +461,10 @@ function scoreGold(entry, stage) {
 }
 
 // ---------------------------------------------------------- prompt identity --
-/** An agent prompt's frontmatter version and content digest (line endings normalized). */
+/**
+ * An agent prompt's frontmatter version and content digest (line endings normalized).
+ * @param {string} name
+ */
 function promptIdentity(name) {
   const path = join(AGENTS_DIR, `${name}.md`);
   if (!existsSync(path)) return { path, version: null, sha256: null };
@@ -411,7 +478,11 @@ function promptIdentity(name) {
   };
 }
 
-/** The story id a fixed story stands for: its gold context, else its title line. */
+/**
+ * The story id a fixed story stands for: its gold context, else its title line.
+ * @param {ManifestEntry} entry
+ * @returns {string | null}
+ */
 function storyIdOf(entry) {
   const p = goldPaths(entry.story);
   if (existsSync(p.ctx)) return loadJson(p.ctx).story?.id ?? null;
@@ -423,6 +494,10 @@ function storyIdOf(entry) {
 }
 
 // ------------------------------------------------------------- comparison --
+/**
+ * @param {Score} candidate
+ * @param {{ checks: Check[], match_pct: number | null }} baseline
+ */
 function compare(candidate, baseline) {
   const was = new Map(baseline.checks.map((c) => [c.name, c.pass]));
   const now = new Map(candidate.checks.map((c) => [c.name, c.pass]));
@@ -447,10 +522,18 @@ function compare(candidate, baseline) {
 }
 
 // ------------------------------------------------------------------ run ---
+/** @type {(Score & { note?: string })[]} */
 const results = [];
+/** @type {{ story: string, stage: string, reason: string }[]} */
 const missing = [];
+/** @type {{ story: string, reason: string | undefined }[]} */
 const excluded = [];
+/**
+ * @type {{ dir: string, story: string, story_id: string, stage: string,
+ *   prompts: Record<string, PromptRecord> } | null}
+ */
 let candidate = null;
+/** @type {Record<string, any> | null} */
 let baseline = null;
 
 if (!candidateDir) {
@@ -460,7 +543,7 @@ if (!candidateDir) {
       continue;
     }
     const g = scoreGold(entry, entry.expected);
-    if (g.missing) {
+    if (g.missing !== undefined) {
       missing.push({
         story: entry.story,
         stage: entry.expected,
@@ -480,6 +563,7 @@ if (!candidateDir) {
     fail(`Candidate directory not found: ${candidateDir}`);
   const ctxPath = join(candidateDir, 'context.json');
   if (!existsSync(ctxPath)) fail(`Candidate has no context.json: ${ctxPath}`);
+  /** @type {any} the candidate's context */
   let ctx;
   try {
     ctx = loadJson(ctxPath);
@@ -508,6 +592,7 @@ if (!candidateDir) {
 
   // The prompts under evaluation, by version and content digest. A candidate
   // that recorded other prompt versions was not produced by these prompts.
+  /** @type {Record<string, PromptRecord>} */
   const prompts = {};
   for (const name of STAGE_AGENTS[STAGE]) {
     const p = promptIdentity(name);
@@ -541,6 +626,7 @@ if (!candidateDir) {
   if (baselinePath) {
     if (!existsSync(baselinePath))
       fail(`Baseline results not found: ${baselinePath}`);
+    /** @type {any} a results file written by this script */
     let base;
     try {
       base = loadJson(baselinePath);
@@ -548,7 +634,8 @@ if (!candidateDir) {
       fail(`Baseline results are not valid JSON: ${baselinePath}`);
     }
     const prior = (base.results ?? []).find(
-      (r) => r.story === entry.story && Array.isArray(r.checks)
+      (/** @type {Score} */ r) =>
+        r.story === entry.story && Array.isArray(r.checks)
     );
     if (!prior)
       fail(`Baseline ${baselinePath} has no result for ${entry.story}.`);
@@ -565,7 +652,7 @@ if (!candidateDir) {
         ? 'designer'
         : 'analyst';
     const g = scoreGold(entry, stage);
-    if (g.missing)
+    if (g.missing !== undefined)
       fail(`The gold baseline for ${entry.story} is missing: ${g.missing}`);
     baseline = {
       source: `gold:${entry.story} (${stage})`,
@@ -578,8 +665,10 @@ if (!candidateDir) {
 
 const passedChecks = results.reduce((a, r) => a + r.passed, 0);
 const totalChecks = results.reduce((a, r) => a + r.total, 0);
-const count = (stage) => results.filter((r) => r.stage === stage).length;
-const declared = (stage) => byStory.filter((e) => e.expected === stage).length;
+const count = (/** @type {string} */ stage) =>
+  results.filter((r) => r.stage === stage).length;
+const declared = (/** @type {string} */ stage) =>
+  byStory.filter((e) => e.expected === stage).length;
 
 const out = {
   generated_at: new Date().toISOString(),
@@ -612,10 +701,11 @@ mkdirSync(dirname(OUT_FILE), { recursive: true });
 writeFileSync(OUT_FILE, JSON.stringify(out, null, 2) + '\n');
 
 // ---------------------------------------------------------------- console --
-const pctText = (p) => (p === null ? 'n/a' : `${p}%`);
+const pctText = (/** @type {number | null} */ p) =>
+  p === null ? 'n/a' : `${p}%`;
 console.log(
   candidateDir
-    ? `Candidate evaluation: ${candidateDir} (${candidate.story}, ${STAGE} stage)`
+    ? `Candidate evaluation: ${candidateDir} (${candidate?.story}, ${STAGE} stage)`
     : 'Expected fixture validation: the committed gold outputs (this does not evaluate prompt behavior)'
 );
 if (candidate) {
@@ -628,7 +718,9 @@ if (candidate) {
     );
   }
 } else {
-  const c = out.counts;
+  // Without --candidate-dir, counts is the fixture-validation shape.
+  const c = /** @type {{ stories: number, declared: Record<string, number>,
+   *   scored: Record<string, number>, missing: number }} */ (out.counts);
   console.log(
     `  Stories: ${c.stories} | declared designer ${c.declared.designer}, analyst-only ${c.declared.analyst}, ` +
       `no gold ${c.declared.none} | scored designer ${c.scored.designer}, analyst-only ${c.scored.analyst} | missing ${c.missing}`

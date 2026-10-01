@@ -1,3 +1,4 @@
+// @ts-check
 // Red-taxonomy domains as data (IMPROVEMENT-PLAN Phase 4, IP-4.1).
 //
 // The Healer's Red severity (docs/healer-guardrails.md §4) names the kinds of
@@ -140,7 +141,10 @@ export function redDomainsInText(text) {
   return hits;
 }
 
-/** Human label for a domain id (for reasons/messages). */
+/**
+ * Human label for a domain id (for reasons/messages).
+ * @param {string} id
+ */
 export function redDomainLabel(id) {
   return RED_DOMAINS.find((d) => d.id === id)?.label || id;
 }

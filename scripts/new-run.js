@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Run history — archive the current root run into runs/<story-id>/<run-id>/
 // (Phase 3 TG5; rebuilt on scripts/lib/run-lifecycle.js in task group 4.1).
 //
@@ -74,7 +75,9 @@ let rootCtx;
 try {
   rootCtx = JSON.parse(readFileSync('context.json', 'utf8'));
 } catch (e) {
-  console.error(`Root context.json is not valid JSON: ${e.message}`);
+  console.error(
+    `Root context.json is not valid JSON: ${e instanceof Error ? e.message : e}`
+  );
   exit(2);
 }
 const rootStory = rootCtx.story?.id;

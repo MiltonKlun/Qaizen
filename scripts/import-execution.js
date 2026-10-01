@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Record manual or component results against the reviewed external plan
 // (task group 7.2).
 //
@@ -66,7 +67,27 @@ const ENTRY_FLAGS = ['case', 'outcome', 'executed-at', 'operator'];
 /** Clock skew tolerated for an execution time "now" on another machine. */
 const FUTURE_SKEW_MS = 5 * 60 * 1000;
 
+/**
+ * One result as given (a flag set or an external_import entry).
+ * @typedef {{ test_case_id: string, outcome: string, executed_at: string,
+ *   operator: string, evidence: string[], notes?: string }} ExternalEntry
+ * One result as recorded in external_results.
+ * @typedef {{ test_case_id: string, source: string, outcome: string,
+ *   executed_at: string, operator: string,
+ *   evidence: { path: string, sha256: string }[], notes?: string,
+ *   imported_at: string }} RecordedResult
+ * Parsed flags: every value is a string, except the REPEATABLE ones
+ * (string[]).
+ * @typedef {Record<string, any>} Flags
+ */
+
+/**
+ * @param {string[]} args
+ * @returns {{ error: string, flags?: undefined }
+ *   | { flags: Flags, error?: undefined }}
+ */
 function parseArgs(args) {
+  /** @type {Flags} */
   const flags = {};
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i];
@@ -85,16 +106,29 @@ function parseArgs(args) {
   return { flags };
 }
 
-const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
+const sha256 = (/** @type {import('node:crypto').BinaryLike} */ buf) =>
+  createHash('sha256').update(buf).digest('hex');
 
-/** When a gate was approved, or null when the audit object does not say. */
+/**
+ * When a gate was approved, or null when the audit object does not say.
+ * @param {import('./lib/approval-binding.js').Context} context
+ * @param {string} gate
+ */
 function approvedAt(context, gate) {
   const g = context?.review_gates?.[gate];
   const t = g && typeof g === 'object' ? Date.parse(g.reviewed_at ?? '') : NaN;
   return Number.isNaN(t) ? null : t;
 }
 
-/** The entries to record: one from flags, or every entry of --from. */
+/**
+ * The entries to record: one from flags, or every entry of --from.
+ * @param {Flags} flags
+ * @param {string} root
+ * @param {string} storyId
+ * @param {string} runId
+ * @returns {{ error: string, entries?: undefined }
+ *   | { entries: ExternalEntry[], error?: undefined }}
+ */
 function entriesFrom(flags, root, storyId, runId) {
   if (flags.from) {
     const extra = Object.keys(flags).filter((k) => k !== 'from');
@@ -137,15 +171,19 @@ function entriesFrom(flags, root, storyId, runId) {
 /**
  * Record results. Pure over the working directory `root` and `now`, so the
  * tests drive it directly.
- * @returns {{ok: true, path: string, results: object[]} | {ok: false, reason: string}}
+ * @param {string[]} args
+ * @param {{ root?: string, now?: Date }} [opts]
+ * @returns {{ok: true, path: string, results: RecordedResult[]}
+ *   | {ok: false, reason: string}}
  */
 export function importExecution(args, { root = '.', now = new Date() } = {}) {
+  /** @type {(reason: string) => { ok: false, reason: string }} */
   const refuse = (reason) => ({ ok: false, reason });
   const parsed = parseArgs(args);
-  if (parsed.error) return refuse(parsed.error);
+  if (parsed.error !== undefined) return refuse(parsed.error);
 
   // ---- the run --------------------------------------------------------
-  const at = (rel) => join(root, rel);
+  const at = (/** @type {string} */ rel) => join(root, rel);
   if (!existsSync(at('context.json'))) return refuse('no context.json');
   let context;
   try {
@@ -184,25 +222,32 @@ export function importExecution(args, { root = '.', now = new Date() } = {}) {
   }
 
   const got = entriesFrom(parsed.flags, root, storyId, runId);
-  if (got.error) return refuse(got.error);
+  if (got.error !== undefined) return refuse(got.error);
   const ids = got.entries.map((e) => e.test_case_id);
   const dup = ids.find((id, i) => ids.indexOf(id) !== i);
   if (dup) return refuse(`${dup} is given more than once`);
 
   const planApproved = approvedAt(context, 'external_plan_reviewed');
   const rootAbs = resolve(root);
+  /** @type {RecordedResult[]} */
   const recorded = [];
 
   // ---- every entry, before anything is written --------------------------
   for (const e of got.entries) {
     const caseId = e.test_case_id;
-    const no = (reason) => refuse(`${caseId}: ${reason}`);
+    const no = (/** @type {string} */ reason) => refuse(`${caseId}: ${reason}`);
     if (!OUTCOMES.has(e.outcome)) {
       return no(
         `outcome must be one of ${[...OUTCOMES].join(', ')} (got "${e.outcome}")`
       );
     }
-    const planned = plan.data.cases.find((c) => c.test_case_id === caseId);
+    /**
+     * @type {{ test_case_id: string, source: string,
+     *   evidence_required?: string[] } | undefined}
+     */
+    const planned = plan.data.cases.find(
+      (/** @type {{ test_case_id: string }} */ c) => c.test_case_id === caseId
+    );
     if (!planned) return no('not in the reviewed plan');
     if (planned.source === 'skip') {
       return no(
@@ -210,7 +255,8 @@ export function importExecution(args, { root = '.', now = new Date() } = {}) {
       );
     }
     const approved = tc.data.test_cases.find(
-      (c) => c.test_case_id === caseId && c.status === 'approved'
+      (/** @type {import('./lib/execution-ledger.js').TestCase} */ c) =>
+        c.test_case_id === caseId && c.status === 'approved'
     );
     if (
       !approved ||
@@ -251,7 +297,7 @@ export function importExecution(args, { root = '.', now = new Date() } = {}) {
     }
     if (e.outcome === 'passed' && evidence.length === 0) {
       return no(
-        `a pass needs evidence (the plan requires: ${planned.evidence_required.join('; ')})`
+        `a pass needs evidence (the plan requires: ${(planned.evidence_required ?? []).join('; ')})`
       );
     }
 
@@ -269,6 +315,7 @@ export function importExecution(args, { root = '.', now = new Date() } = {}) {
 
   // ---- the results file -----------------------------------------------
   const scope = approvedScopeDigest(tc.data);
+  /** @type {{ results: RecordedResult[], [field: string]: any }} */
   let doc = {
     schema_version: '1.0',
     document: 'external_results',

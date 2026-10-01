@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // TG14 vertical-slice demonstration of the Healer guardrails (Phase 3).
 // Exercises the SAME guardrail logic the harness uses (scripts/healer-
 // guardrails.js) against two realistic candidate patches:
@@ -53,12 +54,18 @@ const redAfter = greenBefore.replace(
 
 let ok = true;
 
+/**
+ * @param {string} label
+ * @param {string} before
+ * @param {string} after
+ * @param {boolean} expectEligible
+ */
 function check(label, before, after, expectEligible) {
   const violations = guardrailViolations(before, after);
   const eligible = violations.length === 0;
   const pass = eligible === expectEligible;
   ok = ok && pass;
-  const verdict = (e) => (e ? 'ELIGIBLE' : 'REJECTED');
+  const verdict = (/** @type {boolean} */ e) => (e ? 'ELIGIBLE' : 'REJECTED');
   console.log(`\n${label}`);
   console.log(`  expected: ${verdict(expectEligible)}`);
   console.log(`  result:   ${verdict(eligible)}`);

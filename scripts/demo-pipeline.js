@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Ten-minute offline demo of the whole pipeline (IMPROVEMENT-PLAN Phase 3).
 //
 // A skeptical coworker experiences all four human gates end-to-end in under
@@ -156,6 +157,7 @@ console.log(
 // ---- 3. drive the real runner stage by stage ----------------------------
 // Fixtures to copy into the workspace before a given step is reached, plus
 // the artifact_paths the prefilled context must point at after the copy.
+/** @type {Record<string, () => void>} */
 const FIXTURE_COPIES = {
   'test-designer': () => {
     cpDir('test-cases');
@@ -188,18 +190,22 @@ const FIXTURE_COPIES = {
   },
 };
 
+/** @param {string} name */
 function cpDir(name) {
   cpSync(join(FIXTURES, name), join(WORKSPACE, name), { recursive: true });
 }
+/** @param {string} name */
 function cpFile(name) {
   cpSync(join(FIXTURES, name), join(WORKSPACE, name));
 }
 // Path to a fixture file expressed RELATIVE to the workspace, so the gate
 // brief (which checks existsSync from cwd=WORKSPACE) resolves it. Forward
 // slashes for cross-platform context.json convention.
+/** @param {string} name */
 function relFixture(name) {
   return relative(WORKSPACE, join(FIXTURES, name)).split(sep).join('/');
 }
+/** @param {Record<string, string>} patch */
 function setPaths(patch) {
   const p = join(WORKSPACE, 'context.json');
   const ctx = JSON.parse(readFileSync(p, 'utf8'));
@@ -291,6 +297,7 @@ try {
   cleanup();
 }
 
+/** @param {string} step */
 function isGate(step) {
   return ['gate1', 'gate2', 'gate3', 'gate4'].includes(step);
 }

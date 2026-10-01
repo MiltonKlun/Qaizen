@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Rule-based failure pre-classifier (Phase 3 TG1; rebuilt on the execution
 // ledger in task group 3.3).
 //
@@ -55,6 +56,7 @@ import {
   UNIT_OUTCOMES,
 } from './lib/execution-ledger.js';
 import { classifyUnit } from './lib/classify-failure.js';
+/** @typedef {import('./lib/execution-ledger.js').TestCase} TestCase */
 import { requireCurrentGate } from './lib/approval-binding.js';
 
 const OUT = 'analysis/failure-analysis.json';
@@ -79,8 +81,8 @@ function approvedDecisions() {
     const doc = JSON.parse(readFileSync(p, 'utf8'));
     return new Set(
       (doc.test_cases ?? [])
-        .filter((c) => c.status === 'approved')
-        .map((c) => c.automation_decision)
+        .filter((/** @type {TestCase} */ c) => c.status === 'approved')
+        .map((/** @type {TestCase} */ c) => c.automation_decision)
     );
   } catch {
     return null;
@@ -90,6 +92,7 @@ function approvedDecisions() {
 /** Units that belong in a failure analysis. Passes and skips do not. */
 const ANALYZED = new Set(['failed', 'blocked', 'flaky']);
 
+/** @param {string} name */
 function flag(name) {
   const i = argv.indexOf(name);
   if (i === -1) return undefined;
@@ -135,8 +138,9 @@ const loaded = readLedger(LEDGER, {
 });
 if (!loaded.ok) {
   console.error(`Refusing to classify: ${loaded.message}`);
-  for (const v of loaded.violations || []) console.error(`  - ${v}`);
-  if (loaded.errors) {
+  const violations = 'violations' in loaded ? loaded.violations : [];
+  for (const v of violations) console.error(`  - ${v}`);
+  if ('errors' in loaded && loaded.errors) {
     for (const line of formatErrors(loaded.errors, { includeParams: false })) {
       console.error(line);
     }
@@ -194,6 +198,7 @@ const reportOf = new Map(
 );
 
 /** First failing-attempt message, or the failed assertions for Newman. */
+/** @param {import('./lib/execution-ledger.js').Unit} unit */
 function errorMessage(unit) {
   const attempt = (unit.attempts || []).find(
     (a) => a.status !== 'passed' && a.error_message
@@ -236,6 +241,7 @@ const failures = analyzed.map((unit, i) => {
     : (links.playwright_test_id ?? null);
   const report = reportOf.get(unit.execution_id);
 
+  /** @type {Record<string, any>} one failures[] entry */
   const f = {
     failure_id: `FAIL-${String(i + 1).padStart(3, '0')}`,
     unit_id: unit.unit_id,
@@ -307,7 +313,9 @@ if (failures.length !== expected) {
 }
 
 // ---- report -------------------------------------------------------------
+/** @type {Record<string, number>} */
 const bySeverity = { red: 0, yellow: 0, green: 0 };
+/** @type {Record<string, number>} */
 const byClass = {};
 for (const f of failures) {
   bySeverity[f.severity] += 1;

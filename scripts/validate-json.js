@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Generic JSON Schema validator. ONE script for the whole pipeline.
 //
 // Per Phase 1 TG8 and CLAUDE.md section 3.3: there is exactly one
