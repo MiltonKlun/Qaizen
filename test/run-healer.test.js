@@ -21,25 +21,17 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
-  rmSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { execPath } from 'node:process';
 
 import { bindGate, runContext, validTestCases } from './helpers/valid-run.js';
+import { removeTempDir } from './helpers/cleanup.js';
 import { buildLedger } from '../scripts/lib/build-ledger.js';
 import { approvedScopeDigest } from '../scripts/lib/execution-ledger.js';
 import { validateValue } from '../scripts/lib/artifact-io.js';
 
-// Windows can hold a just-exited child process's handle on a workspace for a
-// moment (EBUSY); retry the cleanup instead of failing a test that passed.
-const CLEANUP = {
-  recursive: true,
-  force: true,
-  maxRetries: 10,
-  retryDelay: 100,
-};
 const REPO = process.cwd();
 const STORY = 'HEAL-1';
 const RUN = 'run-heal-1';
@@ -273,7 +265,7 @@ test('without --apply only the static check runs; nothing is written or executed
     assert.equal(existsSync(join(dir, 'release')), false);
     liveUnchanged(dir);
   } finally {
-    rmSync(dir, CLEANUP);
+    removeTempDir(dir);
   }
 });
 
@@ -354,12 +346,12 @@ test('a validated candidate yields a patch that reproduces it, plus evidence; th
       assert.equal(a.status, 0, a.stderr);
       assert.equal(readFileSync(join(check, TEST_REL), 'utf8'), FIXED);
     } finally {
-      rmSync(check, CLEANUP);
+      removeTempDir(check);
     }
     liveUnchanged(dir);
     noWorkspaceLeft(dir);
   } finally {
-    rmSync(dir, CLEANUP);
+    removeTempDir(dir);
   }
 });
 
@@ -386,7 +378,7 @@ test('a statically rejected candidate is recorded without running anything', () 
     assert.equal(existsSync(join(dir, 'release', 'healer-patches')), false);
     liveUnchanged(dir);
   } finally {
-    rmSync(dir, CLEANUP);
+    removeTempDir(dir);
   }
 });
 
@@ -433,7 +425,7 @@ test('a candidate that still fails, skips, or runs no single test is validation_
       liveUnchanged(dir);
       noWorkspaceLeft(dir);
     } finally {
-      rmSync(dir, CLEANUP);
+      removeTempDir(dir);
     }
   }
 });
@@ -460,7 +452,7 @@ test('a baseline that no longer fails validates nothing and uses no attempt', ()
     assert.deepEqual(records(dir), []);
     noWorkspaceLeft(dir);
   } finally {
-    rmSync(dir, CLEANUP);
+    removeTempDir(dir);
   }
 });
 
@@ -499,7 +491,7 @@ test('refused before anything runs: changed original, wrong failure, Yellow, API
       assert.deepEqual(r.calls, []);
       assert.deepEqual(records(dir), []);
     } finally {
-      rmSync(dir, CLEANUP);
+      removeTempDir(dir);
     }
   }
   for (const [failure, why] of [
@@ -525,7 +517,7 @@ test('refused before anything runs: changed original, wrong failure, Yellow, API
       assert.match(r.out, why);
       assert.deepEqual(r.calls, []);
     } finally {
-      rmSync(dir, CLEANUP);
+      removeTempDir(dir);
     }
   }
   const dir = project();
@@ -541,7 +533,7 @@ test('refused before anything runs: changed original, wrong failure, Yellow, API
     assert.match(r.out, /The candidate is the live test file/);
     liveUnchanged(dir);
   } finally {
-    rmSync(dir, CLEANUP);
+    removeTempDir(dir);
   }
 });
 
@@ -604,7 +596,7 @@ test('three submissions per test, persisted; an identical resubmission reuses it
     ]);
     liveUnchanged(dir);
   } finally {
-    rmSync(dir, CLEANUP);
+    removeTempDir(dir);
   }
 });
 
@@ -616,7 +608,7 @@ test('triage points Green failures at the candidate command and claims no scaffo
     assert.match(r.out, /--failure FAIL-001 --candidate <file> --apply/);
     assert.doesNotMatch(r.out, /scaffolding/i);
   } finally {
-    rmSync(dir, CLEANUP);
+    removeTempDir(dir);
   }
 });
 
@@ -675,6 +667,6 @@ test('real Playwright: a broken locator is healed against the demo app', async (
     noWorkspaceLeft(dir);
   } finally {
     server.kill();
-    rmSync(dir, CLEANUP);
+    removeTempDir(dir);
   }
 });
