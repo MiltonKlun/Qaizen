@@ -264,7 +264,8 @@ Phase 2 — adds the writes-enabled `atlassian-write` entry (above). It was
 (`dogkeeper886/testlink-mcp`) would not complete its handshake in the MCP
 client (`-32000`, zero diagnostics), so it was removed from `.mcp.json`. The
 supported TestLink path is the XML-RPC script `scripts/sync-to-testlink.js`
-(live-verified). See `docs/testlink-integration.md` and
+(live-verified on 2026-06-04; re-acceptance of the current version is tracked
+in `docs/sync-recovery.md` §7). See `docs/testlink-integration.md` and
 `docs/design-decisions.md` D7. So the active MCP servers as of Phase 2 are:
 `playwright-test`, `atlassian`, `atlassian-write`, `postman` — **no
 `testlink`**.

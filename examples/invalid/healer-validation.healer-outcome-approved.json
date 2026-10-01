@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0",
+  "record_type": "candidate_validation",
+  "story_id": "DEMO-1",
+  "run_id": "2026-09-29T10-00-00Z-demo",
+  "failure_id": "FAIL-001",
+  "unit": {
+    "unit_id": "pw:default:DEMO-1.spec.ts > logs in and sees the products [TC-001]",
+    "file": "DEMO-1.spec.ts",
+    "project": "",
+    "test_title": "DEMO-1.spec.ts > logs in and sees the products [TC-001]",
+    "repeat_index": 0
+  },
+  "original": {
+    "path": "tests/DEMO-1.spec.ts",
+    "sha256": "3185f66a4eb4aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "candidate": {
+    "path": "candidates/DEMO-1.fixed.spec.ts",
+    "sha256": "964af341dfd9bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "attempt": 1,
+  "outcome": "approved",
+  "reason": "eligible under static checks, and the failing test passed with it in isolation",
+  "static_check": {
+    "eligible": true,
+    "violations": [],
+    "repairs": [
+      {
+        "line": 8,
+        "from": "#missing-button",
+        "to": "[data-test=\"login-button\"]"
+      }
+    ]
+  },
+  "baseline": {
+    "status": "failed",
+    "tests_executed": 1,
+    "command": "playwright test tests/DEMO-1.spec.ts --config playwright.config.ts --grep logs in and sees the products [TC-001]$ --repeat-each 1 --retries 0 --workers 1 --reporter json",
+    "exit_code": 1,
+    "error_excerpt": "locator.click: Timeout 2000ms exceeded. waiting for locator('#missing-button')"
+  },
+  "rerun": {
+    "status": "passed",
+    "tests_executed": 1,
+    "command": "playwright test tests/DEMO-1.spec.ts --config playwright.config.ts --grep logs in and sees the products [TC-001]$ --repeat-each 1 --retries 0 --workers 1 --reporter json",
+    "exit_code": 0
+  },
+  "patch": {
+    "path": "release/healer-patches/FAIL-001.attempt-1.patch",
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "applies_cleanly": true
+  },
+  "created_at": "2026-09-29T10:05:00.000Z",
+  "human_review": "required"
+}

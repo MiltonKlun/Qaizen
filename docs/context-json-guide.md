@@ -1,26 +1,14 @@
 # `context.json` Guide
 
-> **Status:** Phase 1 baseline. The schema is `schemas/context.schema.json`
-> (Phase 1 TG7). Phase 1.5 does not change `context.json`. Phase 2 (TG6)
-> extends `review_gates` from booleans to optional `{ status, reviewer,
-reviewed_at, notes }` objects via `oneOf`. Phase 3 (TG8) adds a
-> `prompt_versions` map tying each agent's run-time version to the
-> `run_id` (see `docs/prompt-versioning.md`); as of Analyst v1.3.0 the
-> Analyst is required to write it (Phase 4, T4.1). Continuous-improvement adds
-> an optional append-only `gate_decisions[]` log (per-run gate
-> approvals/rejections; see `docs/review-gates.md`) and an optional
-> `opened_at` gate-telemetry timestamp on the log events and the gate
-> audit objects. IMPROVEMENT-PLAN Phase 4 adds an optional `track`
-> (`lite`/`standard`/`full`) and `track_floor` (the lowest track this story
-> may use). Task group 4.3 adds optional approval binding: an approved gate
-> object carries `input_digest` (SHA-256 over the inputs it reviewed) and
-> `inputs` (the per-input digests), written only by the runner at a human
-> decision; and an optional `gate_invalidations[]` log of approvals returned
-> to pending because what they reviewed changed (separate from
-> `gate_decisions[]`, which holds only human decisions). An approved gate
-> without `input_digest` is a legacy approval and is re-reviewed on the next
-> `--resume`. No agent writes these fields (`docs/pipeline-runner.md` §4).
-> All later changes are backward-compatible.
+> **Schema:** `schemas/context.schema.json`. Gate values are audit objects
+> written only by the runner at a human decision, with the digest of the
+> inputs each approval reviewed (`input_digest`, `inputs`); approvals whose
+> inputs changed are logged in `gate_invalidations[]`, and every decision in
+> `gate_decisions[]`. The Analyst writes `prompt_versions` and `track_floor`,
+> and may propose a `track` no lower than that floor. No agent writes the gate fields
+> (`docs/pipeline-runner.md` §4). Older contexts migrate with
+> `scripts/migrate-context-v1-to-v2.js` and
+> `scripts/migrate-context-gate-decisions.js`; every later field is optional.
 
 `context.json` is the **manifest** of a pipeline run. It sits at the
 project root, evolves throughout a single story's pass through the

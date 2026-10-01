@@ -134,7 +134,7 @@ npm run normalize -- --story QA-1042 --newman a.json --newman b.json
 
 # With a declared domain mapping
 npm run normalize -- --story QA-1042 --playwright reports/results.json \
-  --mapping config/unit-mapping.json
+  --mapping <unit-mapping.json>
 ```
 
 Exit codes: `0` a valid ledger was written · `1` inputs read but the ledger could

@@ -1,28 +1,33 @@
 #!/usr/bin/env node
 // @ts-check
-// Architecture Stability Rule CI check (Phase 2 TG12). Detects when a PR
-// changes a contract (schemas/) without changing the things that must move
-// WITH it in the same PR — the consuming agent prompts (agents/), the docs
-// (docs/), and the expected examples (examples/expected/). See CLAUDE.md
-// §3.10 and docs/pipeline-architecture.md §9.
+// Architecture Stability Rule CI check (Phase 2 TG12; companions made exact
+// in task group 10.2). Detects when a PR changes a contract (schemas/) without
+// changing the files that must move WITH it in the same PR (CLAUDE.md §3.10).
 //
-// This is a WARNING, not a failure (the phase plan is explicit: it emits a
-// ::warning:: annotation and exits 0). A schema change can be legitimately
-// unaccompanied — e.g. a comment-only edit — so the human decides. Pass
-// --strict to make it exit 1 (the team may promote it to blocking once the
-// signal proves reliable), matching the ci-summary --fail-on-test-failure
-// pattern.
+// Which files count is declared per schema in scripts/lib/schema-contracts.js:
+// every agent prompt that produces the artifact, docs/artifact-boundaries.md,
+// one of the schema's own docs, and one of its own examples. A change to some
+// other agent, doc or example no longer satisfies a missing companion.
+// Consumer prompts are listed for review, not required: whether they change
+// depends on which field moved.
+//
+// This is a WARNING, not a failure: it emits a ::warning:: annotation and
+// exits 0. A schema change can be legitimately unaccompanied (a comment-only
+// edit), so the human decides. --strict makes it exit 1, for when the team
+// chooses to make it blocking.
 //
 // Usage:
 //   node scripts/check-contract-changes.js                 # warn-only (default)
 //   node scripts/check-contract-changes.js --base <ref>    # diff base (default: origin/main)
-//   node scripts/check-contract-changes.js --strict        # exit 1 if unaccompanied
+//   node scripts/check-contract-changes.js --strict        # exit 1 if a companion is missing
 //
-// Exit codes: 0 ok / warning emitted · 1 only with --strict and an
-//             unaccompanied schema change · 2 git/usage error
+// Exit codes: 0 ok / warning emitted · 1 only with --strict and a missing
+//             companion · 2 git/usage error
 
 import { spawnSync } from 'node:child_process';
 import { argv, env, exit } from 'node:process';
+
+import { missingCompanions } from './lib/schema-contracts.js';
 
 const STRICT = argv.includes('--strict');
 const baseIdx = argv.indexOf('--base');
@@ -60,49 +65,38 @@ function changedFiles() {
 
 const files = changedFiles();
 
-const touched = (/** @type {string} */ prefix) =>
-  files.some((f) => f.startsWith(prefix));
-const schemasChanged = files.filter((f) => f.startsWith('schemas/'));
+const results = missingCompanions(files.map((f) => f.split('\\').join('/')));
 
-if (schemasChanged.length === 0) {
+if (results.length === 0) {
   console.log(
-    `No schemas/ changes in this diff (vs ${base}); Architecture Stability check not applicable.`
+    `No schema changes in this diff (vs ${base}); Architecture Stability check not applicable.`
   );
   exit(0);
 }
 
-const companions = {
-  'agents/': touched('agents/'),
-  'docs/': touched('docs/'),
-  'examples/expected/': touched('examples/expected/'),
-};
-const missing = Object.entries(companions)
-  .filter(([, present]) => !present)
-  .map(([k]) => k);
-
-console.log(`schemas/ changed in this diff (vs ${base}):`);
-for (const s of schemasChanged) console.log(`  - ${s}`);
-console.log('Companion changes:');
-for (const [k, present] of Object.entries(companions)) {
-  console.log(`  ${present ? 'yes' : 'NO '}  ${k}`);
+let incomplete = 0;
+for (const { schema, missing, review } of results) {
+  console.log(`${schema} changed (vs ${base}).`);
+  if (missing.length === 0) {
+    console.log('  All required companions changed with it.');
+  } else {
+    incomplete += 1;
+    console.log('  Missing companions:');
+    for (const m of missing) console.log(`    - ${m}`);
+    const msg =
+      `${schema} changed without: ${missing.join('; ')}. The Architecture ` +
+      `Stability Rule (CLAUDE.md §3.10) moves a schema with its producing ` +
+      `prompts, its docs and its examples (and a migration script when old ` +
+      `artifacts must stay valid). If this edit is genuinely standalone ` +
+      `(e.g. a comment), acknowledge and ignore this warning.`;
+    // GitHub Actions annotation (shows on the PR). Harmless locally.
+    console.log(`::warning title=Architecture Stability Rule::${msg}`);
+  }
+  if (review.length) {
+    console.log(
+      `  Review (consumers; change them if the moved field affects them): ${review.join(', ')}`
+    );
+  }
 }
 
-if (missing.length === 0) {
-  console.log(
-    '\nAll Architecture Stability companions changed alongside the schema. OK.'
-  );
-  exit(0);
-}
-
-const msg =
-  `Schema changed but these were NOT updated in the same PR: ${missing.join(', ')}. ` +
-  `The Architecture Stability Rule (CLAUDE.md §3.10) requires schema + consuming ` +
-  `agent prompts + docs + expected examples (+ a migration script if not ` +
-  `backward-compatible) to change together. If this schema edit is genuinely ` +
-  `standalone (e.g. a comment), this warning can be acknowledged and ignored.`;
-
-// GitHub Actions annotation (shows on the PR). Harmless locally.
-console.log(`::warning title=Architecture Stability Rule::${msg}`);
-console.log(`\n${msg}`);
-
-exit(STRICT ? 1 : 0);
+exit(STRICT && incomplete ? 1 : 0);

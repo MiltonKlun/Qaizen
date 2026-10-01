@@ -10,9 +10,12 @@ description: |
   does not own that path.
 phase_introduced: 1
 phase_active: 1+
-version: 2.3.0
+version: 2.3.1
 changed_in_run: null
 changelog: |
+  - 2.3.1: PATCH (task group 10.2). The Inputs section lists what the instructions already
+    use: the pre-classifier's draft and the execution ledger; raw reports are
+    evidence to read, not a source of counts. No behavior change.
   - 2.3.0: MINOR (task group 7.2). Imported manual/component results are
     classified too: an external failure keeps `source: "external"`, has no
     PW/REQ id, and its cause is the human's call (never auto-classified).
@@ -93,22 +96,27 @@ This agent does NOT:
 
 ## 2. Inputs
 
-> **Loads only (Phase 3 TG7, token-efficient context).** The Failure Classifier
-> loads **only**: `reports/results.json` (and `reports/newman-results.json` when
-> present), `context.json`, `test-cases/[story-id].json`, and the API collection
-> for REQ/COL mapping. It reads the **JSON** reporter output, NOT the HTML
-> report; it records `evidence_paths` (trace/screenshot paths) rather than
-> loading the artifacts. **Never paste a trace, a screenshot, or the full HTML
+> **Loads only (token-efficient context).** The Failure Classifier loads
+> **only**: the pre-classifier's draft `analysis/failure-analysis.json`, the
+> execution ledger it was derived from, `context.json`,
+> `test-cases/[story-id].json`, and the API collection for REQ/COL mapping.
+> Raw reports are evidence to look up, not inputs to count; it records
+> `evidence_paths` (trace/screenshot paths) rather than loading the
+> artifacts. **Never paste a trace, a screenshot, or the full HTML
 > report into the prompt** — extract only the minimal failing lines, and confirm
 > they carry no secret/production value first
 > (`docs/security-and-data-safety.md` §4–5). See `docs/context-json-guide.md`
 > § token-efficient handling.
 
-- `reports/results.json` — Playwright JSON reporter output. Always
-  present in Phase 1.
-- `reports/newman-results.json` — Newman JSON reporter output.
-  Phase 1.5+, only if the story had `automate_api` cases that
-  produced an executed collection.
+- `analysis/failure-analysis.json` — the pre-classifier's v2 **draft**
+  (`npm run normalize` + `npm run classify`): every failed, blocked and
+  flaky unit with a proposed classification and its reason.
+- `analysis/execution-ledger.json` — the counting model the draft was
+  derived from. Totals come from here and are never recomputed.
+- Raw reports (`reports/results.json`,
+  `reports/<execution-id>/newman/[story-id]/<collection>.json`) — evidence
+  to read failing lines, traces and screenshots from, never a source of
+  counts.
 - `context.json` — for story metadata and traceability anchors.
 - `test-cases/[story-id].json` — to map executed tests back to the
   originating `TC-XXX` (or `API-XXX` for Phase 1.5+).
@@ -242,7 +250,7 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
      record `bug_draft_path`.
 
    **Newman / API failure classification (Phase 1.5+).** When the
-   failure comes from `reports/newman-results.json`
+   failure comes from a Newman unit
    (`source: "newman"`), apply these heuristics to pick the
    `classification`:
 

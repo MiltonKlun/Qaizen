@@ -1,10 +1,7 @@
 # Seed Test Guidelines
 
-> **Status:** Phase 1 baseline. `tests/seed.spec.ts` was scaffolded by
-> `npx playwright init-agents --loop=claude` in Task Group 3 and will be
-> replaced with the BASE_URL-aware seed described below in Task Group 11
-> of Phase 1. The fixtures area (`tests/fixtures/`) is a placeholder
-> in Phase 1 and is filled in when an app actually needs custom
+> `tests/seed.spec.ts` is the BASE_URL-aware seed described below. The
+> fixtures area (`tests/fixtures/`) stays empty until an app needs custom
 > fixtures.
 
 This document describes the role of `tests/seed.spec.ts` in the

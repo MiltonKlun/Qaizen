@@ -5,6 +5,13 @@
   "description": "analysis/spec-reviews/[story-id].spec-review.json. Produced by the Spec Reviewer Agent (Phase 3 TG4) to ASSIST the human at Gate 3 — it never approves or rejects. Combines a checklist-driven findings list with deterministic risk-coverage (Improvement 3 / §4.5.a). auto_approval_eligible is only a hint; the human always decides (CLAUDE.md §3.5).",
   "type": "object",
   "additionalProperties": false,
+  "if": {
+    "properties": { "uncovered_high_severity_count": { "minimum": 1 } },
+    "required": ["uncovered_high_severity_count"]
+  },
+  "then": {
+    "properties": { "auto_approval_eligible": { "const": false } }
+  },
   "required": [
     "schema_version",
     "story_id",
@@ -117,7 +124,7 @@
     "uncovered_high_severity_count": {
       "type": "integer",
       "minimum": 0,
-      "description": "Count of uncovered_risks whose severity is 'high'. When > 0, auto_approval_eligible MUST be false."
+      "description": "Count of uncovered_risks whose severity is 'high'. When > 0, auto_approval_eligible must be false (enforced by the if/then above)."
     },
     "auto_approval_eligible": {
       "type": "boolean",

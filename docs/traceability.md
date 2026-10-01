@@ -1,9 +1,8 @@
 # Traceability
 
-> **Status:** Phase 1 baseline. The chain documented here is binding from
-> Phase 1 day-zero. Phase 1.5 adds the API-branch IDs (`API-XXX`,
-> `COL-XXX`, `REQ-XXX`). Later phases do not change the ID model; they
-> add new artifacts that hang off the existing IDs.
+> The chain below is binding for every run, on both branches: E2E
+> (`SPEC-XXX`, `PW-XXX`) and API (`API-XXX`, `COL-XXX`, `REQ-XXX`). New
+> artifacts hang off these IDs; they never replace them.
 
 Every artifact in the pipeline locates itself in a single traceability
 chain. This is what makes "the test ran, here's the report" turn into
@@ -339,7 +338,6 @@ unambiguous.
 ## 7. References
 
 - `CLAUDE.md` section 3.4 — traceability as an operating principle.
-- `README.md` section 4 — the chain as a project-level decision.
 - `schemas/context.schema.json` — anchors `story.id` and `risks[]`
   (Phase 1 TG7).
 - `schemas/test-cases.schema.json` — requires `risk_ids` on every TC

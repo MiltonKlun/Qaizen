@@ -51,7 +51,7 @@ from Postman). It runs in two modes:
 - **Remote (hosted):** `https://mcp.postman.com` with OAuth. Not used here —
   we keep everything local for Phase 1.5.
 
-> **Note on the package name:** the phase plan text and `README.md` §1.2 refer
+> **Note on the package name:** the original plan text referred
 > to `@postman/mcp-server` / `postmanlabs/postman-mcp-server`. The actual
 > npm package is `@postman/postman-mcp-server`. There is also a **third-party**
 > unscoped `postman-mcp-server` on npm — **do not use it**; it is not published
