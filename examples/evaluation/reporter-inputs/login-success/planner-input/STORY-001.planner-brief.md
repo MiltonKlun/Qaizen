@@ -1,0 +1,1 @@
+# Planner brief (synthetic fixture)

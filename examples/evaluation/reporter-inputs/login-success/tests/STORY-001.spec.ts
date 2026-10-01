@@ -1,0 +1,1 @@
+// Generated test (synthetic fixture)

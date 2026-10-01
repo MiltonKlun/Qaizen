@@ -1,0 +1,72 @@
+{
+  "schema_version": "2.0",
+  "run_id": "2026-05-28T18-00-00Z-loginex",
+  "story_id": "STORY-001",
+  "execution_date": "2026-09-22T10:00:00.000Z",
+  "execution_ledger": "analysis/execution-ledger.json",
+  "total_tests": 4,
+  "passed": 2,
+  "failed": 2,
+  "skipped": 0,
+  "outcome_breakdown": {
+    "units": 4,
+    "passed": 2,
+    "failed": 1,
+    "flaky": 1,
+    "skipped": 0,
+    "blocked": 0,
+    "not_run": 0,
+    "expected_failure": 0,
+    "source_error_count": 0
+  },
+  "source_errors": [],
+  "failures": [
+    {
+      "failure_id": "FAIL-001",
+      "unit_id": "newman:login-api-0000-4000-8000-000000000001:REQ-001 Locked account is rejected at the API boundary (TC-003):0",
+      "execution_outcome": "failed",
+      "runner_identity": {
+        "kind": "newman",
+        "collection_id": "login-api-0000-4000-8000-000000000001",
+        "request_name": "REQ-001 Locked account is rejected at the API boundary (TC-003)",
+        "iteration": 0
+      },
+      "test_case_id": "TC-003",
+      "source": "newman",
+      "request_id": "REQ-001",
+      "classification": "product_bug",
+      "severity": "red",
+      "classification_reason": "1 of 2 assertion(s) failed: locked account gets 403; the service responded, and its response was wrong",
+      "error_message": "locked account gets 403: expected 200 to equal 403",
+      "evidence_paths": [
+        "analysis/execution-ledger.json",
+        "reports/newman.json"
+      ],
+      "bug_draft_path": "release/bug-drafts/BUG-001.md"
+    },
+    {
+      "failure_id": "FAIL-002",
+      "unit_id": "pw:chromium:STORY-001.spec.ts > TC-002 PW-002 SPEC-001 Invalid password is rejected with a clear error",
+      "execution_outcome": "flaky",
+      "runner_identity": {
+        "kind": "playwright",
+        "test_title": "STORY-001.spec.ts > TC-002 PW-002 SPEC-001 Invalid password is rejected with a clear error",
+        "file": "STORY-001.spec.ts",
+        "project": "chromium",
+        "repeat_index": 0
+      },
+      "test_case_id": "TC-002",
+      "source": "playwright",
+      "playwright_test_id": "PW-002",
+      "classification": "flaky",
+      "severity": "yellow",
+      "classification_reason": "failed, then passed on retry; no attempt showed a wrong business value",
+      "error_message": "locator.click: Timeout 5000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Login' })",
+      "evidence_paths": [
+        "analysis/execution-ledger.json",
+        "reports/results.json"
+      ]
+    }
+  ],
+  "status": "finalized"
+}

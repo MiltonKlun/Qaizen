@@ -1,9 +1,11 @@
 // The structural evaluator: declared coverage, exact arithmetic, and the
-// candidate side of the prompt-change workflow (task group 8.1, finding I5).
+// candidate side of the prompt-change workflow (task group 8.1, finding I5;
+// the reporter stage, task group 2.2b).
 //
 // Each test builds a throwaway dataset (stories, gold outputs, manifest,
 // agent prompts) and runs scripts/evaluate-agents.js in it, so no committed
-// file is read as the subject or written.
+// file is written. The last test checks the committed reporter inputs
+// themselves, since every reporter candidate starts from them.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -344,4 +346,177 @@ test('a candidate is compared with its baseline: regressions are named, a drop o
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// ------------------------------------------------- the reporter stage (2.2b)
+
+const INPUTS = join(REPO, 'examples/evaluation/reporter-inputs/login-success');
+
+/** A copy of the reporter inputs in `dir/run`, with the prompt version set. */
+function reporterCandidate(dir) {
+  cpSync(
+    join(REPO, 'agents', 'reporter.md'),
+    join(dir, 'agents', 'reporter.md')
+  );
+  const run = join(dir, 'run');
+  cpSync(INPUTS, run, { recursive: true });
+  const version = /^version:\s*(\S+)/m.exec(
+    readFileSync(join(REPO, 'agents', 'reporter.md'), 'utf8')
+  )[1];
+  const ctx = JSON.parse(readFileSync(join(run, 'context.json'), 'utf8'));
+  ctx.prompt_versions.reporter = version;
+  write(run, 'context.json', ctx);
+  return run;
+}
+
+/** The release report a correct Reporter writes for the inputs. */
+async function correctReport(run) {
+  const { releaseExecutionSummary } =
+    await import('../scripts/lib/execution-ledger.js');
+  const read = (p) => JSON.parse(readFileSync(join(run, p), 'utf8'));
+  const ctx = read('context.json');
+  return {
+    schema_version: '2.0',
+    run_id: ctx.run_id,
+    story_id: ctx.story.id,
+    report_date: '2026-10-01T12:00:00Z',
+    summary: 'Login: a Red API failure (BUG-001) and a flaky E2E case.',
+    coverage_by_risk: [
+      {
+        risk_id: 'RISK-001',
+        covered_by_tcs: ['TC-001', 'TC-002', 'TC-004'],
+        status: 'covered_failing',
+      },
+      {
+        risk_id: 'RISK-002',
+        covered_by_tcs: ['TC-003'],
+        status: 'covered_failing',
+      },
+    ],
+    execution_summary: releaseExecutionSummary(
+      read('analysis/execution-ledger.json')
+    ),
+    uncovered_risks: [],
+    uncovered_high_severity_count: 0,
+    flaky_tests: [{ test_id: 'PW-002', branch: 'e2e' }],
+    blocking_failures: ['FAIL-001'],
+    non_blocking_failures: ['FAIL-002'],
+    release_recommendation: 'fail',
+    release_recommendation_reasoning:
+      'FAIL-001 is Red on a high-severity risk.',
+    bug_drafts: [
+      {
+        bug_id: 'BUG-001',
+        severity: 'red',
+        path: 'release/bug-drafts/BUG-001.md',
+      },
+    ],
+    evidence_paths: ['analysis/failure-analysis.json'],
+    open_questions: [],
+    status: 'finalized',
+  };
+}
+
+test('the reporter stage scores a release report against its own run', async () => {
+  const dir = dataset(
+    { 'login-success': withStory('STORY-001') },
+    { 'login-success': 'designer' }
+  );
+  try {
+    const run = reporterCandidate(dir);
+    const report = await correctReport(run);
+    write(run, 'release/release-report.json', report);
+    const ok = evaluate(dir, ['--candidate-dir', 'run', '--stage', 'reporter']);
+    assert.equal(ok.code, 0, ok.out);
+    const res = ok.results.results[0];
+    assert.equal(res.stage, 'reporter');
+    assert.equal(res.passed, res.total);
+    assert.match(
+      ok.results.candidate.prompts.reporter.sha256,
+      /^[0-9a-f]{64}$/
+    );
+    // No gold release report exists, so there is no implicit baseline.
+    assert.equal(ok.results.baseline, undefined);
+    assert.match(ok.out, /no gold release report/);
+
+    // A hand-edited count and a pass despite a Red failure are both caught.
+    const bad = structuredClone(report);
+    bad.execution_summary.e2e.outcome_breakdown.flaky = 0;
+    bad.execution_summary.e2e.outcome_breakdown.failed = 1;
+    bad.release_recommendation = 'pass';
+    write(run, 'release/release-report.json', bad);
+    const caught = evaluate(dir, [
+      '--candidate-dir',
+      'run',
+      '--stage',
+      'reporter',
+    ]);
+    assert.equal(caught.code, 1);
+    const failed = caught.results.results[0].failed_checks.map((c) => c.name);
+    assert.ok(
+      failed.includes('execution_summary is the one derived from the ledger'),
+      failed.join()
+    );
+    assert.ok(
+      failed.includes(
+        'the recommendation is never pass while something blocks it'
+      ),
+      failed.join()
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a reporter candidate without its release report is missing work, not a score', () => {
+  const dir = dataset(
+    { 'login-success': withStory('STORY-001') },
+    { 'login-success': 'designer' }
+  );
+  try {
+    reporterCandidate(dir);
+    const r = evaluate(dir, ['--candidate-dir', 'run', '--stage', 'reporter']);
+    assert.equal(r.code, 2);
+    assert.match(r.out, /missing release_report for the reporter stage/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the committed reporter inputs are one coherent, finalized run', async () => {
+  const { validateValue } = await import('../scripts/lib/artifact-io.js');
+  const { readLedger, analysisCountProblems } =
+    await import('../scripts/lib/execution-ledger.js');
+  const { findInvalidations } =
+    await import('../scripts/lib/approval-binding.js');
+  const read = (p) => JSON.parse(readFileSync(join(INPUTS, p), 'utf8'));
+  const ctx = read('context.json');
+  assert.equal(
+    validateValue(ctx, join(REPO, 'schemas/context.schema.json')).ok,
+    true
+  );
+  assert.equal(
+    validateValue(
+      read('test-cases/STORY-001.json'),
+      join(REPO, 'schemas/test-cases.schema.json')
+    ).ok,
+    true
+  );
+  const ledger = readLedger(join(INPUTS, 'analysis/execution-ledger.json'), {
+    storyId: 'STORY-001',
+    runId: ctx.run_id,
+  });
+  assert.equal(ledger.ok, true, ledger.ok ? '' : ledger.message);
+  const fa = read('analysis/failure-analysis.json');
+  assert.equal(
+    validateValue(fa, join(REPO, 'schemas/failure-analysis.schema.json')).ok,
+    true
+  );
+  assert.equal(fa.status, 'finalized');
+  assert.deepEqual(analysisCountProblems(fa), []);
+  for (const f of fa.failures.filter((x) => x.severity === 'red')) {
+    assert.ok(existsSync(join(INPUTS, f.bug_draft_path)), f.bug_draft_path);
+  }
+  // Every gate is bound to these exact bytes (a reformat would break it).
+  assert.deepEqual(findInvalidations(ctx, INPUTS), []);
 });

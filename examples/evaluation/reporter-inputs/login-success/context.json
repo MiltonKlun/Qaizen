@@ -1,0 +1,166 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-05-28T18-00-00Z-loginex",
+  "story": {
+    "id": "STORY-001",
+    "title": "Login — Successful sign-in",
+    "source": "manual",
+    "path": "story.md",
+    "description": "A registered, non-locked user can sign in with valid credentials and land on the home page that lists their available inventory."
+  },
+  "acceptance_criteria": [
+    "Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",
+    "Given an invalid password, when the user submits the form, then they remain on the login page and an error message explains the credentials were not accepted. No partial session is created.",
+    "Given a locked user, when they submit valid credentials, then they remain on the login page and an error message explains the account is locked. No session is created."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "A partial session is created on failed login, leaving the user in an ambiguous authenticated state.",
+      "severity": "high",
+      "related_acs": [
+        1,
+        2
+      ]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "Locked-account check is enforced only in the UI, allowing API-level bypass.",
+      "severity": "high",
+      "related_acs": [
+        2
+      ]
+    }
+  ],
+  "artifact_paths": {
+    "test_cases": "test-cases/STORY-001.json",
+    "planner_brief": "planner-input/STORY-001.planner-brief.md",
+    "playwright_spec": "specs/STORY-001.md",
+    "generated_test": "tests/STORY-001.spec.ts",
+    "execution_results": "reports/results.json",
+    "html_report": "",
+    "traces": "",
+    "screenshots": "",
+    "failure_analysis": "analysis/failure-analysis.json",
+    "release_report_md": "",
+    "release_report_json": "",
+    "bug_drafts_dir": "release/bug-drafts",
+    "api_collection": "api-tests/collections/STORY-001.postman_collection.json",
+    "execution_ledger": "analysis/execution-ledger.json"
+  },
+  "review_gates": {
+    "requirements_reviewed": {
+      "status": true,
+      "reviewer": "synthetic fixture (not a human decision)",
+      "reviewed_at": "2026-10-01T09:00:00Z",
+      "opened_at": "2026-10-01T08:55:00Z",
+      "notes": "Bound programmatically to generate evaluation inputs; see README.md.",
+      "input_digest": "56fe9b819fbed2cbfd9d7cfeb1e69c276f20ab0e656db42fe0640a20f261d332",
+      "inputs": {
+        "story": "cf64e954bc9cb50eacce0f6767a3a93828259444af4daac453858170dd7b7840",
+        "interpretation": "9bcef9d046b7df8581b45d84dc7fc53a3c407b634eb2addf0819249a3efa72c7"
+      }
+    },
+    "test_scope_reviewed": {
+      "status": true,
+      "reviewer": "synthetic fixture (not a human decision)",
+      "reviewed_at": "2026-10-01T09:00:00Z",
+      "opened_at": "2026-10-01T08:55:00Z",
+      "notes": "Bound programmatically to generate evaluation inputs; see README.md.",
+      "input_digest": "c52d9fe25df89df5d8756f3d4148544d97ad83b215856b71b20b2a49a113dff7",
+      "inputs": {
+        "gate:requirements_reviewed": "56fe9b819fbed2cbfd9d7cfeb1e69c276f20ab0e656db42fe0640a20f261d332",
+        "test_cases": "3d811338d21d29a6599bb50bb3b86701bacafccece10e45ad671b3eadf2a14ec",
+        "planner_brief": "7fcc5157697b11e342608fb16a5f87f50808f84f61402740d3f27cabd1a472c9"
+      }
+    },
+    "specs_reviewed": {
+      "status": true,
+      "reviewer": "synthetic fixture (not a human decision)",
+      "reviewed_at": "2026-10-01T09:00:00Z",
+      "opened_at": "2026-10-01T08:55:00Z",
+      "notes": "Bound programmatically to generate evaluation inputs; see README.md.",
+      "input_digest": "0e298a63c4414d7109036640771b1f3d6875918bba5339692bfbe185a7c17e85",
+      "inputs": {
+        "gate:test_scope_reviewed": "c52d9fe25df89df5d8756f3d4148544d97ad83b215856b71b20b2a49a113dff7",
+        "playwright_spec": "a20f2f35f9baf1280126ca965e1380a73684638ae0bfea03275d5127109253b5",
+        "prompt_versions": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+      }
+    },
+    "code_reviewed": {
+      "status": true,
+      "reviewer": "synthetic fixture (not a human decision)",
+      "reviewed_at": "2026-10-01T09:00:00Z",
+      "opened_at": "2026-10-01T08:55:00Z",
+      "notes": "Bound programmatically to generate evaluation inputs; see README.md.",
+      "input_digest": "e6445835ab300fb2fa208ff0566ea1a2f79e2eae49a199d2b215bfb7e707603c",
+      "inputs": {
+        "gate:specs_reviewed": "0e298a63c4414d7109036640771b1f3d6875918bba5339692bfbe185a7c17e85",
+        "generated_test": "0a59be430d4bff8e7c42898d2b996db795e31b5b12eaa0b2272ddebb51626279",
+        "playwright.config.ts": null,
+        "package-lock.json": null
+      }
+    },
+    "collection_reviewed": {
+      "status": true,
+      "reviewer": "synthetic fixture (not a human decision)",
+      "reviewed_at": "2026-10-01T09:00:00Z",
+      "opened_at": "2026-10-01T08:55:00Z",
+      "notes": "Bound programmatically to generate evaluation inputs; see README.md.",
+      "input_digest": "e64b966e3e95fb4e0a4cb5e657617002ac3589afe710077045add3c013d8fe57",
+      "inputs": {
+        "gate:test_scope_reviewed": "c52d9fe25df89df5d8756f3d4148544d97ad83b215856b71b20b2a49a113dff7",
+        "api_requests": "bc83f679cf8ba31fc827981ba5a07cd92153ee1ac5ca771025796d3f960d7654",
+        "api_environment": null,
+        "endpoint_contract": null
+      }
+    },
+    "api_assertions_reviewed": {
+      "status": true,
+      "reviewer": "synthetic fixture (not a human decision)",
+      "reviewed_at": "2026-10-01T09:00:00Z",
+      "opened_at": "2026-10-01T08:55:00Z",
+      "notes": "Bound programmatically to generate evaluation inputs; see README.md.",
+      "input_digest": "077b27a8bd8beb785a8f6042a32fa05566a93bdd0e2ae3535aaa73f82d2dfc20",
+      "inputs": {
+        "gate:collection_reviewed": "e64b966e3e95fb4e0a4cb5e657617002ac3589afe710077045add3c013d8fe57",
+        "api_assertions": "b568bf0469b17f739d6a7ed53c67684cff685c73256e2fa888cfa86bdb5e3288",
+        "scripts/run-newman.js": null,
+        "package-lock.json": null
+      }
+    },
+    "external_plan_reviewed": {
+      "status": true,
+      "reviewer": "synthetic fixture (not a human decision)",
+      "reviewed_at": "2026-10-01T09:00:00Z",
+      "opened_at": "2026-10-01T08:55:00Z",
+      "notes": "Bound programmatically to generate evaluation inputs; see README.md.",
+      "input_digest": "80cc8f9056614a9ab82cd6d47707b7cfb9067078edbe17df9eaa087dc1218358",
+      "inputs": {
+        "gate:test_scope_reviewed": "c52d9fe25df89df5d8756f3d4148544d97ad83b215856b71b20b2a49a113dff7",
+        "external_plan": "baa91cd3c4e9cb663fcdf844e868c619ec88c00ae108ee76826f1ff4cae58097"
+      }
+    },
+    "external_evidence_reviewed": {
+      "status": true,
+      "reviewer": "synthetic fixture (not a human decision)",
+      "reviewed_at": "2026-10-01T11:00:00Z",
+      "opened_at": "2026-10-01T10:55:00Z",
+      "notes": "Bound programmatically to generate evaluation inputs; see README.md.",
+      "input_digest": "d44512f775d4685a18cb16e29ed4b0ba94626c4cb4a70e66cbfe0fe084517512",
+      "inputs": {
+        "gate:external_plan_reviewed": "80cc8f9056614a9ab82cd6d47707b7cfb9067078edbe17df9eaa087dc1218358",
+        "external_results": "5c7cc5a15fa4202e564d27466dc707d111bae0e8a383271f330b6da1336bc4d0",
+        "evidence:external-evidence/STORY-001/tc-004-desktop.txt": "05f357ba7bb3fbe25d91ebe4b71bb77f2443c60ca0f1a031d660af1abea824df",
+        "evidence:external-evidence/STORY-001/tc-004-mobile.txt": "e3bef3fdb53716c1264f4f7194706b629d5acd97f19eed58768ea466831430a8"
+      }
+    }
+  },
+  "status": "in_progress",
+  "prompt_versions": {
+    "analyst": "2.0.3",
+    "test-designer": "1.6.0",
+    "failure-classifier": "2.3.1"
+  }
+}

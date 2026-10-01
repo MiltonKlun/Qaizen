@@ -1,0 +1,175 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-05-28T18-00-00Z-loginex",
+  "story_id": "STORY-001",
+  "generated_at": "2026-10-01T21:25:00.194Z",
+  "approved_scope_digest": "1590cb140a04f16d605ed2c78b96d1cd01d978fdca7178bfbbd23e9f47848107",
+  "source_executions": [
+    {
+      "execution_id": "exec-pw-b42baf37",
+      "runner": "playwright",
+      "started_at": "2026-10-01T10:00:00.000Z",
+      "completed_at": "2026-10-01T21:25:00.194Z",
+      "process_status": "completed",
+      "report_reference": "reports/results.json",
+      "source_errors": []
+    },
+    {
+      "execution_id": "exec-nm-ce01cdf6",
+      "runner": "newman",
+      "started_at": "2026-09-22T10:00:00.000Z",
+      "completed_at": "2026-10-01T21:25:00.194Z",
+      "process_status": "completed",
+      "report_reference": "reports/newman.json",
+      "source_errors": []
+    },
+    {
+      "execution_id": "exec-ext-c10237d5",
+      "runner": "external",
+      "started_at": "2026-10-01T10:30:00.000Z",
+      "completed_at": "2026-10-01T10:30:00.000Z",
+      "command_identity": "import-execution (manual)",
+      "process_status": "completed",
+      "report_reference": "external-evidence/STORY-001.results.json",
+      "report_digest": "0275a55118430bf1e2c4ed707fceeb2f607233c309f756c2f34ddbb74a8d1e65",
+      "source_errors": []
+    }
+  ],
+  "units": [
+    {
+      "unit_id": "pw:chromium:STORY-001.spec.ts > TC-001 PW-001 SPEC-001 Valid user sees inventory after login",
+      "execution_id": "exec-pw-b42baf37",
+      "identity": {
+        "kind": "playwright",
+        "test_title": "STORY-001.spec.ts > TC-001 PW-001 SPEC-001 Valid user sees inventory after login",
+        "file": "STORY-001.spec.ts",
+        "project": "chromium",
+        "repeat_index": 0
+      },
+      "domain_links": {
+        "test_case_id": "TC-001",
+        "playwright_test_id": "PW-001",
+        "spec_id": "SPEC-001"
+      },
+      "outcome": "passed",
+      "attempts": [
+        {
+          "status": "passed",
+          "duration_ms": 900
+        }
+      ]
+    },
+    {
+      "unit_id": "pw:chromium:STORY-001.spec.ts > TC-002 PW-002 SPEC-001 Invalid password is rejected with a clear error",
+      "execution_id": "exec-pw-b42baf37",
+      "identity": {
+        "kind": "playwright",
+        "test_title": "STORY-001.spec.ts > TC-002 PW-002 SPEC-001 Invalid password is rejected with a clear error",
+        "file": "STORY-001.spec.ts",
+        "project": "chromium",
+        "repeat_index": 0
+      },
+      "domain_links": {
+        "test_case_id": "TC-002",
+        "playwright_test_id": "PW-002",
+        "spec_id": "SPEC-001"
+      },
+      "outcome": "flaky",
+      "attempts": [
+        {
+          "status": "timed_out",
+          "duration_ms": 900,
+          "error_message": "locator.click: Timeout 5000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Login' })"
+        },
+        {
+          "status": "passed",
+          "duration_ms": 1000
+        }
+      ]
+    },
+    {
+      "unit_id": "newman:login-api-0000-4000-8000-000000000001:REQ-001 Locked account is rejected at the API boundary (TC-003):0",
+      "execution_id": "exec-nm-ce01cdf6",
+      "identity": {
+        "kind": "newman",
+        "collection_id": "login-api-0000-4000-8000-000000000001",
+        "request_name": "REQ-001 Locked account is rejected at the API boundary (TC-003)",
+        "iteration": 0
+      },
+      "domain_links": {
+        "api_test_case_id": null,
+        "request_id": "REQ-001",
+        "unresolved_reason": "Partially resolved from metadata; no exact id for: api_test_case_id.",
+        "test_case_id": "TC-003"
+      },
+      "outcome": "failed",
+      "assertions": [
+        {
+          "name": "locked account gets 403",
+          "passed": false,
+          "error_message": "expected 200 to equal 403"
+        },
+        {
+          "name": "response has a body",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "unit_id": "external:TC-004",
+      "execution_id": "exec-ext-c10237d5",
+      "identity": {
+        "kind": "external",
+        "test_title": "TC-004 (manual)",
+        "occurrence": 0
+      },
+      "domain_links": {
+        "test_case_id": "TC-004"
+      },
+      "outcome": "passed"
+    }
+  ],
+  "case_outcomes": [
+    {
+      "test_case_id": "TC-001",
+      "outcome": "passed",
+      "linked_unit_ids": [
+        "pw:chromium:STORY-001.spec.ts > TC-001 PW-001 SPEC-001 Valid user sees inventory after login"
+      ]
+    },
+    {
+      "test_case_id": "TC-002",
+      "outcome": "failed",
+      "linked_unit_ids": [
+        "pw:chromium:STORY-001.spec.ts > TC-002 PW-002 SPEC-001 Invalid password is rejected with a clear error"
+      ]
+    },
+    {
+      "test_case_id": "TC-003",
+      "outcome": "failed",
+      "linked_unit_ids": [
+        "newman:login-api-0000-4000-8000-000000000001:REQ-001 Locked account is rejected at the API boundary (TC-003):0"
+      ]
+    },
+    {
+      "test_case_id": "TC-004",
+      "outcome": "passed",
+      "linked_unit_ids": [
+        "external:TC-004"
+      ]
+    }
+  ],
+  "totals": {
+    "units": 4,
+    "passed": 2,
+    "failed": 1,
+    "flaky": 1,
+    "skipped": 0,
+    "blocked": 0,
+    "not_run": 0,
+    "expected_failure": 0,
+    "source_error_count": 0,
+    "unit_pass_rate": 0.5,
+    "approved_case_coverage": 0.5
+  }
+}

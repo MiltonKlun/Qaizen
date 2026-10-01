@@ -11,9 +11,18 @@ description: |
   run completed: the runner does, after validating every artifact.
 phase_introduced: 1
 phase_active: 1+
-version: 3.3.1
+version: 4.0.0
 changed_in_run: null
 changelog: |
+  - 4.0.0: MAJOR (task group 2.2b, with release-report schema 2.0). For a
+    2.x failure analysis the Reporter writes a 2.0 report whose
+    execution_summary is the output of npm run report:summary, copied
+    verbatim: the legacy flat counts, each explained by its per-outcome
+    breakdown (flaky and blocked visible, not folded into "failed"), and a
+    null pass_rate when nothing ran. The runner refuses a 2.0 report whose
+    summary differs from the ledger's. 1.x analyses keep 1.x reports.
+    Evaluated on a candidate before merge (reporter stage of
+    evaluate-agents, login-success).
   - 3.3.1: PATCH (task group 10.2). Bug drafts are read, never written: create-jira-bugs.js
     records the Jira key in the draft itself. No behavior change.
   - 3.3.0: MINOR (task group 7.2). Manual, component and skip scope: recorded
@@ -153,7 +162,9 @@ Two synchronized files:
 
 1. `release/release-report.md` — Markdown, human-readable.
 2. `release/release-report.json` — schema-validated against
-   `schemas/release-report.schema.json`.
+   `schemas/release-report.schema.json`. `schema_version` is `"2.0"` for a
+   2.x failure analysis (every current run) and `"1.0"` only for a legacy
+   1.x analysis.
 
 The two files describe the same release decision in different
 forms. The JSON is the machine-readable contract; the Markdown is
@@ -208,39 +219,40 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
    Red failures have no bug drafts yet, and its links may be unresolved.
    Stop and ask for the Failure Classifier Agent (or a human) to finalize
    it.
-3. **Compute `execution_summary`** from the execution ledger named in
-   `failure-analysis.json.execution_ledger` (normally
-   `analysis/execution-ledger.json`). **Never recompute from raw
-   reports**: that dropped timed-out tests (B2) and could produce negative
-   pass counts (B5). Use the legacy projection defined once in
-   `scripts/lib/execution-ledger.js` — `passed = passed`,
-   `failed = failed + blocked + flaky`,
-   `skipped = skipped + not_run + expected_failure`, `total` = all units —
-   computed over the ledger's units, split by `identity.kind`
-   (`playwright` → `e2e`, `newman` → `api`). For a 1.x analysis with no
-   ledger, the legacy raw-report computation below still applies.
-   - Phase 1 form (E2E only, no Newman run): the flat
-     `{ total, passed, failed, skipped, pass_rate }`.
-   - **Phase 1.5+ form (both branches): use the grouped form**
-     `{ e2e: {...}, api: {...}, combined: {...} }` whenever a Newman
-     run happened (i.e. the ledger holds `newman` units). `e2e` is
-     computed from the Playwright units, `api` from the Newman units, and
-     `combined` is the element-wise sum
-     (`combined.total = e2e.total + api.total`, etc.; `combined.pass_rate`
-     is `combined.passed / combined.total`, not the average of the two
-     rates). If only one branch ran, you may still use the grouped form
-     with the absent branch zeroed — but the flat form is acceptable
-     when there genuinely is no API branch for the story.
-   - `pass_rate` is in 0..1 (e.g. 0.85 for 85%), not 0..100.
+3. **Copy `execution_summary` from the ledger** (2.x analysis). Run
+   `npm run report:summary` and paste its output, unchanged, as
+   `execution_summary`. **Never compute these numbers yourself**, and never
+   from raw reports: that dropped timed-out tests (B2) and could produce
+   negative counts (B5). The command reads the ledger the analysis names and
+   prints:
+   - the flat form `{ total, passed, failed, skipped, pass_rate,
+outcome_breakdown }` when only Playwright ran, and the grouped form
+     `{ e2e, api, combined }` of those blocks when a Newman run happened;
+   - in each block, the legacy projection (`passed = passed`,
+     `failed = failed + blocked + flaky`,
+     `skipped = skipped + not_run + expected_failure`, `total` = all units)
+     next to the `outcome_breakdown` that explains it, so a flaky or blocked
+     unit is visible rather than hidden inside "failed";
+   - `pass_rate` as strict passes over the total, in 0..1, and `null` when
+     nothing ran: zero executions are neither a pass nor a failure rate.
+
+   The runner refuses a 2.0 report whose `execution_summary` differs from
+   the command's output (`scripts/lib/run-artifacts.js`), so a hand-edited
+   number is caught, not shipped.
    - **External units** (`identity.kind: "external"`, imported manual and
      component results, task group 7.2) are not automated executions and
-     stay out of `execution_summary`. Report them per case (step 4) and in
-     the Markdown "Execution summary" as their own line: recorded N (passed,
-     failed, blocked, not run), planned but not recorded N, skipped N.
-   - **Zero executions** (e.g. a skip-only scope): use the flat form with
-     `total: 0` and `pass_rate: 0`, and say in the summary and the
-     reasoning that nothing was executed -- the 0 is not a failure rate,
-     and it is not a pass.
+     stay out of `execution_summary` (the command leaves them out). Report
+     them per case (step 4) and in the Markdown "Execution summary" as their
+     own line: recorded N (passed, failed, blocked, not run), planned but not
+     recorded N, skipped N.
+   - **Zero executions** (e.g. a skip-only scope): the command prints
+     `total: 0` and `pass_rate: null`. Say in the summary and the reasoning
+     that nothing was executed.
+   - **Legacy 1.x analysis** (no ledger): write a `"1.0"` report with the
+     flat `{ total, passed, failed, skipped, pass_rate }` counts computed
+     from the analysis, `pass_rate` 0 for zero executions, and no
+     `outcome_breakdown`. A 1.x report keeps that older meaning.
+
 4. **Compute `coverage_by_risk`** by walking the chain. Coverage spans
    **both branches**: a risk may be covered by E2E test cases, API test
    cases, or a mix.
@@ -609,9 +621,10 @@ Markdown, structured for a reviewer:
 
 - Total: N
 - Passed: N
-- Failed: N
-- Skipped: N
-- Pass rate: N%
+- Failed: N (failed N, blocked N, flaky N)
+- Skipped: N (skipped N, not run N, expected failure N)
+- Pass rate: N% ("n/a, nothing ran" when the rate is null)
+  (one block each for E2E, API and combined when a Newman run happened)
 - Manual/component: recorded N (passed N, failed N, blocked N, not run N);
   planned but not recorded N; approved skips N
   (omit when the scope has none; say "nothing was executed" when total is 0)
