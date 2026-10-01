@@ -165,9 +165,10 @@ After this skill writes `context.json`:
    - Ambiguities explicit (no silent assumptions).
    - Risks meaningful, not just rephrased ACs.
    - No invented business rules.
-3. On approval: human (or agent acting on human instruction) sets
-   `context.json.review_gates.requirements_reviewed = true` and
-   `status = "in_progress"`. Re-validate.
+3. On approval: the human records the decision in `npm run pipeline`.
+   The runner writes `review_gates.requirements_reviewed`, bound to the
+   reviewed context and story, and moves the run out of `draft`. No agent
+   records an approval, even on instruction.
 4. On rejection: human writes correction notes; the analyst re-runs
    this skill.
 

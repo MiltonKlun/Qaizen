@@ -11,9 +11,11 @@ description: |
   run completed: the runner does, after validating every artifact.
 phase_introduced: 1
 phase_active: 1+
-version: 3.3.0
+version: 3.3.1
 changed_in_run: null
 changelog: |
+  - 3.3.1: PATCH (task group 10.2). Bug drafts are read, never written: create-jira-bugs.js
+    records the Jira key in the draft itself. No behavior change.
   - 3.3.0: MINOR (task group 7.2). Manual, component and skip scope: recorded
     external results count per case and per risk (never in the automated
     execution_summary), an approved skip is never a pass, and a scope with
@@ -169,19 +171,20 @@ After writing, the Reporter:
 
 ## 4. Owned files
 
-| Path                                               | Status                                                                        |
-| -------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `release/release-report.md`                        | Created here                                                                  |
-| `release/release-report.json`                      | Created here                                                                  |
-| `context.json.artifact_paths.release_report_md`    | Updated here                                                                  |
-| `context.json.artifact_paths.release_report_json`  | Updated here                                                                  |
-| `context.json.status`                              | **Not** updated here — the runner sets `completed` after validation           |
-| `release/bug-drafts/BUG-XXX.md` — `Jira Issue Key` | Updated here (Phase 2+ only, after `scripts/create-jira-bugs.js --apply` ran) |
+| Path                                              | Status                                                              |
+| ------------------------------------------------- | ------------------------------------------------------------------- |
+| `release/release-report.md`                       | Created here                                                        |
+| `release/release-report.json`                     | Created here                                                        |
+| `context.json.artifact_paths.release_report_md`   | Updated here                                                        |
+| `context.json.artifact_paths.release_report_json` | Updated here                                                        |
+| `context.json.status`                             | **Not** updated here — the runner sets `completed` after validation |
+| `release/bug-drafts/BUG-XXX.md`                   | Read only                                                           |
 
-The Reporter is a co-owner of `release/bug-drafts/` (see
-`docs/artifact-boundaries.md` section 3.5) but only updates the
-`Jira Issue Key` field of EXISTING drafts. It never creates a new
-draft. Drafts are created by the Failure Classifier.
+The Reporter reads the bug drafts and lists them in the report; it never
+writes them. The Failure Classifier creates each draft, and
+`scripts/create-jira-bugs.js --apply` records the `Jira Issue Key` and
+`Sync State` in the draft when it files the issue
+(`docs/artifact-boundaries.md` §4.4).
 
 The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
 `planner-input/`, `api-tests/`, or `analysis/`.

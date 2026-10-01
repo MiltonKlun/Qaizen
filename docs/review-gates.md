@@ -1,22 +1,21 @@
 # Review Gates
 
-> **Status:** Phase 1 baseline. The four gates run as boolean flags in
-> `context.json.review_gates`. Phase 1.5 adds parallel API-branch
-> counterparts of Gates 3 and 4 (the `'` gates below). Phase 2 (TG6)
-> extends each gate to an optional richer
-> `{ status, reviewer, reviewed_at, notes }` object via `oneOf`; the
-> boolean form remains valid. Phase 2 (TG7) adds the optional
-> `qa_scope_approved` gate that consolidates Gates 1 and 2. Phase 1
-> sticks to the booleans. Continuous-improvement: an optional
-> `context.json.gate_decisions[]` log records each decision event
-> (approval AND rejection), so metrics can count rejections per run.
+> **How gates are recorded.** Each gate is a value in
+> `context.json.review_gates`, written only by the runner (`npm run pipeline`)
+> from an interactive decision: `{ status, reviewer, reviewed_at, opened_at,
+notes }` plus, on approval, the digest of the inputs it reviewed. An approval
+> whose inputs later change returns to pending. A bare `true` (or an approval
+> without a digest) is a legacy approval and is reviewed again on the next
+> `--resume`. Every decision, approval or rejection, is appended to
+> `gate_decisions[]`. The API and external branches have their own Gates 3 and
+> 4, and on the lite track `qa_scope_approved` consolidates Gates 1 and 2.
 
 The pipeline has four hard checkpoints between agents. Each one is a
 **human review**, with explicit criteria. A gate that has not been
 approved blocks the next stage; the orchestrator does not advance.
 
-**Gate 4 is always a human decision.** That is a non-negotiable rule, set in
-the project `README.md` section 9 and enforced in every phase plan.
+**Gate 4 is always a human decision.** That is a non-negotiable rule
+(`CLAUDE.md` §3.5).
 
 ---
 
@@ -216,7 +215,7 @@ agent or script written against the four-gate model breaks. See
   artifact (the spec) produced by a different agent.
 - **Gate 4 (Code Review)** is **NEVER** consolidated into
   `qa_scope_approved` or anything else. It is always a human decision and
-  always its own gate (`README.md` §9, `CLAUDE.md` §3.5). Folding
+  always its own gate (`CLAUDE.md` §3.5). Folding
   it into an earlier approval would defeat the one checkpoint the whole
   system is anchored on.
 
@@ -364,9 +363,11 @@ product owner co-approves.
 - [ ] **Traceability preserved** — each spec scenario references its
       `TC-XXX` in a comment or metadata block.
 
-**Approver:** the QA engineer driving the slice. In Phase 3 the
+**Approver:** the QA engineer driving the slice. The
 `agents/spec-reviewer.md` agent assists by producing
-`analysis/spec-reviews/[story-id].spec-review.{json,md}` — a checklist
+`analysis/spec-reviews/[story-id].spec-review.{json,md}`
+(`schemas/spec-review.schema.json`, which rejects an `auto_approval_eligible`
+hint of `true` while a high-severity risk is uncovered) — a checklist
 of `findings` plus a **deterministic risk-coverage** report
 (`risk_coverage`, `uncovered_risks`, `uncovered_high_severity_count`,
 computed from the `RISK → TC` chain, no LLM). The reviewer reads the

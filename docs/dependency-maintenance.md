@@ -19,9 +19,18 @@
 5. An exception is open until the human maintainer accepts it. Accepting it is a
    judgement about **exposure**, not a statement that the advisory is wrong.
 
-## Current status — reviewed 2026-09-15
+## Current status — reviewed 2026-10-01
 
-Clean-install audit (`npm ci` in an isolated copy, then `npm audit`):
+**2026-10-01 re-review.** A new moderate advisory appeared after the
+2026-09-15 review: `moment` (GHSA-4p3w-j4w9-5jqw, path traversal via a crafted
+non-string locale name), reached only through `newman-reporter-htmlextra` →
+`moment-timezone`. `moment-timezone` accepts any `moment >= 2.9.0`, so the fix
+(`2.31.0`) is a compatible in-range upgrade under rule 2: it was applied as a
+lockfile-only change, and a clean-install audit is back to the 24 advisories
+below. The four exception rows are unchanged and still open.
+
+Clean-install audit (`npm ci` in an isolated copy, then `npm audit`), as of
+both reviews:
 
 | Severity  | Count  |
 | --------- | ------ |

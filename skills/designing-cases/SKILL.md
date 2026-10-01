@@ -181,8 +181,11 @@ Gate 2 criteria (from `docs/review-gates.md`):
   generic reasons.
 - Low-value cases are explicitly marked `manual` or `skip` with reason.
 
-On approval: human sets per-TC `status = "approved"` (or `rejected`) and
-sets `context.json.review_gates.test_scope_reviewed = true`. Re-validate.
+Before approving, the human sets each TC's `status` to `"approved"` or
+`"rejected"` (the runner refuses Gate 2 while any case is still `draft`),
+then records the decision in `npm run pipeline`. The runner writes
+`review_gates.test_scope_reviewed`, bound to the reviewed test cases; no
+person or agent sets it by hand.
 
 On rejection: re-run with corrections. Do not bypass.
 

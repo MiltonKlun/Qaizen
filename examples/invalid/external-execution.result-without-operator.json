@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "document": "external_results",
+  "story_id": "STORY-001",
+  "run_id": "2026-05-28T18-00-00Z-loginex",
+  "approved_scope_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "results": [
+    {
+      "test_case_id": "TC-004",
+      "source": "manual",
+      "outcome": "passed",
+      "executed_at": "2026-05-28T19:05:00Z",
+      "evidence": [
+        {
+          "path": "external-evidence/STORY-001/tc-004-desktop.png",
+          "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "path": "external-evidence/STORY-001/tc-004-mobile.png",
+          "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      ],
+      "notes": "Banner contrast checked against the page background at both widths.",
+      "imported_at": "2026-05-28T19:10:00Z"
+    }
+  ]
+}

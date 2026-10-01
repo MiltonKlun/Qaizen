@@ -27,8 +27,10 @@ proved fragile (see §6).
 > from `.mcp.json`** because `dogkeeper886/testlink-mcp` would not complete
 > its MCP handshake in the MCP client (`-32000 Connection closed`, no
 > diagnostics) — even though TestLink itself works. **The supported
-> TestLink path is `scripts/sync-to-testlink.js`** (XML-RPC, live-verified:
-> it synced the 4 STORY-002 cases and wrote `testlink_id` back). The MCP
+> TestLink path is `scripts/sync-to-testlink.js`** (XML-RPC, live-verified
+> on 2026-06-04: it synced the 4 STORY-002 cases and wrote `testlink_id` back;
+> the current recoverable version awaits re-acceptance, `docs/sync-recovery.md`
+> §7). The MCP
 > block is preserved here only so it can be restored if a future image
 > works. See `docs/design-decisions.md` D7.
 

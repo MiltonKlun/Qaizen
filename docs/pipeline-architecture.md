@@ -471,32 +471,11 @@ This layer adds:
 
 ---
 
-## 8. Folder ownership at a glance
+## 8. Folder ownership
 
-| Folder                         | Owner                                                            | Phase introduced |
-| ------------------------------ | ---------------------------------------------------------------- | ---------------- |
-| `docs/`, `schemas/`, `agents/` | Human / team                                                     | 1                |
-| `skills/`                      | Human / team                                                     | 1                |
-| `examples/`                    | Human / team                                                     | 1 (P2 extends)   |
-| `scripts/`                     | Human / team                                                     | 1                |
-| `test-cases/`                  | Test Designer Agent                                              | 1                |
-| `planner-input/`               | Test Designer Agent                                              | 1                |
-| `specs/`                       | Playwright Planner Native Agent                                  | 1                |
-| `tests/`                       | Playwright Generator Native Agent + `tests/seed.spec.ts` (human) | 1                |
-| `tests/fixtures/`              | Human / team                                                     | 1 (placeholder)  |
-| `reports/`                     | Playwright runner / Newman                                       | 1 / 1.5          |
-| `analysis/`                    | Failure Classifier Agent                                         | 1                |
-| `release/`                     | Reporter Agent                                                   | 1                |
-| `release/bug-drafts/`          | Failure Classifier / Reporter                                    | 1                |
-| `api-tests/`                   | API Agent                                                        | **1.5**          |
-| `analysis/spec-reviews/`       | Spec Reviewer Agent                                              | **3**            |
-| `analysis/healer-validation/`  | Healer                                                           | **3**            |
-| `release/healer-patches/`      | Healer                                                           | **3**            |
-| `runs/`, `metrics/`            | `scripts/new-run.js` / metrics                                   | **3**            |
-| `.github/workflows/`           | Human / team                                                     | **2**            |
-
-Boundaries are enforced as a hard rule — see `docs/artifact-boundaries.md`
-and `CLAUDE.md` section 3.2.
+Every folder has one writer. The binding table, with each artifact's readers,
+schema, sensitivity, archival and compatibility, is
+`docs/artifact-boundaries.md` (`CLAUDE.md` §3.2).
 
 ### 8.1 Run history — the `runs/` layout (Phase 3 TG5)
 
@@ -603,38 +582,36 @@ render the same result.
 
 ## 9. The contracts (schemas)
 
-The pipeline's discipline rests on four JSON schemas that all artifacts
-validate against. They are created in **Phase 1 TG7**. Once a schema is
-in place, every artifact written to disk goes through `scripts/validate-json.js`
-before it is considered done.
+Every JSON artifact validates against a schema in `schemas/` before it is
+considered done (`scripts/validate-json.js`; `npm run validate:all` for the
+committed ones). The eleven schemas, their artifacts and readers are listed in
+`docs/artifact-boundaries.md` §3, and each schema's producers, docs, valid and
+invalid examples and migration policy are declared in
+`scripts/lib/schema-contracts.js`. `test/schema-contracts.test.js` fails when
+a schema has no entry, an example no longer validates, or an invalid example
+stops being rejected.
 
-| Artifact                         | Schema                                   | Phase introduced |
-| -------------------------------- | ---------------------------------------- | ---------------- |
-| `context.json`                   | `schemas/context.schema.json`            | 1                |
-| `test-cases/[story-id].json`     | `schemas/test-cases.schema.json`         | 1                |
-| `analysis/failure-analysis.json` | `schemas/failure-analysis.schema.json`   | 1                |
-| `release/release-report.json`    | `schemas/release-report.schema.json`     | 1                |
-| `api-tests/collections/*.json`   | `schemas/postman-collection.schema.json` | **1.5**          |
-
-When a schema changes, the **Architecture Stability Rule** applies:
-`CLAUDE.md` section 3.10. Schema + every consuming agent prompt + relevant
-docs + affected expected examples + a migration script (if non-backward-
-compatible) all change in the same PR. Schemas are migrations, not edits.
+When a schema changes, the **Architecture Stability Rule** applies
+(`CLAUDE.md` §3.10): the schema, its producing agent prompts, its docs, its
+examples and, if old artifacts must stay valid, a migration script all change
+in the same PR. Schemas are migrations, not edits.
 
 ### 9.1 The rule, formalized in CI (Phase 2 TG12)
 
 The Architecture Stability Rule is also checked mechanically in CI by
-`scripts/check-contract-changes.js`, run as the `contract-stability` job
-in `.github/workflows/qa-pipeline.yml` (PRs only). It diffs the PR
-against its base and, **if anything under `schemas/` changed**, checks
-that the companion areas changed too:
+`scripts/check-contract-changes.js` (`npm run check:contracts`), run as the
+`contract-stability` job in `.github/workflows/qa-pipeline.yml` (PRs only).
+It diffs the PR against its base and, for each changed schema, checks that
+that schema's own companions changed too, as declared in
+`scripts/lib/schema-contracts.js`:
 
-- `agents/` — the prompts that produce/consume the artifact.
-- `docs/` — the architecture / boundary docs.
-- `examples/expected/` — the affected expected examples.
+- every agent prompt that produces the artifact;
+- `docs/artifact-boundaries.md`, and one of the schema's own docs;
+- one of the schema's own examples (valid or invalid).
 
-If any companion is missing, the job emits a GitHub `::warning::`
-annotation on the PR naming what wasn't updated.
+A change to some other agent, doc or example does not count. Consumer prompts
+are listed for review. If a companion is missing, the job emits a GitHub
+`::warning::` annotation on the PR naming it.
 
 **It is a warning, not a gate.** A schema edit can be legitimately
 standalone (e.g. a comment-only change), so the human decides whether

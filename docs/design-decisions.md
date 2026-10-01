@@ -5,7 +5,7 @@ where the implementation departs from the first design, or where an external
 tool behaved differently than documented. Each record gives the context, the
 decision, and its consequences.
 
-Records are referenced by ID (`D1`–`D7`) from the docs and agent prompts that
+Records are referenced by ID (`D1`–`D8`) from the docs and agent prompts that
 depend on them.
 
 ## How records are added
@@ -26,6 +26,7 @@ record moves to **Accepted** and states the decision.
 | D5  | reqres.in requests carry an API key from the environment          | Accepted |
 | D6  | Test management is a port with adapters, not a hardcoded TestLink | Accepted |
 | D7  | TestLink sync runs through XML-RPC, not the TestLink MCP bridge   | Accepted |
+| D8  | No n8n: the repository and GitHub Actions orchestrate             | Accepted |
 
 ---
 
@@ -145,10 +146,13 @@ target. `TEST_MANAGEMENT_TOOL` selects the adapter. TestLink is the first
 implemented adapter; Xray and Qase are documented as future adapters and are
 built only when needed.
 
-**Consequences.** Adding a tool means one dispatcher row, a new
-`skills/syncing-<tool>/` adapter and a `config/<tool>-*-map.json`, with no
-edits to existing adapters. Field and status mappings live in
-`config/testlink-*-map.json`, never in code.
+**Consequences.** There is no dispatcher script. Each adapter script checks
+`TEST_MANAGEMENT_TOOL` itself (`selectTestManagementTarget` in
+`scripts/lib/integration-io.js`) and refuses to run unless the value selects
+it; `both` selects TestLink and Jira. Adding a tool means a new adapter script
+and `skills/syncing-<tool>/` skill, its `config/<tool>-*-map.json`, and one row
+in the `TEST_MANAGEMENT_TOOLS` table, with no edits to existing adapters.
+Field and status mappings live in `config/`, never in code.
 
 ---
 
@@ -171,9 +175,34 @@ defaults to a dry run, and writes only with `--apply-testlink`.
 - The `testlink` entry was removed from `.mcp.json`. The block is preserved in
   `docs/testlink-integration.md` §2 so it can be restored if a working bridge
   image appears.
-- The sync is live-verified: it created test cases in TestLink, reused the
+- The sync was live-verified on 2026-06-04 (before the recoverable rewrite of
+  task group 5.1; re-acceptance is tracked in `docs/sync-recovery.md` §7): it
+  created test cases in TestLink, reused the
   story suite, and wrote each `testlink_id` back into the test-case file,
   which still validates against its schema.
 - `skills/syncing-testlink` still documents the MCP tool path; the script is
   the path that runs today. The adapter port (D6) is unaffected, because only
   the transport changed.
+
+---
+
+## D8 — No n8n: the repository and GitHub Actions orchestrate
+
+**Context.** n8n was evaluated as an orchestration layer. The whole pipeline
+lives in the repository (skills, schemas, agents, scripts, CI), and the
+artifacts are versioned in Git. n8n would add an external runtime, a separate
+UI, a second authentication path with its own token to maintain, and a second
+place where logs are stored, plus one more point of failure. A tool like n8n
+earns its place when automation connects many parts of a company (sales,
+support, IT); when the automation lives inside a product's codebase, the code
+and its CI are enough.
+
+**Decision.** No n8n. The thin gated runner (`npm run pipeline`), the scripts
+in `scripts/` and GitHub Actions are the orchestration. Introducing n8n, a web
+dashboard, a database or a queue requires explicit human approval
+(`CLAUDE.md` §3.11).
+
+**Consequences.** One place to read and review the flow, one log, no extra
+service. Reconsider only if the pipeline must notify across teams (Slack to
+product, email to stakeholders, CRM sync), expose its workflows as tools to
+non-technical systems, or let non-developers edit the flow visually.

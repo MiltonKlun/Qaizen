@@ -140,6 +140,25 @@ the first is running. If a sync was killed and left its lock behind:
   on the lite track) is current. Bug drafts must also name the active story
   and an approved test case.
 
+## 7. Live acceptance status
+
+The adapters are tested against local fake services
+(`test/external-sync.test.js`, `test/execution-sync.test.js`): every
+create, failure, ambiguous outcome, reconciliation and lock path above. That
+proves the recovery logic; it does not prove a given Jira or TestLink instance
+accepts the requests. Live acceptance is a human step, run with real
+credentials and `--apply`, and is recorded here.
+
+| Path                                                   | Status                                                                                                                                                                             |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sync-to-testlink.js` (create cases)                   | **Pending re-acceptance.** Live-verified on 2026-06-04 against a self-hosted TestLink (4 cases created, ids written back), before task group 5.1 rebuilt it as a recoverable sync. |
+| `sync-testlink-execution.js` (execution results)       | **Pending human acceptance.** Fake-service tests only.                                                                                                                             |
+| `create-jira-testcases.js` (test cases as Jira issues) | **Pending human acceptance.** Fake-service tests only.                                                                                                                             |
+| `create-jira-bugs.js` (bug drafts as Jira issues)      | **Pending human acceptance.** Fake-service tests only.                                                                                                                             |
+
+A path moves to **Accepted** only when the run is recorded here with its date,
+the instance it ran against (no credentials), and what was created.
+
 ## References
 
 - `scripts/lib/integration-io.js` — the shared recovery logic.

@@ -1,9 +1,8 @@
 # Automation Decision Model
 
-> **Status:** Phase 1 baseline. The model applies from Phase 1 day-zero.
-> Phase 1.5 wires the `automate_api` decision to actual Postman / Newman
-> tooling; until then `automate_api` cases are recorded but not yet
-> executed.
+> Every decision value has an executing branch: `automate_e2e` (Playwright),
+> `automate_api` (Postman / Newman), and `manual`, `automate_component` and
+> `skip` (the external plan and recorded results).
 
 Every test case the Test Designer writes carries an
 `automation_decision` field. This document is the canonical reference
@@ -322,4 +321,3 @@ Gate 2 conversation, not a freelance schema change.
   reasons.
 - `docs/pipeline-architecture.md` section 5 — how `automate_api`
   feeds the Phase 1.5 API branch.
-- `README.md` section 8 — the decision model as a system-level rule.

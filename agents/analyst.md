@@ -9,9 +9,11 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 2.0.2
+version: 2.0.3
 changed_in_run: null
 changelog: |
+  - 2.0.3: PATCH (task group 10.2). Names the runner, not the Reporter, as the one that
+    sets status "completed". No behavior change.
   - 2.0.2: PATCH (task group 8.2). The prompt_versions guidance names the
     metric it feeds as it now works: a run missing a version for an agent
     that ran is excluded from prompt_stability. No behavior change.
@@ -330,8 +332,8 @@ validate:context`). Fix and re-validate until the script exits 0.
 - Setting any `review_gates.*` flag to `true` on the agent's own
   initiative. Only the human approves a gate; the agent records the
   approval (with audit fields in Phase 2+) but does not decide it.
-- Setting `status: "completed"`. The Reporter sets that at the end
-  of the run, after Gate 4.
+- Setting `status: "completed"`. The runner sets it once every gate has
+  passed and every artifact of the run validates.
 - Skipping schema validation because "it's basically right".
 - Editing `.claude/agents/*.md` or `.mcp.json` — those are
   infrastructure, not Analyst output.

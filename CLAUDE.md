@@ -41,7 +41,7 @@ If a task takes more than three attempts without success, stop and report. Don't
 
 ### 3.2 Respect folder ownership
 
-The folder ownership table in `README.md` section 5 is binding. Every folder has a single owner.
+The folder ownership table in `docs/artifact-boundaries.md` §2 is binding. Every folder has a single owner.
 
 - `test-cases/` belongs to the Test Designer Agent. The Failure Classifier never writes there.
 - `specs/` belongs to the Playwright Planner. The Generator never writes there.
@@ -190,7 +190,7 @@ Stop and report when:
 - A task asks you to commit or merge Healer changes directly (3.6).
 - A task asks you to create real Jira tickets without an explicit `--apply` flag from the human (Phase 2+).
 - A task asks you to introduce a dependency not listed in section 4.
-- A task asks you to introduce n8n, a web dashboard, a database, or a queue system (see `README.md` section 1.4 and the per-phase forbidden-work lists).
+- A task asks you to introduce n8n, a web dashboard, a database, or a queue system (see `docs/design-decisions.md` D8 and the per-phase forbidden-work lists).
 
 Don't try to negotiate around these. Stop and ask.
 
@@ -224,7 +224,7 @@ You can install and use these. Anything else needs explicit human approval.
 
 **Explicitly forbidden:**
 
-- n8n (decision documented in `README.md` section 1.4).
+- n8n (decision documented in `docs/design-decisions.md` D8).
 - TestDino as a required core dependency (may be evaluated as optional reporting layer in Phase 3).
 - QMetry hardcoded as test management (the system uses TestLink and is adapter-friendly; QMetry would be an adapter, not a hardcoded coupling).
 - Custom browser automation replacing Playwright Native Agents.

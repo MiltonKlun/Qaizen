@@ -10,9 +10,12 @@ description: |
   stays human.
 phase_introduced: 3
 phase_active: 3+
-version: 1.4.0
+version: 1.4.1
 changed_in_run: null
 changelog: |
+  - 1.4.1: PATCH (task group 10.2). schemas/spec-review.schema.json now rejects
+    auto_approval_eligible: true while a high-severity risk is uncovered, the
+    rule step 6 already required. No behavior change.
   - 1.4.0: MINOR (task group 4.3). Gate 2 must be current, not only passed. Approvals are now bound
     to a digest of the inputs they reviewed; a gate whose inputs changed
     is not passed even if `status` still reads true, so the gate check
@@ -180,7 +183,8 @@ The Spec Reviewer does NOT write into `specs/`, `tests/`,
 6. **Set `auto_approval_eligible`** (HINT only): `true` only when there
    is no `blocker` finding, every high-severity risk is `covered`, and
    `uncovered_high_severity_count == 0`. Otherwise `false`. It MUST be
-   `false` whenever `uncovered_high_severity_count > 0`.
+   `false` whenever `uncovered_high_severity_count > 0`; the schema
+   rejects a review that says otherwise.
 7. **Write both files.** JSON first, then the `.md` companion (they must
    agree).
 8. **Validate** with
