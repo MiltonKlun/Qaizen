@@ -1,3 +1,4 @@
+// @ts-check
 // Ledger assembly (task group 3.1).
 //
 // Turns adapter output into a complete, schema-valid execution ledger:
@@ -9,6 +10,23 @@
 // module's job, and it does it from exact metadata, never from ordering.
 
 import { UNIT_OUTCOMES } from './execution-ledger.js';
+
+/** @typedef {import('./execution-ledger.js').Unit} Unit */
+/** @typedef {import('./execution-ledger.js').CaseOutcome} CaseOutcome */
+/** @typedef {import('./execution-ledger.js').SourceExecution} SourceExecution */
+/**
+ * Totals as deriveTotals builds them: every unit outcome counted, plus the
+ * derived rates.
+ * @typedef {{ units: number, source_error_count: number,
+ *   unit_pass_rate: number | null, approved_case_coverage: number | null,
+ *   [outcome: string]: number | null }} DerivedTotals
+ */
+/** @typedef {Record<string, string | null | undefined>} LinkMap */
+/**
+ * Caller-supplied links per unit id; an array means several cases claim the
+ * unit (ambiguous).
+ * @typedef {Record<string, LinkMap | unknown[]>} Mapping
+ */
 
 /** Outcomes that count as passing coverage. Only a strict pass qualifies. */
 const PASSING = new Set(['passed']);
@@ -22,6 +40,7 @@ const LINK_KEYS = [
 ];
 
 /** Exact id syntax per link. Anything looser would be a guess. */
+/** @type {Record<string, RegExp>} */
 const ID_PATTERN = {
   test_case_id: /\bTC-\d+\b/g,
   api_test_case_id: /\bAPI-\d+\b/g,
@@ -41,15 +60,18 @@ const ID_PATTERN = {
  * report, and pairing a comment with one test in a multi-test file would be a
  * guess.
  *
- * @returns {{ids: object, conflicts: string[]}} one value per key, or a
- *   conflict when the text names two DIFFERENT ids of the same kind.
+ * @param {Unit} unit
+ * @returns {{ids: Record<string, string>, conflicts: string[]}} one value per
+ *   key, or a conflict when the text names two DIFFERENT ids of the same kind.
  */
 export function idsFromMetadata(unit) {
   const text =
     unit.identity?.kind === 'newman'
       ? (unit.identity?.request_name ?? '')
       : (unit.identity?.test_title ?? '');
+  /** @type {Record<string, string>} */
   const ids = {};
+  /** @type {string[]} */
   const conflicts = [];
   for (const key of LINK_KEYS) {
     const found = [...new Set(text.match(ID_PATTERN[key]) ?? [])];
@@ -67,12 +89,14 @@ export function idsFromMetadata(unit) {
  * and the conflict is recorded -- never an arbitrary selection. Nothing is
  * ever inferred from position or failure ordering (finding B6).
  *
- * @param {object[]} units
- * @param {object} mapping  { [unit_id]: {test_case_id?, ...} | Array (ambiguous) }
- * @returns {{units: object[], unmapped: string[], ambiguous: string[]}}
+ * @param {Unit[]} units
+ * @param {Mapping} [mapping]  { [unit_id]: {test_case_id?, ...} | Array (ambiguous) }
+ * @returns {{units: Unit[], unmapped: string[], ambiguous: string[]}}
  */
 export function resolveDomainLinks(units, mapping = {}) {
+  /** @type {string[]} */
   const unmapped = [];
+  /** @type {string[]} */
   const ambiguous = [];
 
   const resolved = units.map((u) => {
@@ -93,6 +117,7 @@ export function resolveDomainLinks(units, mapping = {}) {
 
     const meta = idsFromMetadata(u);
     const conflicts = [...meta.conflicts];
+    /** @type {LinkMap} */
     const links = { ...u.domain_links };
     let any = false;
 
@@ -143,7 +168,8 @@ export function resolveDomainLinks(units, mapping = {}) {
  * every linked unit strictly passed.
  *
  * @param {string[]} approvedCaseIds
- * @param {object[]} units  units with resolved domain_links
+ * @param {Unit[]} units  units with resolved domain_links
+ * @returns {CaseOutcome[]}
  */
 export function deriveCaseOutcomes(approvedCaseIds, units) {
   return approvedCaseIds.map((caseId) => {
@@ -165,6 +191,7 @@ export function deriveCaseOutcomes(approvedCaseIds, units) {
     const ids = linked.map((u) => u.unit_id);
     const outcomes = new Set(linked.map((u) => u.outcome));
 
+    /** @type {string} */
     let outcome;
     if (linked.every((u) => PASSING.has(u.outcome))) outcome = 'passed';
     else if (outcomes.has('failed')) outcome = 'failed';
@@ -179,7 +206,13 @@ export function deriveCaseOutcomes(approvedCaseIds, units) {
   });
 }
 
-/** Derive totals from units. Counts are never supplied by a caller. */
+/**
+ * Derive totals from units. Counts are never supplied by a caller.
+ * @param {Unit[]} units
+ * @param {CaseOutcome[]} caseOutcomes
+ * @param {number} sourceErrorCount
+ * @returns {DerivedTotals}
+ */
 export function deriveTotals(units, caseOutcomes, sourceErrorCount) {
   const counts = Object.fromEntries(UNIT_OUTCOMES.map((o) => [o, 0]));
   for (const u of units) {
@@ -190,17 +223,18 @@ export function deriveTotals(units, caseOutcomes, sourceErrorCount) {
 
   const passing = units.filter((u) => PASSING.has(u.outcome)).length;
 
+  /** @type {DerivedTotals} */
   const totals = {
     units: units.length,
     ...counts,
     source_error_count: sourceErrorCount,
     // Null for zero units: "we ran nothing" is not a pass rate of 0 or 1.
     unit_pass_rate: units.length === 0 ? null : passing / units.length,
+    // Null without an approved scope; set below when there is one.
+    approved_case_coverage: null,
   };
 
-  if (caseOutcomes.length === 0) {
-    totals.approved_case_coverage = null;
-  } else {
+  if (caseOutcomes.length > 0) {
     const passed = caseOutcomes.filter((c) => c.outcome === 'passed').length;
     totals.approved_case_coverage = passed / caseOutcomes.length;
   }
@@ -215,10 +249,10 @@ export function deriveTotals(units, caseOutcomes, sourceErrorCount) {
  * @param {string} input.runId
  * @param {string} input.storyId
  * @param {string} input.generatedAt   ISO timestamp
- * @param {object[]} input.sourceExecutions
- * @param {object[]} input.units
+ * @param {SourceExecution[]} input.sourceExecutions
+ * @param {Unit[]} input.units
  * @param {string[]} [input.approvedCaseIds]
- * @param {object} [input.mapping]
+ * @param {Mapping} [input.mapping]
  * @param {string|null} [input.approvedScopeDigest]
  */
 export function buildLedger({

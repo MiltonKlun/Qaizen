@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Healer harness (Phase 3 TG2; candidate processing since task group 6.3).
 //
 // Two modes:
@@ -76,7 +77,7 @@ const ANALYSIS_SCHEMA = 'schemas/failure-analysis.schema.json';
 const RECORD_SCHEMA = 'schemas/healer-validation.schema.json';
 
 const APPLY = argv.includes('--apply');
-const flag = (name) => {
+const flag = (/** @type {string} */ name) => {
   const i = argv.indexOf(name);
   return i === -1 ? undefined : argv[i + 1];
 };
@@ -92,7 +93,10 @@ if (Boolean(failureId) !== Boolean(candidatePath)) {
   exit(2);
 }
 
-if (failureId) exit(await processCandidate());
+// The check above makes the two flags present together or not at all.
+if (failureId && candidatePath) {
+  exit(await processCandidate(failureId, candidatePath));
+}
 exit(triage());
 
 // ---------------------------------------------------------------- triage
@@ -107,9 +111,11 @@ function triage() {
   }
   const fa = JSON.parse(readFileSync(FA, 'utf8'));
   const failures = fa.failures || [];
-  const green = failures.filter((f) => f.severity === 'green');
-  const yellow = failures.filter((f) => f.severity === 'yellow');
-  const red = failures.filter((f) => f.severity === 'red');
+  /** @type {Record<string, any>[]} */
+  const all = failures;
+  const green = all.filter((f) => f.severity === 'green');
+  const yellow = all.filter((f) => f.severity === 'yellow');
+  const red = all.filter((f) => f.severity === 'red');
 
   console.log('Healer triage');
   console.log(
@@ -166,7 +172,11 @@ function triage() {
 
 // ---------------------------------------------------------------- candidate
 
-async function processCandidate() {
+/**
+ * @param {string} failureId
+ * @param {string} candidatePath
+ */
+async function processCandidate(failureId, candidatePath) {
   // --- The current run, and the one failure it names -------------------
   const ctxRead = readJson('context.json');
   if (!ctxRead.ok) {
@@ -341,7 +351,7 @@ async function processCandidate() {
     sources.files
   );
   try {
-    const run = (label) =>
+    const run = (/** @type {string} */ label) =>
       runSingleTest({
         workspace,
         configPath,
@@ -432,7 +442,12 @@ async function processCandidate() {
     removeWorkspace(workspace);
   }
 
+  /**
+   * @param {Record<string, any>} record
+   * @param {string | null} [patchPath]
+   */
   function save(record, patchPath = null) {
+    /** @type {Record<string, any>} */
     const full = { ...record, created_at: new Date().toISOString() };
     const written = writeJsonAtomic(recordPath, full, {
       schemaPath: RECORD_SCHEMA,
@@ -457,7 +472,9 @@ async function processCandidate() {
   }
 }
 
+/** @param {any} r a schema-valid healer-validation record */
 function renderRecord(r) {
+  /** @type {(label: string, x: any) => string} */
   const run = (label, x) =>
     x
       ? `- ${label}: **${x.status}** (${x.tests_executed} test(s), exit ${x.exit_code})\n  \`${x.command}\`` +
@@ -476,9 +493,10 @@ function renderRecord(r) {
     '## Static check',
     '',
     r.static_check.eligible ? `Eligible — ${ELIGIBILITY_NOTE}.` : 'Rejected:',
-    ...r.static_check.violations.map((v) => `- ${v}`),
+    ...r.static_check.violations.map((/** @type {string} */ v) => `- ${v}`),
     ...r.static_check.repairs.map(
-      (x) => `- line ${x.line}: \`${x.from}\` → \`${x.to}\``
+      (/** @type {{ line: number, from: string, to: string }} */ x) =>
+        `- line ${x.line}: \`${x.from}\` → \`${x.to}\``
     ),
     '',
     '## Runs (isolated copy)',

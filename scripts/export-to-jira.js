@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Jira export helper (Phase 2.6 TG2.6-2, TG14 Option A). Turns a story's
 // local test cases into Jira-ready output — either a CSV for Jira's bulk
 // importer, or Markdown/wiki text to paste into a Jira description. The
@@ -54,6 +55,7 @@ if (!existsSync(casesPath)) {
   exit(2);
 }
 
+/** @type {(p: string) => any} */
 const loadJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const doc = loadJson(casesPath);
 const context = existsSync('context.json') ? loadJson('context.json') : null;
@@ -61,6 +63,7 @@ const context = existsSync('context.json') ? loadJson('context.json') : null;
 const projectKey = env.JIRA_PROJECT_KEY || '';
 const issueType = env.JIRA_TESTCASE_ISSUETYPE || 'Test';
 
+/** @type {import('./lib/execution-ledger.js').TestCase[]} */
 let cases = doc.test_cases || [];
 if (APPROVED_ONLY) cases = cases.filter((tc) => tc.status === 'approved');
 if (cases.length === 0) {
@@ -71,17 +74,19 @@ if (cases.length === 0) {
 }
 
 // Build a plain-text description for one test case (used by both formats).
+/** @param {import('./lib/execution-ledger.js').TestCase} tc */
 function describe(tc) {
+  /** @type {string[]} */
   const lines = [];
   if (tc.description) lines.push(tc.description, '');
   if (tc.preconditions?.length) {
     lines.push('Preconditions:');
-    tc.preconditions.forEach((p) => lines.push(`- ${p}`));
+    tc.preconditions.forEach((/** @type {string} */ p) => lines.push(`- ${p}`));
     lines.push('');
   }
   if (tc.steps?.length) {
     lines.push('Steps:');
-    tc.steps.forEach((s, i) => {
+    tc.steps.forEach((/** @type {any} */ s, /** @type {number} */ i) => {
       const data =
         s.data !== undefined ? ` (data: ${JSON.stringify(s.data)})` : '';
       lines.push(`${i + 1}. ${s.action}${data}`);
@@ -90,7 +95,9 @@ function describe(tc) {
   }
   if (tc.expected_results?.length) {
     lines.push('Expected results:');
-    tc.expected_results.forEach((e) => lines.push(`- ${e}`));
+    tc.expected_results.forEach((/** @type {string} */ e) =>
+      lines.push(`- ${e}`)
+    );
     lines.push('');
   }
   lines.push(
@@ -107,7 +114,7 @@ function buildMarkdown() {
   );
   if (INCLUDE_RISKS && context?.risks?.length) {
     out.push('## Risks (context)', '');
-    context.risks.forEach((r) =>
+    context.risks.forEach((/** @type {Record<string, any>} */ r) =>
       out.push(`- **${r.risk_id}** (${r.severity}): ${r.description}`)
     );
     out.push('');
@@ -123,6 +130,7 @@ function buildMarkdown() {
 }
 
 // Minimal RFC-4180-ish CSV quoting.
+/** @param {unknown} v */
 function csvCell(v) {
   const s = String(v ?? '');
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

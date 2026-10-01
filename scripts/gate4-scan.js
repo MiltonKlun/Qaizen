@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Pre-Gate-4 static scan (IMPROVEMENT-PLAN Phase 6, IP-6.2 / PFI-5). Surfaces
 // the MECHANICAL Gate-4 findings so the human reviewer spends judgment, not
 // archaeology. It INFORMS and NEVER fixes: it does not edit files, does not
@@ -51,7 +52,22 @@ import {
   visit,
 } from './lib/test-source.js';
 
+/**
+ * What a traceability check reads, from loadGate4Artifacts.
+ * @typedef {{ contextPath: string, storyId: string | null, testCases: any,
+ *   testCasesPath: string | null, specText: string | null,
+ *   specPath: string | null }} Gate4Artifacts
+ * @typedef {{ rule: string, line: number | null, test: string | null,
+ *   excerpt: string, note: string }} Finding
+ * @typedef {(rule: string, line: number | null, note: string,
+ *   test?: string | null) => void} AddFinding
+ * @typedef {{ test: string, line: number, ids: Record<string, string[]>,
+ *   exempt: boolean }} TraceEntry
+ * @typedef {{ tests: TraceEntry[], verified: string[], basis: string }} Traceability
+ */
+
 // Per-rule line matchers for what lives inside strings and calls.
+/** @type {{ rule: string, note: string, test: (line: string) => boolean }[]} */
 const LINE_RULES = [
   {
     rule: 'hard_wait',
@@ -68,7 +84,11 @@ const LINE_RULES = [
   },
 ];
 
-/** The seed test is the one documented non-business exception. */
+/**
+ * The seed test is the one documented non-business exception.
+ * @param {string | undefined} fileName
+ * @param {{ titlePath: string[] }} identity
+ */
 function isSeedTest(fileName, identity) {
   return (
     basename(fileName ?? '') === 'seed.spec.ts' &&
@@ -83,19 +103,23 @@ function isSeedTest(fileName, identity) {
  * @param {string} source
  * @param {object} [opts]
  * @param {string} [opts.fileName]
- * @param {object} [opts.artifacts] from loadGate4Artifacts: { storyId,
- *   testCases, testCasesPath, specText, specPath }
+ * @param {Gate4Artifacts | null} [opts.artifacts] from loadGate4Artifacts
+ * @returns {{ findings: Finding[], traceability: Traceability,
+ *   judgment: string[] }}
  */
 export function gate4Findings(
   source,
   { fileName = 'test.spec.ts', artifacts } = {}
 ) {
+  /** @type {Finding[]} */
   const findings = [];
   const lines = (source || '').split('\n');
-  const excerptAt = (line) =>
+  const excerptAt = (/** @type {number | null} */ line) =>
     line ? (lines[line - 1] ?? '').trim().slice(0, 100) : '(whole file)';
-  const add = (rule, line, note, test = null) =>
+  /** @type {AddFinding} */
+  const add = (rule, line, note, test = null) => {
     findings.push({ rule, line, test, excerpt: excerptAt(line), note });
+  };
 
   lines.forEach((line, i) => {
     for (const r of LINE_RULES) if (r.test(line)) add(r.rule, i + 1, r.note);
@@ -136,6 +160,7 @@ export function gate4Findings(
       return;
     const matcher = n.expression.name.text;
     let root = n.expression.expression;
+    /** @type {string[]} */
     const chain = [];
     while (ts.isPropertyAccessExpression(root) || ts.isCallExpression(root)) {
       if (ts.isPropertyAccessExpression(root)) chain.push(root.name.text);
@@ -158,12 +183,22 @@ export function gate4Findings(
   return { findings, traceability, judgment: GATE4_JUDGMENT_QUESTIONS() };
 }
 
-/** Per-test identity checks; returns what was actually verified. */
+/**
+ * Per-test identity checks; returns what was actually verified.
+ * @param {import('./lib/test-source.js').ts.SourceFile} sf
+ * @param {string} fileName
+ * @param {Gate4Artifacts | null | undefined} artifacts
+ * @param {AddFinding} add
+ * @returns {Traceability}
+ */
 function checkTraceability(sf, fileName, artifacts, add) {
   const tests = testIdentities(sf);
+  /** @type {Map<string, string>} */
   const pwSeen = new Map();
+  /** @type {string[]} */
   const verified = [];
 
+  /** @type {Map<string, { status?: string }> | null} */
   let cases = null;
   if (artifacts?.testCases) {
     if (artifacts.testCases.story_id !== artifacts.storyId) {
@@ -174,13 +209,19 @@ function checkTraceability(sf, fileName, artifacts, add) {
       );
     } else {
       cases = new Map(
-        artifacts.testCases.test_cases.map((c) => [c.test_case_id, c])
+        artifacts.testCases.test_cases.map(
+          (/** @type {{ test_case_id: string, status?: string }} */ c) => [
+            c.test_case_id,
+            c,
+          ]
+        )
       );
       verified.push(
         `TC ids against ${artifacts.testCasesPath} (approved scope)`
       );
     }
   }
+  /** @type {Set<string> | null} */
   let specIds = null;
   if (artifacts?.specText != null) {
     const declared = new Set(artifacts.specText.match(/\bSPEC-\d+\b/g) ?? []);
@@ -196,9 +237,11 @@ function checkTraceability(sf, fileName, artifacts, add) {
     }
   }
 
+  /** @type {TraceEntry[]} */
   const report = [];
   for (const t of tests) {
     const label = t.titlePath.join(' > ');
+    /** @type {TraceEntry} */
     const entry = { test: label, line: t.line, ids: {}, exempt: false };
     report.push(entry);
     if (isSeedTest(fileName, t)) {
@@ -214,6 +257,7 @@ function checkTraceability(sf, fileName, artifacts, add) {
       );
       continue;
     }
+    /** @type {string[]} */
     const missing = [];
     for (const kind of TEST_ID_KINDS) {
       const src = t.ids[kind];
@@ -271,7 +315,7 @@ function checkTraceability(sf, fileName, artifacts, add) {
           add(
             'unknown_reference',
             t.line,
-            `${tc} is not a test case of ${artifacts.storyId}`,
+            `${tc} is not a test case of ${artifacts?.storyId}`,
             label
           );
         } else if (c.status !== 'approved') {
@@ -290,7 +334,7 @@ function checkTraceability(sf, fileName, artifacts, add) {
           add(
             'unknown_reference',
             t.line,
-            `${spec} is not declared in ${artifacts.specPath}`,
+            `${spec} is not declared in ${artifacts?.specPath}`,
             label
           );
         }
@@ -314,6 +358,7 @@ function checkTraceability(sf, fileName, artifacts, add) {
 /**
  * Read the artifacts a traceability check needs, from a context file.
  * Missing files are left null; nothing is written.
+ * @returns {Gate4Artifacts | null}
  */
 export function loadGate4Artifacts(contextPath = 'context.json') {
   if (!existsSync(contextPath)) return null;
@@ -324,7 +369,8 @@ export function loadGate4Artifacts(contextPath = 'context.json') {
     return null;
   }
   const paths = context.artifact_paths ?? {};
-  const read = (p) => (p && existsSync(p) ? readFileSync(p, 'utf8') : null);
+  const read = (/** @type {string | undefined} */ p) =>
+    p && existsSync(p) ? readFileSync(p, 'utf8') : null;
   let testCases = null;
   try {
     testCases = JSON.parse(read(paths.test_cases) ?? 'null');
@@ -341,7 +387,11 @@ export function loadGate4Artifacts(contextPath = 'context.json') {
   };
 }
 
-/** Render a scan result as the runner's Gate-4 "auto-checks" block. */
+/**
+ * Render a scan result as the runner's Gate-4 "auto-checks" block.
+ * @param {string} filePath
+ * @param {ReturnType<typeof gate4Findings>} result
+ */
 export function renderGate4Scan(filePath, result) {
   const lines = [`Gate-4 static scan — ${filePath}`];
   const tr = result.traceability ?? { tests: [], verified: [], basis: '' };

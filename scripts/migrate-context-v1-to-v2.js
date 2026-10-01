@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // context.json migration v1 -> v2: review-gate audit fields (Phase 2 TG6).
 //
 // v1 (Phase 1): each review_gates.<gate> is a bare boolean.
@@ -36,7 +37,9 @@ let doc;
 try {
   doc = JSON.parse(readFileSync(target, 'utf8'));
 } catch (e) {
-  console.error(`${target} is not valid JSON: ${e.message}`);
+  console.error(
+    `${target} is not valid JSON: ${e instanceof Error ? e.message : e}`
+  );
   exit(2);
 }
 
@@ -48,6 +51,7 @@ if (!gates || typeof gates !== 'object') {
 
 // Wrap a single gate value into the v2 object form. Idempotent: an object
 // already in v2 shape is returned unchanged.
+/** @param {unknown} value */
 function wrap(value) {
   if (typeof value === 'boolean') {
     return { status: value, reviewer: null, reviewed_at: null, notes: null };
@@ -57,6 +61,7 @@ function wrap(value) {
 }
 
 let changed = 0;
+/** @type {Record<string, unknown>} */
 const after = {};
 for (const [gate, value] of Object.entries(gates)) {
   const wrapped = wrap(value);

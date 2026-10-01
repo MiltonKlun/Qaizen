@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Jira test-case adapter (Phase 2.6 TG2.6-3, TG14 Option B). Creates a
 // story's APPROVED test cases as ordinary Jira issues (no Xray app needed),
 // links each to the story issue, and writes the new key back into
@@ -38,6 +39,9 @@
 // Exit codes: 0 ok · 1 sync/gate/recovery error · 2 usage/file/env/selection error
 
 import { existsSync } from 'node:fs';
+/** @typedef {import('./lib/execution-ledger.js').TestCase} TestCase */
+/** @typedef {import('./lib/integration-io.js').SyncRecord} SyncRecord */
+/** @typedef {ReturnType<typeof import('./lib/integration-io.js').jiraClient>} JiraClient */
 import { argv, env, exit } from 'node:process';
 
 import {
@@ -107,7 +111,7 @@ async function main() {
       /** @type {string[] | undefined} */ (cli.values.resolve) ?? []
     );
   } catch (e) {
-    console.error(e.message);
+    console.error(e instanceof Error ? e.message : e);
     return 2;
   }
   const storyId = cli.positionals['story-id'];
@@ -142,11 +146,13 @@ async function main() {
   const doc = docRead.data;
   const ctxRead = readJson('context.json');
   const mapRead = readJson(mapPath);
-  for (const r of [ctxRead, mapRead]) {
-    if (!r.ok) {
-      console.error(r.message);
-      return 2;
-    }
+  if (!ctxRead.ok) {
+    console.error(ctxRead.message);
+    return 2;
+  }
+  if (!mapRead.ok) {
+    console.error(mapRead.message);
+    return 2;
   }
   const context = ctxRead.data;
   const map = mapRead.data;
@@ -177,21 +183,25 @@ async function main() {
   const projectKey = env.JIRA_PROJECT_KEY || null;
 
   // --- Plan: one action per approved case --------------------------------
-  const approved = doc.test_cases.filter((tc) =>
+  /** @type {TestCase[]} */
+  const approved = doc.test_cases.filter((/** @type {TestCase} */ tc) =>
     syncStatuses.includes(tc.status)
   );
+  /** @type {(tc: TestCase) => SyncRecord | undefined} */
   const recordOf = (tc) => tc.sync_state?.[TARGET];
+  /** @type {(tc: TestCase) => string | undefined} */
   const remoteOf = (tc) => tc.external_ids?.[writebackKey];
   const plan = approved.map((tc) => ({
     tc,
     ...planOperation({
       record: recordOf(tc),
       remoteIds: [remoteOf(tc)],
-      isValidId: (id) => JIRA_KEY.test(id),
+      isValidId: (/** @type {string} */ id) => JIRA_KEY.test(id),
       linkWanted: Boolean(storyKey),
     }),
   }));
-  const byAction = (a) => plan.filter((p) => p.action === a);
+  const byAction = (/** @type {string} */ a) =>
+    plan.filter((p) => p.action === a);
   const toCreate = byAction('create');
   const limited = toCreate.slice(0, LIMIT);
 
@@ -220,7 +230,8 @@ async function main() {
     } else if (p.action === 'link') {
       label = `LINK ONLY (${p.id} exists; retry its link to ${storyKey})`;
     } else if (p.action === 'reconcile') {
-      const r = recordOf(tc);
+      // A reconcile action always has its pending record (planOperation).
+      const r = /** @type {SyncRecord} */ (recordOf(tc));
       label = `RECONCILE FIRST (${p.reason}; marker ${r.marker}${r.marker_searchable === false ? ', not searchable' : ''})`;
     } else {
       label = `BLOCKED (${p.reason})`;
@@ -244,6 +255,8 @@ async function main() {
     console.error('JIRA_PROJECT_KEY is required to identify the operations.');
     return 2;
   }
+  // Set from here on; the nested functions below read this binding.
+  const project = projectKey;
 
   // --- Everything below may write: hold the Jira lock --------------------
   const lock = acquireLock('.', TARGET, { releaseStale: RELEASE_STALE });
@@ -269,7 +282,7 @@ async function main() {
     try {
       timeoutMs = httpTimeoutMs(env);
     } catch (e) {
-      console.error(e.message);
+      console.error(e instanceof Error ? e.message : e);
       return 2;
     }
     const jira = jiraClient({
@@ -318,17 +331,22 @@ async function main() {
     return 0;
 
     // ------------------------------------------------------------------
+    /**
+     * @param {JiraClient} client
+     * @param {TestCase} tc
+     */
     async function create(client, tc) {
       const key = operationKey({
         target: TARGET,
-        project: projectKey,
+        project,
         storyId,
         localId: tc.test_case_id,
         kind: 'create_case',
       });
       const marker = operationMarker(key);
+      /** @type {Record<string, any>} the Jira issue fields */
       const fields = {
-        project: { key: projectKey },
+        project: { key: project },
         summary: summaryFor(tc).slice(0, 250),
         issuetype: { name: issueType },
         description: adf(descriptionFor(tc)),
@@ -340,6 +358,7 @@ async function main() {
         fields.priority = { name: priorityMap[tc.priority] };
       }
 
+      /** @type {SyncRecord} */
       const record = {
         operation_key: key,
         marker,
@@ -439,9 +458,13 @@ async function main() {
       return 'ambiguous';
     }
 
+    /**
+     * @param {JiraClient} client
+     * @param {TestCase} tc a case whose create is recorded (planOperation)
+     */
     async function link(client, tc) {
-      const record = recordOf(tc);
-      const remote = remoteOf(tc);
+      const record = /** @type {SyncRecord} */ (recordOf(tc));
+      const remote = /** @type {string} */ (remoteOf(tc));
       const res = await client.linkToStory(remote, storyKey, linkType);
       if (res.ok) {
         Object.assign(record, {
@@ -470,6 +493,7 @@ async function main() {
       return res.ok;
     }
 
+    /** @param {JiraClient} client */
     async function reconcile(client) {
       const pending = byAction('reconcile');
       if (!pending.length) {
@@ -478,7 +502,8 @@ async function main() {
       }
       let unresolved = 0;
       for (const { tc } of pending) {
-        const record = recordOf(tc);
+        // A pending operation always has its record (planOperation).
+        const record = /** @type {SyncRecord} */ (recordOf(tc));
         if (record.marker_searchable === false) {
           unresolved += 1;
           console.error(
@@ -487,7 +512,7 @@ async function main() {
           );
           continue;
         }
-        const found = await client.findByMarker(projectKey, record.marker);
+        const found = await client.findByMarker(project, record.marker);
         if (!found.ok) {
           unresolved += 1;
           console.error(
@@ -523,6 +548,7 @@ async function main() {
       return unresolved ? 1 : 0;
     }
 
+    /** @param {{ localId: string, remote: string | null }[]} list */
     function resolve(list) {
       for (const { localId, remote } of list) {
         const tc = approved.find((t) => t.test_case_id === localId);
@@ -557,20 +583,28 @@ async function main() {
       return 0;
     }
 
+    /**
+     * @param {TestCase} tc
+     * @param {string} remote
+     */
     function adopt(tc, remote) {
       tc.external_ids = { ...tc.external_ids, [writebackKey]: remote };
-      Object.assign(recordOf(tc), {
+      // Callers adopt only a case with a pending record.
+      const record = /** @type {SyncRecord} */ (recordOf(tc));
+      Object.assign(record, {
         state: SYNC_STATE.CREATED,
         remote_id: remote,
         reconciled_at: now(),
         updated_at: now(),
         link_state: storyKey ? 'pending' : 'not_applicable',
       });
-      delete recordOf(tc).last_error;
+      delete record.last_error;
     }
 
+    /** @param {TestCase} tc */
     function markNotFound(tc) {
-      Object.assign(recordOf(tc), {
+      // Callers mark only a case with a pending record.
+      Object.assign(/** @type {SyncRecord} */ (recordOf(tc)), {
         state: SYNC_STATE.NOT_FOUND,
         reconciled_at: now(),
         updated_at: now(),
@@ -580,23 +614,28 @@ async function main() {
     lock.release();
   }
 
+  /** @param {TestCase} tc */
   function summaryFor(tc) {
     return (map.summary_template || '{test_case_id} {title}')
       .replace('{test_case_id}', tc.test_case_id)
       .replace('{title}', tc.title);
   }
 
+  /** @param {TestCase} tc */
   function descriptionFor(tc) {
+    /** @type {string[]} */
     const lines = [];
     if (tc.description) lines.push(tc.description, '');
     if (tc.preconditions?.length) {
       lines.push('Preconditions:');
-      tc.preconditions.forEach((p) => lines.push(`- ${p}`));
+      tc.preconditions.forEach((/** @type {string} */ p) =>
+        lines.push(`- ${p}`)
+      );
       lines.push('');
     }
     if (tc.steps?.length) {
       lines.push('Steps:');
-      tc.steps.forEach((s, i) => {
+      tc.steps.forEach((/** @type {any} */ s, /** @type {number} */ i) => {
         const data =
           s.data !== undefined ? ` (data: ${JSON.stringify(s.data)})` : '';
         lines.push(`${i + 1}. ${s.action}${data}`);
@@ -605,7 +644,9 @@ async function main() {
     }
     if (tc.expected_results?.length) {
       lines.push('Expected results:');
-      tc.expected_results.forEach((e) => lines.push(`- ${e}`));
+      tc.expected_results.forEach((/** @type {string} */ e) =>
+        lines.push(`- ${e}`)
+      );
       lines.push('');
     }
     lines.push(

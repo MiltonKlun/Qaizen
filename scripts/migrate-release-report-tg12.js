@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // release-report migration for Phase 3 TG12 (enhanced reporting).
 //
 // TG12 added OPTIONAL fields to schemas/release-report.schema.json:
@@ -40,19 +41,24 @@ if (!existsSync(reportPath)) {
   exit(2);
 }
 
+/** @type {any} the report being migrated; its old shape predates the schema */
 let report;
 try {
   report = JSON.parse(readFileSync(reportPath, 'utf8'));
 } catch (e) {
-  console.error(`${reportPath} is not valid JSON: ${e.message}`);
+  console.error(
+    `${reportPath} is not valid JSON: ${e instanceof Error ? e.message : e}`
+  );
   exit(2);
 }
 
+/** @type {any} */
 const ctx =
   contextPath && existsSync(contextPath)
     ? JSON.parse(readFileSync(contextPath, 'utf8'))
     : null;
 
+/** @type {string[]} */
 const changes = [];
 
 // 1) open_bugs_summary — from bug_drafts[] (always derivable from the report).
@@ -60,6 +66,7 @@ if (
   report.open_bugs_summary === undefined &&
   Array.isArray(report.bug_drafts)
 ) {
+  /** @type {Record<string, any>[]} */
   const b = report.bug_drafts;
   report.open_bugs_summary = {
     total: b.length,
@@ -73,8 +80,12 @@ if (
 
 // 2 & 3) Risk-level rollups — need context.json for severities.
 if (ctx && Array.isArray(report.coverage_by_risk) && Array.isArray(ctx.risks)) {
-  const sevOf = new Map(ctx.risks.map((r) => [r.risk_id, r.severity]));
-  const descOf = new Map(ctx.risks.map((r) => [r.risk_id, r.description]));
+  /** @type {Record<string, any>[]} */
+  const risks = ctx.risks;
+  const sevOf = new Map(risks.map((r) => [r.risk_id, r.severity]));
+  const descOf = new Map(risks.map((r) => [r.risk_id, r.description]));
+  /** @type {Record<string, any>[]} */
+  const coverage = report.coverage_by_risk;
 
   if (report.summary_by_risk_level === undefined) {
     const blank = () => ({
@@ -85,8 +96,9 @@ if (ctx && Array.isArray(report.coverage_by_risk) && Array.isArray(ctx.risks)) {
       accepted_without_test: 0,
       uncovered: 0,
     });
+    /** @type {Record<string, Record<string, number>>} */
     const roll = { high: blank(), medium: blank(), low: blank() };
-    for (const c of report.coverage_by_risk) {
+    for (const c of coverage) {
       const sev = sevOf.get(c.risk_id);
       if (!roll[sev]) continue;
       roll[sev].total += 1;
@@ -97,7 +109,7 @@ if (ctx && Array.isArray(report.coverage_by_risk) && Array.isArray(ctx.risks)) {
   }
 
   if (report.untested_high_risk_items === undefined) {
-    report.untested_high_risk_items = report.coverage_by_risk
+    report.untested_high_risk_items = coverage
       .filter(
         (c) => c.status === 'uncovered' && sevOf.get(c.risk_id) === 'high'
       )

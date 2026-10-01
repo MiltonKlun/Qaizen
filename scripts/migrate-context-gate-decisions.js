@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // context.json migration: seed the optional gate_decisions[] log
 // (continuous improvement). The field is OPTIONAL, so every pre-existing
 // context.json is already valid without it — no migration is required for
@@ -29,7 +30,9 @@ let doc;
 try {
   doc = JSON.parse(readFileSync(target, 'utf8'));
 } catch (e) {
-  console.error(`${target} is not valid JSON: ${e.message}`);
+  console.error(
+    `${target} is not valid JSON: ${e instanceof Error ? e.message : e}`
+  );
   exit(2);
 }
 

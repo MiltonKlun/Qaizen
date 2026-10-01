@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Validate every committed pipeline artifact against its schema (Phase 2
 // TG8, the CI "validate all JSON" step). Like validate-examples.js, this
 // is NOT a second validator and NOT a per-schema validator — it is one
@@ -36,8 +37,13 @@ import { compileSchema, readJson, formatErrors } from './lib/artifact-io.js';
 // archived run dir under runs/<story>/<run>/). Each target: a list of concrete
 // files (or a directory + suffix) and the schema they validate against.
 // Missing files are skipped silently — not every run produces every artifact.
+/**
+ * @typedef {{ files?: string[], dir?: string, suffix?: string,
+ *   schema: string }} Target
+ */
+/** @returns {Target[]} */
 function targetsFor(base = '.') {
-  const at = (p) => join(base, p);
+  const at = (/** @type {string} */ p) => join(base, p);
   return [
     { files: [at('context.json')], schema: 'schemas/context.schema.json' },
     {
@@ -125,6 +131,7 @@ const TARGETS = [
 // artifacts that CI must guard, so a schema we cannot load is a broken setup,
 // not something to skip. (validate-examples.js deliberately treats the same
 // condition as a skip — the shared module reports absence without deciding.)
+/** @param {string} schemaPath */
 function compileFor(schemaPath) {
   const compiled = compileSchema(schemaPath);
   if (compiled.ok) return compiled.validate;
@@ -133,14 +140,19 @@ function compileFor(schemaPath) {
 }
 
 // Resolve a target into concrete file paths that actually exist.
+/**
+ * @param {Target} target
+ * @returns {string[]}
+ */
 function filesFor(target) {
   if (target.files) return target.files.filter((f) => existsSync(f));
-  if (target.dir) {
-    if (!existsSync(target.dir)) return [];
-    return readdirSync(target.dir)
-      .filter((n) => n.endsWith(target.suffix))
+  const { dir, suffix = '' } = target;
+  if (dir) {
+    if (!existsSync(dir)) return [];
+    return readdirSync(dir)
+      .filter((n) => n.endsWith(suffix))
       .sort()
-      .map((n) => join(target.dir, n));
+      .map((n) => join(dir, n));
   }
   return [];
 }

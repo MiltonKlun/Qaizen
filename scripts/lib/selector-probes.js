@@ -1,3 +1,4 @@
+// @ts-check
 // Selector survival from reviewed probes (task group 9.1, finding I7).
 //
 // A probe is reviewed benchmark code: `locate(page)` returns the exact
@@ -16,8 +17,25 @@
 // setup, a probe, or a version cannot be measured, the rate is null with the
 // reason: a hard case is never dropped to improve the number.
 
-/** Check a loaded probe module; returns the problems (empty when usable). */
+/**
+ * @typedef {import('@playwright/test').Page} Page
+ * @typedef {import('@playwright/test').Locator} Locator
+ * @typedef {{ id: string, cardinality: number,
+ *   locate: (page: Page) => Locator,
+ *   usable?: (locator: Locator) => unknown }} Probe
+ * @typedef {{probe: string, count: number|null, usable: boolean|null,
+ *   resolved: boolean, error?: string}} ProbeResult
+ * @typedef {{name: string, setup_error?: string,
+ *   results?: ProbeResult[]}} VersionEvidence
+ */
+
+/**
+ * Check a loaded probe module; returns the problems (empty when usable).
+ * @param {any} mod the imported module, not yet trusted
+ * @returns {string[]}
+ */
 export function probeModuleProblems(mod) {
+  /** @type {string[]} */
   const problems = [];
   if (typeof mod?.prepare !== 'function') {
     problems.push('it must export prepare(page, { baseURL })');
@@ -27,6 +45,7 @@ export function probeModuleProblems(mod) {
     problems.push('it must export a non-empty `probes` array');
     return problems;
   }
+  /** @type {Set<string>} */
   const ids = new Set();
   for (const [i, p] of probes.entries()) {
     const at = `probes[${i}]`;
@@ -50,22 +69,30 @@ export function probeModuleProblems(mod) {
 
 /**
  * Run every probe against one prepared page.
- * @returns {Promise<Array<{probe: string, count: number|null,
- *   usable: boolean|null, resolved: boolean, error?: string}>>}
+ * @param {Page} page
+ * @param {Probe[]} probes
+ * @returns {Promise<ProbeResult[]>}
  */
 export async function runProbes(page, probes) {
+  /** @type {ProbeResult[]} */
   const out = [];
   for (const p of probes) {
     try {
       const loc = p.locate(page);
       const count = await loc.count();
+      /** @type {boolean | null} */
       let usable = null;
       if (count === 1) {
         usable = p.usable
           ? Boolean(await p.usable(loc))
           : await loc.isVisible();
       }
-      out.push({ probe: p.id, count, usable, resolved: count === 1 && usable });
+      out.push({
+        probe: p.id,
+        count,
+        usable,
+        resolved: count === 1 && usable === true,
+      });
     } catch (e) {
       out.push({
         probe: p.id,
@@ -82,17 +109,18 @@ export async function runProbes(page, probes) {
 /**
  * The survival result from per-version evidence.
  * @param {string[]} probeIds
- * @param {{name: string, setup_error?: string, results?: object[]}} baseline
- * @param {Array<{name: string, setup_error?: string, results?: object[]}>} later
+ * @param {VersionEvidence} baseline
+ * @param {VersionEvidence[]} later
  */
 export function survivalResult(probeIds, baseline, later) {
-  const unmeasurable = (reason) => ({
+  const unmeasurable = (/** @type {string} */ reason) => ({
     selector_survival_rate: null,
     numerator: null,
     denominator: null,
     reason,
   });
-  const byProbe = (v) => new Map((v.results ?? []).map((r) => [r.probe, r]));
+  const byProbe = (/** @type {VersionEvidence} */ v) =>
+    new Map((v.results ?? []).map((r) => [r.probe, r]));
 
   if (later.length === 0) {
     return unmeasurable('fewer than two distinct app versions');

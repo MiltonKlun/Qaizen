@@ -643,6 +643,8 @@ export function jiraClient({ baseUrl, user, token, timeoutMs }) {
      * Read-only: issues in the project carrying the marker label.
      * @param {string} projectKey
      * @param {string} marker
+     * @returns {Promise<{ ok: true, keys: string[] }
+     *   | { ok: false, detail: string }>}
      */
     async findByMarker(projectKey, marker) {
       const jql = `project = "${projectKey}" AND labels = "${marker}"`;

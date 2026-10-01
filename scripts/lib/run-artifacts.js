@@ -1,3 +1,4 @@
+// @ts-check
 // Run-artifact checks at transition boundaries (task group 4.2, findings I6/B4).
 //
 // The state machine (scripts/pipeline-state.js) decides the next step from
@@ -18,12 +19,24 @@ import { fileURLToPath } from 'node:url';
 
 import { validateValue } from './artifact-io.js';
 
+/** @typedef {import('./approval-binding.js').Context} Context */
+/**
+ * `absent` marks "not produced yet" rather than a defect.
+ * @typedef {{ ok: true, data?: any }
+ *   | { ok: false, reason: string, absent?: boolean }} ArtifactCheck
+ * @typedef {{ kind: 'json' | 'text' | 'playwright-report' | 'collection',
+ *   schema?: string, document?: string }} Rule
+ */
+
 const REPO_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const schema = (name) => join(REPO_DIR, 'schemas', name);
+const schema = (/** @type {string} */ name) => join(REPO_DIR, 'schemas', name);
 
 export const CONTEXT_SCHEMA = schema('context.schema.json');
 
-/** How each artifact_paths entry is checked. */
+/**
+ * How each artifact_paths entry is checked.
+ * @type {Record<string, Rule>}
+ */
 const RULES = {
   test_cases: { kind: 'json', schema: 'test-cases.schema.json' },
   planner_brief: { kind: 'text' },
@@ -51,11 +64,20 @@ const RULES = {
   },
 };
 
+/** @type {(data?: any) => ArtifactCheck} */
 const ok = (data) => ({ ok: true, data });
+/** @type {(reason: string) => ArtifactCheck} */
 const bad = (reason) => ({ ok: false, reason });
-/** Not produced YET: not a defect to report, just not done. */
+/**
+ * Not produced YET: not a defect to report, just not done.
+ * @type {(reason: string) => ArtifactCheck}
+ */
 const absent = (reason) => ({ ok: false, reason, absent: true });
 
+/**
+ * @param {string} path
+ * @returns {{ ok: true, data: any } | { ok: false }}
+ */
 function readJson(path) {
   try {
     return { ok: true, data: JSON.parse(readFileSync(path, 'utf8')) };
@@ -64,7 +86,11 @@ function readJson(path) {
   }
 }
 
-/** The moment a gate was approved, when the audit object records it. */
+/**
+ * The moment a gate was approved, when the audit object records it.
+ * @param {Context} context
+ * @param {string} gate
+ */
 function gateApprovedAt(context, gate) {
   const g = context?.review_gates?.[gate];
   const t = g && typeof g === 'object' ? Date.parse(g.reviewed_at ?? '') : NaN;
@@ -76,6 +102,10 @@ function gateApprovedAt(context, gate) {
  * well-formed, with suites and counts, and produced AFTER the code it ran was
  * last changed and approved. `{}` is not a report; a report older than the
  * generated test (or than the Gate 4 approval) is stale evidence of other code.
+ * @param {string} path
+ * @param {Context} context
+ * @param {string} root
+ * @returns {ArtifactCheck}
  */
 function checkPlaywrightReport(path, context, root) {
   const r = readJson(path);
@@ -105,7 +135,10 @@ function checkPlaywrightReport(path, context, root) {
 
 /**
  * Check one artifact_paths entry.
- * @returns {{ok: true, data?: any} | {ok: false, reason: string}}
+ * @param {string} key
+ * @param {Context} context
+ * @param {string} [root]
+ * @returns {ArtifactCheck}
  */
 export function checkArtifact(key, context, root = '.') {
   const rel = context?.artifact_paths?.[key];
@@ -127,7 +160,9 @@ export function checkArtifact(key, context, root = '.') {
 
   const r = readJson(path);
   if (!r.ok) return bad(`${rel} is not valid JSON`);
-  const v = validateValue(r.data, schema(rule.schema));
+  // Every rule that reaches here (json, collection) names a schema.
+  const schemaName = /** @type {string} */ (rule.schema);
+  const v = validateValue(r.data, schema(schemaName));
   if (rule.kind === 'collection') {
     return v.ok
       ? ok(r.data)
@@ -157,7 +192,9 @@ export function checkArtifact(key, context, root = '.') {
   // reviewed plan (the external counterpart of a pre-Gate-4 report).
   if (key === 'external_results') {
     const approved = gateApprovedAt(context, 'external_plan_reviewed');
-    const early = (r.data.results ?? []).filter(
+    /** @type {{ test_case_id: string, executed_at: string }[]} */
+    const results = r.data.results ?? [];
+    const early = results.filter(
       (x) => approved !== null && Date.parse(x.executed_at) < approved
     );
     if (early.length) {
@@ -169,7 +206,11 @@ export function checkArtifact(key, context, root = '.') {
   return ok(r.data);
 }
 
-/** Validate context.json itself; everything else depends on it. */
+/**
+ * Validate context.json itself; everything else depends on it.
+ * @param {unknown} context
+ * @returns {ArtifactCheck}
+ */
 export function checkContext(context) {
   if (!context || typeof context !== 'object')
     return bad('is not a JSON object');
@@ -186,9 +227,14 @@ export function checkContext(context) {
  * Red failures in a FINALIZED analysis that have no bug draft on disk.
  * A 1.x analysis keeps its own rule (every Red must name a draft) and is held
  * to the same "the draft exists" check.
+ * @param {any} analysis parsed failure analysis
+ * @param {string} [root]
+ * @returns {string[]}
  */
 export function missingBugDrafts(analysis, root = '.') {
-  return (analysis?.failures ?? [])
+  /** @type {{ severity?: string, bug_draft_path?: string, failure_id: string }[]} */
+  const failures = analysis?.failures ?? [];
+  return failures
     .filter((f) => f.severity === 'red')
     .filter(
       (f) => !f.bug_draft_path || !existsSync(join(root, f.bug_draft_path))
@@ -200,6 +246,7 @@ export function missingBugDrafts(analysis, root = '.') {
  * Does the ledger show a Newman execution for this story? Required before an
  * API story can complete: a run that never executed its API branch must not
  * read as finished.
+ * @param {Partial<import('./execution-ledger.js').Ledger> | null | undefined} ledger
  */
 export function ledgerHasApiExecution(ledger) {
   return (ledger?.source_executions ?? []).some((s) => s.runner === 'newman');
@@ -210,9 +257,13 @@ export function ledgerHasApiExecution(ledger) {
  * group 7.1): the newest execution for the story, with at least one executed
  * request, written after the collection last changed and after the Gate 4'
  * approval. An older execution is evidence of other assertions.
+ * @param {Context} context
+ * @param {string | null | undefined} collectionPath
+ * @param {string} [root]
  * @returns {{ok: true, executionId: string} | {ok: false, reason: string}}
  */
 export function newmanEvidence(context, collectionPath, root = '.') {
+  /** @type {string} */
   const story = context?.story?.id;
   const id = latestNewmanExecution(story, root);
   if (!id) return { ok: false, reason: 'no Newman execution for this story' };
@@ -257,6 +308,9 @@ export function newmanEvidence(context, collectionPath, root = '.') {
  * The newest execution directory holding Newman reports for this story
  * (reports/<execution-id>/newman/<story>/*.json, task group 3.2 layout), or
  * null. Only ONE execution is ever used; older ones are never mixed in.
+ * @param {string | undefined} storyId
+ * @param {string} [root]
+ * @returns {string | null}
  */
 export function latestNewmanExecution(storyId, root = '.') {
   const reports = join(root, 'reports');

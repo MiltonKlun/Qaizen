@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Benchmark tooling check (task group 9.2). Serves the Bench Shop baseline (v1)
 // and its drifted v2, runs the reviewed login-surface probes with
 // scripts/selector-survival.js --probe, and compares the outcome with the
@@ -41,6 +42,10 @@ async function browserInstalled() {
   }
 }
 
+/**
+ * @param {string} version
+ * @returns {Promise<{ port: number, stop: () => boolean }>}
+ */
 function serve(version) {
   const child = spawn(process.execPath, [
     SERVER,
@@ -61,6 +66,10 @@ function serve(version) {
   });
 }
 
+/**
+ * @param {string[]} args
+ * @returns {Promise<{ code: number | null, out: string }>}
+ */
 function run(args) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, args, { cwd: REPO });
@@ -104,6 +113,7 @@ try {
     code = 3;
   } else {
     const res = JSON.parse(readFileSync(out, 'utf8'));
+    /** @type {(a: Iterable<string>, b: Iterable<string>) => boolean} */
     const same = (a, b) => [...a].sort().join() === [...b].sort().join();
     if (
       same(res.survived, EXPECTED.survived) &&

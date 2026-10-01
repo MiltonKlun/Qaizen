@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // TestLink sync — the TestLink adapter behind the TestManagementAdapter
 // port (agents/test-management-adapter.md), runnable from CLI/CI. Reads
 // context.json + the story's test-cases JSON, filters to approved cases,
@@ -80,12 +81,21 @@ const TESTLINK_ID = /^[1-9][0-9]*$/;
 
 // Minimal XML-RPC encoding over built-in fetch (no dependency). TestLink
 // takes a single struct param of name->value; we only need string/int.
+/** @typedef {import('./lib/execution-ledger.js').TestCase} TestCase */
+/** @typedef {import('./lib/integration-io.js').SyncRecord} SyncRecord */
+/** @typedef {string | number | Record<string, string | number>[]} XmlValue */
+
+/** @param {unknown} s */
 function xmlEscape(s) {
   return String(s)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 }
+/**
+ * @param {XmlValue} value
+ * @returns {string}
+ */
 function valueXml(value) {
   if (typeof value === 'number') return `<int>${value}</int>`;
   if (Array.isArray(value)) {
@@ -105,6 +115,10 @@ function valueXml(value) {
   }
   return `<string>${xmlEscape(value)}</string>`;
 }
+/**
+ * @param {string} method
+ * @param {Record<string, XmlValue>} struct
+ */
 function buildCall(method, struct) {
   const members = Object.entries(struct)
     .map(
@@ -117,6 +131,10 @@ function buildCall(method, struct) {
 // Very small XML-RPC response reader: pulls the first <name>X</name> ->
 // scalar pairs and any fault string. Enough for the fields we read (id,
 // message, code). TestLink returns either a struct or an array of structs.
+/**
+ * @param {string} xml
+ * @returns {Record<string, string>}
+ */
 function readResponse(xml) {
   if (/<fault>/.test(xml)) {
     const msg = (xml.match(
@@ -124,6 +142,7 @@ function readResponse(xml) {
     ) || [])[1];
     return { fault: msg || 'unknown XML-RPC fault' };
   }
+  /** @type {Record<string, string>} */
   const out = {};
   const re =
     /<member>\s*<name>([^<]+)<\/name>\s*<value>\s*(?:<(?:string|int|boolean|double)>)?([\s\S]*?)(?:<\/(?:string|int|boolean|double)>)?\s*<\/value>\s*<\/member>/g;
@@ -142,7 +161,10 @@ function readResponse(xml) {
   if (msgMatch) out.message = msgMatch[1];
   return out;
 }
-/** tl.createTestCase body -> {id} | {rejected} | null (uninterpretable). */
+/**
+ * tl.createTestCase body -> {id} | {rejected} | null (uninterpretable).
+ * @param {string} xml
+ */
 function parseCreate(xml) {
   if (!/methodResponse/.test(xml)) return null;
   const r = readResponse(xml);
@@ -152,7 +174,11 @@ function parseCreate(xml) {
     return { rejected: `TestLink error ${r.code}: ${r.message ?? ''}` };
   return null;
 }
-/** Every scalar value of <name>field</name> in a response, in order. */
+/**
+ * Every scalar value of <name>field</name> in a response, in order.
+ * @param {string} xml
+ * @param {string} field
+ */
 function allValues(xml, field) {
   const re = new RegExp(
     `<name>${field}</name>\\s*<value>\\s*(?:<(?:string|int)>)?([^<]*)`,
@@ -192,7 +218,7 @@ async function main() {
       /** @type {string[] | undefined} */ (cli.values.resolve) ?? []
     );
   } catch (e) {
-    console.error(e.message);
+    console.error(e instanceof Error ? e.message : e);
     return 2;
   }
   const storyId = cli.positionals['story-id'];
@@ -226,11 +252,13 @@ async function main() {
   const doc = docRead.data;
   const ctxRead = readJson('context.json');
   const mapRead = readJson(mapPath);
-  for (const r of [ctxRead, mapRead]) {
-    if (!r.ok) {
-      console.error(r.message);
-      return 2;
-    }
+  if (!ctxRead.ok) {
+    console.error(ctxRead.message);
+    return 2;
+  }
+  if (!mapRead.ok) {
+    console.error(mapRead.message);
+    return 2;
   }
   const context = ctxRead.data;
   const map = mapRead.data;
@@ -243,7 +271,8 @@ async function main() {
 
   // --- Plan -----------------------------------------------------------
   const syncStatuses = map.sync_only_status || ['approved'];
-  const approved = doc.test_cases.filter((tc) =>
+  /** @type {TestCase[]} */
+  const approved = doc.test_cases.filter((/** @type {TestCase} */ tc) =>
     syncStatuses.includes(tc.status)
   );
   const notApproved = doc.test_cases.length - approved.length;
@@ -256,18 +285,21 @@ async function main() {
 
   const importance = map.priority_to_importance || {};
   const execType = map.automation_decision_to_execution_type || {};
+  /** @type {(tc: TestCase) => SyncRecord | undefined} */
   const recordOf = (tc) => tc.sync_state?.[TARGET];
   const plan = approved.map((tc) => ({
     tc,
     ...planOperation({
       record: recordOf(tc),
       remoteIds: [tc.testlink_id, tc.external_ids?.[TARGET]],
-      isValidId: (id) => TESTLINK_ID.test(id),
+      isValidId: (/** @type {string} */ id) => TESTLINK_ID.test(id),
     }),
   }));
-  const byAction = (a) => plan.filter((p) => p.action === a);
+  const byAction = (/** @type {string} */ a) =>
+    plan.filter((p) => p.action === a);
   const suiteName = `${storyId} — ${context.story?.title ?? 'story'}`;
-  const caseName = (tc) => `${tc.test_case_id} ${tc.title}`;
+  const caseName = (/** @type {TestCase} */ tc) =>
+    `${tc.test_case_id} ${tc.title}`;
   const projectKey = env.TESTLINK_PROJECT_KEY || null;
 
   console.log(`TestLink sync plan for ${storyId}`);
@@ -278,12 +310,14 @@ async function main() {
   console.log(`  Skipped (not approved): ${notApproved}`);
   for (const p of plan) {
     const { tc } = p;
-    const label = {
+    /** @type {Record<string, string>} */
+    const labels = {
       create: `CREATE, importance=${importance[tc.priority] ?? 2}, exec_type=${execType[tc.automation_decision] ?? 1}`,
       skip: `SKIP (in TestLink as ${p.id}; ${describeSkip(recordOf(tc), sourceDigest(semanticCase(tc)), 'TestLink')})`,
       reconcile: `RECONCILE FIRST (${p.reason})`,
       blocked: `BLOCKED (${p.reason})`,
-    }[p.action];
+    };
+    const label = labels[p.action];
     console.log(`    - ${tc.test_case_id} "${tc.title}" -> ${label}`);
   }
   console.log(
@@ -304,6 +338,8 @@ async function main() {
     );
     return 2;
   }
+  // Set from here on; the nested functions below read this binding.
+  const projectPrefix = projectKey;
 
   const lock = acquireLock('.', TARGET, { releaseStale: RELEASE_STALE });
   if (!lock.ok) {
@@ -329,11 +365,12 @@ async function main() {
     try {
       timeoutMs = httpTimeoutMs(env);
     } catch (e) {
-      console.error(e.message);
+      console.error(e instanceof Error ? e.message : e);
       return 2;
     }
     const secrets = [apiKey];
     const dk = { devKey: apiKey };
+    /** @type {(method: string, struct: Record<string, XmlValue>) => ReturnType<typeof httpRequest>} */
     const call = (method, struct) =>
       httpRequest(url, {
         method: 'POST',
@@ -341,7 +378,11 @@ async function main() {
         body: buildCall(method, struct),
         timeoutMs,
       });
-    /** A read (or idempotent) call whose failure aborts the run. */
+    /**
+     * A read (or idempotent) call whose failure aborts the run.
+     * @param {string} method
+     * @param {Record<string, XmlValue>} struct
+     */
     async function read(method, struct) {
       const r = await call(method, struct);
       if (r.kind !== 'response') throw new Error(`${method}: ${r.error}`);
@@ -431,6 +472,7 @@ async function main() {
       );
     }
 
+    /** @param {string} projectId */
     async function findSuite(projectId) {
       const xml = await read('tl.getFirstLevelTestSuitesForTestProject', {
         ...dk,
@@ -450,6 +492,7 @@ async function main() {
     }
 
     // Create the story's suite, or reuse it by name (safe to repeat).
+    /** @param {string} projectId */
     async function ensureSuite(projectId) {
       const existing = await findSuite(projectId);
       if (existing) {
@@ -475,10 +518,15 @@ async function main() {
       );
     }
 
+    /**
+     * @param {TestCase} tc
+     * @param {string} projectId
+     * @param {string} suiteId
+     */
     async function create(tc, projectId, suiteId) {
       const key = operationKey({
         target: TARGET,
-        project: projectKey,
+        project: projectPrefix,
         storyId,
         localId: tc.test_case_id,
         kind: 'create_case',
@@ -494,14 +542,17 @@ async function main() {
         preconditions: (tc.preconditions || []).join('<br/>'),
         importance: importance[tc.priority] ?? 2,
         executiontype: execType[tc.automation_decision] ?? 1,
-        steps: (tc.steps || []).map((s, i) => ({
-          step_number: i + 1,
-          actions:
-            s.action + (s.data ? ` (data: ${JSON.stringify(s.data)})` : ''),
-          expected_results: (tc.expected_results || []).join('<br/>'),
-          execution_type: execType[tc.automation_decision] ?? 1,
-        })),
+        steps: (tc.steps || []).map(
+          (/** @type {any} */ s, /** @type {number} */ i) => ({
+            step_number: i + 1,
+            actions:
+              s.action + (s.data ? ` (data: ${JSON.stringify(s.data)})` : ''),
+            expected_results: (tc.expected_results || []).join('<br/>'),
+            execution_type: execType[tc.automation_decision] ?? 1,
+          })
+        ),
       };
+      /** @type {SyncRecord} */
       const record = {
         operation_key: key,
         marker,
@@ -590,7 +641,9 @@ async function main() {
       const suiteExists = Boolean(await findSuite(project.id));
       let unresolved = 0;
       for (const { tc } of pending) {
-        const record = recordOf(tc);
+        // A pending operation always has its record (planOperation).
+        const record = /** @type {SyncRecord} */ (recordOf(tc));
+        /** @type {string[]} */
         let matches = [];
         if (suiteExists) {
           const xml = await read('tl.getTestCaseIDByName', {
@@ -646,6 +699,7 @@ async function main() {
       return unresolved ? 1 : 0;
     }
 
+    /** @param {{ localId: string, remote: string | null }[]} list */
     function resolve(list) {
       for (const { localId, remote } of list) {
         const tc = approved.find((t) => t.test_case_id === localId);
@@ -682,20 +736,28 @@ async function main() {
       return 0;
     }
 
+    /**
+     * @param {TestCase} tc
+     * @param {string} remote
+     */
     function adopt(tc, remote) {
       tc.testlink_id = remote;
       tc.external_ids = { ...tc.external_ids, [TARGET]: remote };
-      Object.assign(recordOf(tc), {
+      // Callers adopt only a case with a pending record.
+      const record = /** @type {SyncRecord} */ (recordOf(tc));
+      Object.assign(record, {
         state: SYNC_STATE.CREATED,
         remote_id: remote,
         reconciled_at: now(),
         updated_at: now(),
       });
-      delete recordOf(tc).last_error;
+      delete record.last_error;
     }
 
+    /** @param {TestCase} tc */
     function markNotFound(tc) {
-      Object.assign(recordOf(tc), {
+      // Callers mark only a case with a pending record.
+      Object.assign(/** @type {SyncRecord} */ (recordOf(tc)), {
         state: SYNC_STATE.NOT_FOUND,
         reconciled_at: now(),
         updated_at: now(),

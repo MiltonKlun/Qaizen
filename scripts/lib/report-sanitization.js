@@ -1,3 +1,4 @@
+// @ts-check
 // Report sanitization for publication (IMPLEMENTATION_PLAN task group 1.1, I3).
 //
 // WHY: Newman records the LIVE request into its JSON/HTML reports — including
@@ -44,10 +45,13 @@ export const REDACTED = '[REDACTED]';
  * Every encoded form a secret can take in a report. A raw value may appear
  * JSON-escaped, URL-encoded, or HTML-escaped depending on which reporter wrote
  * it, so redaction must cover all of them (task 1.1 requires testing each).
+ * @param {string} secret
+ * @returns {string[]}
  */
 function encodedForms(secret) {
+  /** @type {Set<string>} */
   const forms = new Set();
-  const add = (s) => {
+  const add = (/** @type {string} */ s) => {
     if (s && String(s).length >= 4) forms.add(String(s));
   };
   add(secret);
@@ -77,6 +81,7 @@ function encodedForms(secret) {
   return [...forms];
 }
 
+/** @param {string} s */
 function escapeRe(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -84,9 +89,14 @@ function escapeRe(s) {
 /**
  * Redact known secret values (in every encoded form) from a text field.
  * `secrets` are the literal values the runner injected for this execution.
+ * @template T
+ * @param {T} text
+ * @param {string[]} [secrets]
+ * @returns {T}
  */
 export function redactText(text, secrets = []) {
   if (typeof text !== 'string' || !text) return text;
+  /** @type {string} */
   let out = text;
   for (const secret of secrets) {
     // Very short values would match everywhere; refuse rather than mangle.
@@ -95,12 +105,15 @@ export function redactText(text, secrets = []) {
       out = out.replace(new RegExp(escapeRe(form), 'g'), REDACTED);
     }
   }
-  return out;
+  return /** @type {T} */ (out);
 }
 
 /**
  * Strip credentials from a URL: userinfo (user:pass@) and secret-bearing query
  * parameters. Returns a string safe for the published view.
+ * @param {any} rawUrl a string, or Newman's url object (untrusted report data)
+ * @param {string[]} [secrets]
+ * @returns {string}
  */
 export function sanitizeUrl(rawUrl, secrets = []) {
   if (!rawUrl) return '';
@@ -136,11 +149,13 @@ export function sanitizeUrl(rawUrl, secrets = []) {
 /**
  * Header NAMES only, never values — a reviewer can see that an auth header was
  * sent without the published file carrying the credential.
+ * @param {unknown} headers
+ * @returns {string[]}
  */
 export function summarizeHeaderNames(headers) {
   if (!Array.isArray(headers)) return [];
   return headers
-    .map((h) => String((h && h.key) || '').toLowerCase())
+    .map((/** @type {any} */ h) => String((h && h.key) || '').toLowerCase())
     .filter(Boolean)
     .map((name) => (SECRET_HEADERS.has(name) ? `${name} (redacted)` : name))
     .sort();
@@ -149,7 +164,7 @@ export function summarizeHeaderNames(headers) {
 /**
  * Build the published view of a Newman run. ALLOWLIST ONLY.
  *
- * @param {object} report parsed Newman JSON report
+ * @param {any} report parsed Newman JSON report (untrusted shape, read defensively)
  * @param {object} [opts]
  * @param {string[]} [opts.secrets] literal secret values injected this run
  * @param {string} [opts.collectionId] identity recorded alongside the result
@@ -160,13 +175,13 @@ export function buildPublishedNewmanView(report, opts = {}) {
   const run = (report && report.run) || {};
   const stats = run.stats || {};
 
-  const count = (node) => ({
+  const count = (/** @type {any} */ node) => ({
     total: (node && node.total) || 0,
     pending: (node && node.pending) || 0,
     failed: (node && node.failed) || 0,
   });
 
-  const executions = (run.executions || []).map((e) => ({
+  const executions = (run.executions || []).map((/** @type {any} */ e) => ({
     // Identity only — never item.request.body or response.stream.
     name: redactText((e && e.item && e.item.name) || '', secrets),
     method: (e && e.request && e.request.method) || '',
@@ -181,7 +196,7 @@ export function buildPublishedNewmanView(report, opts = {}) {
     code: (e && e.response && e.response.code) ?? null,
     response_time_ms: (e && e.response && e.response.responseTime) ?? null,
     response_size_bytes: (e && e.response && e.response.responseSize) ?? null,
-    assertions: ((e && e.assertions) || []).map((a) => ({
+    assertions: ((e && e.assertions) || []).map((/** @type {any} */ a) => ({
       assertion: redactText((a && a.assertion) || '', secrets),
       skipped: Boolean(a && a.skipped),
       failed: Boolean(a && a.error),
@@ -192,7 +207,7 @@ export function buildPublishedNewmanView(report, opts = {}) {
     })),
   }));
 
-  const failures = (run.failures || []).map((f) => ({
+  const failures = (run.failures || []).map((/** @type {any} */ f) => ({
     name: redactText((f && f.source && f.source.name) || '', secrets),
     assertion: redactText((f && f.error && f.error.test) || '', secrets),
     message: redactText(
@@ -237,6 +252,8 @@ export function buildPublishedNewmanView(report, opts = {}) {
  * Assert a value contains no secret in any encoded form. Call this before
  * writing a published file: if it throws, nothing is published for that
  * execution (task 1.1 — a sanitizer failure must prevent publication).
+ * @param {unknown} value
+ * @param {string[]} [secrets]
  */
 export function assertNoSecrets(value, secrets = []) {
   const text = typeof value === 'string' ? value : JSON.stringify(value);

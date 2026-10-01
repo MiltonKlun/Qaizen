@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Iterate over every examples/expected/*.json and validate each against
 // the schema implied by its filename suffix.
 //
@@ -99,6 +100,7 @@ if (!existsSync(EXAMPLES_DIR)) {
 // a warning, not a failure — deliberately different from validate-all.js,
 // which treats the same condition as fatal. The shared module reports absence;
 // each wrapper decides what absence means.
+/** @param {string} schemaPath */
 function compileFor(schemaPath) {
   const compiled = compileSchema(schemaPath);
   if (compiled.ok) return compiled.validate;
@@ -107,6 +109,7 @@ function compileFor(schemaPath) {
   exit(2);
 }
 
+/** @param {string} filename */
 function matchPattern(filename) {
   for (const p of PATTERNS) {
     if (filename.endsWith(p.suffix)) return p;
@@ -120,7 +123,9 @@ try {
     .filter((name) => name.endsWith('.json'))
     .sort();
 } catch (err) {
-  console.error(`Could not read ${EXAMPLES_DIR}: ${err.message}`);
+  console.error(
+    `Could not read ${EXAMPLES_DIR}: ${err instanceof Error ? err.message : err}`
+  );
   exit(2);
 }
 

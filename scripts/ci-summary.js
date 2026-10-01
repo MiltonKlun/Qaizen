@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // CI summary (Phase 2 TG8; execution scoping + honest zero from task group
 // 3.2). Reads, in order of preference:
 //
@@ -84,18 +85,34 @@ function resolvePublishedDir() {
     : { dir: null, executionId: latest };
 }
 
+/**
+ * One row of the summary table.
+ * @typedef {{ source: string, total: number, passed: number, failed: number,
+ *   skipped: number, flaky: number, sourceErrors?: number }} Row
+ */
+
+/**
+ * @param {string} path
+ * @returns {any} the parsed report (runner-owned shape), or null when absent
+ */
 function readReport(path) {
   if (!existsSync(path)) return null;
   try {
     return JSON.parse(readFileSync(path, 'utf8'));
   } catch (e) {
-    console.error(`Report ${path} is not valid JSON: ${e.message}`);
+    console.error(
+      `Report ${path} is not valid JSON: ${e instanceof Error ? e.message : e}`
+    );
     exit(2);
   }
 }
 
 // Playwright JSON reporter: stats = { expected, unexpected, skipped, flaky }.
 // expected = passed, unexpected = failed.
+/**
+ * @param {any} report
+ * @returns {Row}
+ */
 function summarizePlaywright(report) {
   const s = report?.stats ?? {};
   const passed = s.expected ?? 0;
@@ -109,6 +126,10 @@ function summarizePlaywright(report) {
 // Newman JSON reporter: run.stats.assertions = { total, pending, failed }.
 // We report at the assertion level (the meaningful pass/fail unit), and
 // include request failures as part of failed.
+/**
+ * @param {any} report
+ * @returns {Row}
+ */
 function summarizeNewman(report) {
   const stats = report?.run?.stats ?? {};
   const a = stats.assertions ?? {};
@@ -132,6 +153,11 @@ function summarizeNewman(report) {
 // Sanitized published summary (the CI path). Same assertion-level unit as the
 // raw reader, but one row PER COLLECTION so a failing collection is never
 // hidden behind a later passing one.
+/**
+ * @param {any} view
+ * @param {string} label
+ * @returns {Row}
+ */
 function summarizePublishedNewman(view, label) {
   const a = view?.stats?.assertions ?? {};
   const total = a.total ?? 0;
@@ -147,6 +173,10 @@ function summarizePublishedNewman(view, label) {
   };
 }
 
+/**
+ * @param {string | null} dir
+ * @returns {Row[]}
+ */
 function readPublishedFrom(dir) {
   if (!dir || !existsSync(dir)) return [];
   return readdirSync(dir, { withFileTypes: true })
@@ -165,7 +195,7 @@ function readPublishedFrom(dir) {
         'unknown';
       return summarizePublishedNewman(view, label);
     })
-    .filter(Boolean);
+    .filter((row) => row !== null);
 }
 
 /**
@@ -174,10 +204,13 @@ function readPublishedFrom(dir) {
  * Preferred over raw reports because the ledger already distinguishes the
  * outcomes the raw reports conflate: flaky is not a pass, a declared expected
  * failure is not a pass, and a blocked unit is not a skip.
+ * @param {import('./lib/execution-ledger.js').Ledger} ledger
+ * @returns {Row}
  */
 function summarizeLedger(ledger) {
+  /** @type {import('./lib/execution-ledger.js').Totals} */
   const t = ledger?.totals ?? {};
-  const n = (k) => t[k] ?? 0;
+  const n = (/** @type {string} */ k) => t[k] ?? 0;
   return {
     source: `Execution ledger (${ledger.story_id ?? 'unknown story'})`,
     // The projection defined once in scripts/lib/execution-ledger.js.
@@ -203,6 +236,7 @@ function summarizeLedger(ledger) {
  * `combined.failed === 0` is NOT sufficient for a green check: a run that
  * verified nothing also has zero failures. Zero counted units means the
  * evidence is missing, which is a problem to surface, not a pass.
+ * @param {Required<Omit<Row, 'source'>>} combined
  */
 function verdict(combined) {
   if (combined.sourceErrors > 0) {
@@ -229,7 +263,9 @@ function verdict(combined) {
   return `> :white_check_mark: ${combined.passed} unit(s) passed, no failures.`;
 }
 
+/** @type {Row[]} */
 const rows = [];
+/** @type {string[]} */
 const notes = [];
 
 // 1) A normalized ledger is the most trustworthy source: it has already
@@ -294,8 +330,9 @@ if (rows.length === 0) {
     }),
     { total: 0, passed: 0, failed: 0, skipped: 0, flaky: 0, sourceErrors: 0 }
   );
+  /** @type {(p: number, t: number) => string} */
   const pct = (p, t) => (t > 0 ? `${Math.round((p / t) * 100)}%` : 'n/a');
-  const line = (r) =>
+  const line = (/** @type {Row} */ r) =>
     `| ${r.source} | ${r.total} | ${r.passed} | ${r.failed} | ${r.skipped} | ${r.flaky} | ${pct(r.passed, r.total)} |`;
   md = [
     '## QA Pipeline — CI summary',
@@ -322,7 +359,9 @@ if (summaryFile) {
   try {
     appendFileSync(summaryFile, md + '\n');
   } catch (e) {
-    console.error(`Could not write GITHUB_STEP_SUMMARY: ${e.message}`);
+    console.error(
+      `Could not write GITHUB_STEP_SUMMARY: ${e instanceof Error ? e.message : e}`
+    );
     // Not fatal — the stdout summary still printed.
   }
 }

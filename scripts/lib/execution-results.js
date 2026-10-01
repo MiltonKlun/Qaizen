@@ -1,3 +1,4 @@
+// @ts-check
 // Runner-report adapters (task group 3.1).
 //
 // Pure functions: JSON report in, ledger units out. No file I/O, no clock, no
@@ -19,6 +20,11 @@
 
 import { redactText } from './report-sanitization.js';
 
+/** @typedef {import('./execution-ledger.js').Unit} Unit */
+/** @typedef {import('./execution-ledger.js').Attempt} Attempt */
+/** @typedef {import('./execution-ledger.js').Assertion} Assertion */
+/** @typedef {import('./execution-ledger.js').SourceError} SourceError */
+
 /** Max characters of any error excerpt carried into durable evidence. */
 const ERROR_EXCERPT_LIMIT = 600;
 
@@ -34,6 +40,7 @@ const PW_TEST_STATUS = ['expected', 'unexpected', 'flaky', 'skipped'];
  * `timed_out`. Passing the raw value straight through produces a ledger that
  * fails validation, so the translation belongs here, at the boundary.
  */
+/** @type {Record<string, string>} */
 const PW_ATTEMPT_STATUS = {
   passed: 'passed',
   failed: 'failed',
@@ -45,6 +52,11 @@ const PW_ATTEMPT_STATUS = {
 // eslint-disable-next-line no-control-regex -- ANSI escape sequences start with ESC (\x1b); matching it is the point.
 const ANSI = /\u001b\[[0-9;]*m/g;
 
+/**
+ * @param {unknown} text
+ * @param {string[]} secrets
+ * @returns {string | undefined}
+ */
 function excerpt(text, secrets) {
   if (!text) return undefined;
   // Terminal colour codes are stripped BEFORE truncation: real Playwright
@@ -59,9 +71,12 @@ function excerpt(text, secrets) {
 /**
  * Collect every test in a Playwright JSON report, flattening nested suites.
  * Each entry keeps its spec title path, project and attempts.
+ * @param {any} report parsed Playwright JSON report (runner-owned shape)
  */
 function collectPlaywrightTests(report) {
+  /** @type {{ spec: any, test: any, file: string | undefined, titlePath: string[] }[]} */
   const found = [];
+  /** @type {(suites: any[] | undefined, titlePath: string[]) => void} */
   const walk = (suites, titlePath) => {
     for (const suite of suites || []) {
       const path = suite.title ? [...titlePath, suite.title] : titlePath;
@@ -88,8 +103,11 @@ function collectPlaywrightTests(report) {
  * Uses the AGGREGATE test status, not the last attempt -- that is what makes a
  * retried-then-passing test `flaky` rather than `passed`, and what stops a
  * timed-out test from vanishing (B2).
+ * @param {any} test one test entry of a Playwright JSON report
+ * @returns {string}
  */
 export function playwrightOutcome(test) {
+  /** @type {any[]} */
   const attempts = test.results || [];
   const statuses = attempts.map((a) => a.status);
 
@@ -123,7 +141,7 @@ export function playwrightOutcome(test) {
 /**
  * Adapt a Playwright JSON report into ledger units.
  *
- * @param {object} report     parsed Playwright JSON report
+ * @param {any} report     parsed Playwright JSON report
  * @param {object} opts
  * @param {string} opts.executionId  the source execution these units belong to
  * @param {string[]} [opts.secrets]  values to redact from error excerpts
@@ -138,7 +156,9 @@ export function adaptPlaywrightReport(report, { executionId, secrets = [] }) {
     throw new TypeError('adaptPlaywrightReport: executionId is required');
   }
 
+  /** @type {Unit[]} */
   const units = [];
+  /** @type {Map<string, number>} */
   const seen = new Map();
 
   for (const { test, spec, file, titlePath } of collectPlaywrightTests(
@@ -153,9 +173,11 @@ export function adaptPlaywrightReport(report, { executionId, secrets = [] }) {
     const ordinal = (seen.get(key) ?? -1) + 1;
     seen.set(key, ordinal);
 
-    const attempts = (test.results || []).map((a) => {
+    /** @type {Attempt[]} */
+    const attempts = (test.results || []).map((/** @type {any} */ a) => {
       const message =
         (a.errors && a.errors[0]?.message) || a.error?.message || '';
+      /** @type {Attempt} */
       const out = {
         // An unrecognized attempt status is recorded as a failure rather than
         // dropped: unknown evidence is never silently favourable.
@@ -196,12 +218,12 @@ export function adaptPlaywrightReport(report, { executionId, secrets = [] }) {
   }
 
   // Report-level errors survive even when zero tests appear.
-  const sourceErrors = (report.errors || [])
-    .map((e) => {
-      const message = excerpt(e?.message || String(e ?? ''), secrets);
-      return message ? { message, phase: 'run' } : null;
-    })
-    .filter(Boolean);
+  /** @type {SourceError[]} */
+  const sourceErrors = [];
+  for (const e of report.errors || []) {
+    const message = excerpt(e?.message || String(e ?? ''), secrets);
+    if (message) sourceErrors.push({ message, phase: 'run' });
+  }
 
   return { units, sourceErrors };
 }
@@ -212,11 +234,14 @@ export function adaptPlaywrightReport(report, { executionId, secrets = [] }) {
  * Order matters: transport failure is checked FIRST, because a test script that
  * ran against no response can still emit a failed assertion, and counting that
  * as a business failure would misreport a blocked request.
+ * @param {any} execution one entry of a Newman report's run.executions
+ * @returns {string}
  */
 export function newmanOutcome(execution) {
   if (execution.requestError) return 'blocked';
   if (!execution.response) return 'blocked';
 
+  /** @type {any[]} */
   const assertions = execution.assertions || [];
   // A request that asserted nothing verified nothing, however well the
   // transport went.
@@ -232,7 +257,7 @@ export function newmanOutcome(execution) {
  * Adapt a Newman JSON report into ledger units: one unit per request per
  * iteration, with assertions NESTED as evidence rather than counted as units.
  *
- * @param {object} report parsed Newman JSON report
+ * @param {any} report parsed Newman JSON report
  * @param {object} opts
  * @param {string} opts.executionId
  * @param {string} [opts.collectionId]
@@ -254,7 +279,9 @@ export function adaptNewmanReport(
   const run = report.run || {};
   const collection =
     collectionId || report.collection?.info?._postman_id || 'collection';
+  /** @type {Unit[]} */
   const units = [];
+  /** @type {Map<string, number>} */
   const seen = new Map();
 
   for (const e of run.executions || []) {
@@ -265,7 +292,9 @@ export function adaptNewmanReport(
     const ordinal = (seen.get(key) ?? -1) + 1;
     seen.set(key, ordinal);
 
-    const assertions = (e.assertions || []).map((a) => {
+    /** @type {Assertion[]} */
+    const assertions = (e.assertions || []).map((/** @type {any} */ a) => {
+      /** @type {Assertion} */
       const out = {
         name: a.assertion || '(unnamed assertion)',
         passed: !a.error && !a.skipped,
@@ -275,6 +304,7 @@ export function adaptNewmanReport(
       return out;
     });
 
+    /** @type {Unit} */
     const unit = {
       unit_id: `newman:${collection}:${name}:${iteration}${ordinal ? `#${ordinal}` : ''}`,
       execution_id: executionId,

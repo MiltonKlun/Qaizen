@@ -1,3 +1,4 @@
+// @ts-check
 // Prompt stability, computed once (task group 8.2, review finding B7).
 //
 // The question: does a given set of agent prompts produce work that humans
@@ -30,6 +31,13 @@
 //
 // Pure: the caller reads the archived runs and passes them in.
 
+/** @typedef {import('./approval-binding.js').Context} Context */
+/**
+ * One archived run as the caller read it.
+ * @typedef {{ story: string, runId: string, demo?: boolean,
+ *   context: Context | null, failureAnalysis?: any }} ArchivedRun
+ */
+
 /** Plan/spec reviews and final reviews of every branch (E2E, API, external). */
 export const GATE3_KEYS = new Set([
   'specs_reviewed',
@@ -56,16 +64,21 @@ export const SAMPLE_SIZE = 10;
 /** Strict upper bound on the rejection rate for `met`. */
 export const MAX_RATE = 0.1;
 
+/** @type {Record<string, string>} */
 export const VERDICT_TEXT = {
   met: 'MET',
   not_met: 'NOT MET',
   not_computable: 'NOT COMPUTABLE',
 };
 
-const decisionsOf = (ctx) =>
+/** @returns {Record<string, any>[]} */
+const decisionsOf = (/** @type {Context | null} */ ctx) =>
   Array.isArray(ctx?.gate_decisions) ? ctx.gate_decisions : [];
 
-/** The agents a run executed, as far as its artifacts show. */
+/**
+ * The agents a run executed, as far as its artifacts show.
+ * @param {Context} ctx
+ */
 function agentsThatRan(ctx) {
   const api =
     Boolean(ctx?.artifact_paths?.api_collection) ||
@@ -73,7 +86,11 @@ function agentsThatRan(ctx) {
   return api ? [...CORE_AGENTS, 'api-agent'] : [...CORE_AGENTS];
 }
 
-/** When the run executed: its analysis's execution date, else its last decision. */
+/**
+ * When the run executed: its analysis's execution date, else its last decision.
+ * @param {ArchivedRun} run
+ * @returns {number | null}
+ */
 function executedAt(run) {
   const fromAnalysis = Date.parse(run.failureAnalysis?.execution_date ?? '');
   if (!Number.isNaN(fromAnalysis)) return fromAnalysis;
@@ -85,7 +102,7 @@ function executedAt(run) {
 
 /**
  * Why a run cannot count, or null when it is eligible.
- * @param {{demo?: boolean, context: object|null}} run
+ * @param {Pick<ArchivedRun, 'demo' | 'context' | 'failureAnalysis'>} run
  */
 export function exclusionReason(run) {
   if (run.demo) return 'demo run';
@@ -100,11 +117,16 @@ export function exclusionReason(run) {
     (a) => typeof versions[a] !== 'string' || !versions[a]
   );
   if (unknown.length) return `no prompt version for ${unknown.join(', ')}`;
-  if (executedAt(run) === null) return 'no execution timestamp';
+  if (executedAt(/** @type {ArchivedRun} */ (run)) === null) {
+    return 'no execution timestamp';
+  }
   return null;
 }
 
-/** A deterministic key for a prompt-version vector. */
+/**
+ * A deterministic key for a prompt-version vector.
+ * @param {Record<string, string>} versions
+ */
 export function cohortKey(versions) {
   return Object.keys(versions)
     .sort()
@@ -113,11 +135,12 @@ export function cohortKey(versions) {
 }
 
 /**
- * @param {Array<{story: string, runId: string, demo?: boolean,
- *   context: object|null, failureAnalysis?: object|null}>} runs
+ * @param {ArchivedRun[]} runs
  */
 export function promptStability(runs) {
+  /** @type {{ story: string, run_id: string, reason: string }[]} */
   const excluded = [];
+  /** @type {Map<string, { versions: Record<string, string>, runs: ArchivedRun[] }>} */
   const cohorts = new Map();
   for (const run of runs) {
     const reason = exclusionReason(run);
@@ -125,10 +148,16 @@ export function promptStability(runs) {
       excluded.push({ story: run.story, run_id: run.runId, reason });
       continue;
     }
-    const versions = run.context.prompt_versions;
+    // Eligible: exclusionReason proved the context and its versions exist.
+    /** @type {Record<string, string>} */
+    const versions = /** @type {Context} */ (run.context).prompt_versions;
     const key = cohortKey(versions);
-    if (!cohorts.has(key)) cohorts.set(key, { versions, runs: [] });
-    cohorts.get(key).runs.push(run);
+    let cohort = cohorts.get(key);
+    if (!cohort) {
+      cohort = { versions, runs: [] };
+      cohorts.set(key, cohort);
+    }
+    cohort.runs.push(run);
   }
 
   const results = [...cohorts.entries()]
@@ -136,8 +165,9 @@ export function promptStability(runs) {
     .map(([key, c]) => {
       const sample = [...c.runs]
         .sort(
+          // Eligible runs always have a timestamp (exclusionReason).
           (a, b) =>
-            executedAt(b) - executedAt(a) ||
+            (executedAt(b) ?? 0) - (executedAt(a) ?? 0) ||
             (a.runId < b.runId ? 1 : a.runId > b.runId ? -1 : 0)
         )
         .slice(0, SAMPLE_SIZE);
@@ -154,7 +184,7 @@ export function promptStability(runs) {
       const verdict =
         sample.length < SAMPLE_SIZE
           ? 'not_computable'
-          : rate < MAX_RATE
+          : rate !== null && rate < MAX_RATE
             ? 'met'
             : 'not_met';
       return {
@@ -179,6 +209,7 @@ export function promptStability(runs) {
       };
     });
 
+  /** @type {Record<string, number>} */
   const byReason = {};
   for (const e of excluded) byReason[e.reason] = (byReason[e.reason] ?? 0) + 1;
   const qualifying = results
@@ -201,9 +232,13 @@ export function promptStability(runs) {
   };
 }
 
-/** Markdown lines rendered from the same result the JSON carries. */
+/**
+ * Markdown lines rendered from the same result the JSON carries.
+ * @param {ReturnType<typeof promptStability>} ps
+ */
 export function renderPromptStability(ps) {
-  const pct = (r) => (r === null ? 'n/a' : `${Math.round(r * 1000) / 10}%`);
+  const pct = (/** @type {number | null} */ r) =>
+    r === null ? 'n/a' : `${Math.round(r * 1000) / 10}%`;
   const lines = [`- Rule: ${ps.rule}`];
   lines.push(
     `- Runs considered: ${ps.runs_considered} · eligible: ${ps.eligible_runs} · excluded: ${ps.excluded.length}`

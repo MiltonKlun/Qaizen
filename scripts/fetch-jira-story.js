@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Mode-B story fetch helper (Phase 2 TG9/TG13). Fetches a Jira issue
 // READ-ONLY and writes a local story.md the Analyst then reads. This is the
 // reproducible "write a local copy of the issue text" step the Analyst's
@@ -63,6 +64,10 @@ const auth = 'Basic ' + Buffer.from(`${user}:${token}`).toString('base64');
 
 // Flatten Atlassian Document Format to plain text, preserving paragraph and
 // list-item line breaks so acceptance criteria stay readable.
+/**
+ * @param {any} node an ADF node from Jira's response
+ * @returns {string}
+ */
 function adfToText(node) {
   if (!node) return '';
   if (node.type === 'text') return node.text || '';
@@ -102,7 +107,9 @@ async function main() {
   const desc =
     adfToText(f.description).trim() || '(no description in the issue)';
   const components =
-    (f.components || []).map((c) => c.name).join(', ') || '(none)';
+    (f.components || [])
+      .map((/** @type {{ name: string }} */ c) => c.name)
+      .join(', ') || '(none)';
 
   const md = [
     `# ${issue.key} — ${f.summary}`,

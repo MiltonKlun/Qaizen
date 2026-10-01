@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Pipeline metrics (Phase 3 TG6). Walks the archived runs under runs/ (the
 // TG5 history) and computes aggregate metrics so the team can tell whether the
 // pipeline is improving QA or creating noise. Outputs metrics/pipeline-metrics.
@@ -55,6 +56,7 @@ if (!existsSync(RUNS)) {
   exit(2);
 }
 
+/** @type {(p: string) => any} parsed JSON, or null when unreadable */
 const readJson = (p) => {
   try {
     return JSON.parse(readFileSync(p, 'utf8'));
@@ -108,8 +110,11 @@ const samples = {
   with_risk_coverage: 0,
   with_healer_evidence: 0,
 };
+/** @type {Record<string, number[]>} */
 const passRateByStory = {}; // story -> [pass_rate,...]
+/** @type {Parameters<typeof failureMetrics>[0]} */
 const analyses = []; // {story, runId, failures}
+/** @type {Parameters<typeof healerMetrics>[0]} */
 const healerDirs = []; // {story, runId, files}
 let productBugsFound = 0;
 // Gate rejections per run come from context.gate_decisions[] (the optional
@@ -121,9 +126,11 @@ let gate4Rejections = 0;
 let runsWithGateLog = 0;
 // How many runs carry a non-empty prompt_versions map (T4.2).
 let runsWithPromptVersions = 0;
+/** @type {{ story: string, run_id: string, risk_id: string }[]} */
 const untestedHighRisk = []; // {story, run_id, risk_id}
 // What the prompt-stability computation reads per run (demo runs included, as
 // exclusions).
+/** @type {import('./lib/prompt-stability.js').ArchivedRun[]} */
 const stabilityRuns = demoRuns.map((r) => ({
   story: r.story,
   runId: r.runId,
@@ -166,7 +173,8 @@ for (const run of runs) {
     samples.with_failure_analysis += 1;
     analyses.push({ story: run.story, runId, failures: fa.failures ?? [] });
     productBugsFound += (fa.failures ?? []).filter(
-      (f) => f.classification === 'product_bug'
+      (/** @type {Record<string, any>} */ f) =>
+        f.classification === 'product_bug'
     ).length;
   }
 
@@ -174,7 +182,10 @@ for (const run of runs) {
   if (report?.coverage_by_risk && ctx?.risks) {
     samples.with_risk_coverage += 1;
     const sevById = Object.fromEntries(
-      ctx.risks.map((r) => [r.risk_id, r.severity])
+      ctx.risks.map((/** @type {Record<string, any>} */ r) => [
+        r.risk_id,
+        r.severity,
+      ])
     );
     for (const c of report.coverage_by_risk) {
       if (c.status === 'uncovered' && sevById[c.risk_id] === 'high') {
@@ -220,7 +231,7 @@ for (const run of runs) {
 }
 
 const totalRuns = samples.runs;
-const avg = (arr) =>
+const avg = (/** @type {number[]} */ arr) =>
   arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
 const passRateSummary = Object.fromEntries(
   Object.entries(passRateByStory).map(([s, rates]) => [
@@ -234,6 +245,7 @@ const healer = healerMetrics(
   (rec) => validateValue(rec, HEALER_RECORD_SCHEMA).ok
 );
 
+/** @type {Record<string, any>} the metrics JSON, extended below */
 const metrics = {
   generated_at: new Date().toISOString(),
   total_runs: totalRuns,
@@ -267,8 +279,10 @@ metrics.prompt_stability = promptStability(stabilityRuns);
 metrics.runs_with_prompt_versions = runsWithPromptVersions;
 
 // ---- markdown ------------------------------------------------------------
-const pct = (r) => (r === null ? 'n/a' : `${Math.round(r * 100)}%`);
-const of = (n) => `${n}/${totalRuns} run(s)`;
+const pct = (/** @type {number | null} */ r) =>
+  r === null ? 'n/a' : `${Math.round(r * 100)}%`;
+const of = (/** @type {number} */ n) => `${n}/${totalRuns} run(s)`;
+/** @type {(sampleCount: number, what: string) => string} */
 const unknownOrNone = (sampleCount, what) =>
   sampleCount === 0
     ? `- Unknown: no run has ${what}, so absence here proves nothing.`

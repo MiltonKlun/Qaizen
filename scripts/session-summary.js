@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // session-summary — capture a short "what rubbed today" note after a run
 // (Phase 3 TG10, optional helper). These notes are the highest-signal source
 // /evolve reads, because they are friction in the human's own words. Stored as
@@ -32,10 +33,13 @@ const PLACEHOLDER = /^[.\s…]+$/;
 // unquoted, shell-split multi-word string, we join every token after the flag
 // up to (but not including) the next `--flag` — so `--friction test multi word`
 // captures "test multi word", not just "test". Repeated flags still accumulate.
+/** @param {string} flag */
 function collect(flag) {
+  /** @type {string[]} */
   const out = [];
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] !== flag) continue;
+    /** @type {string[]} */
     const parts = [];
     let j = i + 1;
     for (; j < argv.length && !argv[j].startsWith('--'); j++) {
@@ -46,13 +50,19 @@ function collect(flag) {
   }
   return out;
 }
+/** @param {string} flag */
 function one(flag) {
   const [v] = collect(flag);
   return v ?? null;
 }
 
 // Drop placeholder / empty entries, warning once per dropped value.
+/**
+ * @param {string[]} values
+ * @param {string} flag
+ */
 function clean(values, flag) {
+  /** @type {string[]} */
   const kept = [];
   for (const v of values) {
     if (v.trim() === '' || PLACEHOLDER.test(v)) {

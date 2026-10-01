@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Normalize runner reports into an execution ledger (task group 3.1).
 //
 // A thin CLI: it resolves inputs, calls the pure adapters, assembles the
@@ -71,17 +72,39 @@ const EXTERNAL_SCHEMA = join(
   'external-execution.schema.json'
 );
 
-/** A recorded external outcome as a unit attempt (the ledger's vocabulary). */
+/** @typedef {import('./lib/execution-ledger.js').Unit} Unit */
+/** @typedef {import('./lib/execution-ledger.js').SourceExecution} SourceExecution */
+/** @typedef {import('./lib/execution-ledger.js').TestCase} TestCase */
+/** @typedef {{ test_case_id: string, source: string }} PlannedCase */
+/**
+ * @typedef {{ test_case_id: string, source: string, outcome: string,
+ *   executed_at: string, operator: string, notes?: string }} ExternalResult
+ */
+/**
+ * Parsed flags: every value is a string, except the REPEATABLE ones
+ * (string[]).
+ * @typedef {Record<string, any>} Flags
+ */
+
+/**
+ * A recorded external outcome as a unit attempt (the ledger's vocabulary).
+ * @type {Record<string, string>}
+ */
 const EXTERNAL_ATTEMPT = { failed: 'failed', blocked: 'interrupted' };
 
 /**
  * Read and check the external plan and results against the story, run and
  * approved scope. Nothing here decides an outcome: a recorded result becomes
  * one unit with exactly the outcome the operator reported.
- * @returns {{ok: true, execution: object|null, units: object[]} |
+ * @param {Flags} flags
+ * @param {{ storyId: string, runId: string | null,
+ *   testCases: import('./lib/execution-ledger.js').TestCasesDoc | null,
+ *   scopeDigest: string | null }} run
+ * @returns {{ok: true, execution: SourceExecution|null, units: Unit[]} |
  *           {ok: false, message: string}}
  */
 function externalInputs(flags, { storyId, runId, testCases, scopeDigest }) {
+  /** @type {(message: string) => { ok: false, message: string }} */
   const fail = (message) => ({ ok: false, message });
   const planPath = flags['external-plan'];
   const resultsPath = flags['external-results'];
@@ -105,13 +128,13 @@ function externalInputs(flags, { storyId, runId, testCases, scopeDigest }) {
   // Every planned case must still be an approved case of the same kind.
   if (testCases) {
     const approved = new Map(
-      testCases.test_cases
+      (testCases.test_cases ?? [])
         .filter((c) => c.status === 'approved')
         .map((c) => [c.test_case_id, externalSource(c.automation_decision)])
     );
-    const off = plan.data.cases.filter(
-      (c) => approved.get(c.test_case_id) !== c.source
-    );
+    /** @type {PlannedCase[]} */
+    const cases = plan.data.cases;
+    const off = cases.filter((c) => approved.get(c.test_case_id) !== c.source);
     if (off.length) {
       return fail(
         `${planPath} plans ${off.map((c) => c.test_case_id).join(', ')}, which the approved scope does not have as planned`
@@ -137,9 +160,13 @@ function externalInputs(flags, { storyId, runId, testCases, scopeDigest }) {
       `${resultsPath} was recorded against a different approved scope`
     );
   }
-  const planned = new Map(plan.data.cases.map((c) => [c.test_case_id, c]));
+  /** @type {PlannedCase[]} */
+  const cases = plan.data.cases;
+  const planned = new Map(cases.map((c) => [c.test_case_id, c]));
+  /** @type {ExternalResult[]} */
+  const results = res.data.results;
   const seen = new Set();
-  for (const r of res.data.results) {
+  for (const r of results) {
     const p = planned.get(r.test_case_id);
     if (!p || p.source !== r.source) {
       return fail(
@@ -153,8 +180,9 @@ function externalInputs(flags, { storyId, runId, testCases, scopeDigest }) {
   }
 
   const executionId = `exec-ext-${randomUUID().slice(0, 8)}`;
-  const times = res.data.results.map((r) => r.executed_at).sort();
-  const units = res.data.results.map((r) => {
+  const times = results.map((r) => r.executed_at).sort();
+  /** @type {Unit[]} */
+  const units = results.map((r) => {
     const attempt = EXTERNAL_ATTEMPT[r.outcome];
     const message = `Reported ${r.outcome} by ${r.operator}${r.notes ? `: ${r.notes}` : ''}`;
     return {
@@ -184,7 +212,7 @@ function externalInputs(flags, { storyId, runId, testCases, scopeDigest }) {
       runner: 'external',
       started_at: times[0] ?? new Date().toISOString(),
       completed_at: times[times.length - 1] ?? null,
-      command_identity: `import-execution (${[...new Set(res.data.results.map((r) => r.source))].sort().join(', ') || 'no results'})`,
+      command_identity: `import-execution (${[...new Set(results.map((r) => r.source))].sort().join(', ') || 'no results'})`,
       process_status: 'completed',
       report_reference: resultsPath,
       report_digest: createHash('sha256')
@@ -202,7 +230,12 @@ function externalInputs(flags, { storyId, runId, testCases, scopeDigest }) {
  */
 const REPEATABLE = new Set(['newman']);
 
+/**
+ * @param {string[]} args
+ * @returns {{ flags: Flags, errors: string[] }}
+ */
 function parseArgs(args) {
+  /** @type {{ flags: Flags, errors: string[] }} */
   const out = { flags: {}, errors: [] };
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i];
@@ -228,6 +261,7 @@ function parseArgs(args) {
   return out;
 }
 
+/** @param {string} [message] */
 function usage(message) {
   if (message) console.error(`Error: ${message}`);
   console.error(
@@ -244,6 +278,9 @@ function usage(message) {
  * Under the per-execution layout (reports/<exec>/newman/<story>/<collection>.json)
  * the file name IS the id the runner used, so it wins. Elsewhere -- a legacy
  * or hand-supplied report -- fall back to the collection's own id.
+ * @param {string} path
+ * @param {any} report the parsed Newman report
+ * @returns {string}
  */
 function collectionIdFor(path, report) {
   const parts = path.split(/[\\/]/);
@@ -259,7 +296,12 @@ function collectionIdFor(path, report) {
     : report?.collection?.info?._postman_id || fromName;
 }
 
-/** Read a report, returning null when the path was not supplied. */
+/**
+ * Read a report, returning null when the path was not supplied.
+ * @param {string | undefined} path
+ * @param {string} label
+ * @returns {any} the parsed report (runner-owned shape)
+ */
 function loadReport(path, label) {
   if (!path) return null;
   if (!existsSync(path)) {
@@ -275,6 +317,7 @@ function loadReport(path, label) {
   return read.data;
 }
 
+/** @param {string[]} [args] */
 export function main(args = argv.slice(2)) {
   const { flags, errors } = parseArgs(args);
   if (errors.length) {
@@ -346,7 +389,9 @@ export function main(args = argv.slice(2)) {
   const runId = flags['run-id'] || env.RUN_ID || `run-${randomUUID()}`;
   const generatedAt = new Date().toISOString();
 
+  /** @type {SourceExecution[]} */
   const sourceExecutions = [];
+  /** @type {Unit[]} */
   const units = [];
 
   if (pwPath) {
@@ -374,6 +419,7 @@ export function main(args = argv.slice(2)) {
     const report = loadReport(nmPath, 'Newman');
     return { nmPath, report, collectionId: collectionIdFor(nmPath, report) };
   });
+  /** @type {Map<string, string>} */
   const byCollection = new Map();
   for (const { nmPath, collectionId } of newmanInputs) {
     if (byCollection.has(collectionId)) {
@@ -409,7 +455,9 @@ export function main(args = argv.slice(2)) {
 
   // Optional caller-supplied mapping of unit_id -> domain IDs. Absent means
   // every link stays null WITH a reason; it never means "guess".
+  /** @type {import('./lib/build-ledger.js').Mapping} */
   let mapping = {};
+  /** @type {string[]} */
   let approvedCaseIds = [];
   if (flags.mapping) {
     const read = readJson(flags.mapping);
@@ -425,7 +473,9 @@ export function main(args = argv.slice(2)) {
   // The approved scope, when given, is the authority on which cases count and
   // is recorded as a digest, so a ledger cannot later be reported against a
   // different scope (task group 5.3).
+  /** @type {string | null} */
   let scopeDigest = null;
+  /** @type {import('./lib/execution-ledger.js').TestCasesDoc | null} */
   let testCases = null;
   if (flags['test-cases']) {
     const tc = readValidatedJson(flags['test-cases'], TEST_CASES_SCHEMA);
@@ -440,9 +490,10 @@ export function main(args = argv.slice(2)) {
       );
       return 2;
     }
+    /** @type {string[]} */
     const approved = tc.data.test_cases
-      .filter((c) => c.status === 'approved')
-      .map((c) => c.test_case_id);
+      .filter((/** @type {TestCase} */ c) => c.status === 'approved')
+      .map((/** @type {TestCase} */ c) => c.test_case_id);
     const fromMapping = [...approvedCaseIds].sort().join(',');
     if (
       approvedCaseIds.length &&

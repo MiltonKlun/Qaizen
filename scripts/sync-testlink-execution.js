@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // TestLink execution-result sync (Phase 2 TG10, rebuilt in task group 5.3).
 // For each approved test case already in TestLink, derive ONE outcome from the
 // current run's execution ledger and report it against the TestLink test plan
@@ -61,6 +62,8 @@ import {
 } from './lib/integration-io.js';
 import { loadDotEnv, parseCli, validateStoryId } from './lib/cli.js';
 
+/** @typedef {import('./lib/execution-ledger.js').TestCase} TestCase */
+
 const TARGET = 'testlink';
 const CASES_SCHEMA = 'schemas/test-cases.schema.json';
 const ANALYSIS_SCHEMA = 'schemas/failure-analysis.schema.json';
@@ -71,16 +74,22 @@ const STATUS_CODES = new Set(['p', 'f', 'b', 'n']);
 
 // ------------------------------------------------------------ XML-RPC
 
+/** @param {unknown} s */
 function xmlEscape(s) {
   return String(s)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 }
+/** @param {string | number} value */
 function valueXml(value) {
   if (typeof value === 'number') return `<int>${value}</int>`;
   return `<string>${xmlEscape(value)}</string>`;
 }
+/**
+ * @param {string} method
+ * @param {Record<string, string | number>} struct
+ */
 function buildCall(method, struct) {
   const members = Object.entries(struct)
     .map(
@@ -90,6 +99,10 @@ function buildCall(method, struct) {
     .join('');
   return `<?xml version="1.0"?><methodCall><methodName>${method}</methodName><params><param><value><struct>${members}</struct></value></param></params></methodCall>`;
 }
+/**
+ * @param {string} xml
+ * @returns {string | null}
+ */
 function readFault(xml) {
   if (/<fault>/.test(xml)) {
     const msg = (xml.match(
@@ -111,17 +124,28 @@ function readFault(xml) {
 /**
  * The status map, checked: every report outcome maps to a named status with a
  * TestLink code, and ONLY `passed` may reach Pass.
+ * @param {any} map the parsed status-map file
+ * @returns {{ ok: true, resolved: Record<string, { name: string, code: string }> }
+ *   | { ok: false, problems: string[] }}
  */
 function loadStatusMap(map) {
+  /** @type {Record<string, unknown>} */
   const byOutcome = map.outcome_to_testlink_status ?? {};
+  /** @type {Record<string, string>} */
   const codes = map.testlink_statuses ?? {};
+  /** @type {string[]} */
   const problems = [];
+  /** @type {Record<string, { name: string, code: string }>} */
   const resolved = {};
   for (const outcome of CASE_REPORT_OUTCOMES) {
     const name = byOutcome[outcome];
     const code = typeof name === 'string' ? codes[name] : undefined;
     if (!name) problems.push(`no status for outcome "${outcome}"`);
-    else if (!STATUS_CODES.has(code))
+    else if (
+      typeof name !== 'string' ||
+      code === undefined ||
+      !STATUS_CODES.has(code)
+    )
       problems.push(`status "${name}" has no TestLink code (p/f/b/n)`);
     else resolved[outcome] = { name, code };
   }
@@ -182,11 +206,13 @@ async function main() {
   const doc = docRead.data;
   const ctxRead = readJson('context.json');
   const mapRead = readJson(mapPath);
-  for (const r of [ctxRead, mapRead]) {
-    if (!r.ok) {
-      console.error(r.message);
-      return 2;
-    }
+  if (!ctxRead.ok) {
+    console.error(ctxRead.message);
+    return 2;
+  }
+  if (!mapRead.ok) {
+    console.error(mapRead.message);
+    return 2;
   }
   const context = ctxRead.data;
   const statusMap = loadStatusMap(mapRead.data);
@@ -207,8 +233,8 @@ async function main() {
   // was reviewed (task group 4.3); one branch's never stands in for another's.
   const decisions = new Set(
     doc.test_cases
-      .filter((tc) => tc.status === 'approved')
-      .map((tc) => tc.automation_decision)
+      .filter((/** @type {TestCase} */ tc) => tc.status === 'approved')
+      .map((/** @type {TestCase} */ tc) => tc.automation_decision)
   );
   const required = [];
   if (decisions.has('automate_e2e')) required.push(['Gate 4', 'code_reviewed']);
@@ -285,7 +311,8 @@ async function main() {
       runId: context.run_id,
     });
     if (!read.ok) {
-      ledgerProblem = [read.message, ...(read.violations ?? [])].join('; ');
+      const violations = 'violations' in read ? read.violations : [];
+      ledgerProblem = [read.message, ...violations].join('; ');
     } else if (read.data.approved_scope_digest === null) {
       ledgerProblem = `${LEDGER_PATH} does not record the approved scope it was built for; re-normalize with --test-cases ${casesPath}`;
     } else if (read.data.approved_scope_digest !== approvedScopeDigest(doc)) {
@@ -296,7 +323,9 @@ async function main() {
   }
 
   // --- Plan: one outcome per approved case already in TestLink ----------
-  const approved = doc.test_cases.filter((tc) => tc.status === 'approved');
+  const approved = doc.test_cases.filter(
+    (/** @type {TestCase} */ tc) => tc.status === 'approved'
+  );
   const reportable = [];
   const notReported = [];
   for (const tc of approved) {
@@ -398,7 +427,7 @@ async function main() {
   try {
     timeoutMs = httpTimeoutMs(env);
   } catch (e) {
-    console.error(e.message);
+    console.error(e instanceof Error ? e.message : e);
     return 2;
   }
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // test-cases migration: testlink_id -> external_ids.testlink (Phase 2.6
 // TG2.6-3). The schema now has a generic external_ids { tool: id } object;
 // the legacy testlink_id field stays valid. This OPTIONAL migration copies an
@@ -49,7 +50,9 @@ for (const path of targets) {
   try {
     doc = JSON.parse(readFileSync(path, 'utf8'));
   } catch (e) {
-    console.error(`${path} is not valid JSON: ${e.message}`);
+    console.error(
+      `${path} is not valid JSON: ${e instanceof Error ? e.message : e}`
+    );
     exit(1);
   }
   let changed = 0;

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Architecture Stability Rule CI check (Phase 2 TG12). Detects when a PR
 // changes a contract (schemas/) without changing the things that must move
 // WITH it in the same PR — the consuming agent prompts (agents/), the docs
@@ -30,6 +31,7 @@ const base =
     ? argv[baseIdx + 1]
     : env.CONTRACT_BASE_REF || 'origin/main';
 
+/** @param {string[]} args */
 function git(args) {
   const r = spawnSync('git', args, { encoding: 'utf8' });
   if (r.status !== 0) {
@@ -58,7 +60,8 @@ function changedFiles() {
 
 const files = changedFiles();
 
-const touched = (prefix) => files.some((f) => f.startsWith(prefix));
+const touched = (/** @type {string} */ prefix) =>
+  files.some((f) => f.startsWith(prefix));
 const schemasChanged = files.filter((f) => f.startsWith('schemas/'));
 
 if (schemasChanged.length === 0) {
