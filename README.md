@@ -7,7 +7,7 @@
 
 # Qaizen
 
-**AI does the QA legwork. You make the calls.**
+**AI-assisted, human-gated, QA workflow.**
 
 [![QA Pipeline](https://github.com/MiltonKlun/Qaizen/actions/workflows/qa-pipeline.yml/badge.svg?event=pull_request)](https://github.com/MiltonKlun/Qaizen/actions/workflows/qa-pipeline.yml)
 [![Node](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FMiltonKlun%2FQaizen%2Fmain%2Fpackage.json&query=%24.engines.node&label=node&logo=nodedotjs&logoColor=white&color=339933)](package.json)
