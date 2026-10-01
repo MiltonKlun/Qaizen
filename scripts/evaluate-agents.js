@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // @ts-check
-// Structural evaluation of the Analyst and Test Designer outputs (Phase 2
-// TG11; reworked in task group 8.1, review finding I5).
+// Structural evaluation of the Analyst, Test Designer and Reporter outputs
+// (Phase 2 TG11; reworked in task group 8.1, review finding I5; Reporter stage
+// in task group 2.2b).
 //
 // Two modes, and they answer different questions:
 //
@@ -33,8 +34,12 @@
 //
 // Usage:
 //   npm run evaluate                                   # expected fixture validation
-//   node scripts/evaluate-agents.js --candidate-dir <run-dir> [--stage analyst|designer]
+//   node scripts/evaluate-agents.js --candidate-dir <run-dir> [--stage analyst|designer|reporter]
 //     [--baseline <results.json>]                      # candidate evaluation
+//
+// The reporter stage scores a run's release report against that run's own
+// context, test cases, failure analysis and ledger (scripts/lib/report-checks.js).
+// No gold release report is declared, so it is compared only with --baseline.
 //   node scripts/evaluate-agents.js --out <path>       # write results elsewhere
 //
 // Output: examples/evaluation/latest-results.json in fixture mode;
@@ -57,6 +62,7 @@ import { argv, exit } from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { readValidatedJson, validateValue } from './lib/artifact-io.js';
+import { releaseReportChecks } from './lib/report-checks.js';
 
 const STORIES_DIR = 'examples/stories';
 const EXPECTED_DIR = 'examples/expected';
@@ -73,6 +79,7 @@ const schema = (/** @type {string} */ name) => join(SCHEMA_DIR, name);
 const CONTEXT_SCHEMA = schema('context.schema.json');
 const TEST_CASES_SCHEMA = schema('test-cases.schema.json');
 const MANIFEST_SCHEMA = schema('evaluation-manifest.schema.json');
+const RELEASE_REPORT_SCHEMA = schema('release-report.schema.json');
 
 /**
  * One structural check of an output.
@@ -91,6 +98,7 @@ const MANIFEST_SCHEMA = schema('evaluation-manifest.schema.json');
 const STAGE_AGENTS = {
   analyst: ['analyst'],
   designer: ['analyst', 'test-designer'],
+  reporter: ['reporter'],
 };
 
 /** Drop the documented "needs rework" signal fires at (percentage points). */
@@ -125,7 +133,7 @@ if (candidateDir === null) fail('--candidate-dir requires a directory path.');
 const stageFlag = flagValue('--stage');
 if (stageFlag === null || (stageFlag && !STAGE_AGENTS[stageFlag])) {
   fail(
-    `--stage must be "analyst" or "designer" (got ${stageFlag ? `"${stageFlag}"` : 'no value'}).`
+    `--stage must be "analyst", "designer" or "reporter" (got ${stageFlag ? `"${stageFlag}"` : 'no value'}).`
   );
 }
 if (stageFlag && !candidateDir)
@@ -377,11 +385,78 @@ function matchPct(passed, total) {
 function score(story, stage, ctx, ctxPath, tcDoc, tcPath) {
   const checks = [...checkContext(ctx)];
   if (stage === 'designer') checks.push(...checkTestCases(tcDoc, ctx));
+  return scored(
+    story,
+    stage,
+    { context: ctxPath, test_cases: tcPath ?? null },
+    checks
+  );
+}
+
+/**
+ * Score a candidate run's release report (the reporter stage). Every input is
+ * the candidate's own: its context, test cases, failure analysis, the ledger
+ * the analysis names, and the report. A missing input is missing work.
+ * @param {string} story
+ * @param {string} dir the candidate run directory
+ * @param {any} ctx
+ * @param {string} ctxPath
+ */
+function scoreReporter(story, dir, ctx, ctxPath) {
+  const id = ctx.story?.id;
+  const paths = {
+    context: ctxPath,
+    test_cases: join(dir, 'test-cases', `${id}.json`),
+    failure_analysis: join(dir, 'analysis', 'failure-analysis.json'),
+    release_report: join(dir, 'release', 'release-report.json'),
+  };
+  for (const [what, p] of Object.entries(paths)) {
+    if (!existsSync(p))
+      fail(`Candidate is missing ${what} for the reporter stage: ${p}`);
+  }
+  const report = loadJson(paths.release_report);
+  const analysis = loadJson(paths.failure_analysis);
+  const ledgerPath = analysis.execution_ledger
+    ? join(dir, analysis.execution_ledger)
+    : null;
+  const ledger =
+    ledgerPath && existsSync(ledgerPath) ? loadJson(ledgerPath) : null;
+  const valid = validateValue(report, RELEASE_REPORT_SCHEMA);
+  const checks = [
+    {
+      name: 'release report validates against its schema',
+      pass: valid.ok,
+      detail: schemaDetail(valid),
+    },
+    ...releaseReportChecks({
+      report,
+      context: ctx,
+      testCases: loadJson(paths.test_cases),
+      analysis,
+      ledger,
+    }),
+  ];
+  return scored(
+    story,
+    'reporter',
+    { ...paths, execution_ledger: ledgerPath },
+    checks
+  );
+}
+
+/**
+ * The result shape every stage shares.
+ * @param {string} story
+ * @param {string} stage
+ * @param {Record<string, string | null>} sources
+ * @param {Check[]} checks
+ */
+function scored(story, stage, sources, checks) {
   const passed = checks.filter((c) => c.pass).length;
   return {
     story,
     stage,
-    sources: { context: ctxPath, test_cases: tcPath ?? null },
+    sources,
     checks,
     failed_checks: checks
       .filter((c) => !c.pass)
@@ -606,14 +681,17 @@ if (!candidateDir) {
     prompts[name] = { ...p, recorded_by_candidate: recorded };
   }
 
-  const result = score(
-    entry.story,
-    STAGE,
-    ctx,
-    ctxPath,
-    STAGE === 'designer' ? loadJson(tcPath) : null,
-    STAGE === 'designer' ? tcPath : null
-  );
+  const result =
+    STAGE === 'reporter'
+      ? scoreReporter(entry.story, candidateDir, ctx, ctxPath)
+      : score(
+          entry.story,
+          STAGE,
+          ctx,
+          ctxPath,
+          STAGE === 'designer' ? loadJson(tcPath) : null,
+          STAGE === 'designer' ? tcPath : null
+        );
   results.push(result);
   candidate = {
     dir: candidateDir,
@@ -645,8 +723,10 @@ if (!candidateDir) {
       match_pct: prior.match_pct ?? null,
       ...compare(result, prior),
     };
-  } else if (entry.expected !== 'none') {
-    // The story's gold output, scored at the stages both have.
+  } else if (STAGE !== 'reporter' && entry.expected !== 'none') {
+    // The story's gold output, scored at the stages both have. No gold
+    // release report is declared, so a reporter candidate has no gold
+    // baseline; compare it with a previous candidate's results instead.
     const stage =
       STAGE === 'designer' && entry.expected === 'designer'
         ? 'designer'
@@ -674,7 +754,10 @@ const out = {
   generated_at: new Date().toISOString(),
   kind: candidateDir ? 'candidate-evaluation' : 'expected-fixture-validation',
   scope:
-    'structural: schema validity, required fields, ids, TC->RISK and TC->AC links, decisions, risk coverage. ' +
+    (STAGE === 'reporter' && candidateDir
+      ? 'structural: the release report against its own run (schema, counts derived from the ledger, coverage per risk, ' +
+        'failure lists, bug drafts, flaky units, and a recommendation that is never pass while something blocks it). '
+      : 'structural: schema validity, required fields, ids, TC->RISK and TC->AC links, decisions, risk coverage. ') +
     'Not wording, and not business correctness (judged with the review-gate rubrics).',
   counts: candidateDir
     ? { requested: 1, scored: results.length }
@@ -759,7 +842,9 @@ if (baseline) {
   }
 } else if (candidate) {
   console.log(
-    '  No baseline: this story has no gold output; pass --baseline <results.json>.'
+    STAGE === 'reporter'
+      ? '  No baseline: there is no gold release report; pass --baseline <a previous candidate’s evaluation-results.json>.'
+      : '  No baseline: this story has no gold output; pass --baseline <results.json>.'
   );
 }
 console.log(

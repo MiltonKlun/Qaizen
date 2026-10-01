@@ -115,6 +115,29 @@ Approved-case coverage is tracked separately from unit totals:
 `unit_pass_rate` is `null` for zero units. Not `0`, not `1` — "we ran nothing"
 is not a pass rate.
 
+### What the reports downstream carry
+
+The failure analysis (2.x) and the release report (2.0) keep the flat
+`total` / `passed` / `failed` / `skipped` fields older readers expect, as the
+legacy projection of the ledger's outcomes:
+
+| Flat field | Unit outcomes it counts                    |
+| ---------- | ------------------------------------------ |
+| `passed`   | `passed`                                   |
+| `failed`   | `failed` + `blocked` + `flaky`             |
+| `skipped`  | `skipped` + `not_run` + `expected_failure` |
+| `total`    | all seven                                  |
+
+Each carries the per-outcome breakdown next to the flat fields, so a flaky or
+blocked unit is visible rather than folded into "failed". The release report's
+`pass_rate` is strict passes over the total, `null` when nothing ran. Its
+`execution_summary` is derived, never computed by hand:
+`npm run report:summary` prints it from the ledger (flat when only Playwright
+ran, `{ e2e, api, combined }` when Newman ran; imported manual and component
+results are reported per case instead), and the runner refuses a 2.0 report
+whose summary differs from the ledger's. A 1.x report keeps its original
+meaning and is not reinterpreted.
+
 ## Usage
 
 ```bash

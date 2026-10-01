@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://qaizen/schemas/release-report.schema.json",
   "title": "Release Report",
-  "description": "release/release-report.json. Produced by the Reporter Agent from context.json + test-cases + failure-analysis + bug drafts. coverage_by_risk is derived from the traceability chain — see docs/traceability.md.",
+  "description": "release/release-report.json. Produced by the Reporter Agent from context.json + test-cases + failure-analysis + bug drafts. coverage_by_risk is derived from the traceability chain (docs/traceability.md). Version 2.x (task group 2.2b) is written for a 2.x failure analysis: each execution_summary block carries the per-outcome breakdown its flat counts project, and a null pass_rate when nothing ran; its numbers are derived from the execution ledger (npm run report:summary). 1.x reports keep their original meaning and are not reinterpreted.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -25,9 +25,13 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+      "pattern": "^[12]\\.[0-9]+(\\.[0-9]+)?$",
+      "description": "1.x: flat counts only. 2.x: counts with outcome_breakdown, derived from the execution ledger."
     },
-    "run_id": { "type": "string", "minLength": 1 },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
     "story_id": {
       "type": "string",
       "pattern": "^(STORY-[0-9]+|[A-Z][A-Z0-9_]*-[0-9]+)$"
@@ -76,11 +80,8 @@
       }
     },
     "execution_summary": {
-      "description": "Phase 1 form is a single flat object. Phase 1.5 (TG3) switches to a grouped {e2e, api, combined} form. Both forms are accepted via oneOf.",
-      "oneOf": [
-        { "$ref": "#/definitions/executionSummaryFlat" },
-        { "$ref": "#/definitions/executionSummaryGrouped" }
-      ]
+      "description": "Flat {total, passed, failed, skipped, pass_rate} when only Playwright ran; grouped {e2e, api, combined} when a Newman run happened. The block shape depends on schema_version (see allOf).",
+      "type": "object"
     },
     "uncovered_risks": {
       "type": "array",
@@ -100,9 +101,15 @@
       "additionalProperties": false,
       "description": "OPTIONAL (Phase 3 TG12). Per-severity rollup of coverage_by_risk, so a reviewer reads the release at a glance: how many high/medium/low risks are passing, failing, or uncovered. Derived deterministically from coverage_by_risk + context.json.risks[].severity; no LLM.",
       "properties": {
-        "high": { "$ref": "#/definitions/riskLevelRollup" },
-        "medium": { "$ref": "#/definitions/riskLevelRollup" },
-        "low": { "$ref": "#/definitions/riskLevelRollup" }
+        "high": {
+          "$ref": "#/definitions/riskLevelRollup"
+        },
+        "medium": {
+          "$ref": "#/definitions/riskLevelRollup"
+        },
+        "low": {
+          "$ref": "#/definitions/riskLevelRollup"
+        }
       }
     },
     "untested_high_risk_items": {
@@ -113,8 +120,13 @@
         "additionalProperties": false,
         "required": ["risk_id"],
         "properties": {
-          "risk_id": { "type": "string", "pattern": "^RISK-[0-9]+$" },
-          "description": { "type": "string" }
+          "risk_id": {
+            "type": "string",
+            "pattern": "^RISK-[0-9]+$"
+          },
+          "description": {
+            "type": "string"
+          }
         }
       }
     },
@@ -126,9 +138,17 @@
         "additionalProperties": false,
         "required": ["test_id"],
         "properties": {
-          "test_id": { "type": "string", "minLength": 1 },
-          "branch": { "type": "string", "enum": ["e2e", "api"] },
-          "note": { "type": "string" }
+          "test_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "branch": {
+            "type": "string",
+            "enum": ["e2e", "api"]
+          },
+          "note": {
+            "type": "string"
+          }
         }
       }
     },
@@ -138,17 +158,35 @@
       "description": "OPTIONAL (Phase 3 TG12). Rollup of bug_drafts[] for the release decision: how many open bugs, by severity, and how many have / lack a Jira key.",
       "required": ["total"],
       "properties": {
-        "total": { "type": "integer", "minimum": 0 },
-        "red": { "type": "integer", "minimum": 0 },
-        "yellow": { "type": "integer", "minimum": 0 },
-        "with_jira": { "type": "integer", "minimum": 0 },
-        "without_jira": { "type": "integer", "minimum": 0 }
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "red": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "yellow": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "with_jira": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "without_jira": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "conditional_pass_criteria": {
       "type": "array",
       "description": "OPTIONAL (Phase 3 TG12). When release_recommendation is 'conditional_pass', the explicit, checkable conditions that must hold before release — the structured form of what release_recommendation_reasoning states in prose. The rule 'conditional_pass MUST list its conditions' is satisfied by either; this field makes them machine-checkable.",
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "external_links": {
       "type": "array",
@@ -158,9 +196,17 @@
         "additionalProperties": false,
         "required": ["system", "url"],
         "properties": {
-          "system": { "type": "string", "minLength": 1 },
-          "label": { "type": "string" },
-          "url": { "type": "string", "minLength": 1 }
+          "system": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -219,18 +265,64 @@
     "evidence_paths": {
       "type": "array",
       "description": "Relative paths to evidence the reviewer might want to open: HTML report, traces directory, key screenshots. Reporter must reference paths, never inline contents.",
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "open_questions": {
       "type": "array",
       "description": "Things the human needs to answer before the report can move to status='finalized'.",
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "status": {
       "type": "string",
       "enum": ["draft", "finalized"]
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "pattern": "^2\\."
+          }
+        },
+        "required": ["schema_version"]
+      },
+      "then": {
+        "properties": {
+          "execution_summary": {
+            "oneOf": [
+              {
+                "$ref": "#/definitions/executionSummaryFlatV2"
+              },
+              {
+                "$ref": "#/definitions/executionSummaryGroupedV2"
+              }
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "execution_summary": {
+            "oneOf": [
+              {
+                "$ref": "#/definitions/executionSummaryFlat"
+              },
+              {
+                "$ref": "#/definitions/executionSummaryGrouped"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
   "definitions": {
     "riskLevelRollup": {
       "type": "object",
@@ -238,12 +330,30 @@
       "description": "Counts of risks at one severity level, by coverage status. total = covered_passing + covered_failing + covered_partial + accepted_without_test + uncovered.",
       "required": ["total"],
       "properties": {
-        "total": { "type": "integer", "minimum": 0 },
-        "covered_passing": { "type": "integer", "minimum": 0 },
-        "covered_failing": { "type": "integer", "minimum": 0 },
-        "covered_partial": { "type": "integer", "minimum": 0 },
-        "accepted_without_test": { "type": "integer", "minimum": 0 },
-        "uncovered": { "type": "integer", "minimum": 0 }
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "covered_passing": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "covered_failing": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "covered_partial": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "accepted_without_test": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "uncovered": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "executionCounts": {
@@ -251,10 +361,22 @@
       "additionalProperties": false,
       "required": ["total", "passed", "failed", "skipped", "pass_rate"],
       "properties": {
-        "total": { "type": "integer", "minimum": 0 },
-        "passed": { "type": "integer", "minimum": 0 },
-        "failed": { "type": "integer", "minimum": 0 },
-        "skipped": { "type": "integer", "minimum": 0 },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        },
         "pass_rate": {
           "type": "number",
           "minimum": 0,
@@ -264,16 +386,154 @@
       }
     },
     "executionSummaryFlat": {
-      "allOf": [{ "$ref": "#/definitions/executionCounts" }]
+      "allOf": [
+        {
+          "$ref": "#/definitions/executionCounts"
+        }
+      ]
     },
     "executionSummaryGrouped": {
       "type": "object",
       "additionalProperties": false,
       "required": ["e2e", "api", "combined"],
       "properties": {
-        "e2e": { "$ref": "#/definitions/executionCounts" },
-        "api": { "$ref": "#/definitions/executionCounts" },
-        "combined": { "$ref": "#/definitions/executionCounts" }
+        "e2e": {
+          "$ref": "#/definitions/executionCounts"
+        },
+        "api": {
+          "$ref": "#/definitions/executionCounts"
+        },
+        "combined": {
+          "$ref": "#/definitions/executionCounts"
+        }
+      }
+    },
+    "outcomeBreakdown": {
+      "description": "Ledger unit outcomes behind one block of counts: passed = passed; failed = failed + blocked + flaky; skipped = skipped + not_run + expected_failure; total = all seven.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passed",
+        "failed",
+        "flaky",
+        "skipped",
+        "blocked",
+        "not_run",
+        "expected_failure"
+      ],
+      "properties": {
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "flaky": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_run": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_failure": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "executionCountsV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "passed",
+        "failed",
+        "skipped",
+        "pass_rate",
+        "outcome_breakdown"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pass_rate": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Strictly passed / total, 0..1. Null when total is 0: nothing ran, which is neither a pass nor a failure rate."
+        },
+        "outcome_breakdown": {
+          "$ref": "#/definitions/outcomeBreakdown"
+        }
+      },
+      "if": {
+        "properties": {
+          "total": {
+            "const": 0
+          }
+        },
+        "required": ["total"]
+      },
+      "then": {
+        "properties": {
+          "pass_rate": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "pass_rate": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "executionSummaryFlatV2": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/executionCountsV2"
+        }
+      ]
+    },
+    "executionSummaryGroupedV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["e2e", "api", "combined"],
+      "properties": {
+        "e2e": {
+          "$ref": "#/definitions/executionCountsV2"
+        },
+        "api": {
+          "$ref": "#/definitions/executionCountsV2"
+        },
+        "combined": {
+          "$ref": "#/definitions/executionCountsV2"
+        }
       }
     }
   }

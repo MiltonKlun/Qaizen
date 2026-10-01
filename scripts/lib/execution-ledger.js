@@ -286,6 +286,94 @@ export function legacySummaryProjection(totals) {
   };
 }
 
+// --------------------------------------------- release report 2.0 counts --
+
+/**
+ * One block of release-report 2.0 counts: the legacy projection, the strict
+ * pass rate (null for zero units, never 0), and the per-outcome breakdown that
+ * explains the projection (task group 2.2b).
+ * @typedef {{ total: number, passed: number, failed: number, skipped: number,
+ *   pass_rate: number | null,
+ *   outcome_breakdown: Record<string, number> }} ReleaseCounts
+ */
+
+/**
+ * Release-report counts for a set of units.
+ * @param {Unit[]} units
+ * @returns {ReleaseCounts}
+ */
+function releaseCounts(units) {
+  /** @type {Record<string, number>} */
+  const breakdown = Object.fromEntries(UNIT_OUTCOMES.map((o) => [o, 0]));
+  for (const u of units) {
+    if (u.outcome in breakdown) breakdown[u.outcome] += 1;
+  }
+  const p = legacySummaryProjection(breakdown);
+  return {
+    total: p.total_tests,
+    passed: p.passed,
+    failed: p.failed,
+    skipped: p.skipped,
+    pass_rate: p.total_tests === 0 ? null : p.passed / p.total_tests,
+    outcome_breakdown: breakdown,
+  };
+}
+
+/**
+ * The `execution_summary` of a release report 2.0, derived from the ledger:
+ * the flat form when no Newman unit ran, otherwise `{ e2e, api, combined }`.
+ * Imported manual and component results are not automated executions and
+ * stay out of it (they are reported per case). The Reporter copies this from
+ * `npm run report:summary`; the runner refuses a 2.0 report that differs.
+ * @param {Pick<Ledger, 'units'>} ledger
+ * @returns {ReleaseCounts | { e2e: ReleaseCounts, api: ReleaseCounts,
+ *   combined: ReleaseCounts }}
+ */
+export function releaseExecutionSummary(ledger) {
+  const units = ledger.units || [];
+  const e2e = units.filter((u) => u.identity?.kind === 'playwright');
+  const api = units.filter((u) => u.identity?.kind === 'newman');
+  if (api.length === 0) return releaseCounts(e2e);
+  return {
+    e2e: releaseCounts(e2e),
+    api: releaseCounts(api),
+    combined: releaseCounts([...e2e, ...api]),
+  };
+}
+
+/**
+ * Do a 2.x failure analysis's flat totals match its outcome breakdown? The
+ * schema requires both fields; only this check proves the flat numbers are
+ * the projection of the breakdown rather than independent claims.
+ * @param {Record<string, any>} analysis
+ * @returns {string[]} the mismatches (empty when consistent, or for 1.x)
+ */
+export function analysisCountProblems(analysis) {
+  if (!/^2\./.test(String(analysis?.schema_version))) return [];
+  const b = analysis.outcome_breakdown ?? {};
+  const p = legacySummaryProjection(b);
+  /** @type {string[]} */
+  const out = [];
+  for (const [field, want] of [
+    ['total_tests', p.total_tests],
+    ['passed', p.passed],
+    ['failed', p.failed],
+    ['skipped', p.skipped],
+  ]) {
+    if (analysis[field] !== want) {
+      out.push(
+        `${field} is ${analysis[field]} but the outcome breakdown projects ${want}`
+      );
+    }
+  }
+  if (b.units !== p.total_tests) {
+    out.push(
+      `outcome_breakdown.units is ${b.units} but its outcomes sum to ${p.total_tests}`
+    );
+  }
+  return out;
+}
+
 /**
  * Load a ledger: schema-validate, then check semantic invariants, then confirm
  * it belongs to the run the caller asked about.

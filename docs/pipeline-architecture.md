@@ -173,9 +173,12 @@ story.md (manual) ─or─ Jira issue (mcp-atlassian read-only)
         ├──► release/release-report.md
         └──► release/release-report.json
               (validates against schemas/release-report.schema.json)
-              (Phase 3 TG12: optional per-risk-level rollup,
-               untested-high-risk list, flaky/open-bug summaries,
-               conditional-pass criteria, external links — all additive)
+              (2.0: execution_summary copied from npm run report:summary,
+               the ledger's counts with their outcome breakdown; the
+               runner refuses a 2.0 report whose counts differ)
+              (optional per-risk-level rollup, untested-high-risk list,
+               flaky/open-bug summaries, conditional-pass criteria,
+               external links)
         │
         ▼
   release report + bug drafts

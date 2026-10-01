@@ -23,3 +23,6 @@ IMPROVEMENT-PLAN-2.md
 runs/
 # Transient runner state (the new-story transition record and staging).
 .qaizen/
+# Reporter evaluation inputs: their gate bindings are digests of these exact
+# bytes (examples/evaluation/reporter-inputs/*/README.md).
+examples/evaluation/reporter-inputs/

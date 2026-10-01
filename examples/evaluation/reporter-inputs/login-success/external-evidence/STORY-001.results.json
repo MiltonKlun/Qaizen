@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "document": "external_results",
+  "story_id": "STORY-001",
+  "run_id": "2026-05-28T18-00-00Z-loginex",
+  "approved_scope_digest": "1590cb140a04f16d605ed2c78b96d1cd01d978fdca7178bfbbd23e9f47848107",
+  "results": [
+    {
+      "test_case_id": "TC-004",
+      "source": "manual",
+      "outcome": "passed",
+      "executed_at": "2026-10-01T10:30:00.000Z",
+      "operator": "QA engineer",
+      "evidence": [
+        {
+          "path": "external-evidence/STORY-001/tc-004-desktop.txt",
+          "sha256": "05f357ba7bb3fbe25d91ebe4b71bb77f2443c60ca0f1a031d660af1abea824df"
+        },
+        {
+          "path": "external-evidence/STORY-001/tc-004-mobile.txt",
+          "sha256": "e3bef3fdb53716c1264f4f7194706b629d5acd97f19eed58768ea466831430a8"
+        }
+      ],
+      "notes": "Error styling reviewed at desktop and mobile widths.",
+      "imported_at": "2026-10-01T21:25:00.008Z"
+    }
+  ]
+}
