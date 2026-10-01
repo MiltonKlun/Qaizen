@@ -114,9 +114,9 @@ export function writeCompletedRun(dir, opts = {}, overrides = {}) {
     'analysis/execution-ledger.json': JSON.stringify(ledger),
     'analysis/failure-analysis.json': JSON.stringify(analysis),
     'release/release-report.json': JSON.stringify(
-      own(
-        gold('examples/expected/enhanced-report.expected-release-report.json')
-      )
+      // A 2.0 report: the analysis is 2.x, and its execution_summary is the
+      // one derived from this same ledger (task group 2.2b).
+      own(gold('examples/expected/mixed-run.expected-release-report.json'))
     ),
     'release/release-report.md': '# report\n',
     'context.json': JSON.stringify(ctx, null, 2),

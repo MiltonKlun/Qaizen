@@ -39,6 +39,7 @@
     "normalize": "node scripts/normalize-results.js",
     "import:execution": "node scripts/import-execution.js",
     "classify": "node scripts/run-failure-classifier.js",
+    "report:summary": "node scripts/report-summary.js",
     "heal": "node scripts/run-healer.js",
     "demo:healer": "node scripts/demo-healer-green-red.js",
     "demo:pipeline": "node scripts/demo-pipeline.js",

@@ -16,8 +16,13 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
 import { validateValue } from './artifact-io.js';
+import {
+  analysisCountProblems,
+  releaseExecutionSummary,
+} from './execution-ledger.js';
 
 /** @typedef {import('./approval-binding.js').Context} Context */
 /**
@@ -203,7 +208,51 @@ export function checkArtifact(key, context, root = '.') {
       );
     }
   }
+  // A 2.x analysis's flat totals must be the projection of its breakdown.
+  if (key === 'failure_analysis') {
+    const problems = analysisCountProblems(r.data);
+    if (problems.length) return bad(`${rel}: ${problems.join('; ')}`);
+  }
+  if (key === 'release_report_json') {
+    const problem = releaseReportProblem(r.data, context, root);
+    if (problem) return bad(`${rel} ${problem}`);
+  }
   return ok(r.data);
+}
+
+/**
+ * A release report written for a 2.x failure analysis is a 2.x report whose
+ * execution_summary is exactly the one derived from that analysis's ledger
+ * (task group 2.2b). A 1.x analysis keeps 1.x reports and their meaning.
+ * @param {any} report
+ * @param {Context} context
+ * @param {string} root
+ * @returns {string | null} why the report is not produced, or null
+ */
+function releaseReportProblem(report, context, root) {
+  const reportV2 = /^2\./.test(String(report.schema_version));
+  const faRel = context?.artifact_paths?.failure_analysis;
+  const fa =
+    typeof faRel === 'string' && faRel ? readJson(join(root, faRel)) : null;
+  const analysisV2 =
+    fa?.ok === true && /^2\./.test(String(fa.data?.schema_version));
+  if (!analysisV2) {
+    return reportV2
+      ? 'is a 2.x report, but there is no 2.x failure analysis to derive its counts from'
+      : null;
+  }
+  if (!reportV2) {
+    return 'is a 1.x report for a 2.x failure analysis; write a 2.0 report (agents/reporter.md)';
+  }
+  const ledgerRel = fa.data.execution_ledger;
+  const ledger = ledgerRel ? readJson(join(root, ledgerRel)) : null;
+  if (!ledger?.ok) {
+    return `cannot be checked: the ledger ${ledgerRel ?? '(unnamed)'} is not readable`;
+  }
+  const expected = releaseExecutionSummary(ledger.data);
+  return isDeepStrictEqual(report.execution_summary, expected)
+    ? null
+    : `has an execution_summary that differs from the ledger's (npm run report:summary prints the one to use)`;
 }
 
 /**

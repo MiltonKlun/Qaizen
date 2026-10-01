@@ -218,11 +218,17 @@ export const SCHEMA_CONTRACTS = {
     artifact: 'release/release-report.json',
     producers: ['agents/reporter.md'],
     consumers: [
-      'scripts/run-pipeline.js (completion check)',
+      'scripts/run-pipeline.js (completion check; a 2.0 report must match the ledger)',
+      'scripts/pipeline-metrics.js',
       'release reviewers',
     ],
-    docs: ['docs/pipeline-architecture.md', 'docs/traceability.md'],
+    docs: [
+      'docs/execution-normalization.md',
+      'docs/pipeline-architecture.md',
+      'docs/traceability.md',
+    ],
     examples: [
+      'examples/expected/mixed-run.expected-release-report.json',
       'examples/expected/api-create-user.expected-release-report.json',
     ],
     invalid: [
@@ -231,10 +237,15 @@ export const SCHEMA_CONTRACTS = {
         rule: 'the recommendation is pass, fail, conditional_pass or blocked',
         errorAt: '/release_recommendation',
       },
+      {
+        path: 'examples/invalid/release-report.v2-counts-without-breakdown.json',
+        rule: 'a 2.x report explains every count block with its outcome breakdown',
+        errorAt: '/execution_summary/e2e',
+      },
     ],
     discovery: 'validate:all; validate:examples',
     migration:
-      'scripts/migrate-release-report-tg12.js adds the rollups to older reports; the added fields are optional.',
+      '2.0 (task group 2.2b) is written for a 2.x failure analysis, with ledger-derived counts; 1.x reports keep their meaning and are never reinterpreted. scripts/migrate-release-report-tg12.js adds the optional rollups to older 1.x reports.',
   },
   'schemas/spec-review.schema.json': {
     artifact: 'analysis/spec-reviews/[story].spec-review.json',
