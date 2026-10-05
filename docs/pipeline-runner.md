@@ -270,10 +270,14 @@ separately from the mechanical results. It is
 informational — it answers the mechanical half so you can spend your attention
 on business correctness; it never decides the gate.
 
-Then it asks: decision (`a`/`r`/`q`), reviewer (defaults to
-`git config user.name`, confirm or override), notes (**required** for a
-rejection). On approval it continues; on rejection it records the event,
-prints exactly what to redo (per `docs/review-gates.md` "On rejection"), and
+Then it shows who is deciding and asks for the decision (`a`/`r`/`q`).
+The reviewer is settled once per session, not asked at every gate:
+`QAIZEN_REVIEWER` if it is set, otherwise `git config user.name`, and the
+runner asks for a name only when neither exists. Like the rest of the record,
+the name is not authentication (§4), and it never decides anything: the
+decision is still typed at the terminal. An approval asks nothing more; a
+rejection asks what must change, and needs an answer. On approval it
+continues; on rejection it records the event, prints exactly what to redo (per `docs/review-gates.md` "On rejection"), and
 stops. Quitting (`q`) records nothing — the next invocation re-opens the
 gate with a fresh `opened_at` (accurate: the review restarted).
 
@@ -347,7 +351,8 @@ draft → a "fail" release report` — the full traceability chain, lived. The
   derived from the run's ledger.
 
 The demo's two test cases (TC-001, TC-002) are both `automate_e2e`, so the
-run stays on the four E2E gates. Before Gate 2 the demo asks you to approve
+run stays on the four E2E gates. It asks for your reviewer name once, at the
+start, and decides every gate under it. Before Gate 2 the demo asks you to approve
 or reject each case (Gate 2 reviews the scope as decided); rejecting one stops
 the demo, since the replayed spec and tests cover both. The four gates stay
 **interactive** — experiencing them is the entire point — and the demo
