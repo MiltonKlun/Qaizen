@@ -29,9 +29,9 @@
 //   node scripts/sync-testlink-execution.js <story-id>                          # dry-run
 //   node scripts/sync-testlink-execution.js <story-id> --apply-testlink-execution
 //
-// Env (from .env or process.env): TEST_MANAGEMENT_TOOL (testlink | both),
-//   TESTLINK_URL, TESTLINK_API_KEY, TESTLINK_TEST_PLAN_ID (required to apply),
-//   QAIZEN_HTTP_TIMEOUT_MS (default 30000).
+// Env (from the repository's .env or process.env): TEST_MANAGEMENT_TOOL
+//   (testlink | both), TESTLINK_URL, TESTLINK_API_KEY, TESTLINK_TEST_PLAN_ID
+//   (required to apply), QAIZEN_HTTP_TIMEOUT_MS (default 30000).
 //
 // Exit codes: 0 ok · 1 sync/gate/evidence error · 2 usage/file/env/config error
 
@@ -59,14 +59,15 @@ import {
   planOperation,
   sanitizeDiagnostic,
   selectTestManagementTarget,
+  repoFile,
 } from './lib/integration-io.js';
 import { loadDotEnv, parseCli, validateStoryId } from './lib/cli.js';
 
 /** @typedef {import('./lib/execution-ledger.js').TestCase} TestCase */
 
 const TARGET = 'testlink';
-const CASES_SCHEMA = 'schemas/test-cases.schema.json';
-const ANALYSIS_SCHEMA = 'schemas/failure-analysis.schema.json';
+const CASES_SCHEMA = repoFile('schemas/test-cases.schema.json');
+const ANALYSIS_SCHEMA = repoFile('schemas/failure-analysis.schema.json');
 const LEDGER_PATH = 'analysis/execution-ledger.json';
 const ANALYSIS_PATH = 'analysis/failure-analysis.json';
 const TESTLINK_ID = /^[1-9][0-9]*$/;
@@ -158,7 +159,7 @@ function loadStatusMap(map) {
 }
 
 async function main() {
-  loadDotEnv(env);
+  loadDotEnv(env, repoFile('.env'));
 
   const cli = parseCli(argv.slice(2), {
     usage:
@@ -184,7 +185,7 @@ async function main() {
   }
 
   const casesPath = `test-cases/${storyId}.json`;
-  const mapPath = 'config/testlink-status-map.json';
+  const mapPath = repoFile('config/testlink-status-map.json');
   for (const [label, p] of [
     ['test-cases', casesPath],
     ['status map', mapPath],

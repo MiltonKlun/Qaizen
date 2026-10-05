@@ -139,6 +139,12 @@ the first is running. If a sync was killed and left its lock behind:
   story and run, and that the scope approval (Gate 2, or `qa_scope_approved`
   on the lite track) is current. Bug drafts must also name the active story
   and an approved test case.
+- A script syncs the run in its working directory: its `context.json`,
+  test cases and bug drafts. Run it at the repository root for the active
+  run, or inside a run folder such as `runs/DEMO-1/<run-id>/`. The schemas,
+  the `config/` maps and `.env` always come from the repository, so a run
+  folder needs no copies of them. A variable already set in the environment
+  wins over `.env`.
 
 ## 7. Live acceptance status
 

@@ -31,11 +31,19 @@ import {
   writeSync,
 } from 'node:fs';
 import { hostname } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { canonicalJson, requireCurrentGate } from './approval-binding.js';
 import { redactText } from './report-sanitization.js';
 import { gatePassed } from '../pipeline-state.js';
+
+// Schemas and config/ maps belong to the repository, not to a run: an
+// adapter finds them next to its own code, so it can sync any run from that
+// run's directory (the run's context.json and test cases are read from cwd).
+const REPO_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+/** @param {string} rel a repository path such as `config/x.json` */
+export const repoFile = (rel) => join(REPO_DIR, rel);
 
 const sha256 = (/** @type {string} */ s) =>
   createHash('sha256').update(s).digest('hex');

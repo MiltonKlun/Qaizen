@@ -1418,3 +1418,78 @@ test('dry-run and apply select identical operations from the same inputs', async
     }
   }
 });
+
+test('an adapter syncs a run from the run folder: schemas, config and .env come from the repository', async () => {
+  const dir = workspace();
+  try {
+    // The repository parts (scripts, schemas, config, .env) stay at the top;
+    // the run lives in a run folder that has none of them.
+    const runDir = join(dir, 'runs', STORY, 'run-1');
+    mkdirSync(runDir, { recursive: true });
+    renameSync(join(dir, 'context.json'), join(runDir, 'context.json'));
+    renameSync(join(dir, 'test-cases'), join(runDir, 'test-cases'));
+    writeDraft(runDir);
+    const requests = [];
+    await withServer(
+      (req, res) => {
+        requests.push(req.url);
+        res.end();
+      },
+      async (url) => {
+        writeFileSync(
+          join(dir, '.env'),
+          [
+            'TEST_MANAGEMENT_TOOL=both',
+            `JIRA_URL=${url}`,
+            'JIRA_USERNAME=qa@example.com',
+            `JIRA_API_TOKEN=${TOKEN}`,
+            'JIRA_PROJECT_KEY=SK',
+            `TESTLINK_URL=${url}/xmlrpc.php`,
+            `TESTLINK_API_KEY=${DEVKEY}`,
+            'TESTLINK_PROJECT_KEY=SK',
+            'TESTLINK_TEST_PLAN_ID=7',
+            '',
+          ].join('\n')
+        );
+        // Only the repository's .env supplies the settings.
+        const env = { ...process.env };
+        for (const k of Object.keys(env)) {
+          if (/^(TEST_MANAGEMENT_TOOL|JIRA_|TESTLINK_)/.test(k)) delete env[k];
+        }
+        const dry = (script, args) => {
+          const r = spawnSync(
+            execPath,
+            [join(dir, 'scripts', script), ...args],
+            { cwd: runDir, encoding: 'utf8', env }
+          );
+          return { status: r.status, out: r.stdout + r.stderr };
+        };
+
+        const jira = dry('create-jira-testcases.js', [STORY]);
+        assert.equal(jira.status, 0, jira.out);
+        assert.match(jira.out, /Project: SK/);
+        assert.match(jira.out, /Create 3 [^]*DRY RUN/);
+
+        const tl = dry('sync-to-testlink.js', [STORY]);
+        assert.equal(tl.status, 0, tl.out);
+        assert.match(tl.out, /Test plan id: 7/);
+        assert.match(tl.out, /Create 3 [^]*DRY RUN/);
+
+        const bugs = dry('create-jira-bugs.js', []);
+        assert.equal(bugs.status, 0, bugs.out);
+        assert.match(bugs.out, /BUG-001/);
+
+        // Past its schema and status-map reads, it stops at the run's own
+        // evidence (this run has no Gate 4), not at a missing file.
+        const exec = dry('sync-testlink-execution.js', [STORY]);
+        assert.equal(exec.status, 1, exec.out);
+        assert.match(exec.out, /Refusing to sync execution results/);
+      }
+    );
+    assert.deepEqual(requests, [], 'a dry run sends nothing');
+    assert.equal(existsSync(join(runDir, 'schemas')), false);
+    assert.equal(existsSync(join(runDir, 'config')), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

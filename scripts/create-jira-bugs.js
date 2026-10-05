@@ -31,7 +31,7 @@
 //   node scripts/create-jira-bugs.js --dir <path>       # override drafts dir
 //   ... --release-stale-lock   # take over the lock of a sync that is no longer running
 //
-// Env (loaded from .env if present, else process.env):
+// Env (loaded from the repository's .env if present, else process.env):
 //   JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN  — same as the read MCP
 //   JIRA_PROJECT_KEY                          — target project (e.g. SK)
 //   JIRA_BUG_ISSUETYPE                        — default "Bug"
@@ -72,11 +72,12 @@ import {
   operationMarker,
   payloadDigest,
   planOperation,
+  repoFile,
 } from './lib/integration-io.js';
 import { loadDotEnv, parseCli, parseResolutions } from './lib/cli.js';
 
 const TARGET = 'jira';
-const SCHEMA = 'schemas/test-cases.schema.json';
+const SCHEMA = repoFile('schemas/test-cases.schema.json');
 const SYNC_FRAGMENT = '#/definitions/syncState';
 
 const REQUIRED_SECTIONS = [
@@ -178,7 +179,7 @@ const isPlaceholder = (/** @type {string | undefined} */ s) =>
   !s || /^\[.*\]$/.test(s);
 
 async function main() {
-  loadDotEnv(env);
+  loadDotEnv(env, repoFile('.env'));
 
   const USAGE =
     'Usage: node scripts/create-jira-bugs.js [--apply | --reconcile | --resolve BUG-ID=KEY|none] [--dir <path>] [--release-stale-lock]';
@@ -213,7 +214,7 @@ async function main() {
   const draftsDir =
     /** @type {string | undefined} */ (cli.values.dir) ?? 'release/bug-drafts';
 
-  const mapPath = 'config/jira-priority-map.json';
+  const mapPath = repoFile('config/jira-priority-map.json');
   for (const [label, p] of [
     ['priority map', mapPath],
     ['context.json', 'context.json'],
