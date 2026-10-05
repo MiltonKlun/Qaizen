@@ -32,9 +32,10 @@
 //   node scripts/create-jira-testcases.js <story-id> --resolve TC-001=none
 //   ... --release-stale-lock   # take over the lock of a sync that is no longer running
 //
-// Env (.env or process.env): TEST_MANAGEMENT_TOOL, JIRA_URL, JIRA_USERNAME,
-//   JIRA_API_TOKEN, JIRA_PROJECT_KEY, JIRA_TESTCASE_ISSUETYPE (default Test),
-//   QAIZEN_HTTP_TIMEOUT_MS (default 30000).
+// Env (the repository's .env or process.env): TEST_MANAGEMENT_TOOL,
+//   JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN, JIRA_PROJECT_KEY,
+//   JIRA_TESTCASE_ISSUETYPE (default Test), QAIZEN_HTTP_TIMEOUT_MS (default
+//   30000).
 //
 // Exit codes: 0 ok · 1 sync/gate/recovery error · 2 usage/file/env/selection error
 
@@ -66,6 +67,7 @@ import {
   planOperation,
   sourceDigest,
   selectTestManagementTarget,
+  repoFile,
 } from './lib/integration-io.js';
 import {
   loadDotEnv,
@@ -75,10 +77,10 @@ import {
 } from './lib/cli.js';
 
 const TARGET = 'jira';
-const SCHEMA = 'schemas/test-cases.schema.json';
+const SCHEMA = repoFile('schemas/test-cases.schema.json');
 
 async function main() {
-  loadDotEnv(env);
+  loadDotEnv(env, repoFile('.env'));
 
   const USAGE =
     'Usage: node scripts/create-jira-testcases.js <story-id> [--apply [--limit N] | --reconcile | --resolve TC-ID=KEY|none] [--release-stale-lock]\n' +
@@ -124,7 +126,7 @@ async function main() {
   }
 
   const casesPath = `test-cases/${storyId}.json`;
-  const mapPath = 'config/jira-testcase-map.json';
+  const mapPath = repoFile('config/jira-testcase-map.json');
   for (const [label, p] of [
     ['test-cases', casesPath],
     ['field map', mapPath],

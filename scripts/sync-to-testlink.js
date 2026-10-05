@@ -29,7 +29,7 @@
 //   node scripts/sync-to-testlink.js <story-id> --resolve TC-001=none
 //   ... --release-stale-lock   # take over the lock of a sync that is no longer running
 //
-// Env (loaded from .env if present, else process.env):
+// Env (loaded from the repository's .env if present, else process.env):
 //   TEST_MANAGEMENT_TOOL — must select testlink (testlink | both)
 //   TESTLINK_URL  — full XML-RPC endpoint, e.g.
 //                   http://host.docker.internal:8080/testlink/lib/api/xmlrpc/v1/xmlrpc.php
@@ -65,6 +65,7 @@ import {
   sourceDigest,
   sanitizeDiagnostic,
   selectTestManagementTarget,
+  repoFile,
 } from './lib/integration-io.js';
 import {
   loadDotEnv,
@@ -74,7 +75,7 @@ import {
 } from './lib/cli.js';
 
 const TARGET = 'testlink';
-const SCHEMA = 'schemas/test-cases.schema.json';
+const SCHEMA = repoFile('schemas/test-cases.schema.json');
 const TESTLINK_ID = /^[1-9][0-9]*$/;
 
 // ------------------------------------------------------------ XML-RPC
@@ -188,7 +189,7 @@ function allValues(xml, field) {
 }
 
 async function main() {
-  loadDotEnv(env);
+  loadDotEnv(env, repoFile('.env'));
 
   const USAGE =
     'Usage: node scripts/sync-to-testlink.js <story-id> [--apply-testlink | --reconcile | --resolve TC-ID=ID|none] [--release-stale-lock]\n' +
@@ -230,7 +231,7 @@ async function main() {
   }
 
   const casesPath = `test-cases/${storyId}.json`;
-  const mapPath = 'config/testlink-field-map.json';
+  const mapPath = repoFile('config/testlink-field-map.json');
   for (const [label, p] of [
     ['test-cases', casesPath],
     ['field map', mapPath],
