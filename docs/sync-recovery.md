@@ -153,7 +153,8 @@ The adapters are tested against local fake services
 create, failure, ambiguous outcome, reconciliation and lock path above. That
 proves the recovery logic; it does not prove a given Jira or TestLink instance
 accepts the requests. Live acceptance is a human step, run with real
-credentials and `--apply`, and is recorded here.
+credentials and `--apply`, and is recorded here. `docs/live-acceptance.md`
+has the steps and what each should show.
 
 | Path                                                   | Status                                                                                                                                                                             |
 | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
