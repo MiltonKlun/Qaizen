@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "run_id": "DEMO-RUN",
   "story_id": "DEMO-1",
   "report_date": "2026-06-10T12:30:00Z",
@@ -26,7 +26,16 @@
     "passed": 1,
     "failed": 1,
     "skipped": 0,
-    "pass_rate": 0.5
+    "pass_rate": 0.5,
+    "outcome_breakdown": {
+      "passed": 1,
+      "failed": 1,
+      "flaky": 0,
+      "skipped": 0,
+      "blocked": 0,
+      "not_run": 0,
+      "expected_failure": 0
+    }
   },
   "uncovered_risks": ["RISK-003"],
   "uncovered_high_severity_count": 0,
@@ -43,7 +52,7 @@
   ],
   "evidence_paths": [
     "reports/results.json",
-    "reports/html",
+    "analysis/execution-ledger.json",
     "analysis/failure-analysis.json"
   ],
   "open_questions": [

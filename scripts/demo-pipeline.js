@@ -6,44 +6,47 @@
 // 10 minutes, FULLY OFFLINE (no Jira, no MCPs, no network), deterministic —
 // the demo:healer pattern extended to the whole loop. Nothing is GENERATED
 // (so CLAUDE.md §3.8 is not violated): every agent-stage artifact is a
-// prefilled fixture from examples/demo-run/ being replayed. Only the
-// execute + classify stages are real (Playwright actually runs against a
-// local static app; the rule-based classifier actually classifies).
+// prefilled fixture from examples/demo-run/ being replayed
+// (scripts/lib/demo-stages.js). Only the execute + classify stages are real
+// (Playwright actually runs against a local static app; the rule-based
+// pre-classifier actually classifies).
 //
 // What it does:
 //   1. Creates an isolated workspace runs/DEMO-1/<run-id>/ with a DEMO
 //      sentinel file (so metrics never counts it — IP-3.3).
 //   2. Serves examples/demo-run/app/ with node:http on an ephemeral port.
 //   3. Drives the REAL runner (scripts/run-pipeline.js) inside the
-//      workspace: before each agent (guide) step it copies the next fixture
-//      in; gates stay INTERACTIVE (experiencing the gates is the point);
+//      workspace: before each agent (guide) step it replays that agent's
+//      output; before Gate 2 it asks you to approve or reject each test
+//      case; gates stay INTERACTIVE (experiencing the gates is the point);
 //      execute runs Playwright with the demo-only config; classify runs the
-//      real classifier. The planted bug (wrong error copy) yields a real
-//      FAIL -> product_bug -> BUG-001 draft -> release report.
+//      real pre-classifier. The planted bug (wrong error copy) yields a real
+//      FAIL -> product_bug -> BUG-001 draft -> release report 2.0.
 //
 // Usage:
 //   npm run demo:pipeline                # full interactive demo
 //   npm run demo:pipeline -- --dry-run   # list the stages; touch no network
 //
-// Exit codes: 0 ok / dry-run · 1 a gate was rejected or the runner stopped
-//   unexpectedly · 2 setup error
+// Exit codes: 0 ok / dry-run · 1 a gate or case was rejected, or the runner
+//   stopped · 2 setup error
+
+import { writeFileSync, existsSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { createInterface } from 'node:readline/promises';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { argv, exit, stdin, stdout } from 'node:process';
 
 import {
-  readFileSync,
-  writeFileSync,
-  existsSync,
-  mkdirSync,
-  cpSync,
-  rmSync,
-} from 'node:fs';
-import { spawn, spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { dirname, join, relative, sep } from 'node:path';
-import { argv, exit } from 'node:process';
+  DEMO_FIXTURES as FIXTURES,
+  draftCases,
+  recordCaseDecisions,
+  replayStage,
+  startWorkspace,
+} from './lib/demo-stages.js';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO = dirname(SCRIPT_DIR);
-const FIXTURES = join(REPO, 'examples', 'demo-run');
 const RUNNER = join(SCRIPT_DIR, 'run-pipeline.js');
 const SERVE = join(FIXTURES, 'serve.js');
 const PW_CONFIG = join(FIXTURES, 'playwright.demo.config.ts');
@@ -52,9 +55,7 @@ const DRY = argv.includes('--dry-run');
 // The DEMO sentinel filename — metrics skips any run folder containing it.
 export const DEMO_SENTINEL = 'DEMO_RUN';
 
-// The stage plan. `copy` = fixture(s) to drop into the workspace BEFORE the
-// runner advances to the matching step; the runner then stops at the next
-// gate (interactive) or completes exec steps itself.
+// The stage plan, in the order the runner reaches it.
 const STAGES = [
   { step: 'analyst', label: 'Analyst → context.json (replayed fixture)' },
   { step: 'gate1', label: 'GATE 1 — Requirement Interpretation (you decide)' },
@@ -62,7 +63,10 @@ const STAGES = [
     step: 'test-designer',
     label: 'Test Designer → test-cases + planner brief',
   },
-  { step: 'gate2', label: 'GATE 2 — Test Scope Approval (you decide)' },
+  {
+    step: 'gate2',
+    label: 'GATE 2 — Test Scope Approval (you decide each case, then the gate)',
+  },
   { step: 'planner', label: 'Planner → spec (replayed fixture)' },
   { step: 'gate3', label: 'GATE 3 — Specs Review (you decide)' },
   { step: 'generator', label: 'Generator → tests (replayed fixtures)' },
@@ -74,8 +78,18 @@ const STAGES = [
     step: 'execute',
     label: 'Execute → npx playwright test (REAL, demo config)',
   },
-  { step: 'classify', label: 'Classify → rule-based classifier (REAL)' },
-  { step: 'report', label: 'Reporter → release report (replayed fixture)' },
+  {
+    step: 'classify',
+    label: 'Classify → ledger + rule-based pre-classifier (REAL)',
+  },
+  {
+    step: 'finalize',
+    label: 'Failure Classifier → finalized analysis + BUG-001 (replayed)',
+  },
+  {
+    step: 'report',
+    label: 'Reporter → release report 2.0, counts from the ledger',
+  },
   { step: 'done', label: 'Done → release report + BUG-001 draft' },
 ];
 
@@ -83,10 +97,14 @@ function printPlan() {
   console.log('Demo pipeline — stage plan (offline, deterministic):\n');
   for (const s of STAGES) console.log(`  ${s.step.padEnd(14)} ${s.label}`);
   console.log(
-    '\nReplayed (fixtures): analyst, test-designer, planner, generator, report.'
+    '\nReplayed (fixtures): analyst, test-designer, planner, generator, finalize, report.'
   );
-  console.log('Real: execute (Playwright), classify (rule-based classifier).');
-  console.log('Interactive: the four gates — that is the point of the demo.');
+  console.log(
+    'Real: execute (Playwright), classify (ledger + pre-classifier).'
+  );
+  console.log(
+    'Interactive: the case decisions and the four gates — that is the point of the demo.'
+  );
 }
 
 if (DRY) {
@@ -102,16 +120,23 @@ if (!existsSync(FIXTURES)) {
   console.error(`Missing demo fixtures at ${FIXTURES}.`);
   exit(2);
 }
+// The decisions are the human's: the demo has no other way to make them.
+if (!stdin.isTTY) {
+  console.error(
+    'The demo is interactive: run `npm run demo:pipeline` in a terminal (stdin is not a TTY).'
+  );
+  exit(2);
+}
 
 // ---- 1. isolated workspace + DEMO sentinel ------------------------------
 const runId = new Date().toISOString().replace(/[:.]/g, '-');
 const WORKSPACE = join(REPO, 'runs', 'DEMO-1', runId);
-mkdirSync(WORKSPACE, { recursive: true });
+const dirs = { fixtures: FIXTURES, workspace: WORKSPACE };
+startWorkspace(dirs);
 writeFileSync(
   join(WORKSPACE, DEMO_SENTINEL),
   'This is a DEMO run (scripts/demo-pipeline.js). Metrics ignore it.\n'
 );
-cpSync(join(FIXTURES, 'story.md'), join(WORKSPACE, 'story.md'));
 
 // ---- 2. serve the static app in a SEPARATE process ----------------------
 // The driver advances the runner with spawnSync (synchronous, blocks this
@@ -155,72 +180,22 @@ console.log(
 );
 
 // ---- 3. drive the real runner stage by stage ----------------------------
-// Fixtures to copy into the workspace before a given step is reached, plus
-// the artifact_paths the prefilled context must point at after the copy.
-/** @type {Record<string, () => void>} */
-const FIXTURE_COPIES = {
-  'test-designer': () => {
-    cpDir('test-cases');
-    cpDir('planner-input');
-    setPaths({
-      test_cases: 'test-cases/DEMO-1.json',
-      planner_brief: 'planner-input/DEMO-1.planner-brief.md',
-    });
-  },
-  planner: () => {
-    cpDir('specs');
-    setPaths({ playwright_spec: 'specs/DEMO-1.md' });
-  },
-  generator: () => {
-    // The demo specs + config are referenced IN PLACE from examples/demo-run/
-    // (never copied into the workspace tests/ — that folder is the Generator's
-    // at the repo root, CLAUDE.md §3.2). We point artifact_paths at the
-    // fixtures so the Gate-4 brief shows the file the human reviews.
-    setPaths({
-      generated_test: relFixture('tests/demo-broken.spec.ts'),
-    });
-  },
-  report: () => {
-    cpDir('release');
-    setPaths({
-      release_report_json: 'release/release-report.json',
-      release_report_md: 'release/release-report.json',
-      bug_drafts_dir: 'release/bug-drafts',
-    });
-  },
+const ENV = {
+  ...process.env,
+  BASE_URL: baseURL,
+  PIPELINE_PW_CONFIG: PW_CONFIG,
 };
 
-/** @param {string} name */
-function cpDir(name) {
-  cpSync(join(FIXTURES, name), join(WORKSPACE, name), { recursive: true });
-}
-/** @param {string} name */
-function cpFile(name) {
-  cpSync(join(FIXTURES, name), join(WORKSPACE, name));
-}
-// Path to a fixture file expressed RELATIVE to the workspace, so the gate
-// brief (which checks existsSync from cwd=WORKSPACE) resolves it. Forward
-// slashes for cross-platform context.json convention.
-/** @param {string} name */
-function relFixture(name) {
-  return relative(WORKSPACE, join(FIXTURES, name)).split(sep).join('/');
-}
-/** @param {Record<string, string>} patch */
-function setPaths(patch) {
-  const p = join(WORKSPACE, 'context.json');
-  const ctx = JSON.parse(readFileSync(p, 'utf8'));
-  Object.assign(ctx.artifact_paths, patch);
-  writeFileSync(p, JSON.stringify(ctx, null, 2) + '\n');
-}
-
+/** @returns {{ step: string | null, text: string }} */
 function runnerStatus() {
   const r = spawnSync(process.execPath, [RUNNER, '--status'], {
     cwd: WORKSPACE,
     encoding: 'utf8',
-    env: { ...process.env, BASE_URL: baseURL },
+    env: ENV,
   });
-  const m = (r.stdout || '').match(/Next step:\s*(\S+)/);
-  return m ? m[1] : null;
+  const text = r.stdout || '';
+  const m = text.match(/Next step:\s*(\S+)/);
+  return { step: m ? m[1] : null, text };
 }
 
 function advanceRunner() {
@@ -228,31 +203,62 @@ function advanceRunner() {
   const r = spawnSync(process.execPath, [RUNNER, '--resume'], {
     cwd: WORKSPACE,
     stdio: 'inherit',
-    env: {
-      ...process.env,
-      BASE_URL: baseURL,
-      PIPELINE_PW_CONFIG: PW_CONFIG,
-    },
+    env: ENV,
   });
   return r.status;
 }
 
-try {
-  // Stage 0: replay the analyst output (context.json) into the workspace.
-  cpFile('context.after-analyst.json');
-  cpSync(
-    join(WORKSPACE, 'context.after-analyst.json'),
-    join(WORKSPACE, 'context.json')
-  );
-  rmSync(join(WORKSPACE, 'context.after-analyst.json'));
+/** @param {string} why */
+function stop(why) {
+  console.log(`\n${why}`);
+  console.log(`Workspace kept at runs/DEMO-1/${runId}/ for inspection.`);
+  cleanup();
+  exit(1);
+}
 
-  let guard = 0;
-  for (;;) {
-    if (guard++ > 50) {
+/**
+ * Ask the human to approve or reject each draft case: Gate 2 reviews the
+ * scope as decided, so the decisions come first.
+ * @returns {Promise<boolean>} whether every case was approved
+ */
+async function decideCases() {
+  const cases = draftCases(WORKSPACE);
+  if (!cases.length) return true;
+  console.log(
+    '\nBefore Gate 2, decide each test case (the gate reviews the scope you decide).'
+  );
+  const rl = createInterface({ input: stdin, output: stdout });
+  /** @type {Record<string, 'approved' | 'rejected'>} */
+  const decisions = {};
+  try {
+    for (const c of cases) {
+      console.log(
+        `\n  ${c.test_case_id}  ${c.title}\n    ${c.automation_decision}, ${c.priority}, covers ${c.risk_ids.join(', ')}`
+      );
+      let answer = '';
+      while (!['a', 'r'].includes(answer)) {
+        answer = (await rl.question('  Approve or reject? [a/r] '))
+          .trim()
+          .toLowerCase();
+      }
+      decisions[c.test_case_id] = answer === 'a' ? 'approved' : 'rejected';
+    }
+  } finally {
+    rl.close();
+    stdin.pause();
+  }
+  recordCaseDecisions(WORKSPACE, decisions);
+  return Object.values(decisions).every((d) => d === 'approved');
+}
+
+try {
+  let previous = '';
+  for (let guard = 0; ; guard++) {
+    if (guard > 50) {
       console.error('Demo did not converge (too many steps) — aborting.');
       exit(2);
     }
-    const step = runnerStatus();
+    const { step, text } = runnerStatus();
     if (!step) {
       console.error('Could not read runner status — aborting.');
       exit(2);
@@ -262,29 +268,54 @@ try {
       advanceRunner();
       break;
     }
-    // Before a guide step that needs fixtures, copy them in.
-    if (FIXTURE_COPIES[step]) FIXTURE_COPIES[step]();
+    // A step the runner still asks for after its replay and a resume would
+    // only repeat: say why and stop instead of looping.
+    if (step === previous) {
+      stop(
+        `The runner is still at "${step}" after the replay. Its status:\n${text}`
+      );
+    }
+    previous = step;
+
+    try {
+      replayStage(step, dirs);
+    } catch (e) {
+      stop(`The ${step} replay stopped: ${/** @type {Error} */ (e).message}`);
+    }
+    // The runner goes from the Test Designer straight to Gate 2, which
+    // reviews the scope as decided: the case decisions come first.
+    if (!(await decideCases())) {
+      stop(
+        'A test case was rejected. The replayed spec and tests cover both cases, so the demo stops here (as it should).'
+      );
+    }
 
     const code = advanceRunner();
-    // A guide step exits 0 after printing its instruction; a rejected gate
-    // exits 1. In the demo the fixtures satisfy each guide step, so a non-zero
-    // here means a gate was rejected (legitimate — the human said no).
-    if (code === 1 && isGate(step)) {
-      console.log(
-        '\nA gate was rejected — the demo stops here (as it should).'
+    // A guide step exits 0 after printing its instruction. A gate can open
+    // inside any call (the runner moves on from a step to the next gate), so
+    // exit 1 is a gate that was rejected, quit or blocked, whatever `step`
+    // was; exit 2 is a gate or step whose inputs are not ready.
+    if (code === 1) {
+      stop(
+        'The runner stopped at a gate — the demo stops here (as it should).'
       );
-      console.log(`Workspace kept at runs/DEMO-1/${runId}/ for inspection.`);
-      cleanup();
-      exit(1);
+    }
+    if (code === 2) {
+      stop('The runner stopped (see its message above).');
     }
   }
 
   console.log('\n' + '='.repeat(72));
   console.log('Demo complete. What just happened, end to end:');
-  console.log('  - Four human gates, each recorded with opened_at/decided_at.');
+  console.log(
+    '  - Your case decisions, then four human gates, each recorded with'
+  );
+  console.log('    opened_at/decided_at and bound to what you reviewed.');
   console.log('  - A REAL Playwright run against the local app.');
   console.log('  - The planted AC-2 bug became FAIL-001 -> product_bug (red)');
-  console.log('    -> release/bug-drafts/BUG-001.md -> release report (fail).');
+  console.log(
+    '    -> release/bug-drafts/BUG-001.md -> release report 2.0 (fail).'
+  );
   console.log(
     `  - Full traceability DEMO-1 -> RISK -> TC -> SPEC -> PW -> FAIL -> BUG.`
   );
@@ -295,9 +326,4 @@ try {
   console.log('='.repeat(72));
 } finally {
   cleanup();
-}
-
-/** @param {string} step */
-function isGate(step) {
-  return ['gate1', 'gate2', 'gate3', 'gate4'].includes(step);
 }

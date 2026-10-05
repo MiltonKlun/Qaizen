@@ -25,7 +25,6 @@ attributes: `username`, `password`, `login-button`, `error`, `title`,
 
 ## Out of scope for the Planner
 
-- **TC-003** is `manual` (visual judgment) — do not automate it.
 - **Logout / AC-3 (RISK-003)** has no approved test case in this run — do
   not explore it. The release report surfaces it as an uncovered risk; that
   is a deliberate demonstration of coverage-gap reporting.

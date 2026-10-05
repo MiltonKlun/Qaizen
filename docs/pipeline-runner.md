@@ -328,21 +328,36 @@ What it does:
   the runner with synchronous `spawnSync`, which would block an in-process
   server while Playwright runs).
 - Replays prefilled fixtures from `examples/demo-run/` for the agent stages
-  (analyst, test-designer, planner, generator, reporter) — **nothing is
-  generated**, so the "don't write tests from text alone" rule (`CLAUDE.md`
-  §3.8) is not in play; the demo specs were authored against the real app.
+  (analyst, test-designer, planner, generator, the Failure Classifier's
+  finalizing step, reporter) through `scripts/lib/demo-stages.js` —
+  **nothing is generated**, so the "don't write tests from text alone" rule
+  (`CLAUDE.md` §3.8) is not in play; the demo specs were authored against
+  the real app.
 - Runs the **real** execute + classify stages: Playwright actually runs (via
   the in-place `examples/demo-run/playwright.demo.config.ts`, whose `testDir`
   is pinned to the fixtures so demo specs never enter the repo-root `tests/`
-  owned by the Generator), and the rule-based classifier actually classifies.
+  owned by the Generator), the run is normalized into an execution ledger,
+  and the rule-based pre-classifier writes its draft analysis.
 - The demo app has a **planted bug** against AC-2 (it shows "Wrong password!"
   instead of the agreed "Invalid credentials"). The honest test asserts the
   agreed copy, fails, and becomes `FAIL-001 → product_bug (red) → BUG-001
-draft → a "fail" release report` — the full traceability chain, lived.
+draft → a "fail" release report` — the full traceability chain, lived. The
+  finalizing replay checks that the draft holds exactly that one Red failure
+  before it attaches BUG-001; the release report is 2.0, with its counts
+  derived from the run's ledger.
 
-The four gates stay **interactive** — experiencing them is the entire point.
-A rejected gate stops the demo (correctly), leaving the workspace for
-inspection.
+The demo's two test cases (TC-001, TC-002) are both `automate_e2e`, so the
+run stays on the four E2E gates. Before Gate 2 the demo asks you to approve
+or reject each case (Gate 2 reviews the scope as decided); rejecting one stops
+the demo, since the replayed spec and tests cover both. The four gates stay
+**interactive** — experiencing them is the entire point — and the demo
+refuses to start without a terminal. A rejected or quit gate stops the demo
+(correctly), leaving the workspace for inspection.
+
+`test/demo-pipeline.test.js` drives the same replays through the real runner,
+Playwright run and classifier to completion, recording the decisions
+test-style in a throwaway workspace, so a contract change that breaks the
+demo fails CI.
 
 > **Why Playwright runs with `cwd` = repo root.** Playwright resolves
 > `@playwright/test` from its working directory upward, so it must run where

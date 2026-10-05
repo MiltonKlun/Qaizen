@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
  * the demo app works. Runs against the local server the demo driver starts
  * (baseURL from the demo Playwright config).
  */
-test('valid login shows the inventory with products [TC-001]', async ({
+test('valid login shows the inventory with products [TC-001] [PW-001] [SPEC-001]', async ({
   page,
 }) => {
   await page.goto('/');
