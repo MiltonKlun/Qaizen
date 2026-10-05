@@ -35,12 +35,13 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { argv, exit, stdin, stdout } from 'node:process';
+import { argv, env, exit, stderr, stdin } from 'node:process';
 
 import {
   DEMO_FIXTURES as FIXTURES,
   draftCases,
   recordCaseDecisions,
+  REPLAYED_STEPS,
   replayStage,
   startWorkspace,
 } from './lib/demo-stages.js';
@@ -54,6 +55,25 @@ const DRY = argv.includes('--dry-run');
 
 // The DEMO sentinel filename — metrics skips any run folder containing it.
 export const DEMO_SENTINEL = 'DEMO_RUN';
+
+// The agent whose output each replayed step stands in for.
+/** @type {Record<string, string>} */
+const REPLAYED_AGENT = {
+  'test-designer': 'Test Designer',
+  planner: 'Playwright Planner',
+  generator: 'Playwright Generator',
+  finalize: 'Failure Classifier',
+  report: 'Reporter',
+};
+
+// Prompt mode. The demo's own questions run in a short-lived child process
+// that owns the terminal and exits, as each runner call does for its gate,
+// so no typed input is left buffered here for the next runner call to read.
+// The answer goes to stdout as JSON; the questions go to stderr.
+if (argv[2] === '--ask') {
+  process.stdout.write(JSON.stringify(await ask(argv[3], argv[4] ?? '')));
+  exit(0);
+}
 
 // The stage plan, in the order the runner reaches it.
 const STAGES = [
@@ -128,6 +148,14 @@ if (!stdin.isTTY) {
   exit(2);
 }
 
+// The reviewer is named once for the whole session, not at every gate.
+const named =
+  (env.QAIZEN_REVIEWER || '').trim() ||
+  (
+    spawnSync('git', ['config', 'user.name'], { encoding: 'utf8' }).stdout || ''
+  ).trim();
+const REVIEWER = askHuman('reviewer', named)?.reviewer || named;
+
 // ---- 1. isolated workspace + DEMO sentinel ------------------------------
 const runId = new Date().toISOString().replace(/[:.]/g, '-');
 const WORKSPACE = join(REPO, 'runs', 'DEMO-1', runId);
@@ -180,10 +208,12 @@ console.log(
 );
 
 // ---- 3. drive the real runner stage by stage ----------------------------
+// Every gate in this session is decided under one reviewer name.
 const ENV = {
   ...process.env,
   BASE_URL: baseURL,
   PIPELINE_PW_CONFIG: PW_CONFIG,
+  ...(REVIEWER ? { QAIZEN_REVIEWER: REVIEWER } : {}),
 };
 
 /** @returns {{ step: string | null, text: string }} */
@@ -217,36 +247,34 @@ function stop(why) {
 }
 
 /**
+ * Ask a question in a child process that owns the terminal (see --ask).
+ * @param {'reviewer' | 'cases'} kind
+ * @param {string} arg
+ * @returns {any} the parsed answer, or null when none was given
+ */
+function askHuman(kind, arg) {
+  const r = spawnSync(
+    process.execPath,
+    [fileURLToPath(import.meta.url), '--ask', kind, arg],
+    { stdio: ['inherit', 'pipe', 'inherit'], encoding: 'utf8' }
+  );
+  if (r.status !== 0) return null;
+  try {
+    return JSON.parse(r.stdout);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Ask the human to approve or reject each draft case: Gate 2 reviews the
  * scope as decided, so the decisions come first.
- * @returns {Promise<boolean>} whether every case was approved
+ * @returns {boolean} whether every case was approved
  */
-async function decideCases() {
-  const cases = draftCases(WORKSPACE);
-  if (!cases.length) return true;
-  console.log(
-    '\nBefore Gate 2, decide each test case (the gate reviews the scope you decide).'
-  );
-  const rl = createInterface({ input: stdin, output: stdout });
-  /** @type {Record<string, 'approved' | 'rejected'>} */
-  const decisions = {};
-  try {
-    for (const c of cases) {
-      console.log(
-        `\n  ${c.test_case_id}  ${c.title}\n    ${c.automation_decision}, ${c.priority}, covers ${c.risk_ids.join(', ')}`
-      );
-      let answer = '';
-      while (!['a', 'r'].includes(answer)) {
-        answer = (await rl.question('  Approve or reject? [a/r] '))
-          .trim()
-          .toLowerCase();
-      }
-      decisions[c.test_case_id] = answer === 'a' ? 'approved' : 'rejected';
-    }
-  } finally {
-    rl.close();
-    stdin.pause();
-  }
+function decideCases() {
+  if (!draftCases(WORKSPACE).length) return true;
+  const decisions = askHuman('cases', WORKSPACE);
+  if (!decisions) stop('No case decisions were recorded.');
   recordCaseDecisions(WORKSPACE, decisions);
   return Object.values(decisions).every((d) => d === 'approved');
 }
@@ -263,11 +291,8 @@ try {
       console.error('Could not read runner status — aborting.');
       exit(2);
     }
-    if (step === 'done') {
-      // One final --resume so the runner prints its completion message.
-      advanceRunner();
-      break;
-    }
+    // The runner printed its completion message when it finished the run.
+    if (step === 'done') break;
     // A step the runner still asks for after its replay and a resume would
     // only repeat: say why and stop instead of looping.
     if (step === previous) {
@@ -277,6 +302,11 @@ try {
     }
     previous = step;
 
+    if (REPLAYED_STEPS.includes(step)) {
+      console.log(
+        `\n[demo] Replaying the ${REPLAYED_AGENT[step]}'s output from examples/demo-run/ (nothing is generated).`
+      );
+    }
     try {
       replayStage(step, dirs);
     } catch (e) {
@@ -284,7 +314,7 @@ try {
     }
     // The runner goes from the Test Designer straight to Gate 2, which
     // reviews the scope as decided: the case decisions come first.
-    if (!(await decideCases())) {
+    if (!decideCases()) {
       stop(
         'A test case was rejected. The replayed spec and tests cover both cases, so the demo stops here (as it should).'
       );
@@ -326,4 +356,48 @@ try {
   console.log('='.repeat(72));
 } finally {
   cleanup();
+}
+
+/**
+ * The questions themselves, run in prompt mode.
+ * @param {string | undefined} kind
+ * @param {string} arg the default reviewer, or the workspace
+ */
+async function ask(kind, arg) {
+  const rl = createInterface({ input: stdin, crlfDelay: Infinity });
+  const lines = rl[Symbol.asyncIterator]();
+  // Reading lines rather than question() keeps answers typed (or piped)
+  // ahead of the prompt. No answer at all ends the prompt with no decision.
+  const answer = async (/** @type {string} */ prompt) => {
+    stderr.write(prompt);
+    const next = await lines.next();
+    if (next.done) exit(1);
+    return String(next.value).trim();
+  };
+  try {
+    if (kind === 'reviewer') {
+      const hint = arg ? ` (press Enter for "${arg}")` : '';
+      const name = await answer(`Reviewer for this demo session${hint}: `);
+      return { reviewer: name || arg };
+    }
+    const cases = draftCases(arg);
+    stderr.write(
+      '\nBefore Gate 2, decide each test case (the gate reviews the scope you decide).\n'
+    );
+    /** @type {Record<string, 'approved' | 'rejected'>} */
+    const decisions = {};
+    for (const c of cases) {
+      stderr.write(
+        `\n  ${c.test_case_id}  ${c.title}\n    ${c.automation_decision}, ${c.priority}, covers ${c.risk_ids.join(', ')}\n`
+      );
+      let choice = '';
+      while (!['a', 'r'].includes(choice)) {
+        choice = (await answer('  Approve or reject? [a/r] ')).toLowerCase();
+      }
+      decisions[c.test_case_id] = choice === 'a' ? 'approved' : 'rejected';
+    }
+    return decisions;
+  } finally {
+    rl.close();
+  }
 }

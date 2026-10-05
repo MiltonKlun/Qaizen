@@ -208,3 +208,36 @@ test('the demo completes: real run, finalized Red analysis, BUG-001, a 2.0 repor
   assert.equal(report.release_recommendation, 'fail');
   assert.ok(existsSync(join(ws, 'release', 'release-report.md')));
 });
+
+test('the demo asks its questions in a prompt process: the reviewer once, then each case', (t) => {
+  const dirs = workspace();
+  t.after(() => removeTempDir(dirs.workspace));
+  replayStage('test-designer', dirs);
+  const ask = (args, input) =>
+    spawnSync(
+      execPath,
+      [join(REPO, 'scripts', 'demo-pipeline.js'), '--ask', ...args],
+      {
+        input,
+        encoding: 'utf8',
+      }
+    );
+
+  const named = ask(['reviewer', 'Default Name'], '\n');
+  assert.deepEqual(JSON.parse(named.stdout), { reviewer: 'Default Name' });
+  const other = ask(['reviewer', 'Default Name'], 'Alex\n');
+  assert.deepEqual(JSON.parse(other.stdout), { reviewer: 'Alex' });
+
+  // An unclear answer is asked again; answers typed ahead are kept.
+  const cases = ask(['cases', dirs.workspace], 'x\na\nr\n');
+  assert.equal(cases.status, 0, cases.stderr);
+  assert.deepEqual(JSON.parse(cases.stdout), {
+    'TC-001': 'approved',
+    'TC-002': 'rejected',
+  });
+  // No answer at all records nothing.
+  const none = ask(['cases', dirs.workspace], '');
+  assert.equal(none.status, 1);
+  assert.equal(none.stdout, '');
+  assert.equal(draftCases(dirs.workspace).length, 2, 'nothing was written');
+});

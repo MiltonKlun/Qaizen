@@ -575,8 +575,20 @@ async function runGateInteractive(step, context) {
     }
   }
 
+  // Who is deciding is settled once per session, not asked at every gate.
+  let reviewer = sessionReviewer();
+  console.log(
+    reviewer
+      ? `Deciding as: ${reviewer}  (set QAIZEN_REVIEWER to change)`
+      : 'No reviewer name found (QAIZEN_REVIEWER or git user.name).'
+  );
+
   const rl = createInterface({ input: stdin, output: stdout });
   try {
+    if (!reviewer) {
+      reviewer =
+        (await rl.question('Reviewer name for this session: ')).trim() || null;
+    }
     let decision = '';
     while (decision === '') {
       const a = (
@@ -594,38 +606,11 @@ async function runGateInteractive(step, context) {
         decision = 'rejected';
     }
 
-    const gitName = spawnSync('git', ['config', 'user.name'], {
-      encoding: 'utf8',
-    });
-    const defaultReviewer = (gitName.stdout || '').trim();
-    const enterHint = defaultReviewer
-      ? ` (press Enter for "${defaultReviewer}")`
-      : '';
-    let reviewerAnswer = await rl.question(`Reviewer name${enterHint}: `);
-    // "Reviewer:" was once mistaken for a yes/no prompt (answered "y"), which
-    // put junk in the audit trail. If the answer looks like a yes/no, re-ask
-    // once for the actual name.
-    if (/^(y|n|yes|no)$/i.test(reviewerAnswer.trim())) {
-      reviewerAnswer = await rl.question(
-        `That looks like a yes/no — please type the reviewer's NAME` +
-          `${defaultReviewer ? ` (Enter = ${defaultReviewer})` : ''}: `
-      );
-    }
-    const reviewer = reviewerAnswer.trim() || defaultReviewer || null;
-
-    let notes = (
-      await rl.question(
-        decision === 'rejected'
-          ? 'Notes (REQUIRED for a rejection — what must change): '
-          : 'Notes (optional): '
-      )
-    ).trim();
+    // An approval asks nothing more. A rejection needs its reason: it is
+    // what the step being redone has to change.
+    let notes = '';
     if (decision === 'rejected') {
-      while (!notes) {
-        notes = (
-          await rl.question('A rejection needs a reason — what must change: ')
-        ).trim();
-      }
+      while (!notes) notes = (await rl.question('What must change? ')).trim();
     }
 
     const bindings = Object.fromEntries(
@@ -662,6 +647,19 @@ async function runGateInteractive(step, context) {
   } finally {
     rl.close();
   }
+}
+
+/**
+ * The reviewer for this session: QAIZEN_REVIEWER, else the git user name.
+ * A name only: it never decides a gate, and like the rest of the record it
+ * is not authentication (docs/pipeline-runner.md §4).
+ * @returns {string | null}
+ */
+function sessionReviewer() {
+  const named = (env.QAIZEN_REVIEWER || '').trim();
+  if (named) return named;
+  const git = spawnSync('git', ['config', 'user.name'], { encoding: 'utf8' });
+  return (git.stdout || '').trim() || null;
 }
 
 // ------------------------------------------------------------ step output --
