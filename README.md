@@ -66,34 +66,44 @@ npm run pipeline -- --story <path-to-story.md | JIRA-KEY>
 
 ## How it works
 
+Four human gates divide the work. At each one the run stops until you approve
+what the AI produced:
+
+| Gate | It answers | What you review |
+| --- | --- | --- |
+| **1. Requirements** | Did the AI understand the story? | The acceptance criteria copied word for word, the open questions, and the risks. No tests exist yet. |
+| **2. Test scope** | Are these the right tests? | One test case per risk, each with its priority and how it will be tested. |
+| **3. Specs** | Is the plan based on the real app? | Step-by-step scenarios written after an agent actually used the app. |
+| **4. Code** | Can this test code be trusted? | The generated Playwright tests, plus an automatic scan for hard-coded waits, skipped tests, fragile locators and missing IDs. |
+
 AI agents do the work; the purple steps are human decisions.
 
 ```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 22, "rankSpacing": 26, "padding": 6}}}%%
 flowchart TD
-    story([Story<br/>Jira issue or story.md]) --> analyst[Analyst<br/>context · risks]
-    analyst --> g1{{Gate 1<br/>Requirements}}
-    g1 --> designer[Test Designer<br/>test cases · automation decisions]
-    designer --> g2{{Gate 2<br/>Test scope}}
+    analyst[Analyst reads the story] --> g1{{Gate 1 · Requirements}}
+    g1 --> designer[Test Designer] --> g2{{Gate 2 · Test scope}}
 
-    g2 -->|E2E| planner[Planner<br/>spec] --> g3{{Gate 3<br/>Specs}}
-    g3 --> generator[Generator<br/>Playwright tests] --> g4{{Gate 4<br/>Code review}}
-    g4 --> pw[Run Playwright]
+    g2 -->|E2E| planner[Planner] --> g3{{Gate 3 · Specs}}
+    g3 --> generator[Generator] --> g4{{Gate 4 · Code}}
 
-    g2 -->|API| apiagent[API Agent<br/>Postman collection] --> g3a{{Gate 3′<br/>Collection}}
-    g3a --> g4a{{Gate 4′<br/>Assertions}} --> nm[Run Newman]
+    g2 -->|API| apiagent[API Agent] --> g3a{{Gate 3′ · Collection}}
+    g3a --> g4a{{Gate 4′ · Assertions}}
 
-    g2 -->|Manual · component · skip| plan[External plan<br/>procedures · evidence · exclusions]
-    plan --> g3e{{Gate 3<br/>Plan}} --> rec[Record results<br/>with evidence] --> g4e{{Gate 4<br/>Evidence}}
+    g2 -->|manual · component · skip| plan[External plan] --> g3e{{Gate 3 · Plan}}
+    g3e -->|record results| g4e{{Gate 4 · Evidence}}
 
-    pw --> classify[Failure Classifier<br/>green · yellow · red]
-    nm --> classify
+    g4 -->|run Playwright| classify[Failure Classifier]
+    g4a -->|run Newman| classify
     g4e --> classify
-    classify --> report([Release report<br/>+ bug drafts])
-    classify -. green only .-> healer[Healer<br/>reviewable patch]
+    classify --> report([Release report + bug drafts])
+    classify -. green only .-> healer[Healer patch]
 
     classDef gate fill:#8250df,stroke:#8250df,color:#fff
     class g1,g2,g3,g4,g3a,g4a,g3e,g4e gate
 ```
+
+In more detail:
 
 | Gate | After | The human checks |
 | --- | --- | --- |
