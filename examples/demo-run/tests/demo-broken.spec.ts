@@ -14,7 +14,7 @@ import { test, expect } from '@playwright/test';
  * so the rule-based classifier sees an expected-vs-received business
  * mismatch, not a locator/wait signal.
  */
-test('invalid password shows the error "Invalid credentials" [TC-002]', async ({
+test('invalid password shows the error "Invalid credentials" [TC-002] [PW-002] [SPEC-001]', async ({
   page,
 }) => {
   await page.goto('/');
