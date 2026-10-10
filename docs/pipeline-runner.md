@@ -102,6 +102,16 @@ by hand) and `npm run session-summary` (feed `/evolve`).
 one**; `--status` only reads. Combining `--story` with `--resume`, or `--status`
 with either, is refused before anything is fetched or written.
 
+`--story <JIRA-KEY>` fetches the issue read-only with
+`scripts/fetch-jira-story.js` and stages it as `story.md`. The text is
+converted, never interpreted: Jira's document format becomes Markdown
+(numbered lists keep their numbers; mentions, links, tables, code and panels
+are kept; an attachment is named, not fetched), and the same issue always
+gives the same file, with the issue's own last-updated time rather than a
+fetch time. Gate 1 binds that file's digest. Two settings add to it, each in
+its own section: `JIRA_AC_FIELD`, a custom field holding acceptance criteria,
+and `JIRA_STORY_COMMENTS=true`, the issue's comments, marked as context only.
+
 What `--story` does depends on the run already at the root, and it decides
 **before writing anything**, so every refusal leaves the root exactly as it was:
 

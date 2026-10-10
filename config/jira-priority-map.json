@@ -8,5 +8,5 @@
   "issue_type_env": "JIRA_BUG_ISSUETYPE",
   "default_issue_type": "Bug",
   "link_type": "Relates",
-  "_link_comment": "Issue-link type used to link a created bug back to the story issue (only when context.story.jira_issue_key exists). Must match a link type name in your Jira instance (read via jira_get_issue_link_types). 'Relates' exists in the default scheme."
+  "_link_comment": "Issue-link type used to link a created bug back to the story issue (only when context.story.jira_issue_key exists). Must match a link type name in your Jira instance (read via jira_get_link_types). 'Relates' exists in the default scheme."
 }

@@ -214,7 +214,7 @@ You can install and use these. Anything else needs explicit human approval.
 **MCPs (use the official or widely-adopted version, do not rewrite):**
 
 - `microsoft/playwright-mcp` (installed via `npx playwright init-agents --loop=claude`).
-- `ghcr.io/sooperset/mcp-atlassian:latest` (Jira + Confluence; read-only in Phase 1, write-enabled with `ENABLED_TOOLS` in Phase 2+).
+- `ghcr.io/sooperset/mcp-atlassian`, pinned to a release in `.mcp.json` (Jira + Confluence; read-only in Phase 1, write-enabled with `ENABLED_TOOLS` in Phase 2+).
 - `postmanlabs/postman-mcp-server` (Phase 1.5+).
 - `dogkeeper886/testlink-mcp:latest` (Phase 2+).
 
