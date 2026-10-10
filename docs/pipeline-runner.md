@@ -281,6 +281,20 @@ continues; on rejection it records the event, prints exactly what to redo (per `
 stops. Quitting (`q`) records nothing — the next invocation re-opens the
 gate with a fresh `opened_at` (accurate: the review restarted).
 
+Each decision, approved or rejected, also leaves a **gate record** under
+`gates/`, numbered in the order the decisions were made:
+
+- `gates/NNN-<gate>-<decision>.md`: the reviewer, when the gate opened and
+  when it was decided, the reason for a rejection, every reviewed input with
+  the digest the decision is bound to, earlier decisions on the same gate, the
+  brief exactly as it was shown, and at Gate 4 the static scan.
+- `gates/NNN-<gate>-<decision>/`: a copy of every reviewed file, at its own
+  path, read before the decision was saved. A file outside the run (the demo
+  tests) or a repository file (the lockfile) keeps only its digest.
+
+The record is written after the decision is saved in `context.json`; it never
+decides anything. The records belong to the run and are archived with it.
+
 ## 6. Where state lives
 
 `context.json` is the only state (`docs/context-json-guide.md`): gates in
