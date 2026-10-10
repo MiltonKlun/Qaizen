@@ -249,6 +249,13 @@ agent or script written against the four-gate model breaks. See
       that isn't traceable to the source story (or to a clearly
       labeled ambiguity) is removed before approval.
 
+The runner's brief checks the first criterion mechanically: it says whether
+every acceptance criterion appears word for word in `story.md` (the same
+words in the same order; case, punctuation, quote marks, Markdown and line
+wrapping do not count), and names any that do not. A criterion it names was
+reworded or invented; one it does not name can still have been copied from
+the wrong place, so the comparison stays yours.
+
 **Approver:** the QA engineer driving the slice, or the product owner
 when domain detail is in question.
 
@@ -308,11 +315,13 @@ product owner co-approves.
 
 **On approval:**
 
-1. **Before approving**, set per-TC `status = "approved"` (or
-   `rejected` for individual cases that got dropped; `draft` is not
-   valid after Gate 2). The runner does not prompt for Gate 2 while any
-   case is still `draft`: the per-case decisions are part of the scope
-   being approved, and changing them afterwards would make the approval
+1. **Before approving**, decide each case: `approved`, or `rejected` for
+   a case that is dropped (`draft` is not valid after Gate 2). In a
+   terminal the runner asks for these itself, one draft case at a time,
+   before it shows the Gate 2 brief, and saves them to
+   `test-cases/[story-id].json`. Without a terminal it does not open Gate 2
+   while any case is still `draft`. The per-case decisions are part of the
+   scope being approved, so changing them afterwards makes the approval
    stale (task group 4.3).
 2. Set `review_gates.test_scope_reviewed = true` — through the runner,
    which binds the approval to a digest of the test cases and planner

@@ -45,6 +45,7 @@ import {
   replayStage,
   startWorkspace,
 } from './lib/demo-stages.js';
+import { describeCase } from './lib/case-decisions.js';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO = dirname(SCRIPT_DIR);
@@ -387,9 +388,7 @@ async function ask(kind, arg) {
     /** @type {Record<string, 'approved' | 'rejected'>} */
     const decisions = {};
     for (const c of cases) {
-      stderr.write(
-        `\n  ${c.test_case_id}  ${c.title}\n    ${c.automation_decision}, ${c.priority}, covers ${c.risk_ids.join(', ')}\n`
-      );
+      stderr.write(`\n${describeCase(c)}\n`);
       let choice = '';
       while (!['a', 'r'].includes(choice)) {
         choice = (await answer('  Approve or reject? [a/r] ')).toLowerCase();

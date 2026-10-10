@@ -50,7 +50,16 @@ import {
   blockingAmbiguities,
   GATE_KEYS,
 } from './pipeline-state.js';
-import { GATE_BRIEFS, renderGateBrief } from './gate-briefs.js';
+import {
+  criteriaNotInStory,
+  GATE_BRIEFS,
+  renderGateBrief,
+} from './gate-briefs.js';
+import {
+  applyCaseDecisions,
+  describeCase,
+  draftCases,
+} from './lib/case-decisions.js';
 import {
   captureGateFiles,
   GATE_STEP,
@@ -89,7 +98,11 @@ import {
   latestNewmanExecution,
   newmanEvidence,
 } from './lib/run-artifacts.js';
-import { writeJsonAtomic, formatErrors } from './lib/artifact-io.js';
+import {
+  writeJsonAtomic,
+  formatErrors,
+  readValidatedJson,
+} from './lib/artifact-io.js';
 import { playwrightCli } from './lib/cli.js';
 import { approvedScopeDigest, externalSource } from './lib/execution-ledger.js';
 import {
@@ -617,11 +630,74 @@ export function recordGateDecision({
 }
 
 /**
+ * Ask the reviewer to approve or reject each draft test case, then save the
+ * decisions (validated). Nothing is saved unless every draft is decided.
+ * @param {Context} context
+ * @returns {Promise<boolean>} whether any case was asked about
+ */
+async function decideDraftCases(context) {
+  const path = context.artifact_paths?.test_cases;
+  if (!path || !existsSync(path)) return false;
+  // An invalid file is reported by the gate's input check, not here.
+  const read = readValidatedJson(path, TEST_CASES_SCHEMA);
+  if (!read.ok) return false;
+  const doc = read.data;
+  const drafts = draftCases(doc);
+  if (!drafts.length) return false;
+  console.log(
+    `\nBefore Gate 2, decide each of the ${drafts.length} draft test case(s): the gate reviews the scope as you decide it.`
+  );
+  /** @type {Record<string, 'approved' | 'rejected'>} */
+  const decisions = {};
+  const rl = createInterface({ input: stdin, output: stdout });
+  try {
+    for (const c of drafts) {
+      console.log(`\n${describeCase(c)}`);
+      let a = '';
+      while (!['a', 'r', 'q'].includes(a)) {
+        a = (await rl.question('  [a]pprove / [r]eject / [q]uit: '))
+          .trim()
+          .toLowerCase()
+          .slice(0, 1);
+      }
+      if (a === 'q') {
+        console.log('No case decision recorded; the cases stay as they were.');
+        exit(1);
+      }
+      decisions[c.test_case_id] = a === 'a' ? 'approved' : 'rejected';
+    }
+  } finally {
+    rl.close();
+  }
+  applyCaseDecisions(doc, decisions);
+  const w = writeJsonAtomic(path, doc, { schemaPath: TEST_CASES_SCHEMA });
+  if (!w.ok) {
+    console.error(`Refusing to save the case decisions: ${w.message}`);
+    exit(2);
+  }
+  console.log(
+    `\nSaved in ${path}: ${Object.entries(decisions)
+      .map(([id, d]) => `${id} ${d}`)
+      .join(', ')}.\n`
+  );
+  return true;
+}
+
+/**
  * @param {string} step
  * @param {Context} context
  */
 async function runGateInteractive(step, context) {
   const gateKey = GATE_KEYS[step];
+
+  // Gate 2 reviews the scope as decided: in a terminal, the reviewer first
+  // decides each draft case, one at a time. Without one, a draft case still
+  // stops the gate below (no decision is ever made for the reviewer).
+  const casesOpenedAt = new Date().toISOString();
+  const casesAsked =
+    (step === 'gate2' || step === 'qa_scope') && stdin.isTTY
+      ? await decideDraftCases(context)
+      : false;
 
   // Broken machine-readable inputs are not a judgment call: the gate does not
   // even prompt until they exist and validate (task group 4.2). The old
@@ -648,7 +724,8 @@ async function runGateInteractive(step, context) {
     exit(1);
   }
 
-  const openedAt = new Date().toISOString();
+  // The review began when its first question was asked.
+  const openedAt = casesAsked ? casesOpenedAt : new Date().toISOString();
   // The inputs this decision will be bound to, as they are while the brief is
   // on screen. If they change before the decision, the reviewer approved
   // something that no longer exists, so the approval is refused.
@@ -681,7 +758,23 @@ async function runGateInteractive(step, context) {
       }
       return { path: p, exists, valid };
     });
-  const briefText = renderGateBrief({ step, context, artifacts });
+  // Gate 1: the Analyst copies the acceptance criteria verbatim; say whether
+  // each one is in the story, so a reworded or invented one stands out.
+  /** @type {string[]} */
+  const checks = [];
+  const storyPath = context.story?.path || 'story.md';
+  if ((step === 'gate1' || step === 'qa_scope') && existsSync(storyPath)) {
+    const missing = criteriaNotInStory(
+      context.acceptance_criteria ?? [],
+      readFileSync(storyPath, 'utf8')
+    );
+    checks.push(
+      missing.length
+        ? `ATTENTION: ${missing.map((n) => `AC ${n}`).join(', ')} not found word for word in ${storyPath}; check ${missing.length === 1 ? 'it is' : 'they are'} not reworded or invented`
+        : `every acceptance criterion appears word for word in ${storyPath}`
+    );
+  }
+  const briefText = renderGateBrief({ step, context, artifacts, checks });
   console.log(briefText);
   // Restored files, or a gate reopened without changes: say what this is.
   const earlier = earlierApprovalOf(gateKey, reviewedDigests[gateKey], '.');

@@ -285,6 +285,12 @@ continues; on rejection it records the event, prints exactly what to redo (per `
 stops. Quitting (`q`) records nothing — the next invocation re-opens the
 gate with a fresh `opened_at` (accurate: the review restarted).
 
+Two gates ask a little more. Gate 1's brief says whether every acceptance
+criterion appears word for word in `story.md`, and names any that do not.
+Before Gate 2's brief, the runner asks you to approve or reject each draft
+test case, one at a time, and saves your decisions to the test-cases file;
+the gate then reviews the scope as you decided it.
+
 Each decision, approved or rejected, also leaves a **gate record** under
 `gates/`, numbered in the order the decisions were made:
 

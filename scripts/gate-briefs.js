@@ -231,6 +231,28 @@ export function GATE4_JUDGMENT_QUESTIONS() {
   ];
 }
 
+/**
+ * Which acceptance criteria do not appear word for word in the story. The
+ * Analyst copies them verbatim (agents/analyst.md); formatting is allowed to
+ * change, wording is not. So only the words and their order must match:
+ * case, punctuation, quote marks, Markdown and line wrapping are ignored. A
+ * word added, dropped or changed is found.
+ * @param {string[]} criteria
+ * @param {string} story
+ * @returns {number[]} 1-based numbers of the criteria not found
+ */
+export function criteriaNotInStory(criteria, story) {
+  const norm = (/** @type {string} */ s) =>
+    ` ${s
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')
+      .trim()} `;
+  const text = norm(story);
+  return criteria
+    .map((ac, i) => (text.includes(norm(ac)) ? 0 : i + 1))
+    .filter((n) => n > 0);
+}
+
 /** @param {ArtifactStatus} a */
 function fmtArtifact(a) {
   const exist = a.exists ? 'found' : 'MISSING';
@@ -241,12 +263,18 @@ function fmtArtifact(a) {
 
 /**
  * Render the one-screen brief for a gate step ('gate1'..'gate4').
- * `artifacts`: [{ path, exists, valid }] gathered by the CLI.
+ * `artifacts`: [{ path, exists, valid }] gathered by the CLI. `checks`: more
+ * automatic checks the CLI ran for this gate, one line each.
  * Returns a string (the CLI prints it).
  * @param {{ step: string, context: Context | null,
- *   artifacts?: ArtifactStatus[] }} args
+ *   artifacts?: ArtifactStatus[], checks?: string[] }} args
  */
-export function renderGateBrief({ step, context, artifacts = [] }) {
+export function renderGateBrief({
+  step,
+  context,
+  artifacts = [],
+  checks = [],
+}) {
   const brief = GATE_BRIEFS[step];
   if (!brief) throw new Error(`Unknown gate step: ${step}`);
   const gateKey = GATE_KEYS[step];
@@ -270,6 +298,7 @@ export function renderGateBrief({ step, context, artifacts = [] }) {
     ...(autoOk.length > 0 && autoBad.length > 0
       ? [`  - ${autoOk.length} artifact(s) OK`]
       : []),
+    ...checks.map((c) => `  - ${c}`),
     '',
     'Checklist (docs/review-gates.md — all must hold):',
     ...brief.checklist.map((c) => `  [ ] ${c}`),
