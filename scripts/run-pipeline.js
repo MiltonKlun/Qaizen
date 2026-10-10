@@ -27,6 +27,9 @@
 //   npm run pipeline -- --story SK-10         # start: fetch Jira story (read-only)
 //   npm run pipeline -- --resume              # same as bare invocation
 //   npm run pipeline -- --status              # where is this run? (read-only)
+//   npm run pipeline -- --history             # every gate decision (read-only)
+//   npm run pipeline -- --diff gate2          # what changed since a gate's
+//                                             # approval (read-only)
 //
 // State source of truth: context.json (+ the runs/ layout from new-run.js).
 // No new state files, no DB, no queue.
@@ -48,6 +51,23 @@ import {
   GATE_KEYS,
 } from './pipeline-state.js';
 import { GATE_BRIEFS, renderGateBrief } from './gate-briefs.js';
+import {
+  captureGateFiles,
+  GATE_STEP,
+  writeGateRecord,
+} from './lib/gate-records.js';
+import {
+  applyRestore,
+  earlierApprovalOf,
+  reopenGate,
+  restorePlan,
+} from './lib/gate-checkpoints.js';
+import {
+  GATE_LABEL,
+  renderDiff,
+  renderHistory,
+  resolveGate,
+} from './lib/gate-history.js';
 import { trackAllowed } from './track-floor.js';
 import {
   gate4Findings,
@@ -79,6 +99,8 @@ import {
   gateDigest,
   findInvalidations,
   applyInvalidations,
+  bindingState,
+  DOWNSTREAM,
 } from './lib/approval-binding.js';
 
 // Sibling scripts / schemas resolve against THIS file's location, not the
@@ -118,6 +140,21 @@ for (const a of argv.slice(2)) {
 }
 
 const STATUS_MODE = argv.includes('--status');
+const HISTORY_MODE = argv.includes('--history');
+/**
+ * A flag that names a gate (`--diff gate2`), and the gate key it names.
+ * @param {string} flag
+ */
+const gateFlag = (flag) => {
+  const i = argv.indexOf(flag);
+  if (i === -1) return { given: false, gate: null };
+  const value =
+    argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : null;
+  return { given: true, gate: resolveGate(value) };
+};
+const DIFF = gateFlag('--diff');
+const REOPEN = gateFlag('--reopen');
+const RESTORE = gateFlag('--restore');
 const RESUME_MODE = argv.includes('--resume');
 const storyIdx = argv.indexOf('--story');
 const STORY_ARG =
@@ -143,6 +180,30 @@ if (STORY_ARG && RESUME_MODE) {
 if (STATUS_MODE && (STORY_ARG || RESUME_MODE)) {
   console.error(
     '--status is read-only; it cannot be combined with --story or --resume.'
+  );
+  exit(2);
+}
+// The gate trail: --history and --diff only read; --reopen and --restore
+// only move the run backwards. One at a time, never with another mode.
+for (const [flag, parsed] of /** @type {const} */ ([
+  ['--diff', DIFF],
+  ['--reopen', REOPEN],
+  ['--restore', RESTORE],
+])) {
+  if (parsed.given && !parsed.gate) {
+    console.error(
+      `${flag} needs a gate: ${Object.keys(GATE_KEYS).join(', ')} (or its key, e.g. test_scope_reviewed).`
+    );
+    exit(2);
+  }
+}
+const TRAIL = [HISTORY_MODE, DIFF.given, REOPEN.given, RESTORE.given];
+if (
+  TRAIL.some(Boolean) &&
+  [STATUS_MODE, STORY_ARG, RESUME_MODE, ...TRAIL].filter(Boolean).length > 1
+) {
+  console.error(
+    '--history, --diff, --reopen and --restore are used one at a time, without --story, --resume or --status.'
   );
   exit(2);
 }
@@ -490,6 +551,72 @@ const REDO_AFTER_REJECT = {
 };
 
 /**
+ * Record one human gate decision: what was reviewed is read first, then the
+ * decision goes into context.json (validated, atomic), then the gate record
+ * of it is written under gates/ (scripts/lib/gate-records.js). The
+ * interactive gate prompt is the only caller in the runner; it never decides.
+ * @param {{ root?: string, context: Context, step: string, gateKey: string,
+ *   decision: 'approved' | 'rejected', reviewer: string | null,
+ *   notes: string | null, openedAt: string, decidedAt: string,
+ *   bindings: Record<string, ReturnType<typeof bindingFor>>,
+ *   brief: string, scan?: string | null }} args
+ * @returns {{ ok: true, record: string, dir: string } |
+ *   { ok: false, stage: 'context' | 'record', message: string }}
+ */
+export function recordGateDecision({
+  root = '.',
+  context,
+  step,
+  gateKey,
+  decision,
+  reviewer,
+  notes,
+  openedAt,
+  decidedAt,
+  bindings,
+  brief,
+  scan = null,
+}) {
+  const captured = captureGateFiles(gateKey, context, root);
+  applyGateDecision(context, gateKey, {
+    decision,
+    reviewer,
+    notes,
+    openedAt,
+    decidedAt,
+    bindings,
+  });
+  const w = writeJsonAtomic(join(root, CONTEXT_PATH), context, {
+    schemaPath: CONTEXT_SCHEMA,
+  });
+  if (!w.ok) return { ok: false, stage: 'context', message: w.message };
+  try {
+    const rec = writeGateRecord({
+      root,
+      context,
+      gate: gateKey,
+      decision,
+      reviewer,
+      notes,
+      openedAt,
+      decidedAt,
+      binding: bindings[gateKey],
+      captured,
+      brief,
+      scan,
+      title: GATE_BRIEFS[step]?.name,
+    });
+    return { ok: true, record: rec.record, dir: rec.dir };
+  } catch (e) {
+    return {
+      ok: false,
+      stage: 'record',
+      message: /** @type {Error} */ (e).message,
+    };
+  }
+}
+
+/**
  * @param {string} step
  * @param {Context} context
  */
@@ -554,13 +681,23 @@ async function runGateInteractive(step, context) {
       }
       return { path: p, exists, valid };
     });
-  console.log(renderGateBrief({ step, context, artifacts }));
+  const briefText = renderGateBrief({ step, context, artifacts });
+  console.log(briefText);
+  // Restored files, or a gate reopened without changes: say what this is.
+  const earlier = earlierApprovalOf(gateKey, reviewedDigests[gateKey], '.');
+  if (earlier) {
+    console.log(
+      `\nThis is exactly what ${earlier.reviewer} approved at ${earlier.decided} (${earlier.record}).`
+    );
+  }
 
   // Gate 4: run the static pre-Gate-4 scan on the generated test and surface
   // its mechanical findings as the "auto-checks" half of the review, so the
   // human opens the gate with the mechanical questions pre-answered and can
   // spend their attention on business correctness (IP-6.4). Informational —
   // it never decides the gate.
+  /** @type {string | null} */
+  let scanText = null;
   if (step === 'gate4') {
     const testPath = context.artifact_paths?.generated_test;
     if (testPath && existsSync(testPath)) {
@@ -571,7 +708,8 @@ async function runGateInteractive(step, context) {
         fileName: testPath,
         artifacts: loadGate4Artifacts(CONTEXT_PATH) ?? undefined,
       });
-      console.log(renderGate4Scan(testPath, scan));
+      scanText = renderGate4Scan(testPath, scan);
+      console.log(scanText);
     }
   }
 
@@ -626,15 +764,30 @@ async function runGateInteractive(step, context) {
       );
       exit(1);
     }
-    applyGateDecision(context, gateKey, {
-      decision,
+    const done = recordGateDecision({
+      context,
+      step,
+      gateKey,
+      decision: /** @type {'approved' | 'rejected'} */ (decision),
       reviewer,
-      notes,
+      notes: notes || null,
       openedAt,
       decidedAt: new Date().toISOString(),
       bindings,
+      brief: briefText,
+      scan: scanText,
     });
-    writeContext(context);
+    if (!done.ok) {
+      console.error(
+        done.stage === 'context'
+          ? `Refusing to update context.json: ${done.message}`
+          : `The decision is recorded in context.json, but its gate record could not be written: ${done.message}`
+      );
+      exit(2);
+    }
+    console.log(
+      `\nGate record: ${done.record}${done.dir ? `  (reviewed files copied to ${done.dir}/)` : ''}`
+    );
 
     if (decision === 'rejected') {
       console.log(`\n${gateKey}: REJECTED — recorded in gate_decisions[].`);
@@ -1094,8 +1247,131 @@ function runIsComplete(context) {
   return nextStep(view, gatherHints(view)) === 'done';
 }
 
+/**
+ * Send the run back to a gate (--reopen). Interactive: the reason is the
+ * reviewer's, nothing is approved or rejected, and the old approval stays in
+ * the gate history.
+ * @param {Context} context
+ * @param {string} gate a gate key
+ */
+async function reopenInteractive(context, gate) {
+  const label = GATE_LABEL[gate] ?? gate;
+  if (!gatePassed(context.review_gates?.[gate])) {
+    console.log(`${label} is not approved; there is nothing to reopen.`);
+    return;
+  }
+  if (!stdin.isTTY) {
+    console.error(
+      'Reopening a gate is interactive-only: run it in a terminal.'
+    );
+    exit(1);
+  }
+  const later = (DOWNSTREAM[gate] ?? [])
+    .filter((g) => gatePassed(context.review_gates?.[g]))
+    .map((g) => GATE_LABEL[g] ?? g);
+  console.log(
+    `Reopening ${label} returns it${later.length ? `, and ${later.join(', ')} which depend on it,` : ''} to pending. ` +
+      'Nothing is deleted: the approval stays in the gate history.'
+  );
+  let reviewer = sessionReviewer();
+  const rl = createInterface({ input: stdin, output: stdout });
+  try {
+    if (!reviewer) {
+      reviewer =
+        (await rl.question('Reviewer name for this session: ')).trim() || null;
+    }
+    const reason = (
+      await rl.question('Why reopen it? (an empty answer cancels) ')
+    ).trim();
+    if (!reason) {
+      console.log('Nothing changed.');
+      exit(1);
+    }
+    const reopened = reopenGate(context, gate, { reviewer, reason });
+    writeContext(context);
+    console.log(
+      `Returned to pending: ${reopened.map((g) => GATE_LABEL[g] ?? g).join(', ')}.`
+    );
+    console.log(
+      `Next: change what ${label} reviews if needed (\`--restore ${GATE_STEP[gate]}\` puts back its approved files), ` +
+        'then `npm run pipeline -- --resume` to review it again.'
+    );
+  } finally {
+    rl.close();
+  }
+}
+
+/**
+ * Put back the files a gate approved (--restore). Interactive: the reviewer
+ * sees what changes and confirms. It never records an approval.
+ * @param {Context} context
+ * @param {string} gate a gate key
+ */
+async function restoreInteractive(context, gate) {
+  const label = GATE_LABEL[gate] ?? gate;
+  const plan = restorePlan(gate, context, '.');
+  if (!plan.record) {
+    console.log(`${label}: no approved gate record to restore from.`);
+    return;
+  }
+  console.log(renderDiff(gate, context));
+  console.log('');
+  for (const c of plan.cannot)
+    console.log(`Not restored: ${c.path} (${c.why}).`);
+  if (!plan.restore.length) {
+    console.log(
+      `Nothing to restore: every file ${label} kept a copy of is as it was approved.`
+    );
+    return;
+  }
+  if (!stdin.isTTY) {
+    console.error('Restoring files is interactive-only: run it in a terminal.');
+    exit(1);
+  }
+  const rl = createInterface({ input: stdin, output: stdout });
+  try {
+    const answer = (
+      await rl.question(
+        `Put back ${plan.restore.length} file(s) as approved in ${plan.record.record}? [y/N] `
+      )
+    )
+      .trim()
+      .toLowerCase();
+    if (answer !== 'y' && answer !== 'yes') {
+      console.log('Nothing changed.');
+      exit(1);
+    }
+  } finally {
+    rl.close();
+  }
+  const restored = applyRestore(plan, context, '.');
+  if (restored.some((r) => r.endsWith('(context.json)'))) writeContext(context);
+  console.log(`Restored: ${restored.join(', ')}.`);
+  console.log(
+    bindingState(gate, context, '.').state === 'current'
+      ? `${label}'s approval stands: what it reviews is exactly what was approved.`
+      : `${label} is pending: \`npm run pipeline -- --resume\` opens it, and its brief says this is what was approved before.`
+  );
+}
+
 // ----------------------------------------------------------------- main ---
 async function main() {
+  // The gate trail (gates/, context.json).
+  if (TRAIL.some(Boolean)) {
+    const context = loadContext();
+    if (!context) {
+      console.log('No run in progress (no context.json).');
+      exit(0);
+    }
+    // Read and printed, nothing written.
+    if (HISTORY_MODE) console.log(renderHistory(context));
+    if (DIFF.gate) console.log(renderDiff(DIFF.gate, context));
+    // Interactive: they change the run's review state.
+    if (REOPEN.gate) await reopenInteractive(context, REOPEN.gate);
+    if (RESTORE.gate) await restoreInteractive(context, RESTORE.gate);
+    exit(0);
+  }
+
   // --status reads and reports; it never recovers, stages or writes anything.
   if (STATUS_MODE) {
     const context = loadContext();
