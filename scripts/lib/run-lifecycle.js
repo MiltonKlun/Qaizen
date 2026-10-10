@@ -83,6 +83,8 @@ export const RUN_DIRS = [
   'release',
   // Imported manual/component results and their evidence (task group 7.2).
   'external-evidence',
+  // The record of every gate decision and a copy of what it reviewed.
+  'gates',
 ];
 
 /** Run-scoped singletons: at most one run occupies the root at a time. */
@@ -93,6 +95,7 @@ const RUN_SCOPED = [
   /^release\/release-report\.(md|json)$/,
   /^release\/bug-drafts\/BUG-\d+\.md$/,
   /^release\/healer-patches\//,
+  /^gates\//,
 ];
 
 /**

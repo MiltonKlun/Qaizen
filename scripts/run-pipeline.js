@@ -48,6 +48,7 @@ import {
   GATE_KEYS,
 } from './pipeline-state.js';
 import { GATE_BRIEFS, renderGateBrief } from './gate-briefs.js';
+import { captureGateFiles, writeGateRecord } from './lib/gate-records.js';
 import { trackAllowed } from './track-floor.js';
 import {
   gate4Findings,
@@ -490,6 +491,72 @@ const REDO_AFTER_REJECT = {
 };
 
 /**
+ * Record one human gate decision: what was reviewed is read first, then the
+ * decision goes into context.json (validated, atomic), then the gate record
+ * of it is written under gates/ (scripts/lib/gate-records.js). The
+ * interactive gate prompt is the only caller in the runner; it never decides.
+ * @param {{ root?: string, context: Context, step: string, gateKey: string,
+ *   decision: 'approved' | 'rejected', reviewer: string | null,
+ *   notes: string | null, openedAt: string, decidedAt: string,
+ *   bindings: Record<string, ReturnType<typeof bindingFor>>,
+ *   brief: string, scan?: string | null }} args
+ * @returns {{ ok: true, record: string, dir: string } |
+ *   { ok: false, stage: 'context' | 'record', message: string }}
+ */
+export function recordGateDecision({
+  root = '.',
+  context,
+  step,
+  gateKey,
+  decision,
+  reviewer,
+  notes,
+  openedAt,
+  decidedAt,
+  bindings,
+  brief,
+  scan = null,
+}) {
+  const captured = captureGateFiles(gateKey, context, root);
+  applyGateDecision(context, gateKey, {
+    decision,
+    reviewer,
+    notes,
+    openedAt,
+    decidedAt,
+    bindings,
+  });
+  const w = writeJsonAtomic(join(root, CONTEXT_PATH), context, {
+    schemaPath: CONTEXT_SCHEMA,
+  });
+  if (!w.ok) return { ok: false, stage: 'context', message: w.message };
+  try {
+    const rec = writeGateRecord({
+      root,
+      context,
+      gate: gateKey,
+      decision,
+      reviewer,
+      notes,
+      openedAt,
+      decidedAt,
+      binding: bindings[gateKey],
+      captured,
+      brief,
+      scan,
+      title: GATE_BRIEFS[step]?.name,
+    });
+    return { ok: true, record: rec.record, dir: rec.dir };
+  } catch (e) {
+    return {
+      ok: false,
+      stage: 'record',
+      message: /** @type {Error} */ (e).message,
+    };
+  }
+}
+
+/**
  * @param {string} step
  * @param {Context} context
  */
@@ -554,13 +621,16 @@ async function runGateInteractive(step, context) {
       }
       return { path: p, exists, valid };
     });
-  console.log(renderGateBrief({ step, context, artifacts }));
+  const briefText = renderGateBrief({ step, context, artifacts });
+  console.log(briefText);
 
   // Gate 4: run the static pre-Gate-4 scan on the generated test and surface
   // its mechanical findings as the "auto-checks" half of the review, so the
   // human opens the gate with the mechanical questions pre-answered and can
   // spend their attention on business correctness (IP-6.4). Informational —
   // it never decides the gate.
+  /** @type {string | null} */
+  let scanText = null;
   if (step === 'gate4') {
     const testPath = context.artifact_paths?.generated_test;
     if (testPath && existsSync(testPath)) {
@@ -571,7 +641,8 @@ async function runGateInteractive(step, context) {
         fileName: testPath,
         artifacts: loadGate4Artifacts(CONTEXT_PATH) ?? undefined,
       });
-      console.log(renderGate4Scan(testPath, scan));
+      scanText = renderGate4Scan(testPath, scan);
+      console.log(scanText);
     }
   }
 
@@ -626,15 +697,30 @@ async function runGateInteractive(step, context) {
       );
       exit(1);
     }
-    applyGateDecision(context, gateKey, {
-      decision,
+    const done = recordGateDecision({
+      context,
+      step,
+      gateKey,
+      decision: /** @type {'approved' | 'rejected'} */ (decision),
       reviewer,
-      notes,
+      notes: notes || null,
       openedAt,
       decidedAt: new Date().toISOString(),
       bindings,
+      brief: briefText,
+      scan: scanText,
     });
-    writeContext(context);
+    if (!done.ok) {
+      console.error(
+        done.stage === 'context'
+          ? `Refusing to update context.json: ${done.message}`
+          : `The decision is recorded in context.json, but its gate record could not be written: ${done.message}`
+      );
+      exit(2);
+    }
+    console.log(
+      `\nGate record: ${done.record}${done.dir ? `  (reviewed files copied to ${done.dir}/)` : ''}`
+    );
 
     if (decision === 'rejected') {
       console.log(`\n${gateKey}: REJECTED — recorded in gate_decisions[].`);
