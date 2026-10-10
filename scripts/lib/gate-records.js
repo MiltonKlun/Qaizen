@@ -250,6 +250,18 @@ export function writeGateRecord({
     ...rows,
     ''
   );
+  if (decision === 'approved') {
+    const cmd = (/** @type {string} */ flag) =>
+      `\`npm run pipeline -- --${flag} ${step}\``;
+    lines.push(
+      '## Going back',
+      '',
+      `- What changed since this approval: ${cmd('diff')}`,
+      `- Put back the files it approved: ${cmd('restore')}`,
+      `- Send the run back to this gate: ${cmd('reopen')}`,
+      ''
+    );
+  }
   if (earlier.length) {
     lines.push(
       '## Earlier decisions on this gate',
