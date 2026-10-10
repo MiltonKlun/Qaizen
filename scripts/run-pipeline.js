@@ -27,6 +27,9 @@
 //   npm run pipeline -- --story SK-10         # start: fetch Jira story (read-only)
 //   npm run pipeline -- --resume              # same as bare invocation
 //   npm run pipeline -- --status              # where is this run? (read-only)
+//   npm run pipeline -- --history             # every gate decision (read-only)
+//   npm run pipeline -- --diff gate2          # what changed since a gate's
+//                                             # approval (read-only)
 //
 // State source of truth: context.json (+ the runs/ layout from new-run.js).
 // No new state files, no DB, no queue.
@@ -49,6 +52,7 @@ import {
 } from './pipeline-state.js';
 import { GATE_BRIEFS, renderGateBrief } from './gate-briefs.js';
 import { captureGateFiles, writeGateRecord } from './lib/gate-records.js';
+import { renderDiff, renderHistory, resolveGate } from './lib/gate-history.js';
 import { trackAllowed } from './track-floor.js';
 import {
   gate4Findings,
@@ -119,6 +123,12 @@ for (const a of argv.slice(2)) {
 }
 
 const STATUS_MODE = argv.includes('--status');
+const HISTORY_MODE = argv.includes('--history');
+const diffIdx = argv.indexOf('--diff');
+const DIFF_ARG =
+  diffIdx !== -1 && argv[diffIdx + 1] && !argv[diffIdx + 1].startsWith('--')
+    ? argv[diffIdx + 1]
+    : null;
 const RESUME_MODE = argv.includes('--resume');
 const storyIdx = argv.indexOf('--story');
 const STORY_ARG =
@@ -144,6 +154,24 @@ if (STORY_ARG && RESUME_MODE) {
 if (STATUS_MODE && (STORY_ARG || RESUME_MODE)) {
   console.error(
     '--status is read-only; it cannot be combined with --story or --resume.'
+  );
+  exit(2);
+}
+// The gate trail is read-only too, and one view at a time.
+if (diffIdx !== -1 && !resolveGate(DIFF_ARG)) {
+  console.error(
+    `--diff needs a gate: ${Object.keys(GATE_KEYS).join(', ')} (or its key, e.g. test_scope_reviewed).`
+  );
+  exit(2);
+}
+if (
+  (HISTORY_MODE || diffIdx !== -1) &&
+  [STATUS_MODE, HISTORY_MODE, diffIdx !== -1, STORY_ARG, RESUME_MODE].filter(
+    Boolean
+  ).length > 1
+) {
+  console.error(
+    '--history and --diff are read-only views; use one at a time, without --story, --resume or --status.'
   );
   exit(2);
 }
@@ -1182,6 +1210,18 @@ function runIsComplete(context) {
 
 // ----------------------------------------------------------------- main ---
 async function main() {
+  // The gate trail (gates/, context.json): read and printed, nothing written.
+  if (HISTORY_MODE || DIFF_ARG) {
+    const context = loadContext();
+    if (!context) {
+      console.log('No run in progress (no context.json).');
+      exit(0);
+    }
+    const gate = /** @type {string} */ (resolveGate(DIFF_ARG));
+    console.log(DIFF_ARG ? renderDiff(gate, context) : renderHistory(context));
+    exit(0);
+  }
+
   // --status reads and reports; it never recovers, stages or writes anything.
   if (STATUS_MODE) {
     const context = loadContext();
