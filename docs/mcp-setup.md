@@ -51,23 +51,45 @@ Phase 2 (TG2) expands the allowlist to include `jira_create_issue`,
 explicit human approval via the `--apply` flag in
 `scripts/create-jira-bugs.js`.
 
+### Version, tool groups and read-only mode
+
+`.mcp.json` pins the image to a release (`ghcr.io/sooperset/mcp-atlassian:0.23.1`)
+rather than `latest`, so an upstream release cannot change the tools under
+the allowlist without a reviewed change here. Two server settings back the
+allowlist up:
+
+- `TOOLSETS=all` on both entries. The server filters by tool group as well
+  as by name, and the two filters intersect. Its documentation says the
+  default will narrow to six core groups, which leave out
+  `jira_get_link_types`; naming the groups keeps the allowlist the only
+  filter that matters.
+- `READ_ONLY_MODE=true` on the read-only `atlassian` entry. Even if a write
+  tool were added to `ENABLED_TOOLS` by mistake, the server would neither
+  list nor run it.
+
+To upgrade, check the new release's tool names against `ENABLED_TOOLS` and
+`ATLASSIAN_ENABLED_TOOLS_WRITE` (a name that no longer exists enables
+nothing, silently), then change the pin. The Docker engine must be running
+(Docker Desktop on Windows and macOS): when it is not, the MCP client reports
+the server's connection as closed and no Jira tool is available.
+
 ### Phase 1 `ENABLED_TOOLS` allowlist
 
-`sooperset/mcp-atlassian` exposes ~72 tools. The agent only gets the
+`sooperset/mcp-atlassian` 0.23.1 exposes about 98 tools. The agent only gets the
 read tools below. Anything not listed is unavailable; writes attempted by
 the agent fail at the MCP layer, not at the policy layer.
 
 ```
-ENABLED_TOOLS=jira_get_issue,jira_search,jira_get_issue_link_types,confluence_get_page,confluence_search
+ENABLED_TOOLS=jira_get_issue,jira_search,jira_get_link_types,confluence_get_page,confluence_search
 ```
 
-| Tool                        | Purpose                           |
-| --------------------------- | --------------------------------- |
-| `jira_get_issue`            | Fetch a single Jira issue by key. |
-| `jira_search`               | JQL search.                       |
-| `jira_get_issue_link_types` | Read issue link metadata.         |
-| `confluence_get_page`       | Fetch a Confluence page by ID.    |
-| `confluence_search`         | Search Confluence content.        |
+| Tool                  | Purpose                           |
+| --------------------- | --------------------------------- |
+| `jira_get_issue`      | Fetch a single Jira issue by key. |
+| `jira_search`         | JQL search.                       |
+| `jira_get_link_types` | Read issue link metadata.         |
+| `confluence_get_page` | Fetch a Confluence page by ID.    |
+| `confluence_search`   | Search Confluence content.        |
 
 ### Getting an Atlassian API token
 
@@ -87,7 +109,7 @@ name.
 1. Install Docker Desktop (≥ 20). Confirm: `docker --version`.
 2. Pull the image:
    ```
-   docker pull ghcr.io/sooperset/mcp-atlassian:latest
+   docker pull ghcr.io/sooperset/mcp-atlassian:0.23.1
    ```
 3. Copy `.env.example` to `.env` and fill in:
    - `JIRA_URL` — e.g. `https://your-domain.atlassian.net`
@@ -143,10 +165,10 @@ Phase 2 introduces a **second** Atlassian MCP entry, `atlassian-write`,
 alongside the read-only `atlassian`. Both use the same Docker image and
 the same token. The only difference is the `ENABLED_TOOLS` allowlist:
 
-| Entry             | `ENABLED_TOOLS` source             | Tools available                                                                                          |
-| ----------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `atlassian`       | `${ENABLED_TOOLS}` (read-only)     | `jira_get_issue`, `jira_search`, `jira_get_issue_link_types`, `confluence_get_page`, `confluence_search` |
-| `atlassian-write` | `${ATLASSIAN_ENABLED_TOOLS_WRITE}` | the read tools **plus** `jira_create_issue`, `jira_update_issue`, `jira_add_comment`                     |
+| Entry             | `ENABLED_TOOLS` source             | Tools available                                                                                    |
+| ----------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `atlassian`       | `${ENABLED_TOOLS}` (read-only)     | `jira_get_issue`, `jira_search`, `jira_get_link_types`, `confluence_get_page`, `confluence_search` |
+| `atlassian-write` | `${ATLASSIAN_ENABLED_TOOLS_WRITE}` | the read tools **plus** `jira_create_issue`, `jira_update_issue`, `jira_add_comment`               |
 
 ### Why two entries instead of flipping the one
 
