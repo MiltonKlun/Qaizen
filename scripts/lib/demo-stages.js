@@ -18,6 +18,10 @@ import { isDeepStrictEqual } from 'node:util';
 
 import { writeJsonAtomic, writeTextAtomic } from './artifact-io.js';
 import { releaseExecutionSummary } from './execution-ledger.js';
+import {
+  applyCaseDecisions,
+  draftCases as pendingCases,
+} from './case-decisions.js';
 import { CONTEXT_SCHEMA } from './run-artifacts.js';
 
 const REPO_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -83,14 +87,12 @@ export function startWorkspace({ fixtures, workspace }) {
 /**
  * The draft cases awaiting a human decision before Gate 2.
  * @param {string} workspace
- * @returns {{ test_case_id: string, title: string, automation_decision: string, risk_ids: string[], priority: string }[]}
+ * @returns {import('./case-decisions.js').DraftCase[]}
  */
 export function draftCases(workspace) {
   const p = join(workspace, TEST_CASES);
   if (!existsSync(p)) return [];
-  return readJsonFile(p).test_cases.filter(
-    (/** @type {{ status: string }} */ c) => c.status === 'draft'
-  );
+  return pendingCases(readJsonFile(p));
 }
 
 /**
@@ -101,14 +103,7 @@ export function draftCases(workspace) {
 export function recordCaseDecisions(workspace, decisions) {
   const p = join(workspace, TEST_CASES);
   const doc = readJsonFile(p);
-  for (const c of doc.test_cases) {
-    if (c.status !== 'draft') continue;
-    const d = decisions[c.test_case_id];
-    if (d !== 'approved' && d !== 'rejected') {
-      throw new Error(`no decision for draft case ${c.test_case_id}`);
-    }
-    c.status = d;
-  }
+  applyCaseDecisions(doc, decisions);
   writeValidated(p, doc, schema('test-cases.schema.json'), workspace);
 }
 
