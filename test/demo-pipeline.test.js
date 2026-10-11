@@ -20,7 +20,6 @@ import {
 import { join } from 'node:path';
 import { execPath } from 'node:process';
 
-import { bindGate } from './helpers/valid-run.js';
 import { removeTempDir } from './helpers/cleanup.js';
 import {
   DEMO_FIXTURES,
@@ -30,6 +29,9 @@ import {
   startWorkspace,
 } from '../scripts/lib/demo-stages.js';
 import { GATE_KEYS } from '../scripts/pipeline-state.js';
+import { bindingFor } from '../scripts/lib/approval-binding.js';
+import { listGateRecords } from '../scripts/lib/gate-records.js';
+import { recordGateDecision } from '../scripts/run-pipeline.js';
 import { releaseExecutionSummary } from '../scripts/lib/execution-ledger.js';
 
 const REPO = process.cwd();
@@ -156,9 +158,24 @@ test('the demo completes: real run, finalized Red analysis, BUG-001, a 2.0 repor
     visited.push(step);
     const gate = GATE_KEYS[step];
     if (gate) {
-      // The human's decisions, recorded test-style (see the header).
-      const ctx = bindGate(readJson(ctxPath), gate, ws);
-      writeFileSync(ctxPath, JSON.stringify(ctx, null, 2) + '\n');
+      // The human's decisions, recorded test-style (see the header),
+      // through the same recorder the gate prompt uses.
+      const ctx = readJson(ctxPath);
+      const now = new Date().toISOString();
+      const recorded = recordGateDecision({
+        root: ws,
+        context: ctx,
+        step,
+        gateKey: gate,
+        decision: 'approved',
+        reviewer: 'test (not a human decision)',
+        notes: null,
+        openedAt: now,
+        decidedAt: now,
+        bindings: { [gate]: bindingFor(gate, ctx, ws) },
+        brief: `brief for ${step}`,
+      });
+      assert.equal(recorded.ok, true, recorded.message);
       continue;
     }
     replayStage(step, dirs);
@@ -207,6 +224,27 @@ test('the demo completes: real run, finalized Red analysis, BUG-001, a 2.0 repor
   assert.deepEqual(report.blocking_failures, ['FAIL-001']);
   assert.equal(report.release_recommendation, 'fail');
   assert.ok(existsSync(join(ws, 'release', 'release-report.md')));
+
+  // Every decision left its record and a copy of what it reviewed.
+  assert.deepEqual(
+    listGateRecords(ws).map((g) => g.record),
+    [
+      'gates/001-gate1-approved.md',
+      'gates/002-gate2-approved.md',
+      'gates/003-gate3-approved.md',
+      'gates/004-gate4-approved.md',
+    ]
+  );
+  assert.ok(
+    existsSync(join(ws, 'gates/002-gate2-approved/test-cases/DEMO-1.json'))
+  );
+  assert.ok(
+    existsSync(join(ws, 'gates/003-gate3-approved/specs/DEMO-1.spec.md'))
+  );
+  assert.match(
+    readFileSync(join(ws, 'gates/004-gate4-approved.md'), 'utf8'),
+    /outside the run folder; digest only/
+  );
 });
 
 test('the demo asks its questions in a prompt process: the reviewer once, then each case', (t) => {

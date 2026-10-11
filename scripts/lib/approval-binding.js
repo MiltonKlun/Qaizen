@@ -52,7 +52,7 @@ export const BOUND_GATES = [
  * consolidated gate stands for Gates 1+2, so either side invalidates the other.
  */
 /** @type {Record<string, string[]>} */
-const DOWNSTREAM = {
+export const DOWNSTREAM = {
   requirements_reviewed: [
     'test_scope_reviewed',
     'qa_scope_approved',
@@ -496,6 +496,85 @@ export function gateInputs(gate, context, root = '.') {
     }
     default:
       throw new Error(`gateInputs: unknown gate "${gate}"`);
+  }
+}
+
+/**
+ * One file a gate's approval covers, for snapshots and restores (gate
+ * records). `copy: false` marks a repository file (the lockfile, the Newman
+ * script) whose digest is recorded but whose bytes are not the run's.
+ * @typedef {{ input: string, path: string, copy: boolean }} GateFile
+ */
+
+/**
+ * The files behind a gate's own inputs: the same list `gateInputs` digests,
+ * without the chained digest of the previous gate. Gate 1's interpretation
+ * and Gate 3's prompt versions live in context.json, so it stands for them.
+ * @param {string} gate
+ * @param {Context} context
+ * @param {string} [root]
+ * @returns {GateFile[]}
+ */
+export function gateFiles(gate, context, root = '.') {
+  const paths = context?.artifact_paths ?? {};
+  /** @type {(input: string, path: string | undefined | null, copy?: boolean) => GateFile[]} */
+  const f = (input, path, copy = true) => (path ? [{ input, path, copy }] : []);
+  const g1 = () => [
+    ...f('story', context?.story?.path || 'story.md'),
+    ...f('interpretation', 'context.json'),
+  ];
+  const scope = () => [
+    ...f('test_cases', paths.test_cases),
+    ...f('planner_brief', paths.planner_brief),
+  ];
+  switch (gate) {
+    case 'requirements_reviewed':
+      return g1();
+    case 'test_scope_reviewed':
+      return scope();
+    case 'qa_scope_approved':
+      return [...g1(), ...scope()];
+    case 'specs_reviewed':
+      return [
+        ...f('playwright_spec', paths.playwright_spec),
+        ...f('prompt_versions', 'context.json'),
+      ];
+    case 'code_reviewed':
+      return [
+        ...f('generated_test', paths.generated_test),
+        ...f('playwright.config.ts', 'playwright.config.ts'),
+        ...f('package-lock.json', 'package-lock.json', false),
+        ...walk(root, 'tests/fixtures')
+          .sort()
+          .flatMap((p) => f(p, p)),
+      ];
+    case 'collection_reviewed': {
+      const api = apiPaths(context);
+      return [
+        ...f('api_requests', api.collection),
+        ...f('api_environment', api.environment),
+        ...f('endpoint_contract', 'docs/api-spec.yaml', false),
+      ];
+    }
+    case 'api_assertions_reviewed':
+      return [
+        ...f('api_assertions', apiPaths(context).collection),
+        ...f('scripts/run-newman.js', 'scripts/run-newman.js', false),
+        ...f('package-lock.json', 'package-lock.json', false),
+      ];
+    case 'external_plan_reviewed':
+      return f('external_plan', externalPaths(context).plan);
+    case 'external_evidence_reviewed': {
+      const ext = externalPaths(context);
+      return [
+        ...f('external_results', ext.results),
+        ...Object.keys(evidenceDigests(root, ext.results)).flatMap((k) =>
+          f(k, k.slice('evidence:'.length))
+        ),
+      ];
+    }
+    default:
+      throw new Error(`gateFiles: unknown gate "${gate}"`);
   }
 }
 
