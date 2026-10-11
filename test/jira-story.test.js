@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { execPath } from 'node:process';
 
 import { adfToMarkdown, storyMarkdown } from '../scripts/lib/jira-story.js';
+import { criteriaNotInStory } from '../scripts/gate-briefs.js';
 
 const REPO = process.cwd();
 const FETCH = join(REPO, 'scripts', 'fetch-jira-story.js');
@@ -357,4 +358,22 @@ test('a bad criteria field id is a usage error; a failed fetch writes nothing', 
   assert.equal(missing.code, 1);
   assert.match(missing.stderr, /Fetch SK-12 failed \(HTTP 404\)/);
   assert.equal(missing.stdout, '');
+});
+
+test('criteria copied from a converted Jira story pass the Gate 1 word check', () => {
+  const md = storyMarkdown(ISSUE);
+  assert.deepEqual(
+    criteriaNotInStory(
+      [
+        'Given a cart with two items, the Item total equals the sum of the prices.',
+        "The order log records 'expired_card_client_reject'.",
+      ],
+      md
+    ),
+    []
+  );
+  assert.deepEqual(
+    criteriaNotInStory(['The Item total equals the prices.'], md),
+    [1]
+  );
 });
