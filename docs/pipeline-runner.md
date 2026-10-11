@@ -48,6 +48,8 @@ npm run pipeline -- --story SK-10       # start from Jira (read-only fetch)
 npm run pipeline                         # advance from the current state
 npm run pipeline -- --resume             # same as bare invocation
 npm run pipeline -- --status             # read-only: where is this run?
+npm run pipeline -- --history            # read-only: every gate decision, in order
+npm run pipeline -- --diff gate2         # read-only: what changed since Gate 2's approval
 ```
 
 A full loop looks like:
@@ -294,6 +296,19 @@ Each decision, approved or rejected, also leaves a **gate record** under
 
 The record is written after the decision is saved in `context.json`; it never
 decides anything. The records belong to the run and are archived with it.
+
+Two read-only views use them. Neither writes anything, not even when an
+approval has gone stale:
+
+- `--history` lists every decision and every return to pending in time
+  order, each decision with its record (decisions made before records were
+  kept have none), then where each gate stands now.
+- `--diff <gate>` compares what the gate reviews now with the copy kept by its
+  latest approval, and prints the changed lines. A gate is named by its step
+  (`gate1` to `gate4`, `qa_scope`, `gate3-api`, `gate4-api`, `gate3-ext`,
+  `gate4-ext`) or its key (`test_scope_reviewed`). Gate 1 compares only the
+  interpretation inside `context.json`, and a file kept only as a digest (the
+  lockfile) is compared by its digest.
 
 ## 6. Where state lives
 
