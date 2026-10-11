@@ -19,7 +19,7 @@ adaptation_notes: |
 tools:
   - mcp-atlassian:jira_get_issue
   - mcp-atlassian:jira_search
-  - mcp-atlassian:jira_get_issue_link_types
+  - mcp-atlassian:jira_get_link_types
   - mcp-atlassian:confluence_get_page
   - mcp-atlassian:confluence_search
 ---

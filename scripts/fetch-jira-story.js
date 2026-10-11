@@ -14,6 +14,9 @@
 // work in a no-agent context. It reads the READ-ONLY token; no write scope
 // is needed or used.
 //
+// The text is converted, not interpreted (scripts/lib/jira-story.js): the
+// same issue always gives the same story.md, whose digest Gate 1 binds.
+//
 // Usage:
 //   node scripts/fetch-jira-story.js SK-10
 //   node scripts/fetch-jira-story.js SK-10 --out story.md   # default: story.md
@@ -22,7 +25,11 @@
 // Options may come before or after the issue key. An unknown option, a
 // missing value, or a repeated option is a usage error (scripts/lib/cli.js).
 //
-// Env (from .env or process.env): JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN.
+// Env (from the repository's .env or process.env): JIRA_URL, JIRA_USERNAME,
+//   JIRA_API_TOKEN. Optional: JIRA_AC_FIELD, the id of a custom field that
+//   holds acceptance criteria (e.g. customfield_10045), rendered in its own
+//   section; JIRA_STORY_COMMENTS=true to add the issue's comments, marked as
+//   context, never criteria.
 //
 // Exit codes: 0 ok · 1 fetch error · 2 usage/env error
 
@@ -30,9 +37,10 @@ import { writeFileSync } from 'node:fs';
 import { argv, env, exit } from 'node:process';
 
 import { loadDotEnv, parseCliOrExit } from './lib/cli.js';
-import { JIRA_KEY } from './lib/integration-io.js';
+import { JIRA_KEY, repoFile } from './lib/integration-io.js';
+import { storyMarkdown } from './lib/jira-story.js';
 
-loadDotEnv(env);
+loadDotEnv(env, repoFile('.env'));
 
 const cli = parseCliOrExit(argv.slice(2), {
   usage:
@@ -60,41 +68,33 @@ if (!url || !user || !token) {
   console.error('Requires JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN in .env.');
   exit(2);
 }
+const acField = (env.JIRA_AC_FIELD || '').trim() || null;
+if (acField && !/^customfield_\d+$/.test(acField)) {
+  console.error(
+    `JIRA_AC_FIELD is "${acField}"; it must be a custom field id such as customfield_10045.`
+  );
+  exit(2);
+}
+const comments = /^(1|true|yes)$/i.test(env.JIRA_STORY_COMMENTS || '');
 const auth = 'Basic ' + Buffer.from(`${user}:${token}`).toString('base64');
 
-// Flatten Atlassian Document Format to plain text, preserving paragraph and
-// list-item line breaks so acceptance criteria stay readable.
-/**
- * @param {any} node an ADF node from Jira's response
- * @returns {string}
- */
-function adfToText(node) {
-  if (!node) return '';
-  if (node.type === 'text') return node.text || '';
-  if (node.type === 'hardBreak') return '\n';
-  const inner = Array.isArray(node.content)
-    ? node.content.map(adfToText).join('')
-    : '';
-  switch (node.type) {
-    case 'paragraph':
-      return inner + '\n\n';
-    case 'listItem':
-      return '- ' + inner.trim() + '\n';
-    case 'bulletList':
-    case 'orderedList':
-      return inner;
-    case 'heading':
-      return '#'.repeat(node.attrs?.level || 2) + ' ' + inner.trim() + '\n\n';
-    default:
-      return inner;
-  }
-}
-
 async function main() {
-  const res = await fetch(
-    `${url}/rest/api/3/issue/${key}?fields=summary,description,issuetype,status,labels,components`,
-    { headers: { Authorization: auth, Accept: 'application/json' } }
-  );
+  const fields = [
+    'summary',
+    'description',
+    'issuetype',
+    'status',
+    'priority',
+    'labels',
+    'components',
+    'parent',
+    'updated',
+    ...(comments ? ['comment'] : []),
+    ...(acField ? [acField] : []),
+  ].join(',');
+  const res = await fetch(`${url}/rest/api/3/issue/${key}?fields=${fields}`, {
+    headers: { Authorization: auth, Accept: 'application/json' },
+  });
   if (!res.ok) {
     const t = await res.text();
     console.error(
@@ -102,42 +102,19 @@ async function main() {
     );
     exit(1);
   }
-  const issue = await res.json();
-  const f = issue.fields || {};
-  const desc =
-    adfToText(f.description).trim() || '(no description in the issue)';
-  const components =
-    (f.components || [])
-      .map((/** @type {{ name: string }} */ c) => c.name)
-      .join(', ') || '(none)';
-
-  const md = [
-    `# ${issue.key} — ${f.summary}`,
-    '',
-    `> Jira-mode story fetched READ-ONLY by scripts/fetch-jira-story.js for the`,
-    `> Phase 2 vertical slice. The Analyst treats this as source: "jira",`,
-    `> story.id = "${issue.key}", story.jira_issue_key = "${issue.key}".`,
-    '',
-    `**Issue type:** ${f.issuetype?.name ?? '?'}  ·  **Status:** ${f.status?.name ?? '?'}  ·  **Component:** ${components}`,
-    '',
-    '## Description / Acceptance criteria (verbatim from Jira)',
-    '',
-    desc,
-    '',
-    '## Notes for the QA pipeline',
-    '',
-    '- The Analyst must extract the acceptance criteria VERBATIM from the',
-    '  text above and list any ambiguities — do not invent ACs.',
-    '- If the issue text is thin, that is itself a Gate-1 ambiguity to flag.',
-  ].join('\n');
+  const md = storyMarkdown(await res.json(), {
+    browseUrl: `${url}/browse/${key}`,
+    acField,
+    comments,
+  });
 
   if (PRINT) {
-    console.log(md);
+    process.stdout.write(md);
     exit(0);
   }
-  writeFileSync(outPath, md + '\n');
+  writeFileSync(outPath, md);
   console.log(
-    `Wrote ${outPath} from ${issue.key} (read-only fetch; Jira not modified).`
+    `Wrote ${outPath} from ${key} (read-only fetch; Jira not modified).`
   );
   console.log(
     'Next: run the Analyst on this story.md (Mode B) to produce context.json.'

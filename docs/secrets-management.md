@@ -124,7 +124,7 @@ The Atlassian MCP's capability is controlled by `ENABLED_TOOLS`, not by
 the token:
 
 - **Phase 1 / read-only:**
-  `ENABLED_TOOLS=jira_get_issue,jira_search,jira_get_issue_link_types,confluence_get_page,confluence_search`
+  `ENABLED_TOOLS=jira_get_issue,jira_search,jira_get_link_types,confluence_get_page,confluence_search`
 - **Phase 2 / write-enabled:**
   `ATLASSIAN_ENABLED_TOOLS_WRITE=...,jira_create_issue,jira_update_issue,jira_add_comment,...`
 

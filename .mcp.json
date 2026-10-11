@@ -24,7 +24,11 @@
         "CONFLUENCE_API_TOKEN",
         "-e",
         "ENABLED_TOOLS",
-        "ghcr.io/sooperset/mcp-atlassian:latest"
+        "-e",
+        "TOOLSETS",
+        "-e",
+        "READ_ONLY_MODE",
+        "ghcr.io/sooperset/mcp-atlassian:0.23.1"
       ],
       "env": {
         "JIRA_URL": "${JIRA_URL}",
@@ -33,7 +37,9 @@
         "CONFLUENCE_URL": "${CONFLUENCE_URL}",
         "CONFLUENCE_USERNAME": "${CONFLUENCE_USERNAME}",
         "CONFLUENCE_API_TOKEN": "${CONFLUENCE_API_TOKEN}",
-        "ENABLED_TOOLS": "${ENABLED_TOOLS}"
+        "ENABLED_TOOLS": "${ENABLED_TOOLS}",
+        "TOOLSETS": "all",
+        "READ_ONLY_MODE": "true"
       }
     },
     "atlassian-write": {
@@ -56,7 +62,9 @@
         "CONFLUENCE_API_TOKEN",
         "-e",
         "ENABLED_TOOLS",
-        "ghcr.io/sooperset/mcp-atlassian:latest"
+        "-e",
+        "TOOLSETS",
+        "ghcr.io/sooperset/mcp-atlassian:0.23.1"
       ],
       "env": {
         "JIRA_URL": "${JIRA_URL}",
@@ -65,7 +73,8 @@
         "CONFLUENCE_URL": "${CONFLUENCE_URL}",
         "CONFLUENCE_USERNAME": "${CONFLUENCE_USERNAME}",
         "CONFLUENCE_API_TOKEN": "${CONFLUENCE_API_TOKEN}",
-        "ENABLED_TOOLS": "${ATLASSIAN_ENABLED_TOOLS_WRITE}"
+        "ENABLED_TOOLS": "${ATLASSIAN_ENABLED_TOOLS_WRITE}",
+        "TOOLSETS": "all"
       }
     },
     "postman": {
