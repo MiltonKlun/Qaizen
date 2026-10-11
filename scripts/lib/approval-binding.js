@@ -52,7 +52,7 @@ export const BOUND_GATES = [
  * consolidated gate stands for Gates 1+2, so either side invalidates the other.
  */
 /** @type {Record<string, string[]>} */
-const DOWNSTREAM = {
+export const DOWNSTREAM = {
   requirements_reviewed: [
     'test_scope_reviewed',
     'qa_scope_approved',

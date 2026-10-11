@@ -51,8 +51,23 @@ import {
   GATE_KEYS,
 } from './pipeline-state.js';
 import { GATE_BRIEFS, renderGateBrief } from './gate-briefs.js';
-import { captureGateFiles, writeGateRecord } from './lib/gate-records.js';
-import { renderDiff, renderHistory, resolveGate } from './lib/gate-history.js';
+import {
+  captureGateFiles,
+  GATE_STEP,
+  writeGateRecord,
+} from './lib/gate-records.js';
+import {
+  applyRestore,
+  earlierApprovalOf,
+  reopenGate,
+  restorePlan,
+} from './lib/gate-checkpoints.js';
+import {
+  GATE_LABEL,
+  renderDiff,
+  renderHistory,
+  resolveGate,
+} from './lib/gate-history.js';
 import { trackAllowed } from './track-floor.js';
 import {
   gate4Findings,
@@ -84,6 +99,8 @@ import {
   gateDigest,
   findInvalidations,
   applyInvalidations,
+  bindingState,
+  DOWNSTREAM,
 } from './lib/approval-binding.js';
 
 // Sibling scripts / schemas resolve against THIS file's location, not the
@@ -124,11 +141,20 @@ for (const a of argv.slice(2)) {
 
 const STATUS_MODE = argv.includes('--status');
 const HISTORY_MODE = argv.includes('--history');
-const diffIdx = argv.indexOf('--diff');
-const DIFF_ARG =
-  diffIdx !== -1 && argv[diffIdx + 1] && !argv[diffIdx + 1].startsWith('--')
-    ? argv[diffIdx + 1]
-    : null;
+/**
+ * A flag that names a gate (`--diff gate2`), and the gate key it names.
+ * @param {string} flag
+ */
+const gateFlag = (flag) => {
+  const i = argv.indexOf(flag);
+  if (i === -1) return { given: false, gate: null };
+  const value =
+    argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : null;
+  return { given: true, gate: resolveGate(value) };
+};
+const DIFF = gateFlag('--diff');
+const REOPEN = gateFlag('--reopen');
+const RESTORE = gateFlag('--restore');
 const RESUME_MODE = argv.includes('--resume');
 const storyIdx = argv.indexOf('--story');
 const STORY_ARG =
@@ -157,21 +183,27 @@ if (STATUS_MODE && (STORY_ARG || RESUME_MODE)) {
   );
   exit(2);
 }
-// The gate trail is read-only too, and one view at a time.
-if (diffIdx !== -1 && !resolveGate(DIFF_ARG)) {
-  console.error(
-    `--diff needs a gate: ${Object.keys(GATE_KEYS).join(', ')} (or its key, e.g. test_scope_reviewed).`
-  );
-  exit(2);
+// The gate trail: --history and --diff only read; --reopen and --restore
+// only move the run backwards. One at a time, never with another mode.
+for (const [flag, parsed] of /** @type {const} */ ([
+  ['--diff', DIFF],
+  ['--reopen', REOPEN],
+  ['--restore', RESTORE],
+])) {
+  if (parsed.given && !parsed.gate) {
+    console.error(
+      `${flag} needs a gate: ${Object.keys(GATE_KEYS).join(', ')} (or its key, e.g. test_scope_reviewed).`
+    );
+    exit(2);
+  }
 }
+const TRAIL = [HISTORY_MODE, DIFF.given, REOPEN.given, RESTORE.given];
 if (
-  (HISTORY_MODE || diffIdx !== -1) &&
-  [STATUS_MODE, HISTORY_MODE, diffIdx !== -1, STORY_ARG, RESUME_MODE].filter(
-    Boolean
-  ).length > 1
+  TRAIL.some(Boolean) &&
+  [STATUS_MODE, STORY_ARG, RESUME_MODE, ...TRAIL].filter(Boolean).length > 1
 ) {
   console.error(
-    '--history and --diff are read-only views; use one at a time, without --story, --resume or --status.'
+    '--history, --diff, --reopen and --restore are used one at a time, without --story, --resume or --status.'
   );
   exit(2);
 }
@@ -651,6 +683,13 @@ async function runGateInteractive(step, context) {
     });
   const briefText = renderGateBrief({ step, context, artifacts });
   console.log(briefText);
+  // Restored files, or a gate reopened without changes: say what this is.
+  const earlier = earlierApprovalOf(gateKey, reviewedDigests[gateKey], '.');
+  if (earlier) {
+    console.log(
+      `\nThis is exactly what ${earlier.reviewer} approved at ${earlier.decided} (${earlier.record}).`
+    );
+  }
 
   // Gate 4: run the static pre-Gate-4 scan on the generated test and surface
   // its mechanical findings as the "auto-checks" half of the review, so the
@@ -1208,17 +1247,128 @@ function runIsComplete(context) {
   return nextStep(view, gatherHints(view)) === 'done';
 }
 
+/**
+ * Send the run back to a gate (--reopen). Interactive: the reason is the
+ * reviewer's, nothing is approved or rejected, and the old approval stays in
+ * the gate history.
+ * @param {Context} context
+ * @param {string} gate a gate key
+ */
+async function reopenInteractive(context, gate) {
+  const label = GATE_LABEL[gate] ?? gate;
+  if (!gatePassed(context.review_gates?.[gate])) {
+    console.log(`${label} is not approved; there is nothing to reopen.`);
+    return;
+  }
+  if (!stdin.isTTY) {
+    console.error(
+      'Reopening a gate is interactive-only: run it in a terminal.'
+    );
+    exit(1);
+  }
+  const later = (DOWNSTREAM[gate] ?? [])
+    .filter((g) => gatePassed(context.review_gates?.[g]))
+    .map((g) => GATE_LABEL[g] ?? g);
+  console.log(
+    `Reopening ${label} returns it${later.length ? `, and ${later.join(', ')} which depend on it,` : ''} to pending. ` +
+      'Nothing is deleted: the approval stays in the gate history.'
+  );
+  let reviewer = sessionReviewer();
+  const rl = createInterface({ input: stdin, output: stdout });
+  try {
+    if (!reviewer) {
+      reviewer =
+        (await rl.question('Reviewer name for this session: ')).trim() || null;
+    }
+    const reason = (
+      await rl.question('Why reopen it? (an empty answer cancels) ')
+    ).trim();
+    if (!reason) {
+      console.log('Nothing changed.');
+      exit(1);
+    }
+    const reopened = reopenGate(context, gate, { reviewer, reason });
+    writeContext(context);
+    console.log(
+      `Returned to pending: ${reopened.map((g) => GATE_LABEL[g] ?? g).join(', ')}.`
+    );
+    console.log(
+      `Next: change what ${label} reviews if needed (\`--restore ${GATE_STEP[gate]}\` puts back its approved files), ` +
+        'then `npm run pipeline -- --resume` to review it again.'
+    );
+  } finally {
+    rl.close();
+  }
+}
+
+/**
+ * Put back the files a gate approved (--restore). Interactive: the reviewer
+ * sees what changes and confirms. It never records an approval.
+ * @param {Context} context
+ * @param {string} gate a gate key
+ */
+async function restoreInteractive(context, gate) {
+  const label = GATE_LABEL[gate] ?? gate;
+  const plan = restorePlan(gate, context, '.');
+  if (!plan.record) {
+    console.log(`${label}: no approved gate record to restore from.`);
+    return;
+  }
+  console.log(renderDiff(gate, context));
+  console.log('');
+  for (const c of plan.cannot)
+    console.log(`Not restored: ${c.path} (${c.why}).`);
+  if (!plan.restore.length) {
+    console.log(
+      `Nothing to restore: every file ${label} kept a copy of is as it was approved.`
+    );
+    return;
+  }
+  if (!stdin.isTTY) {
+    console.error('Restoring files is interactive-only: run it in a terminal.');
+    exit(1);
+  }
+  const rl = createInterface({ input: stdin, output: stdout });
+  try {
+    const answer = (
+      await rl.question(
+        `Put back ${plan.restore.length} file(s) as approved in ${plan.record.record}? [y/N] `
+      )
+    )
+      .trim()
+      .toLowerCase();
+    if (answer !== 'y' && answer !== 'yes') {
+      console.log('Nothing changed.');
+      exit(1);
+    }
+  } finally {
+    rl.close();
+  }
+  const restored = applyRestore(plan, context, '.');
+  if (restored.some((r) => r.endsWith('(context.json)'))) writeContext(context);
+  console.log(`Restored: ${restored.join(', ')}.`);
+  console.log(
+    bindingState(gate, context, '.').state === 'current'
+      ? `${label}'s approval stands: what it reviews is exactly what was approved.`
+      : `${label} is pending: \`npm run pipeline -- --resume\` opens it, and its brief says this is what was approved before.`
+  );
+}
+
 // ----------------------------------------------------------------- main ---
 async function main() {
-  // The gate trail (gates/, context.json): read and printed, nothing written.
-  if (HISTORY_MODE || DIFF_ARG) {
+  // The gate trail (gates/, context.json).
+  if (TRAIL.some(Boolean)) {
     const context = loadContext();
     if (!context) {
       console.log('No run in progress (no context.json).');
       exit(0);
     }
-    const gate = /** @type {string} */ (resolveGate(DIFF_ARG));
-    console.log(DIFF_ARG ? renderDiff(gate, context) : renderHistory(context));
+    // Read and printed, nothing written.
+    if (HISTORY_MODE) console.log(renderHistory(context));
+    if (DIFF.gate) console.log(renderDiff(DIFF.gate, context));
+    // Interactive: they change the run's review state.
+    if (REOPEN.gate) await reopenInteractive(context, REOPEN.gate);
+    if (RESTORE.gate) await restoreInteractive(context, RESTORE.gate);
     exit(0);
   }
 

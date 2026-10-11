@@ -50,6 +50,8 @@ npm run pipeline -- --resume             # same as bare invocation
 npm run pipeline -- --status             # read-only: where is this run?
 npm run pipeline -- --history            # read-only: every gate decision, in order
 npm run pipeline -- --diff gate2         # read-only: what changed since Gate 2's approval
+npm run pipeline -- --reopen gate2       # send the run back to Gate 2 (asks why)
+npm run pipeline -- --restore gate2      # put back the files Gate 2 approved (asks first)
 ```
 
 A full loop looks like:
@@ -309,6 +311,23 @@ approval has gone stale:
   `gate4-ext`) or its key (`test_scope_reviewed`). Gate 1 compares only the
   interpretation inside `context.json`, and a file kept only as a digest (the
   lockfile) is compared by its digest.
+
+Two more commands go back to a gate. Both only move the run backwards, both
+need a terminal, and neither ever records an approval:
+
+- `--reopen <gate>` returns the gate, and every approval that depends on it,
+  to pending. It asks why; the reason goes into `gate_invalidations[]`
+  ("reopened by …"), where `--history` shows it. The old approval stays in
+  the log. `--resume` then opens the gate again.
+- `--restore <gate>` shows what differs from the copy kept by the gate's
+  latest approval, asks to confirm, and puts those files back (Gate 1's
+  interpretation goes back into `context.json`). Files kept only as a digest
+  and files added since are listed, never touched. If the approval was never
+  withdrawn, it stands again because the files match it; if it was, the gate
+  stays pending and its brief says the files are exactly what was approved
+  before, by whom and when. A restore is the reviewer's action, through the
+  runner; it puts back what a person approved, so it is not an agent writing
+  into another agent's folder.
 
 ## 6. Where state lives
 
