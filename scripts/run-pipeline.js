@@ -59,6 +59,8 @@ import {
   applyCaseDecisions,
   describeCase,
   draftCases,
+  techniqueLine,
+  techniqueSummary,
 } from './lib/case-decisions.js';
 import {
   captureGateFiles,
@@ -773,6 +775,12 @@ async function runGateInteractive(step, context) {
         ? `ATTENTION: ${missing.map((n) => `AC ${n}`).join(', ')} not found word for word in ${storyPath}; check ${missing.length === 1 ? 'it is' : 'they are'} not reworded or invented`
         : `every acceptance criterion appears word for word in ${storyPath}`
     );
+  }
+  // Gate 2: which test design techniques produced the cases?
+  const designedPath = context.artifact_paths?.test_cases;
+  if ((step === 'gate2' || step === 'qa_scope') && designedPath) {
+    const read = readValidatedJson(designedPath, TEST_CASES_SCHEMA);
+    if (read.ok) checks.push(techniqueLine(techniqueSummary(read.data)));
   }
   const briefText = renderGateBrief({ step, context, artifacts, checks });
   console.log(briefText);
