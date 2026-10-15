@@ -61,6 +61,12 @@ import {
   draftCases,
 } from './lib/case-decisions.js';
 import {
+  coverageGaps,
+  coverageLine,
+  coverageMode,
+  scopeCoverage,
+} from './lib/scope-coverage.js';
+import {
   captureGateFiles,
   GATE_STEP,
   writeGateRecord,
@@ -774,6 +780,13 @@ async function runGateInteractive(step, context) {
         : `every acceptance criterion appears word for word in ${storyPath}`
     );
   }
+  // Gate 2: does the scope cover every criterion and risk? (Blocking, when
+  // configured, already happened in the input check above.)
+  const casesPath = context.artifact_paths?.test_cases;
+  if ((step === 'gate2' || step === 'qa_scope') && casesPath) {
+    const read = readValidatedJson(casesPath, TEST_CASES_SCHEMA);
+    if (read.ok) checks.push(coverageLine(scopeCoverage(context, read.data)));
+  }
   const briefText = renderGateBrief({ step, context, artifacts, checks });
   console.log(briefText);
   // Restored files, or a gate reopened without changes: say what this is.
@@ -1020,6 +1033,18 @@ function gateInputProblems(step, context) {
             `test case(s) ${drafts.join(', ')} are still "draft": set each to "approved" or ` +
               '"rejected" in the test-cases file first — the per-case decisions are part of the scope you approve'
           );
+        } else {
+          // Scope coverage blocks the gate only when the team chose so.
+          const mode = coverageMode();
+          if (!mode.ok) problems.push(mode.message);
+          else if (mode.mode === 'block') {
+            const gaps = coverageGaps(scopeCoverage(context, r.data));
+            if (gaps) {
+              problems.push(
+                `scope coverage: ${gaps} (config/gate-checks.json scope_coverage is "block")`
+              );
+            }
+          }
         }
       }
     }
