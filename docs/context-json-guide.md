@@ -235,14 +235,36 @@ when there are none. Per `CLAUDE.md` section 3.7, an ambiguity with
 
 The first traceability anchor in the chain. Each entry:
 
-| Field         | Required | Notes                                               |
-| ------------- | -------- | --------------------------------------------------- |
-| `risk_id`     | yes      | `RISK-001`, `RISK-002`, ...                         |
-| `description` | yes      | One-sentence description.                           |
-| `severity`    | yes      | `"low"`, `"medium"`, or `"high"`.                   |
-| `related_acs` | yes      | Array of AC indices (0-based) the risk attaches to. |
+| Field              | Required          | Notes                                                                                                  |
+| ------------------ | ----------------- | ------------------------------------------------------------------------------------------------------ |
+| `risk_id`          | yes               | `RISK-001`, `RISK-002`, ...                                                                            |
+| `description`      | yes               | One-sentence description.                                                                              |
+| `severity`         | yes               | `"low"`, `"medium"`, or `"high"`. With `likelihood` and `impact`, their cell in the risk matrix below. |
+| `likelihood`       | with `impact`     | How likely it is: from the change and the defect history.                                              |
+| `impact`           | with `likelihood` | What it costs when it happens: from the story.                                                         |
+| `likelihood_basis` | no                | The evidence for the likelihood, in one sentence (a past bug by story and id, the change, or neither). |
+| `related_acs`      | yes               | Array of AC indices (0-based) the risk attaches to.                                                    |
 
 Risks anchor `TC-XXX` → `RISK-XXX`. See `docs/traceability.md`.
+
+**The risk matrix (Analyst 3.0.0).** A risk is scored as likelihood ×
+impact, and its severity is the cell. The schema enforces it: a severity off
+its cell, or one of the two without the other, is rejected.
+
+| Likelihood (rows) / Impact (columns) | low    | medium | high   |
+| ------------------------------------ | ------ | ------ | ------ |
+| **low**                              | low    | low    | medium |
+| **medium**                           | low    | medium | high   |
+| **high**                             | medium | high   | high   |
+
+Impact comes from the story (money, data, access and a blocked core journey
+are high). Likelihood comes only from evidence: the linked change
+(`code_change_context`) and the defect history of past runs,
+`metrics/defect-history.md`, which `npm run defect-history` builds from the
+archived runs, or a defect the story itself reports (a bug-fix story). Without any of them it is `medium`, and `likelihood_basis` says so.
+Severity keeps its meaning for every later step, so priorities, coverage and
+the release rules read it as before; contexts written before the matrix, with
+severity alone, stay valid.
 
 ### `artifact_paths`
 
@@ -525,6 +547,9 @@ older files continue to validate:
   Analyst Mode B only) and a `prompt_versions` map.
 - Optional `gate_decisions[]` log, optional `track` + `track_floor` (the lite
   track), and the token-efficient context-handling rules (§5.1).
+- Optional `likelihood`, `impact` and `likelihood_basis` on each risk (the
+  risk matrix, Analyst 3.0.0); when both are present, `severity` must be
+  their cell.
 - _(The API branch leaves `context.json` itself unchanged; it extends the
   test-cases schema with an optional `api_metadata` block.)_
 

@@ -244,7 +244,11 @@ agent or script written against the four-gate model breaks. See
 - [ ] **Risks meaningful** — each `RISK-XXX` is a real product /
       business / security risk the team would care about, not a
       rephrasing of the AC. A story with non-trivial behavior should
-      not have zero risks.
+      not have zero risks. Each is scored likelihood × impact
+      (`docs/context-json-guide.md`, the risk matrix): the impact fits
+      what the story puts at stake, and the `likelihood_basis` names real
+      evidence (the change, or a past bug in `metrics/defect-history.md`)
+      or says there is none.
 - [ ] **No invented business rules** — anything in `context.json`
       that isn't traceable to the source story (or to a clearly
       labeled ambiguity) is removed before approval.
@@ -255,6 +259,8 @@ words in the same order; case, punctuation, quote marks, Markdown and line
 wrapping do not count), and names any that do not. A criterion it names was
 reworded or invented; one it does not name can still have been copied from
 the wrong place, so the comparison stays yours.
+It also names any risk not scored likelihood × impact; the schema already
+rejects a severity that is not the cell of its likelihood and impact.
 
 **Approver:** the QA engineer driving the slice, or the product owner
 when domain detail is in question.
