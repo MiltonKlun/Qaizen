@@ -50,11 +50,8 @@ import {
   blockingAmbiguities,
   GATE_KEYS,
 } from './pipeline-state.js';
-import {
-  criteriaNotInStory,
-  GATE_BRIEFS,
-  renderGateBrief,
-} from './gate-briefs.js';
+import { GATE_BRIEFS, renderGateBrief } from './gate-briefs.js';
+import { briefChecks } from './lib/brief-checks.js';
 import {
   applyCaseDecisions,
   describeCase,
@@ -62,7 +59,6 @@ import {
 } from './lib/case-decisions.js';
 import {
   coverageGaps,
-  coverageLine,
   coverageMode,
   scopeCoverage,
 } from './lib/scope-coverage.js';
@@ -764,29 +760,9 @@ async function runGateInteractive(step, context) {
       }
       return { path: p, exists, valid };
     });
-  // Gate 1: the Analyst copies the acceptance criteria verbatim; say whether
-  // each one is in the story, so a reworded or invented one stands out.
-  /** @type {string[]} */
-  const checks = [];
-  const storyPath = context.story?.path || 'story.md';
-  if ((step === 'gate1' || step === 'qa_scope') && existsSync(storyPath)) {
-    const missing = criteriaNotInStory(
-      context.acceptance_criteria ?? [],
-      readFileSync(storyPath, 'utf8')
-    );
-    checks.push(
-      missing.length
-        ? `ATTENTION: ${missing.map((n) => `AC ${n}`).join(', ')} not found word for word in ${storyPath}; check ${missing.length === 1 ? 'it is' : 'they are'} not reworded or invented`
-        : `every acceptance criterion appears word for word in ${storyPath}`
-    );
-  }
-  // Gate 2: does the scope cover every criterion and risk? (Blocking, when
-  // configured, already happened in the input check above.)
-  const casesPath = context.artifact_paths?.test_cases;
-  if ((step === 'gate2' || step === 'qa_scope') && casesPath) {
-    const read = readValidatedJson(casesPath, TEST_CASES_SCHEMA);
-    if (read.ok) checks.push(coverageLine(scopeCoverage(context, read.data)));
-  }
+  // The gate's automatic checks (scripts/lib/brief-checks.js). Blocking on
+  // scope coverage, when configured, already happened in the input check.
+  const checks = briefChecks(step, context, '.');
   const briefText = renderGateBrief({ step, context, artifacts, checks });
   console.log(briefText);
   // Restored files, or a gate reopened without changes: say what this is.
