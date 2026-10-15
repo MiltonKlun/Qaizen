@@ -80,6 +80,16 @@ export const SCHEMA_CONTRACTS = {
         rule: 'risk severity is low, medium or high',
         errorAt: '/risks/0/severity',
       },
+      {
+        path: 'examples/invalid/context.risk-severity-off-matrix.json',
+        rule: 'with likelihood and impact, severity is their risk-matrix cell',
+        errorAt: '/risks/0/severity',
+      },
+      {
+        path: 'examples/invalid/context.likelihood-without-impact.json',
+        rule: 'likelihood and impact are given together',
+        errorAt: '/risks/0',
+      },
     ],
     discovery:
       'validate:all (context.json and archived runs); validate:examples',

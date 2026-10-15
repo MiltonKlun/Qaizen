@@ -360,6 +360,26 @@ test('a Red failure whose bug draft is missing blocks completion', () => {
     assert.match(r.out, /Next step: FINALIZE/);
 
     write(dir, 'release/bug-drafts/BUG-001.md', '# BUG-001\n');
+    // The report still says nothing blocks: the release rules refuse it.
+    const hidden = pipeline(dir, ['--resume']).out;
+    assert.match(
+      hidden,
+      /breaks the release rules: blocking failures are exactly the Red ones.*\(red FAIL-001\); every Red failure's bug draft is listed/
+    );
+    assert.doesNotMatch(hidden, /Pipeline complete/);
+
+    const rp = join(dir, 'release', 'release-report.json');
+    const report = JSON.parse(readFileSync(rp, 'utf8'));
+    report.blocking_failures = ['FAIL-001'];
+    report.bug_drafts = [
+      {
+        bug_id: 'BUG-001',
+        severity: 'red',
+        path: 'release/bug-drafts/BUG-001.md',
+      },
+    ];
+    report.release_recommendation = 'fail';
+    writeFileSync(rp, JSON.stringify(report));
     assert.match(pipeline(dir, ['--resume']).out, /Pipeline complete/);
   } finally {
     rmSync(dir, { recursive: true, force: true });

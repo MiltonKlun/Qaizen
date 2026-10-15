@@ -11,9 +11,12 @@ description: |
   run completed: the runner does, after validating every artifact.
 phase_introduced: 1
 phase_active: 1+
-version: 4.0.0
+version: 4.0.1
 changed_in_run: null
 changelog: |
+  - 4.0.1: PATCH. States that the runner now enforces the core release rules
+    on every 2.x report a live run accepts, not only in the Reporter
+    evaluation. No change to what the Reporter is asked to do.
   - 4.0.0: MAJOR (task group 2.2b, with release-report schema 2.0). For a
     2.x failure analysis the Reporter writes a 2.0 report whose
     execution_summary is the output of npm run report:summary, copied
@@ -329,6 +332,13 @@ outcome_breakdown }` when only Playwright ran, and the grouped form
      **no test at all** is a coverage gap: it cannot be `pass`. Such a
      run is at best `conditional_pass` (list the uncovered risk as a
      condition) — or send it back to Gate 2 to add the missing case.
+     The runner enforces the core of these rules on every 2.x report it
+     accepts (`RELEASE_RULES` in `scripts/lib/report-checks.js`): no `pass`
+     while a Red failure, a high-severity risk not covered and passing, or an
+     empty run blocks it; a `conditional_pass` states its conditions;
+     `blocking_failures` are exactly the Red failures and each Red failure's
+     bug draft is listed; the uncovered-risk fields match the coverage. A
+     report that breaks one is not accepted, and the report step stays next.
 7. **Write `release_recommendation_reasoning`** — a non-empty
    string explaining the choice. For `conditional_pass`, list the
    conditions explicitly. Generic reasoning is a Gate-4-equivalent

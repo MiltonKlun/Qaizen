@@ -50,18 +50,18 @@ import {
   blockingAmbiguities,
   GATE_KEYS,
 } from './pipeline-state.js';
-import {
-  criteriaNotInStory,
-  GATE_BRIEFS,
-  renderGateBrief,
-} from './gate-briefs.js';
+import { GATE_BRIEFS, renderGateBrief } from './gate-briefs.js';
+import { briefChecks } from './lib/brief-checks.js';
 import {
   applyCaseDecisions,
   describeCase,
   draftCases,
-  techniqueLine,
-  techniqueSummary,
 } from './lib/case-decisions.js';
+import {
+  coverageGaps,
+  coverageMode,
+  scopeCoverage,
+} from './lib/scope-coverage.js';
 import {
   captureGateFiles,
   GATE_STEP,
@@ -760,28 +760,9 @@ async function runGateInteractive(step, context) {
       }
       return { path: p, exists, valid };
     });
-  // Gate 1: the Analyst copies the acceptance criteria verbatim; say whether
-  // each one is in the story, so a reworded or invented one stands out.
-  /** @type {string[]} */
-  const checks = [];
-  const storyPath = context.story?.path || 'story.md';
-  if ((step === 'gate1' || step === 'qa_scope') && existsSync(storyPath)) {
-    const missing = criteriaNotInStory(
-      context.acceptance_criteria ?? [],
-      readFileSync(storyPath, 'utf8')
-    );
-    checks.push(
-      missing.length
-        ? `ATTENTION: ${missing.map((n) => `AC ${n}`).join(', ')} not found word for word in ${storyPath}; check ${missing.length === 1 ? 'it is' : 'they are'} not reworded or invented`
-        : `every acceptance criterion appears word for word in ${storyPath}`
-    );
-  }
-  // Gate 2: which test design techniques produced the cases?
-  const designedPath = context.artifact_paths?.test_cases;
-  if ((step === 'gate2' || step === 'qa_scope') && designedPath) {
-    const read = readValidatedJson(designedPath, TEST_CASES_SCHEMA);
-    if (read.ok) checks.push(techniqueLine(techniqueSummary(read.data)));
-  }
+  // The gate's automatic checks (scripts/lib/brief-checks.js). Blocking on
+  // scope coverage, when configured, already happened in the input check.
+  const checks = briefChecks(step, context, '.');
   const briefText = renderGateBrief({ step, context, artifacts, checks });
   console.log(briefText);
   // Restored files, or a gate reopened without changes: say what this is.
@@ -1028,6 +1009,18 @@ function gateInputProblems(step, context) {
             `test case(s) ${drafts.join(', ')} are still "draft": set each to "approved" or ` +
               '"rejected" in the test-cases file first — the per-case decisions are part of the scope you approve'
           );
+        } else {
+          // Scope coverage blocks the gate only when the team chose so.
+          const mode = coverageMode();
+          if (!mode.ok) problems.push(mode.message);
+          else if (mode.mode === 'block') {
+            const gaps = coverageGaps(scopeCoverage(context, r.data));
+            if (gaps) {
+              problems.push(
+                `scope coverage: ${gaps} (config/gate-checks.json scope_coverage is "block")`
+              );
+            }
+          }
         }
       }
     }
