@@ -299,7 +299,10 @@ Two gates ask a little more. Gate 1's brief says whether every acceptance
 criterion appears word for word in `story.md`, and names any that do not.
 Before Gate 2's brief, the runner asks you to approve or reject each draft
 test case, one at a time, and saves your decisions to the test-cases file;
-the gate then reviews the scope as you decided it.
+the gate then reviews the scope as you decided it, and its brief names any
+acceptance criterion or risk that no approved case covers. With
+`"scope_coverage": "block"` in `config/gate-checks.json`, such a gap keeps
+Gate 2 closed instead (the default, `"warn"`, only names it).
 
 Each decision, approved or rejected, also leaves a **gate record** under
 `gates/`, numbered in the order the decisions were made:
