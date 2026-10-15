@@ -244,7 +244,11 @@ agent or script written against the four-gate model breaks. See
 - [ ] **Risks meaningful** — each `RISK-XXX` is a real product /
       business / security risk the team would care about, not a
       rephrasing of the AC. A story with non-trivial behavior should
-      not have zero risks.
+      not have zero risks. Each is scored likelihood × impact
+      (`docs/context-json-guide.md`, the risk matrix): the impact fits
+      what the story puts at stake, and the `likelihood_basis` names real
+      evidence (the change, or a past bug in `metrics/defect-history.md`)
+      or says there is none.
 - [ ] **No invented business rules** — anything in `context.json`
       that isn't traceable to the source story (or to a clearly
       labeled ambiguity) is removed before approval.
@@ -255,6 +259,8 @@ words in the same order; case, punctuation, quote marks, Markdown and line
 wrapping do not count), and names any that do not. A criterion it names was
 reworded or invented; one it does not name can still have been copied from
 the wrong place, so the comparison stays yours.
+It also names any risk not scored likelihood × impact; the schema already
+rejects a severity that is not the cell of its likelihood and impact.
 
 **Approver:** the QA engineer driving the slice, or the product owner
 when domain detail is in question.
@@ -310,11 +316,14 @@ when domain detail is in question.
       for the Planner" section explicitly excludes pre-existing
       behavior and unrelated flows.
 
-Each case names the test design technique that produced it at the start of
-its description (`[Boundary value] ...`; the six techniques are in
-`skills/designing-cases`). The brief shows the mix and names any case that
-names none, so a scope built only from happy paths, or without the boundary
-and invalid-input cases its criteria call for, is visible at a glance.
+The runner's brief checks coverage mechanically: it names every acceptance
+criterion and every risk that no approved case references (a rejected case
+does not count). A `skip` case counts, because its reason is the written
+decision not to test; a risk that only `skip` cases address is named as
+accepted without a test. Whether the cases are the right ones stays your
+judgment. `config/gate-checks.json` sets what a gap does: `"warn"` (the
+default) names it in the brief; `"block"` keeps the gate closed until every
+criterion and risk has a case.
 
 **Approver:** the QA engineer driving the slice. For releases the
 product owner co-approves.

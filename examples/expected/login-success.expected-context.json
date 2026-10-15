@@ -18,13 +18,19 @@
     {
       "risk_id": "RISK-001",
       "description": "A partial session is created on failed login, leaving the user in an ambiguous authenticated state.",
+      "likelihood": "medium",
+      "impact": "high",
       "severity": "high",
+      "likelihood_basis": "No defect history for login and no linked change; medium by default.",
       "related_acs": [1, 2]
     },
     {
       "risk_id": "RISK-002",
       "description": "Locked-account check is enforced only in the UI, allowing API-level bypass.",
+      "likelihood": "medium",
+      "impact": "high",
       "severity": "high",
+      "likelihood_basis": "No defect history for login and no linked change; medium by default.",
       "related_acs": [2]
     }
   ],

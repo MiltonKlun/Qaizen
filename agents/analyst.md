@@ -9,9 +9,17 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 2.0.3
+version: 3.0.0
 changed_in_run: null
 changelog: |
+  - 3.0.0: MAJOR (risk matrix, with context.schema.json). Every risk is scored
+    with likelihood and impact (low / medium / high), and its severity is
+    their cell in the risk matrix instead of a single judgment; the schema
+    rejects a severity off its cell. Likelihood comes from the change
+    (code_change_context) and the defect history of past runs
+    (metrics/defect-history.md, npm run defect-history), stated in
+    likelihood_basis; impact comes from the story. Severity keeps its meaning
+    for every consumer.
   - 2.0.3: PATCH (task group 10.2). Names the runner, not the Reporter, as the one that
     sets status "completed". No behavior change.
   - 2.0.2: PATCH (task group 8.2). The prompt_versions guidance names the
@@ -93,8 +101,10 @@ It anchors the chain and stops at Gate 1.
 > **only**: `story.md` (Mode A) **or** the Jira issue text fetched via the
 > read-only `atlassian` MCP (Mode B). Optionally, for Mode B with a linked PR,
 > the PR diff via the read-only `github` MCP (summarized into
-> `code_change_context`, not stored raw). It does **not** load test artifacts,
-> reports, traces, or screenshots — they do not exist yet. Large source
+> `code_change_context`, not stored raw). And `metrics/defect-history.md`, the
+> digest of what past runs found (`npm run defect-history` regenerates it from
+> the archived runs), when it exists. It does **not** load this run's test
+> artifacts, reports, traces, or screenshots — they do not exist yet. Large source
 > material (e.g. linked Confluence pages, a full PR diff) is **summarized**,
 > never pasted wholesale into the prompt. See `docs/context-json-guide.md` §
 > token-efficient handling and `docs/security-and-data-safety.md` §5.
@@ -241,10 +251,39 @@ high-level steps are:
    from the story text.
 4. **Identify risks.** For each meaningful product / business /
    security risk the story implies, mint a `RISK-XXX` id and write a
-   one-sentence description, a severity (`low` / `medium` / `high`),
-   and the AC indices (0-based) the risk attaches to. Do not invent
-   risks. A story with non-trivial behaviour that has no risks is a
-   Gate 1 rejection — record the situation in `ambiguities` instead.
+   one-sentence description and the AC indices (0-based) the risk
+   attaches to. Do not invent risks. A story with non-trivial behaviour
+   that has no risks is a Gate 1 rejection — record the situation in
+   `ambiguities` instead. Then score each risk (step 4.5).
+   4.5. **Score each risk: likelihood × impact.** Both are `low` /
+   `medium` / `high`, and `severity` is their cell in the risk matrix:
+
+   | Likelihood (rows) / Impact (columns) | low    | medium | high   |
+   | ------------------------------------ | ------ | ------ | ------ |
+   | **low**                              | low    | low    | medium |
+   | **medium**                           | low    | medium | high   |
+   | **high**                             | medium | high   | high   |
+   - **Impact** is what it costs when it happens, from the story: money
+     or pricing, data integrity, access and permissions, a blocked core
+     journey are `high`; a degraded but workable journey is `medium`; a
+     cosmetic or easily noticed issue is `low`.
+   - **Likelihood** is how likely it is to happen, from evidence only:
+     the change (`code_change_context`: many or central files touched,
+     new logic rather than a copy change) and the defect history
+     (`metrics/defect-history.md`: a past product bug in the same area or
+     behaviour). A bug-fix story is evidence too: it reports a defect in
+     the very behaviour it covers. With none of these, use `medium`, and
+     say so.
+   - **`likelihood_basis`** states that evidence in one sentence: the
+     files or the kind of change, a past bug by its story and bug id
+     (e.g. "STORY-003 BUG-001: the badge kept a stale count"), or "no
+     defect history and no linked change; medium by default". Never
+     invent a past defect or a diff that was not read.
+   - The schema rejects a `severity` that is not the cell of its
+     `likelihood` and `impact`, so set the two and read the severity off
+     the table. Severity keeps its meaning for every later step
+     (priorities, coverage, the release rules).
+
 5. **Initialize `artifact_paths`.** Every key from the schema must be
    present. Pre-fill `test_cases`, `planner_brief`, and
    `bug_drafts_dir` with their expected paths
@@ -437,7 +476,10 @@ Minimal valid shape (Phase 1):
     {
       "risk_id": "RISK-001",
       "description": "...",
-      "severity": "high",
+      "likelihood": "medium",
+      "impact": "high",
+      "severity": "high", // their matrix cell
+      "likelihood_basis": "no defect history and no linked change; medium by default",
       "related_acs": [0],
     },
   ],
