@@ -113,11 +113,16 @@ export function writeCompletedRun(dir, opts = {}, overrides = {}) {
     'test-cases/.gitkeep': '',
     'analysis/execution-ledger.json': JSON.stringify(ledger),
     'analysis/failure-analysis.json': JSON.stringify(analysis),
-    'release/release-report.json': JSON.stringify(
+    'release/release-report.json': JSON.stringify({
       // A 2.0 report: the analysis is 2.x, and its execution_summary is the
-      // one derived from this same ledger (task group 2.2b).
-      own(gold('examples/expected/mixed-run.expected-release-report.json'))
-    ),
+      // one derived from this same ledger (task group 2.2b). Its failures
+      // are this run's: the analysis has none, so nothing blocks and no bug
+      // draft is listed (the release rules, scripts/lib/report-checks.js).
+      ...own(gold('examples/expected/mixed-run.expected-release-report.json')),
+      blocking_failures: [],
+      non_blocking_failures: [],
+      bug_drafts: [],
+    }),
     'release/release-report.md': '# report\n',
     'context.json': JSON.stringify(ctx, null, 2),
     ...overrides,

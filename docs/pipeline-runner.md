@@ -184,6 +184,16 @@ itself must validate before any step is derived, and it is validated in memory
 A gate does not even prompt while an input it reviews is missing or invalid —
 a broken machine-readable contract is not a judgment call.
 
+A release report written for a 2.x analysis must also keep the **release
+rules**: no `pass` while a Red failure, a high-severity risk that is not
+covered and passing, or an empty run blocks it; a `conditional_pass` states
+its conditions; `blocking_failures` are exactly the Red failures and every
+Red failure's bug draft is listed; the uncovered-risk fields match the
+coverage. They are the same checks the Reporter evaluation uses
+(`scripts/lib/report-checks.js`), applied to every live run. A report that
+breaks one is not accepted, with the rule named, so the report step comes
+next.
+
 The run is **complete** only when every gate is passed, the execution evidence
 is valid (including the Newman branch for a story with API cases), the failure
 analysis is **finalized** with a bug draft on disk for every Red failure and
@@ -299,7 +309,10 @@ Two gates ask a little more. Gate 1's brief says whether every acceptance
 criterion appears word for word in `story.md`, and names any that do not.
 Before Gate 2's brief, the runner asks you to approve or reject each draft
 test case, one at a time, and saves your decisions to the test-cases file;
-the gate then reviews the scope as you decided it.
+the gate then reviews the scope as you decided it, and its brief names any
+acceptance criterion or risk that no approved case covers. With
+`"scope_coverage": "block"` in `config/gate-checks.json`, such a gap keeps
+Gate 2 closed instead (the default, `"warn"`, only names it).
 
 Each decision, approved or rejected, also leaves a **gate record** under
 `gates/`, numbered in the order the decisions were made:

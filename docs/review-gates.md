@@ -316,6 +316,15 @@ when domain detail is in question.
       for the Planner" section explicitly excludes pre-existing
       behavior and unrelated flows.
 
+The runner's brief checks coverage mechanically: it names every acceptance
+criterion and every risk that no approved case references (a rejected case
+does not count). A `skip` case counts, because its reason is the written
+decision not to test; a risk that only `skip` cases address is named as
+accepted without a test. Whether the cases are the right ones stays your
+judgment. `config/gate-checks.json` sets what a gap does: `"warn"` (the
+default) names it in the brief; `"block"` keeps the gate closed until every
+criterion and risk has a case.
+
 **Approver:** the QA engineer driving the slice. For releases the
 product owner co-approves.
 
