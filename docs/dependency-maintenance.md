@@ -9,87 +9,86 @@
 
 1. Run `npm audit` on a **clean install** before concluding anything; a local
    `node_modules` can drift from the lockfile.
-2. Prefer a **compatible upgrade within the existing dependency family**.
+2. Prefer a **compatible upgrade within the existing dependency family**. When
+   a transitive package is pinned by a parent that is already at its latest
+   release, an npm **`overrides`** entry may lift it — but only to a release in
+   the **same major version**, only with the affected tool exercised before the
+   change merges, and each override is removed once the parent ships the fix
+   itself (see [Overrides](#overrides)).
 3. Never run `npm audit fix --force`, never downgrade a runtime tool to satisfy
-   the audit, and never add a package purely to evade it. A lower advisory count
-   obtained that way is a worse outcome, not a better one.
+   the audit, never override across a major version, and never add a package
+   purely to evade it. A lower advisory count obtained that way is a worse
+   outcome, not a better one.
 4. If no compatible fix exists, record an **exception row** below with exposure
    reasoning, the upstream constraint, an owner, and a review date **no more
    than 30 days out**.
 5. An exception is open until the human maintainer accepts it. Accepting it is a
    judgement about **exposure**, not a statement that the advisory is wrong.
 
-## Current status — reviewed 2026-10-01
+## Current status — reviewed 2026-10-15
 
-**2026-10-01 re-review.** A new moderate advisory appeared after the
-2026-09-15 review: `moment` (GHSA-4p3w-j4w9-5jqw, path traversal via a crafted
-non-string locale name), reached only through `newman-reporter-htmlextra` →
-`moment-timezone`. `moment-timezone` accepts any `moment >= 2.9.0`, so the fix
-(`2.31.0`) is a compatible in-range upgrade under rule 2: it was applied as a
-lockfile-only change, and a clean-install audit is back to the 24 advisories
-below. The four exception rows are unchanged and still open.
+Clean-install audit (`npm ci` in an isolated copy, then `npm audit`):
 
-Clean-install audit (`npm ci` in an isolated copy, then `npm audit`), as of
-both reviews:
+| Severity  | Before (10-15) | After this review |
+| --------- | -------------- | ----------------- |
+| critical  | 1              | **0**             |
+| high      | 18             | 9                 |
+| moderate  | 7              | 5                 |
+| **total** | **26**         | **14**            |
 
-| Severity  | Count  |
-| --------- | ------ |
-| critical  | 1      |
-| high      | 15     |
-| moderate  | 8      |
-| **total** | **24** |
+The count had risen from 24 (10-01) to 26 because new advisories were
+published, not because anything was added: two new **critical** `handlebars`
+advisories (`GHSA-8r5x-fm3f-whwj`, `GHSA-p8wg-vrv2-v86f`) reach `<=4.7.9`, so
+the release the last review waited for no longer clears them — only `4.7.10`
+does.
 
-**No package change was applied.** Not because the advisories are disputed, but
-because no compatible remedy exists — see the analysis below. The audit count is
-therefore unchanged, deliberately.
+Two changes were applied:
 
-### Why nothing was upgraded
+**1. In-range lockfile updates (−3).** Three packages now have fixed releases
+inside the ranges their parents already accept, so a targeted
+`npm update brace-expansion fast-uri ip-address` reaches them with no
+`package.json` change. The previous review recorded `fast-uri` as needing a
+major bump; a fixed 3.x has since been published.
 
-**20 of the 24 advisories reach the tree only through `newman` /
-`newman-reporter-htmlextra`**, and npm's only offered remedy for them is
-`newman@4.6.1`, which it reports as `isSemVerMajor: true`. Installed Newman is
-**6.2.2**, so that "fix" is a two-major **downgrade** of the API test runner.
-Newman publishes no 7.x (`majors published: 1,2,3,4,5,6`), and both direct
-packages are already at the newest published release:
+| Package           | Was    | Now    | Parent                                                       |
+| ----------------- | ------ | ------ | ------------------------------------------------------------ |
+| `brace-expansion` | 5.0.6  | 5.0.12 | `eslint` → `minimatch`                                       |
+| `fast-uri`        | 3.1.2  | 3.1.8  | `ajv`                                                        |
+| `ip-address`      | 10.2.0 | 10.7.4 | `newman` → `postman-request` → `socks-proxy-agent` → `socks` |
 
-| Package                     | Installed | Latest published |
-| --------------------------- | --------- | ---------------- |
-| `newman`                    | 6.2.2     | 6.2.2            |
-| `newman-reporter-htmlextra` | 1.23.1    | 1.23.1           |
+A plain `npm update` was **not** used: it would also have raised
+`@playwright/test` and `eslint`, unrelated upgrades that do not belong in a
+security change.
 
-So the Newman family is **exhausted**: there is nowhere forward to go.
+**2. Same-major overrides for the Newman family (−9, including the critical).**
+`newman@6.2.3` (published 2026-10-09) still pins `postman-runtime@7.39.1`, and
+`newman-reporter-htmlextra@1.23.1` is still the latest, so neither parent
+reaches the fixes. `package.json` `overrides` lifts them:
 
-The three advisories npm marks `fixAvailable: true` are not fixable in place
-either — the installed versions already sit inside the vulnerable range, and
-their parents pin them:
+### Overrides
 
-| Package           | Installed | Vulnerable range | Blocked by                                                            |
-| ----------------- | --------- | ---------------- | --------------------------------------------------------------------- |
-| `brace-expansion` | 5.0.6     | `<5.0.9`         | `eslint@10.10.0` (latest) still wants `^10.2.5` minimatch             |
-| `fast-uri`        | 3.1.2     | `<3.1.6`         | `ajv@8.20.0` (latest) pins `fast-uri ^3.0.1`; fix is in 4.1.5 (major) |
-| `ip-address`      | 10.2.0    | `<=10.3.0`       | `newman` → `postman-request` → `socks-proxy-agent` → `socks`          |
+| Package      | Was            | Override | Reached through                                    | Remove when                                                   |
+| ------------ | -------------- | -------- | -------------------------------------------------- | ------------------------------------------------------------- |
+| `handlebars` | 4.7.7 / 4.7.8  | 4.7.10   | `newman-reporter-htmlextra`, `postman-runtime`     | both parents depend on `>=4.7.10`                             |
+| `lodash`     | 4.17.21        | 4.18.1   | `newman`, `postman-*`, `newman-reporter-htmlextra` | the Newman family depends on `>=4.18.1`                       |
+| `underscore` | 1.12.1         | 1.13.8   | `postman-runtime` → `httpntlm`                     | `httpntlm` / `postman-runtime` move past the vulnerable range |
+| `flatted`    | 3.2.6          | 3.4.4    | `postman-sandbox` → `uvm`                          | `uvm` depends on `>=3.4.2`                                    |
+| `jose`       | 4.14.4         | 4.15.9   | `postman-runtime`                                  | `postman-runtime` depends on `>=4.15.5`                       |
+| `qs`         | 6.5.5 / 6.14.2 | 6.16.1   | `postman-request` (two copies)                     | `postman-request` depends on `>=6.16.0`                       |
+| `node-forge` | 1.3.1          | 1.4.0    | `postman-runtime`                                  | `postman-runtime` depends on `>=1.4.0` (see the open row)     |
 
-`npm audit fix` **without** `--force` reports zero changes.
+Every override stays within the major version its parent asks for. Because an
+override puts a parent on a release it was not published against, the affected
+tool was exercised before merging: a Newman run with the `cli`, `json` and
+`htmlextra` reporters against a local server executed both requests, the test
+scripts (including `lodash` inside the sandbox), variable passing between
+requests, and a deliberate assertion failure, which Newman reported; the JSON
+report counted it and the HTML report rendered every test. The repo test
+suite and CI's Newman job run on the change as well.
 
-### The critical advisory, specifically
-
-`handlebars` is **critical** (`GHSA-2w6w-674q-4c4q` and related AST
-type-confusion / prototype-pollution advisories, vulnerable `>=4.0.0 <=4.7.8`).
-Two copies are installed:
-
-- `node_modules/handlebars@4.7.7` — via `newman-reporter-htmlextra`
-- `node_modules/postman-runtime/node_modules/handlebars@4.7.8` — via `newman`
-
-The fix is **4.7.9**, but both copies are transitive and pinned by parents that
-are already at their latest release, so no in-family upgrade reaches it.
-
-**Exposure reasoning.** The advisories require an attacker to control the
-template or the AST passed into compilation. In this repo Handlebars is reached
-only through the Newman **htmlextra reporter**, which renders our own collection
-run output on the runner. The review that surfaced this did **not** establish an
-attack path in Qaizen. Since task group 1.1, the generated HTML report is
-**local-only and never published** — CI uploads `reports/published/` alone. That
-narrows the blast radius; it does not clear the advisory.
+Re-check this table at every review: `npm view newman dependencies` and
+`npm view newman-reporter-htmlextra dependencies` show whether a parent has
+caught up, and an override that is no longer needed is deleted.
 
 ## Added since the last review
 
@@ -99,46 +98,64 @@ narrows the blast radius; it does not clear the advisory.
 
 ## Open exceptions
 
-| Advisory set                            | Severity            | Exposure reasoning                                                                                                                                                                    | Upstream constraint                                                                                                          | Owner  | Review by  | Status                        |
-| --------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------ | ---------- | ----------------------------- |
-| `handlebars` (critical, AST/prototype)  | critical            | Reached only via the htmlextra reporter rendering our own run output. No attacker-controlled template/AST path established. HTML report is local-only and never published (task 1.1). | Fix in 4.7.9; both copies pinned transitively by `newman-reporter-htmlextra@1.23.1` and `newman@6.2.2`, both already latest. | Milton | 2026-10-15 | **Awaiting human acceptance** |
-| Newman / Postman family (20 advisories) | 12 high, 8 moderate | Dev-time API test runner, executed against our own collections and a demo endpoint. Not part of any shipped artifact. Members listed below.                                           | Only remedy offered is `newman@4.6.1` — a two-major **downgrade**. No 7.x exists.                                            | Milton | 2026-10-15 | **Awaiting human acceptance** |
-| `brace-expansion`, `fast-uri`           | high                | Dev tooling only (`eslint` lint runs, `ajv` schema validation of our own artifacts). Inputs are repo-controlled.                                                                      | Parents at latest still pin the vulnerable ranges; `fast-uri` fix requires a major bump `ajv` does not allow.                | Milton | 2026-10-15 | **Awaiting human acceptance** |
-| `ip-address`                            | high                | Reached via Newman's SOCKS proxy agent; the pipeline does not configure a SOCKS proxy.                                                                                                | Transitive under `newman`; same downgrade-only remedy.                                                                       | Milton | 2026-10-15 | **Awaiting human acceptance** |
+The 14 remaining advisories come from **five** packages that carry an advisory
+of their own; the other nine entries are their parents, which npm flags
+because they contain them. None has a compatible fix: two have **no fixed
+release at all**, three need a **major** version their parent does not allow.
+
+| Advisory                                  | Severity | Installed             | Why it is not fixed                                                                                     | Exposure reasoning                                                                                                                    | Owner  | Review by  | Status                        |
+| ----------------------------------------- | -------- | --------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------- | ----------------------------- |
+| `node-forge` (`GHSA-86w9-cpqp-85rv`)      | high     | 1.4.0 (override)      | **No fixed release**: affected `<=1.4.0`, and 1.4.0 is the latest.                                      | RSA PKCS#1 v1.5 signature verification. `postman-runtime` loads forge only for its ASAP auth type; no collection here uses ASAP auth. | Milton | 2026-11-14 | **Awaiting human acceptance** |
+| `braces` (`GHSA-vfj7-8cjw-p6xm`)          | high     | 3.0.3                 | **No fixed release**: affected `<=3.0.3`, and 3.0.3 is the latest.                                      | Stack exhaustion on deeply nested glob patterns. Reached only via the htmlextra reporter's helper library on our own report data.     | Milton | 2026-11-14 | **Awaiting human acceptance** |
+| `@faker-js/faker` (`GHSA-qxc2-j82w-r537`) | high     | 5.5.3                 | Fixed only in a later major (10.x); `postman-collection` pins 5.x for `{{$random…}}` dynamic variables. | `helpers.fake` on attacker-supplied templates. Our collections are repo-authored and reviewed at Gate 3.                              | Milton | 2026-11-14 | **Awaiting human acceptance** |
+| `csv-parse` (`GHSA-8cw4-87c7-c6xx`)       | moderate | 4.16.3                | Fixed only in 7.x; `newman` pins 4.x for `-d` data files.                                               | Prototype replacement via the `columns` path. The pipeline passes no CSV data files to Newman.                                        | Milton | 2026-11-14 | **Awaiting human acceptance** |
+| `uuid` (`GHSA-w5hq-g745-h8pq`)            | moderate | 3.4.0 / 8.3.2 / 9.0.1 | Fixed only in 11.x; the Postman packages pin older majors.                                              | Missing bounds check only when a caller passes its own `buf` to v3/v5/v6; the Postman packages generate ids without one.              | Milton | 2026-11-14 | **Awaiting human acceptance** |
+
+Newman only runs at dev time and in CI, against our own collections and our own
+endpoints; nothing it touches is shipped, and the HTML report is local-only and
+never published (task group 1.1). That narrows the blast radius of every row
+above; it does not clear any of them.
 
 **All rows are OPEN.** They become accepted only when the maintainer records
 acceptance here. Until then this is an unresolved finding, not a cleared one.
 
 ### Row membership (so each row can be audited)
 
-A row you cannot enumerate is not reviewable. The 24 advisories map to the rows
-above as follows:
+A row you cannot enumerate is not reviewable. The 14 audit entries map to the
+rows above as follows:
 
-**Newman / Postman family — 20** (`newman`, `newman-reporter-htmlextra`,
-`@budibase/handlebars-helpers`, `@faker-js/faker`, `csv-parse`, `flatted`,
-`httpntlm`, `jose`, `lodash`, `node-forge`, `postman-collection`,
-`postman-collection-transformer`, `postman-request`, `postman-runtime`,
-`postman-sandbox`, `qs`, `serialised-error`, `underscore`, `uuid`, `uvm`).
-
-`qs` is listed here rather than as its own row: npm marks it `fixAvailable:
-true`, but both installed copies (`6.14.2` and `6.5.5`) arrive solely via
-`newman` → `postman-request`, so it carries the same downgrade-only remedy as
-the rest of the family.
-
-**Dev tooling — 2** (`brace-expansion` via `eslint`, `fast-uri` via `ajv`).
-
-**Own rows — 2** (`handlebars`, `ip-address`).
+- **Carry an advisory — 5:** `node-forge`, `braces`, `@faker-js/faker`,
+  `csv-parse`, `uuid`.
+- **Flagged through them — 9:** `micromatch` (via `braces`),
+  `@budibase/handlebars-helpers` (via `micromatch`, `uuid`),
+  `newman-reporter-htmlextra`, `newman`, `postman-collection`,
+  `postman-request`, `postman-runtime`, `postman-sandbox`, `serialised-error`.
 
 ### What would change these decisions
 
-- Newman publishes a **7.x** (or a 6.x patch) that updates its Postman
-  transitives → re-audit and upgrade in-family.
-- `newman-reporter-htmlextra` releases a build depending on `handlebars@>=4.7.9`
-  → upgrade and drop the critical row.
-- `ajv` widens its `fast-uri` range to allow 4.x → upgrade.
-- The pipeline starts rendering **third-party or user-supplied** templates
-  through Handlebars → exposure reasoning is void; escalate immediately.
+- `node-forge` or `braces` publishes a fixed release → add or update an override
+  (same major) and drop the row.
+- Newman publishes a release whose Postman packages move to the fixed majors of
+  `@faker-js/faker`, `csv-parse` or `uuid` → upgrade in-family and drop those
+  rows, and remove any override the new release makes unnecessary.
+- The pipeline starts passing CSV data files to Newman, or running collections
+  that are not repo-authored → the `csv-parse` and `@faker-js/faker` exposure
+  reasoning is void; escalate immediately.
+- The htmlextra reporter is dropped → `braces`, `micromatch` and
+  `@budibase/handlebars-helpers` leave the tree.
 - A review date passes → re-audit and re-decide; do not silently roll it forward.
+
+## History
+
+- **2026-09-15** — first triage: 24 advisories, four exception rows opened, no
+  package change (the Newman family exhausted, `npm audit fix` without
+  `--force` changes nothing).
+- **2026-10-01** — a new moderate `moment` advisory (via
+  `newman-reporter-htmlextra` → `moment-timezone`) fixed by a compatible in-range
+  lockfile update to `2.31.0`; back to 24, exception rows unchanged.
+- **2026-10-15** — 26 → 14: in-range updates for three packages and same-major
+  overrides for seven, including the critical `handlebars`; the previous rows
+  replaced by the five above.
 
 ## Re-running this triage
 
@@ -149,17 +166,21 @@ npm audit --json > audit.json
 
 # Read counts and per-package remedies (never trust a cached summary)
 node -e "const a=require('./audit.json'); console.log(a.metadata.vulnerabilities)"
+
+# Has a parent caught up? Compare against the Overrides table
+npm view newman dependencies
+npm view newman-reporter-htmlextra dependencies
 ```
 
-Compare against the table above. If the counts moved, update this document in
+Compare against the tables above. If the counts moved, update this document in
 the same change — a stale advisory ledger is worse than none.
 
 ## Playwright and generated agent prompts
 
-`@playwright/test` is currently **1.60.0**; **1.63.0** is published and is a
-minor bump inside the declared `^1.60.0` range. It carries **no advisory** and
-was therefore **not** bundled into this security triage — mixing an unrelated
-upgrade into a security change makes both harder to review.
+`@playwright/test` is currently **1.60.0**; newer minors inside the declared
+`^1.60.0` range are published (1.64.1 at this review). They carry **no
+advisory** and were therefore **not** bundled into this security triage —
+mixing an unrelated upgrade into a security change makes both harder to review.
 
 When Playwright _is_ upgraded, regenerate the native agent prompts rather than
 editing them:
