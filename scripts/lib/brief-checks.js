@@ -10,7 +10,8 @@
 //
 //   Gate 1   every acceptance criterion appears word for word in the story;
 //            every risk is scored likelihood × impact
-//   Gate 2   every criterion and risk has an approved case
+//   Gate 2   every criterion and risk has an approved case; the mix of test
+//            design techniques behind the cases
 //   lite     both (the consolidated gate reviews Gates 1 and 2 together)
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -19,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 
 import { criteriaNotInStory } from '../gate-briefs.js';
 import { readValidatedJson } from './artifact-io.js';
+import { techniqueLine, techniqueSummary } from './case-decisions.js';
 import { coverageLine, scopeCoverage } from './scope-coverage.js';
 
 /** @typedef {import('./approval-binding.js').Context} Context */
@@ -72,7 +74,11 @@ export function briefChecks(step, context, root = '.') {
     const casesPath = context?.artifact_paths?.test_cases;
     if (casesPath) {
       const read = readValidatedJson(join(root, casesPath), TEST_CASES_SCHEMA);
-      if (read.ok) checks.push(coverageLine(scopeCoverage(context, read.data)));
+      if (read.ok) {
+        checks.push(coverageLine(scopeCoverage(context, read.data)));
+        // Which test design techniques produced the cases?
+        checks.push(techniqueLine(techniqueSummary(read.data)));
+      }
     }
   }
   return checks;

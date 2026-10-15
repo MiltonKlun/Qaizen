@@ -325,6 +325,12 @@ judgment. `config/gate-checks.json` sets what a gap does: `"warn"` (the
 default) names it in the brief; `"block"` keeps the gate closed until every
 criterion and risk has a case.
 
+Each case names the test design technique that produced it at the start of
+its description (`[Boundary value] ...`; the six techniques are in
+`skills/designing-cases`). The brief shows the mix and names any case that
+names none, so a scope built only from happy paths, or without the boundary
+and invalid-input cases its criteria call for, is visible at a glance.
+
 **Approver:** the QA engineer driving the slice. For releases the
 product owner co-approves.
 

@@ -67,19 +67,21 @@ test('Gate 1 shows the word check and the risk scoring', (t) => {
   );
 });
 
-test('Gate 2 shows the scope coverage', (t) => {
+test('Gate 2 shows the scope coverage and the test design techniques', (t) => {
   const { dir, ctx } = run(t);
   assert.deepEqual(briefChecks('gate2', ctx, dir), [
     'ATTENTION: AC 2 has no approved test case',
+    'ATTENTION: TC-001, TC-002, TC-004 name no technique',
   ]);
 });
 
-test('the lite gate shows all three; other gates show none', (t) => {
+test('the lite gate shows them all; other gates show none', (t) => {
   const { dir, ctx } = run(t);
   assert.deepEqual(briefChecks('qa_scope', ctx, dir), [
     'every acceptance criterion appears word for word in story.md',
     'every risk (1) is scored likelihood × impact, with its severity on the matrix',
     'ATTENTION: AC 2 has no approved test case',
+    'ATTENTION: TC-001, TC-002, TC-004 name no technique',
   ]);
   for (const step of ['gate3', 'gate4', 'gate3-api', 'gate4-ext']) {
     assert.deepEqual(briefChecks(step, ctx, dir), [], step);

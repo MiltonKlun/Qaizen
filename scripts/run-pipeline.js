@@ -56,8 +56,6 @@ import {
   applyCaseDecisions,
   describeCase,
   draftCases,
-  techniqueLine,
-  techniqueSummary,
 } from './lib/case-decisions.js';
 import {
   coverageGaps,
