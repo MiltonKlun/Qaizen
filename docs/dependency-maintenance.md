@@ -91,6 +91,12 @@ attack path in Qaizen. Since task group 1.1, the generated HTML report is
 **local-only and never published** — CI uploads `reports/published/` alone. That
 narrows the blast radius; it does not clear the advisory.
 
+## Added since the last review
+
+| Package                | Version | Kind                 | License | Advisories when added | Why                                                                                               |
+| ---------------------- | ------- | -------------------- | ------- | --------------------- | ------------------------------------------------------------------------------------------------- |
+| `@axe-core/playwright` | 4.13.0  | dev (and `axe-core`) | MPL-2.0 | none                  | Accessibility checks in Playwright tests (`tests/fixtures/accessibility.ts`); approved 2026-10-15 |
+
 ## Open exceptions
 
 | Advisory set                            | Severity            | Exposure reasoning                                                                                                                                                                    | Upstream constraint                                                                                                          | Owner  | Review by  | Status                        |

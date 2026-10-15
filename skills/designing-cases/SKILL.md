@@ -112,19 +112,32 @@ Derive cases with a technique, not by intuition, and name it: the case's
 `[Boundary value] A card expiring in the current month is accepted.` A
 case two techniques produced names both: `[Decision table, Boundary value]`.
 
-| Technique             | Use it when an acceptance criterion...                                  | It gives you                                                    |
-| --------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Use case              | describes a user journey                                                | the main flow, and each alternate or error flow the story names |
-| Equivalence partition | takes an input whose values fall into classes that behave alike         | one case per class; each invalid class on its own               |
-| Boundary value        | has a range, a limit or a date (quantity 1–99, an expiry month)         | cases on each boundary and just outside it                      |
-| Decision table        | combines conditions into different outcomes (member × amount × coupon)  | one case per rule that changes the outcome                      |
-| State transition      | moves something between states (cart empty → filled, order paid)        | the valid transitions, and at least one invalid one             |
-| Error guessing        | has a known way to fail: the defect a bug-fix story reports, a past bug | a case aimed squarely at that failure                           |
+| Technique             | Use it when an acceptance criterion...                                  | It gives you                                                     |
+| --------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Use case              | describes a user journey                                                | the main flow, and each alternate or error flow the story names  |
+| Equivalence partition | takes an input whose values fall into classes that behave alike         | one case per class; each invalid class on its own                |
+| Boundary value        | has a range, a limit or a date (quantity 1–99, an expiry month)         | cases on each boundary and just outside it                       |
+| Decision table        | combines conditions into different outcomes (member × amount × coupon)  | one case per rule that changes the outcome                       |
+| State transition      | moves something between states (cart empty → filled, order paid)        | the valid transitions, and at least one invalid one              |
+| Error guessing        | has a known way to fail: the defect a bug-fix story reports, a past bug | a case aimed squarely at that failure                            |
+| Checklist             | must meet an external standard (accessibility: WCAG 2.1 A and AA)       | one case per page or state the story changes, checked against it |
 
 The first four are the ISTQB black-box techniques; use case covers the
-journeys and error guessing the known failures. Consider all six for every
+journeys, error guessing the known failures, and checklist a standard the
+page must meet. Consider them all for every
 AC and use the ones that fit; most stories need two or three. A boundary or
 an invalid class the story leaves undefined is an ambiguity, not a guess.
+
+### Accessibility cases
+
+When an acceptance criterion or a risk concerns accessibility (keyboard use,
+screen readers, labels, contrast, a public or regulated page), design a
+`[Checklist]` case for each page or state the story changes: `automate_e2e`,
+expected result "no WCAG 2.1 A or AA violation". The planner brief tells the
+Planner and Generator to open the page in that state and call
+`expectAccessible` from `tests/fixtures/accessibility.ts`. Do not add one to
+a story that does not concern accessibility; that is the team's call, not a
+default.
 
 ## Traceability rules
 

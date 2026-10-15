@@ -10,9 +10,14 @@ description: |
   becomes enforceable in code.
 phase_introduced: 1
 phase_active: 1+
-version: 2.0.0
+version: 2.1.0
 changed_in_run: null
 changelog: |
+  - 2.1.0: MINOR (accessibility checks). When an acceptance criterion or a
+    risk concerns accessibility, the Test Designer adds a [Checklist] case
+    per page or state the story changes (WCAG 2.1 A and AA, automate_e2e),
+    and the planner brief points the Planner and Generator at
+    tests/fixtures/accessibility.ts. Absent otherwise; nothing else changes.
   - 2.0.0: MAJOR (test design techniques). Cases are derived with named
     techniques (use case, equivalence partition, boundary value, decision
     table, state transition, error guessing; skills/designing-cases), and
@@ -238,9 +243,14 @@ before Gate 2 and they agree on scope.
      `description` starts with the technique in brackets, e.g.
      `[Boundary value] ...` (`skills/designing-cases`, "Test design
      techniques": use case, equivalence partition, boundary value,
-     decision table, state transition, error guessing). Consider every
-     technique for every AC; a bug-fix story always gets an error-guessing
-     case aimed at the reported defect.
+     decision table, state transition, error guessing, checklist). Consider
+     every technique for every AC; a bug-fix story always gets an
+     error-guessing case aimed at the reported defect.
+   - When an AC or a risk concerns accessibility, add a `[Checklist]` case
+     for each page or state the story changes (`skills/designing-cases`,
+     "Accessibility cases"), and say in the planner brief's in-scope
+     scenarios that its test calls `expectAccessible` from
+     `tests/fixtures/accessibility.ts` on that page.
    - Fill `preconditions`, `steps` (each with a stable `step_id`
      and a clear `action`; `data` is optional), and
      `expected_results`.

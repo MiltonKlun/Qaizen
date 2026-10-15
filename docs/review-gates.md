@@ -311,7 +311,7 @@ when domain detail is in question.
       behavior and unrelated flows.
 
 Each case names the test design technique that produced it at the start of
-its description (`[Boundary value] ...`; the six techniques are in
+its description (`[Boundary value] ...`; the seven techniques are in
 `skills/designing-cases`). The brief shows the mix and names any case that
 names none, so a scope built only from happy paths, or without the boundary
 and invalid-input cases its criteria call for, is visible at a glance.

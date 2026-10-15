@@ -231,3 +231,17 @@ test('the techniques are read from the bracketed start of each description', () 
     'test design techniques: Use case 1, Boundary value 1, Decision table 1'
   );
 });
+
+test('an accessibility case names the checklist technique', () => {
+  const s = techniqueSummary({
+    test_cases: [
+      {
+        test_case_id: 'TC-009',
+        status: 'approved',
+        description:
+          '[checklist] The checkout page has no WCAG 2.1 A or AA violation.',
+      },
+    ],
+  });
+  assert.deepEqual(s, { counts: { Checklist: 1 }, unnamed: [], unknown: [] });
+});
