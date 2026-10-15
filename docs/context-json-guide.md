@@ -261,7 +261,7 @@ Impact comes from the story (money, data, access and a blocked core journey
 are high). Likelihood comes only from evidence: the linked change
 (`code_change_context`) and the defect history of past runs,
 `metrics/defect-history.md`, which `npm run defect-history` builds from the
-archived runs. Without either it is `medium`, and `likelihood_basis` says so.
+archived runs, or a defect the story itself reports (a bug-fix story). Without any of them it is `medium`, and `likelihood_basis` says so.
 Severity keeps its meaning for every later step, so priorities, coverage and
 the release rules read it as before; contexts written before the matrix, with
 severity alone, stay valid.

@@ -271,7 +271,9 @@ high-level steps are:
      the change (`code_change_context`: many or central files touched,
      new logic rather than a copy change) and the defect history
      (`metrics/defect-history.md`: a past product bug in the same area or
-     behaviour). With neither, use `medium`, and say so.
+     behaviour). A bug-fix story is evidence too: it reports a defect in
+     the very behaviour it covers. With none of these, use `medium`, and
+     say so.
    - **`likelihood_basis`** states that evidence in one sentence: the
      files or the kind of change, a past bug by its story and bug id
      (e.g. "STORY-003 BUG-001: the badge kept a stale count"), or "no
