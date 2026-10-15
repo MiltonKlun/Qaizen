@@ -184,6 +184,16 @@ itself must validate before any step is derived, and it is validated in memory
 A gate does not even prompt while an input it reviews is missing or invalid —
 a broken machine-readable contract is not a judgment call.
 
+A release report written for a 2.x analysis must also keep the **release
+rules**: no `pass` while a Red failure, a high-severity risk that is not
+covered and passing, or an empty run blocks it; a `conditional_pass` states
+its conditions; `blocking_failures` are exactly the Red failures and every
+Red failure's bug draft is listed; the uncovered-risk fields match the
+coverage. They are the same checks the Reporter evaluation uses
+(`scripts/lib/report-checks.js`), applied to every live run. A report that
+breaks one is not accepted, with the rule named, so the report step comes
+next.
+
 The run is **complete** only when every gate is passed, the execution evidence
 is valid (including the Newman branch for a story with API cases), the failure
 analysis is **finalized** with a bug draft on disk for every Red failure and

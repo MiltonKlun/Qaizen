@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
 import { validateValue } from './artifact-io.js';
+import { releaseRuleProblems } from './report-checks.js';
 import {
   analysisCountProblems,
   releaseExecutionSummary,
@@ -250,9 +251,26 @@ function releaseReportProblem(report, context, root) {
     return `cannot be checked: the ledger ${ledgerRel ?? '(unnamed)'} is not readable`;
   }
   const expected = releaseExecutionSummary(ledger.data);
-  return isDeepStrictEqual(report.execution_summary, expected)
-    ? null
-    : `has an execution_summary that differs from the ledger's (npm run report:summary prints the one to use)`;
+  if (!isDeepStrictEqual(report.execution_summary, expected)) {
+    return `has an execution_summary that differs from the ledger's (npm run report:summary prints the one to use)`;
+  }
+  // The release rules hold in a live run, not only when a prompt is
+  // evaluated: no pass while something blocks it, and nothing hidden.
+  const casesRel = context?.artifact_paths?.test_cases;
+  const cases =
+    typeof casesRel === 'string' && casesRel
+      ? readJson(join(root, casesRel))
+      : null;
+  const broken = releaseRuleProblems({
+    report,
+    context,
+    testCases: cases?.ok ? cases.data : { test_cases: [] },
+    analysis: fa.data,
+    ledger: ledger.data,
+  });
+  return broken.length
+    ? `breaks the release rules: ${broken.join('; ')} (agents/reporter.md)`
+    : null;
 }
 
 /**
