@@ -69,6 +69,7 @@ export const TECHNIQUES = [
   'Decision table',
   'State transition',
   'Error guessing',
+  'Checklist',
 ];
 
 /**

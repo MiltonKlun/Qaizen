@@ -209,6 +209,7 @@ You can install and use these. Anything else needs explicit human approval.
 - Prettier.
 - AJV + `ajv-formats` for JSON Schema validation.
 - Newman + `newman-reporter-htmlextra` (Phase 1.5+).
+- `@axe-core/playwright` for accessibility checks in Playwright tests (approved 2026-10-15; `tests/fixtures/accessibility.ts`).
 - Docker 20+ (for MCPs that run as containers).
 
 **MCPs (use the official or widely-adopted version, do not rewrite):**

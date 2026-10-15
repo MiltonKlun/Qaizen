@@ -100,6 +100,18 @@ Anti-patterns (don't use `automate_e2e` for):
 - Data filtering / sorting / pagination where the UI just renders
   whatever the API returned.
 
+**Accessibility is an `automate_e2e` check.** When an acceptance criterion
+or a risk concerns accessibility, a `[Checklist]` case per page or state the
+story changes asserts that it has no WCAG 2.1 A or AA violation. Its test
+opens the page in that state and calls `expectAccessible` from
+`tests/fixtures/accessibility.ts` (axe, `@axe-core/playwright`); a violation
+fails the test with each rule, its impact, the elements and a help link, and
+is classified like any failed assertion. Narrowing the check (`include`,
+`exclude`) is fine; turning a rule off (`disableRules`) is reviewed at Gate 4
+like a skipped test, with the reason in a comment. Axe finds what can be
+checked mechanically; whether the page is usable with a keyboard or a screen
+reader still needs a person (`manual`).
+
 ---
 
 ## 4. `automate_api` — use when
