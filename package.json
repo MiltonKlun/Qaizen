@@ -50,7 +50,8 @@
     "benchmark:survival": "node scripts/selector-survival.js",
     "benchmark:check": "node scripts/benchmark-check.js",
     "evolve": "node scripts/evolve.js",
-    "session-summary": "node scripts/session-summary.js"
+    "session-summary": "node scripts/session-summary.js",
+    "defect-history": "node scripts/defect-history.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

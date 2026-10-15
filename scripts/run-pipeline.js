@@ -774,6 +774,20 @@ async function runGateInteractive(step, context) {
         : `every acceptance criterion appears word for word in ${storyPath}`
     );
   }
+  // Gate 1: is every risk scored likelihood × impact (the schema already
+  // holds each severity to its matrix cell)?
+  if (step === 'gate1' || step === 'qa_scope') {
+    /** @type {{ risk_id: string, likelihood?: string }[]} */
+    const risks = context.risks ?? [];
+    const unscored = risks.filter((r) => !r.likelihood).map((r) => r.risk_id);
+    if (risks.length) {
+      checks.push(
+        unscored.length
+          ? `ATTENTION: ${unscored.join(', ')} ${unscored.length === 1 ? 'has' : 'have'} no likelihood × impact score (agents/analyst.md, the risk matrix)`
+          : `every risk (${risks.length}) is scored likelihood × impact, with its severity on the matrix`
+      );
+    }
+  }
   const briefText = renderGateBrief({ step, context, artifacts, checks });
   console.log(briefText);
   // Restored files, or a gate reopened without changes: say what this is.

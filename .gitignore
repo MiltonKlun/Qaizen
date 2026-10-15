@@ -71,6 +71,7 @@ runs/DEMO-1/
 # (metrics/.gitkeep), not the generated files.
 metrics/pipeline-metrics.json
 metrics/pipeline-metrics.md
+metrics/defect-history.md
 
 # The /evolve proposal is regenerable from git + metrics + session summaries —
 # keep the dir (evolve/.gitkeep), not the generated proposal. Session summaries

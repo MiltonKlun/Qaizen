@@ -149,6 +149,7 @@ flowchart LR
 | `npm run scan:gate4 -- <spec>` | Static pre-Gate-4 scan to assist review |
 | `npm run validate:all` | Validate every committed artifact against its schema |
 | `npm run metrics` · `npm run evolve` | Aggregate run metrics · propose improvements from them |
+| `npm run defect-history` | Summarize the bugs past runs found, for the Analyst's risk scoring |
 
 How the runner works, step by step: [docs/pipeline-runner.md](docs/pipeline-runner.md).
 

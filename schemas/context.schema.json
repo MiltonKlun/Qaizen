@@ -117,7 +117,8 @@
           },
           "severity": {
             "type": "string",
-            "enum": ["low", "medium", "high"]
+            "enum": ["low", "medium", "high"],
+            "description": "The risk level. With likelihood and impact it MUST be their matrix cell (enforced below)."
           },
           "related_acs": {
             "type": "array",
@@ -126,8 +127,210 @@
               "type": "integer",
               "minimum": 0
             }
+          },
+          "likelihood": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "OPTIONAL (risk matrix). How likely the risk is to happen: from the change itself (code_change_context: size, complexity, files touched) and the defect history of the area (npm run defect-history). Given together with impact."
+          },
+          "impact": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "OPTIONAL (risk matrix). How much it costs the business or the user when it happens: from the story (money, data, access, a blocked journey). Given together with likelihood."
+          },
+          "likelihood_basis": {
+            "type": "string",
+            "minLength": 1,
+            "description": "OPTIONAL. The evidence behind the likelihood, in one sentence: the change, a past defect (story and bug id), or \"no history and no diff\" when neither exists. Never invented."
           }
-        }
+        },
+        "description": "One risk. Severity is the risk level the rest of the pipeline reads (priorities, coverage, the release rules). When likelihood and impact are given, severity is their cell in the risk matrix (docs/context-json-guide.md): likelihood x impact, low-low/low-medium/medium-low are low; high-high/high-medium/medium-high are high; the rest are medium.",
+        "dependencies": {
+          "likelihood": ["impact"],
+          "impact": ["likelihood"]
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "likelihood": {
+                  "const": "low"
+                },
+                "impact": {
+                  "const": "low"
+                }
+              },
+              "required": ["likelihood", "impact"]
+            },
+            "then": {
+              "properties": {
+                "severity": {
+                  "const": "low"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "likelihood": {
+                  "const": "low"
+                },
+                "impact": {
+                  "const": "medium"
+                }
+              },
+              "required": ["likelihood", "impact"]
+            },
+            "then": {
+              "properties": {
+                "severity": {
+                  "const": "low"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "likelihood": {
+                  "const": "low"
+                },
+                "impact": {
+                  "const": "high"
+                }
+              },
+              "required": ["likelihood", "impact"]
+            },
+            "then": {
+              "properties": {
+                "severity": {
+                  "const": "medium"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "likelihood": {
+                  "const": "medium"
+                },
+                "impact": {
+                  "const": "low"
+                }
+              },
+              "required": ["likelihood", "impact"]
+            },
+            "then": {
+              "properties": {
+                "severity": {
+                  "const": "low"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "likelihood": {
+                  "const": "medium"
+                },
+                "impact": {
+                  "const": "medium"
+                }
+              },
+              "required": ["likelihood", "impact"]
+            },
+            "then": {
+              "properties": {
+                "severity": {
+                  "const": "medium"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "likelihood": {
+                  "const": "medium"
+                },
+                "impact": {
+                  "const": "high"
+                }
+              },
+              "required": ["likelihood", "impact"]
+            },
+            "then": {
+              "properties": {
+                "severity": {
+                  "const": "high"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "likelihood": {
+                  "const": "high"
+                },
+                "impact": {
+                  "const": "low"
+                }
+              },
+              "required": ["likelihood", "impact"]
+            },
+            "then": {
+              "properties": {
+                "severity": {
+                  "const": "medium"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "likelihood": {
+                  "const": "high"
+                },
+                "impact": {
+                  "const": "medium"
+                }
+              },
+              "required": ["likelihood", "impact"]
+            },
+            "then": {
+              "properties": {
+                "severity": {
+                  "const": "high"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "likelihood": {
+                  "const": "high"
+                },
+                "impact": {
+                  "const": "high"
+                }
+              },
+              "required": ["likelihood", "impact"]
+            },
+            "then": {
+              "properties": {
+                "severity": {
+                  "const": "high"
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "code_change_context": {
