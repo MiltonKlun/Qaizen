@@ -60,3 +60,65 @@ export function describeCase(c) {
   ].filter(Boolean);
   return `  ${c.test_case_id}  ${c.title ?? '(untitled)'}\n    ${facts.join(', ')}`;
 }
+
+/** The test design techniques a case can name (skills/designing-cases). */
+export const TECHNIQUES = [
+  'Use case',
+  'Equivalence partition',
+  'Boundary value',
+  'Decision table',
+  'State transition',
+  'Error guessing',
+];
+
+/**
+ * Which techniques the cases name, from the bracketed start of each case's
+ * description (`[Boundary value] ...`). Rejected cases are left out.
+ * @param {{ test_cases?: (DraftCase & { description?: string })[] } | null | undefined} doc
+ * @returns {{ counts: Record<string, number>, unnamed: string[], unknown: string[] }}
+ *   unknown: labels that are not one of TECHNIQUES
+ */
+export function techniqueSummary(doc) {
+  /** @type {Record<string, number>} */
+  const counts = {};
+  /** @type {string[]} */
+  const unnamed = [];
+  /** @type {Set<string>} */
+  const unknown = new Set();
+  for (const c of doc?.test_cases ?? []) {
+    if (c.status === 'rejected') continue;
+    const m = /^\s*\[([^\]]+)\]/.exec(c.description ?? '');
+    if (!m) {
+      unnamed.push(c.test_case_id);
+      continue;
+    }
+    for (const label of m[1].split(',').map((x) => x.trim())) {
+      const known = TECHNIQUES.find(
+        (t) => t.toLowerCase() === label.toLowerCase()
+      );
+      if (!known) unknown.add(label);
+      counts[known ?? label] = (counts[known ?? label] ?? 0) + 1;
+    }
+  }
+  return { counts, unnamed, unknown: [...unknown] };
+}
+
+/**
+ * The line the Gate 2 brief shows.
+ * @param {ReturnType<typeof techniqueSummary>} s
+ * @returns {string}
+ */
+export function techniqueLine(s) {
+  const mix = TECHNIQUES.filter((t) => s.counts[t])
+    .map((t) => `${t} ${s.counts[t]}`)
+    .join(', ');
+  const problems = [
+    s.unnamed.length
+      ? `${s.unnamed.join(', ')} ${s.unnamed.length === 1 ? 'names' : 'name'} no technique`
+      : '',
+    s.unknown.length ? `unknown technique ${s.unknown.join(', ')}` : '',
+  ].filter(Boolean);
+  return problems.length
+    ? `ATTENTION: ${problems.join('; ')}${mix ? ` (named: ${mix})` : ''}`
+    : `test design techniques: ${mix}`;
+}

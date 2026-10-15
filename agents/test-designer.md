@@ -10,9 +10,16 @@ description: |
   becomes enforceable in code.
 phase_introduced: 1
 phase_active: 1+
-version: 1.5.0
+version: 2.0.0
 changed_in_run: null
 changelog: |
+  - 2.0.0: MAJOR (test design techniques). Cases are derived with named
+    techniques (use case, equivalence partition, boundary value, decision
+    table, state transition, error guessing; skills/designing-cases), and
+    each case's description starts with the technique that produced it, in
+    brackets. Changes how cases are found, so a story can get more boundary,
+    invalid-class and known-failure cases than before; the case shape, ids
+    and links are unchanged.
   - 1.5.0: MINOR (task group 7.2). After Gate 2, when the approved scope has
     manual, automate_component or skip cases, the Test Designer also writes
     the external plan (planner-input/[story-id].external-plan.json): how
@@ -227,6 +234,13 @@ before Gate 2 and they agree on scope.
      is "smoke / regression critical", note it — that criticality is the
      input to the `@smoke` / `@regression` tag the Generator puts on the
      test (`docs/test-tagging.md`).
+   - Derive the case with a test design technique and name it: the
+     `description` starts with the technique in brackets, e.g.
+     `[Boundary value] ...` (`skills/designing-cases`, "Test design
+     techniques": use case, equivalence partition, boundary value,
+     decision table, state transition, error guessing). Consider every
+     technique for every AC; a bug-fix story always gets an error-guessing
+     case aimed at the reported defect.
    - Fill `preconditions`, `steps` (each with a stable `step_id`
      and a clear `action`; `data` is optional), and
      `expected_results`.

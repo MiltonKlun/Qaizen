@@ -105,6 +105,27 @@ than ~60% `automate_e2e`, stop and re-evaluate. Most validation logic,
 permission checks, and data shape checks belong at the API level. The
 Gate 2 reviewer is instructed to push back on E2E-heavy lists.
 
+## Test design techniques (name the one behind each case)
+
+Derive cases with a technique, not by intuition, and name it: the case's
+`description` starts with the technique in brackets, e.g.
+`[Boundary value] A card expiring in the current month is accepted.` A
+case two techniques produced names both: `[Decision table, Boundary value]`.
+
+| Technique             | Use it when an acceptance criterion...                                  | It gives you                                                    |
+| --------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Use case              | describes a user journey                                                | the main flow, and each alternate or error flow the story names |
+| Equivalence partition | takes an input whose values fall into classes that behave alike         | one case per class; each invalid class on its own               |
+| Boundary value        | has a range, a limit or a date (quantity 1–99, an expiry month)         | cases on each boundary and just outside it                      |
+| Decision table        | combines conditions into different outcomes (member × amount × coupon)  | one case per rule that changes the outcome                      |
+| State transition      | moves something between states (cart empty → filled, order paid)        | the valid transitions, and at least one invalid one             |
+| Error guessing        | has a known way to fail: the defect a bug-fix story reports, a past bug | a case aimed squarely at that failure                           |
+
+The first four are the ISTQB black-box techniques; use case covers the
+journeys and error guessing the known failures. Consider all six for every
+AC and use the ones that fit; most stories need two or three. A boundary or
+an invalid class the story leaves undefined is an ambiguity, not a guess.
+
 ## Traceability rules
 
 - Every `TC-XXX` MUST reference at least one `RISK-XXX` from
@@ -134,9 +155,13 @@ relative path of the new file, then re-validate `context.json`.
    references it. If a high-severity risk has no test, flag in
    `context.json.ambiguities` and stop — do not silently leave it
    uncovered.
-4. **Walk negative and edge cases.** For each happy-path TC, ask: what
-   are the meaningful negative inputs, boundary conditions, and
-   permission variants? Add those as additional TCs.
+4. **Apply the test design techniques** (the table above). For each AC,
+   decide which techniques fit: its journeys (use case), its input classes
+   (equivalence partition), its limits (boundary value), its combined
+   conditions (decision table), its states (state transition) and its known
+   failures (error guessing, always for a bug-fix story). Add the cases they
+   give, including the negative inputs and permission variants, and name the
+   technique at the start of each case's `description`.
 5. **Apply the Automation Decision Model** to every case. Write the
    reason. Sanity-check the distribution — if everything is `automate_e2e`,
    redistribute.

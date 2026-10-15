@@ -12,6 +12,8 @@ import {
   applyCaseDecisions,
   describeCase,
   draftCases,
+  techniqueLine,
+  techniqueSummary,
 } from '../scripts/lib/case-decisions.js';
 
 const REPO = process.cwd();
@@ -177,5 +179,55 @@ test('every draft needs a decision, or none is written', () => {
   assert.deepEqual(
     doc.test_cases.map((c) => c.status),
     ['approved', 'approved', 'rejected']
+  );
+});
+
+test('the techniques are read from the bracketed start of each description', () => {
+  const doc = {
+    test_cases: [
+      {
+        test_case_id: 'TC-001',
+        status: 'approved',
+        description: '[Use case] Log in.',
+      },
+      {
+        test_case_id: 'TC-002',
+        status: 'approved',
+        description: '[Boundary value, decision table] Expiry month.',
+      },
+      {
+        test_case_id: 'TC-003',
+        status: 'approved',
+        description: 'No technique named.',
+      },
+      {
+        test_case_id: 'TC-004',
+        status: 'rejected',
+        description: 'Rejected cases are left out.',
+      },
+      {
+        test_case_id: 'TC-005',
+        status: 'approved',
+        description: '[Gut feeling] Hmm.',
+      },
+    ],
+  };
+  const s = techniqueSummary(doc);
+  assert.deepEqual(s.counts, {
+    'Use case': 1,
+    'Boundary value': 1,
+    'Decision table': 1,
+    'Gut feeling': 1,
+  });
+  assert.deepEqual(s.unnamed, ['TC-003']);
+  assert.deepEqual(s.unknown, ['Gut feeling']);
+  assert.equal(
+    techniqueLine(s),
+    'ATTENTION: TC-003 names no technique; unknown technique Gut feeling (named: Use case 1, Boundary value 1, Decision table 1)'
+  );
+  doc.test_cases.splice(2, 3);
+  assert.equal(
+    techniqueLine(techniqueSummary(doc)),
+    'test design techniques: Use case 1, Boundary value 1, Decision table 1'
   );
 });
