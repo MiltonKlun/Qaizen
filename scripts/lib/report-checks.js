@@ -199,3 +199,28 @@ export function releaseReportChecks({
 
   return checks;
 }
+
+/**
+ * The release rules: the checks about what a report concludes, enforced
+ * when a live run accepts its release report (scripts/lib/run-artifacts.js),
+ * not only when a Reporter prompt is evaluated. The other checks concern how
+ * the report is laid out, and stay with the evaluation.
+ */
+export const RELEASE_RULES = [
+  'blocking failures are exactly the Red ones, the rest are non-blocking',
+  "every Red failure's bug draft is listed",
+  'uncovered risks and their high-severity count match the coverage',
+  'the recommendation is never pass while something blocks it',
+  'a conditional pass lists its conditions',
+];
+
+/**
+ * The release rules a report breaks, each with what it found.
+ * @param {Parameters<typeof releaseReportChecks>[0]} run
+ * @returns {string[]} empty when the report keeps every rule
+ */
+export function releaseRuleProblems(run) {
+  return releaseReportChecks(run)
+    .filter((c) => RELEASE_RULES.includes(c.name) && !c.pass)
+    .map((c) => (c.detail ? `${c.name} (${c.detail})` : c.name));
+}
