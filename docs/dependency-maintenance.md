@@ -90,6 +90,46 @@ Re-check this table at every review: `npm view newman dependencies` and
 `npm view newman-reporter-htmlextra dependencies` show whether a parent has
 caught up, and an override that is no longer needed is deleted.
 
+## MCP servers and GitHub Actions are dependencies too
+
+npm is not the only way code reaches this project. The MCP servers in
+`.mcp.json` run with the operator's tokens, and the GitHub Actions in
+`.github/workflows/` run in CI. Both are pinned and reviewed on the same
+cadence as npm (next review 2026-11-14). `test/mcp-config.test.js` fails if
+any of them is left unpinned.
+
+One gap remains: the Postman server runs through `npx`, so only its own
+version is pinned. Its dependencies are version ranges with no shrinkwrap,
+so a fresh install can resolve newer ones. Closing that would mean installing
+it as a pinned devDependency and running it from `node_modules`, which puts
+its whole tree under `package-lock.json` and `npm audit`; that is a separate
+decision, not taken here.
+
+| Dependency                    | Pinned to                                   | Notes                                                                |
+| ----------------------------- | ------------------------------------------- | -------------------------------------------------------------------- |
+| `sooperset/mcp-atlassian`     | `0.23.1` + image digest                     | read-only (`READ_ONLY_MODE`, read allowlist)                         |
+| `github/github-mcp-server`    | `v2.0.2` + image digest                     | `GITHUB_TOOLS` (3 read tools), `GITHUB_READ_ONLY`, lockdown mode     |
+| `@postman/postman-mcp-server` | `2.13.0` (exact)                            | minimal mode; 2.14.0 was two days old at pinning, so not yet adopted |
+| Playwright test MCP           | the installed `@playwright/test` (lockfile) | regenerated with `npx playwright init-agents`                        |
+| `actions/checkout`            | `v4.4.0` by commit SHA                      |                                                                      |
+| `actions/setup-node`          | `v4.4.0` by commit SHA                      |                                                                      |
+| `actions/upload-artifact`     | `v4.6.2` by commit SHA                      |                                                                      |
+| `actions/download-artifact`   | `v4.3.0` by commit SHA                      |                                                                      |
+| `actions/github-script`       | `v7.1.0` by commit SHA                      |                                                                      |
+
+Why pin by digest or SHA and not by tag: a tag can be moved. In 2026,
+attackers force-pushed 76 of the 77 tags of a popular security Action, and an
+unpinned `npx @postman/postman-mcp-server` would have run the malicious
+2.4.10–2.4.12 releases of November 2025 automatically. Prefer a release that
+has been public for at least a week, since malicious versions are usually
+pulled within days.
+
+To upgrade an Action, resolve the commit of the new release tag
+(`gh api repos/<owner>/<action>/commits/<tag> --jq .sha`), replace the SHA and
+update the version comment. To upgrade an image, resolve the digest of the new
+tag from the registry and update both. Check the release notes for renamed
+tools before changing an MCP pin.
+
 ## Added since the last review
 
 | Package                | Version | Kind                 | License | Advisories when added | Why                                                                                               |
