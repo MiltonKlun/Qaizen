@@ -125,12 +125,6 @@ stops at Gate 1.
 npm run validate:context             # must exit 0
 ```
 
-### Step 3.5 — [OPTIONAL][YOU] "Pipeline started" Jira comment
-
-Only if you want it. Ask the agent explicitly: **"post the pipeline-started
-comment on SK-10."** Requires `atlassian-write` + your explicit ask
-(`agents/analyst.md` §2). Skip otherwise.
-
 ### Step 4 — [YOU] GATE 1 — Requirement Interpretation
 
 Read `context.json` against the Jira issue. Criteria in

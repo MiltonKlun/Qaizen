@@ -19,8 +19,9 @@
 //
 // It talks to the Jira REST API directly (same approach the codebase uses
 // for TestLink XML-RPC in scripts/sync-to-testlink.js): the MCP isn't
-// reachable from a plain Node script and CI has no agent. The credentials
-// are exactly those the atlassian-write MCP uses.
+// reachable from a plain Node script and CI has no agent. It uses
+// JIRA_USERNAME / JIRA_API_TOKEN; the read-only MCP server has its own
+// credential, so no agent session holds the token these writes use.
 //
 // Usage:
 //   node scripts/create-jira-bugs.js                    # dry-run (default)

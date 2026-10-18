@@ -3,17 +3,18 @@
 This document covers how the MCP (Model Context Protocol) servers used by the
 Qaizen QA pipeline are configured for local development.
 
-## Current state (Phase 1)
+## Current state
 
-Two MCP servers are wired up in `.mcp.json`:
+Four MCP servers are wired up in `.mcp.json`. None of them can write to Jira or
+Confluence; Jira writes go through deterministic scripts that a human runs with
+`--apply` (see "Jira writes" below).
 
 | Server            | Purpose                                                                                    | Phase introduced |
 | ----------------- | ------------------------------------------------------------------------------------------ | ---------------- |
 | `playwright-test` | Playwright Native Agents (planner/generator/healer) drive a real browser through this MCP. | 1 (TG3)          |
-| `atlassian`       | `sooperset/mcp-atlassian` — Jira + Confluence access. **Read-only in Phase 1.**            | 1 (TG4)          |
-
-Phase 1.5 will add `postman`. Phase 2 will add `testlink` and will expand the
-Atlassian tool allowlist to include writes.
+| `atlassian`       | `sooperset/mcp-atlassian` — Jira + Confluence access. **Read-only.**                       | 1 (TG4)          |
+| `postman`         | `@postman/postman-mcp-server` — collections for the API branch.                            | 1.5              |
+| `github`          | `github/github-mcp-server` — a linked PR's diff as secondary context.                      | 3 (TG15)         |
 
 ---
 
@@ -36,7 +37,7 @@ Runs as a stdio-attached Docker container. Authentication is done with an
 Atlassian API token. The container reads its config from environment
 variables that the MCP client passes through from `.env`.
 
-### Why Phase 1 is read-only
+### Why it is read-only
 
 The system has four human gates and a strict "no invented requirements"
 rule. Phase 1 is the foundation slice — there are no human-approved bug
@@ -46,10 +47,12 @@ validated `release-report.json` and at least one Gate-4-approved
 generated test, the agent has no reason to mutate Jira. So Phase 1
 locks the toolset down to the read tools only.
 
-Phase 2 (TG2) expands the allowlist to include `jira_create_issue`,
-`jira_update_issue`, and `jira_add_comment`, and even then writes require
-explicit human approval via the `--apply` flag in
-`scripts/create-jira-bugs.js`.
+Phase 2 added Jira writes, but only through deterministic scripts that a
+human runs with `--apply` (`scripts/create-jira-bugs.js`,
+`scripts/create-jira-testcases.js`). The MCP server stays read-only in every
+phase: an agent reads tickets written by other people, and a write-capable
+server in the same session would let instructions hidden in a ticket reach a
+real Jira project.
 
 ### Version, tool groups and read-only mode
 
@@ -58,22 +61,21 @@ rather than `latest`, so an upstream release cannot change the tools under
 the allowlist without a reviewed change here. Two server settings back the
 allowlist up:
 
-- `TOOLSETS=all` on both entries. The server filters by tool group as well
+- `TOOLSETS=all`. The server filters by tool group as well
   as by name, and the two filters intersect. Its documentation says the
   default will narrow to six core groups, which leave out
   `jira_get_link_types`; naming the groups keeps the allowlist the only
   filter that matters.
-- `READ_ONLY_MODE=true` on the read-only `atlassian` entry. Even if a write
+- `READ_ONLY_MODE=true`. Even if a write
   tool were added to `ENABLED_TOOLS` by mistake, the server would neither
   list nor run it.
 
-To upgrade, check the new release's tool names against `ENABLED_TOOLS` and
-`ATLASSIAN_ENABLED_TOOLS_WRITE` (a name that no longer exists enables
-nothing, silently), then change the pin. The Docker engine must be running
+To upgrade, check the new release's tool names against `ENABLED_TOOLS` (a
+name that no longer exists enables nothing, silently), then change the pin. The Docker engine must be running
 (Docker Desktop on Windows and macOS): when it is not, the MCP client reports
 the server's connection as closed and no Jira tool is available.
 
-### Phase 1 `ENABLED_TOOLS` allowlist
+### `ENABLED_TOOLS` allowlist
 
 `sooperset/mcp-atlassian` 0.23.1 exposes about 98 tools. The agent only gets the
 read tools below. Anything not listed is unavailable; writes attempted by
@@ -96,13 +98,20 @@ ENABLED_TOOLS=jira_get_issue,jira_search,jira_get_link_types,confluence_get_page
 1. Sign in to `https://id.atlassian.com/manage-profile/security/api-tokens`.
 2. Click **Create API token**, give it a label (e.g. "qaizen").
 3. Copy the token immediately — Atlassian shows it once.
-4. Put it in `.env` as `JIRA_API_TOKEN` (and `CONFLUENCE_API_TOKEN` — they're
-   the same token if you're on the same Atlassian site).
+4. Put it in `.env`. Two credentials are used, on purpose:
+   - `ATLASSIAN_READ_USERNAME` / `ATLASSIAN_READ_API_TOKEN` — what the MCP
+     server uses for both Jira and Confluence. Create this token on an
+     account that can only **read** the projects and spaces the pipeline
+     needs, so no agent session ever holds a token that can write.
+   - `JIRA_USERNAME` / `JIRA_API_TOKEN` — what the deterministic scripts use
+     (story fetch, and promotion to Jira with an explicit `--apply`).
+     Until you have a read-only account, the read pair may repeat the script
+     pair; the MCP server still runs read-only, but the token itself could
+     write.
 5. `.env` is gitignored. Never commit it.
 
-The username field (`JIRA_USERNAME`, `CONFLUENCE_USERNAME`) is the email
-address of the Atlassian account that owns the token, not a separate user
-name.
+The username fields are the email address of the Atlassian account that owns
+each token, not a separate user name.
 
 ### Local setup steps
 
@@ -115,9 +124,11 @@ name.
    - `JIRA_URL` — e.g. `https://your-domain.atlassian.net`
    - `JIRA_USERNAME` — your Atlassian email
    - `JIRA_API_TOKEN` — the token from the step above
+   - `ATLASSIAN_READ_USERNAME`, `ATLASSIAN_READ_API_TOKEN` — the read-only
+     credential for the MCP server
    - `JIRA_PROJECT_KEY` — e.g. `PROJ`
-   - `CONFLUENCE_URL`, `CONFLUENCE_USERNAME`, `CONFLUENCE_API_TOKEN`
-   - Leave `ENABLED_TOOLS` at the Phase 1 value listed above.
+   - `CONFLUENCE_URL`
+   - Leave `ENABLED_TOOLS` at the value listed above.
 4. Restart the MCP client so it re-reads `.mcp.json` and `.env`.
 
 ### Verifying the connection
@@ -140,7 +151,7 @@ Expected behavior:
   in `ENABLED_TOOLS`. The MCP either reports the tool as unavailable, or
   the agent explains that no such tool is exposed.
 
-If a write tool somehow succeeds in Phase 1, that is a configuration bug:
+If a write tool somehow succeeds, that is a configuration bug:
 re-check `ENABLED_TOOLS` in `.env` and that the MCP client is reading the
 updated `.mcp.json`. Stop and report rather than silently proceeding.
 
@@ -159,75 +170,26 @@ cause is that `.env` is missing or the MCP client wasn't restarted after
 
 ---
 
-## `atlassian-write` — write-enabled Atlassian (Phase 2)
+## Jira writes — scripts, never an MCP server
 
-Phase 2 introduces a **second** Atlassian MCP entry, `atlassian-write`,
-alongside the read-only `atlassian`. Both use the same Docker image and
-the same token. The only difference is the `ENABLED_TOOLS` allowlist:
+No MCP server in `.mcp.json` can write to Jira or Confluence. An earlier
+version shipped a second, write-enabled `atlassian-write` entry for one
+optional agent action (a "pipeline started" comment); it was removed so that
+no agent session can mutate a real Jira project, even by mistake or through
+instructions hidden in a ticket it reads.
 
-| Entry             | `ENABLED_TOOLS` source             | Tools available                                                                                    |
-| ----------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `atlassian`       | `${ENABLED_TOOLS}` (read-only)     | `jira_get_issue`, `jira_search`, `jira_get_link_types`, `confluence_get_page`, `confluence_search` |
-| `atlassian-write` | `${ATLASSIAN_ENABLED_TOOLS_WRITE}` | the read tools **plus** `jira_create_issue`, `jira_update_issue`, `jira_add_comment`               |
+Every Jira write goes through a deterministic script that a human runs with
+an explicit flag:
 
-### Why two entries instead of flipping the one
+- Bug promotion: `node scripts/create-jira-bugs.js --apply`.
+- Test-case promotion: `node scripts/create-jira-testcases.js --apply`.
 
-Keeping the read-only entry as the default means the **safe** capability
-is always what's loaded; the write capability is a deliberate, separate
-server the human chooses. Flipping the single entry to writes would make
-writes the ambient default — exactly what we don't want for a tool that
-can mutate a real Jira project.
+Both use `JIRA_USERNAME` / `JIRA_API_TOKEN` and are covered in
+`docs/bug-draft-format.md` and `docs/live-acceptance.md`. Without `--apply`
+they only print what they would do.
 
-### Two ways to operate the toggle
-
-1. **Two MCP entries (current setup).** `atlassian` (read) and
-   `atlassian-write` (write) both exist in `.mcp.json`. Use the read one
-   for everything except deliberate bug creation; the write tools only
-   exist under `atlassian-write`.
-2. **Two env files (recommended for teams).** Keep `.env.dev` with
-   `ENABLED_TOOLS` = the read-only list and **no** write value, and
-   `.env.prod` (or `.env.write`) that sets
-   `ATLASSIAN_ENABLED_TOOLS_WRITE`. Point the shell at whichever file you
-   mean to use. CI never loads the write file on PR-from-fork triggers
-   (see `docs/secrets-management.md` §3).
-
-### THE CRITICAL RULE — writes are never a side effect
-
-Having `atlassian-write` available does **not** mean the agent creates or
-mutates Jira issues on its own. Two independent things must both be true
-for a write to happen:
-
-1. **Capability** — the write tools are loaded (`atlassian-write` /
-   the write allowlist).
-2. **Intent** — an explicit human action requests it. Bug creation
-   happens only through `node scripts/create-jira-bugs.js --apply`
-   (Phase 2 TG5), which requires the `--apply` flag a human types. The
-   Analyst's optional "QA pipeline started" Jira comment (Phase 2 TG9)
-   likewise requires explicit human approval in the run.
-
-The agent must NEVER call `jira_create_issue` / `jira_update_issue` /
-`jira_add_comment` as an implicit consequence of some other command
-(e.g. "analyze this story" must not silently comment on the Jira issue).
-If a task seems to imply a write without an explicit human-supplied
-flag, stop and ask — this is the same "stop before guessing" rule as
-everywhere else, applied to the one place where the agent could
-otherwise mutate a real external system.
-
-### Verifying the write path (manual test)
-
-With `.env` populated (real `JIRA_*` + `ATLASSIAN_ENABLED_TOOLS_WRITE`)
-and the MCP client restarted so `atlassian-write` is loaded:
-
-- Ask the agent to create a throwaway test issue in your project (e.g.
-  "create a test issue in `<PROJECT_KEY>` titled 'mcp write smoke test'").
-  It should succeed and return the new issue key.
-- Then delete that test issue in Jira by hand.
-- Confirm the negative: a normal read/analysis command does NOT create
-  or comment on any issue.
-
-This is the TG2 Definition-of-Done check. Because it needs a live Jira
-tenant, the human runs it; the agent cannot self-verify against your
-real Jira.
+If a task seems to imply a Jira write without an explicit human-supplied
+flag, stop and ask — the same "stop before guessing" rule as everywhere else.
 
 ---
 
@@ -281,16 +243,16 @@ by definition, so they never use it.
 Phase 1.5 — adds the Postman MCP for the API branch. Documented in
 `docs/postman-integration.md` (created in P1.5 TG1).
 
-Phase 2 — adds the writes-enabled `atlassian-write` entry (above). It was
-**intended** to also add a `testlink` MCP, but that bridge
+Phase 2 — added a writes-enabled `atlassian-write` entry, since removed
+(see "Jira writes" above). It was **intended** to also add a `testlink` MCP, but that bridge
 (`dogkeeper886/testlink-mcp`) would not complete its handshake in the MCP
 client (`-32000`, zero diagnostics), so it was removed from `.mcp.json`. The
 supported TestLink path is the XML-RPC script `scripts/sync-to-testlink.js`
 (live-verified on 2026-06-04; re-acceptance of the current version is tracked
 in `docs/sync-recovery.md` §7). See `docs/testlink-integration.md` and
-`docs/design-decisions.md` D7. So the active MCP servers as of Phase 2 are:
-`playwright-test`, `atlassian`, `atlassian-write`, `postman` — **no
-`testlink`**.
+`docs/design-decisions.md` D7. So the active MCP servers are
+`playwright-test`, `atlassian` (read-only), `postman` and `github` — **no
+`testlink`** and no write-enabled Atlassian entry.
 
 Phase 3 — adds the read-only `github` MCP (TG15, above) for code-change
 awareness. Otherwise hardening, prompt versioning, and metrics are

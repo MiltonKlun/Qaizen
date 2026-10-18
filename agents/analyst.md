@@ -9,9 +9,14 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 3.0.0
+version: 3.1.0
 changed_in_run: null
 changelog: |
+  - 3.1.0: MINOR (no output change). The Analyst no longer has a Jira write
+    capability: the optional "pipeline started" comment and the write-enabled
+    Atlassian MCP entry it needed are gone. Every Jira write goes through the
+    deterministic scripts that require a human's explicit --apply. context.json
+    is unchanged.
   - 3.0.0: MAJOR (risk matrix, with context.schema.json). Every risk is scored
     with likelihood and impact (low / medium / high), and its severity is
     their cell in the risk matrix instead of a single judgment; the schema
@@ -57,7 +62,6 @@ uses_skills:
   - skills/receiving-tickets
 uses_mcps:
   - atlassian (read-only allowlist; Mode B story fetch; see docs/mcp-setup.md)
-  - atlassian-write (Phase 2; ONLY for the optional, human-approved "pipeline started" comment)
   - github (Phase 3 TG15; read-only; ONLY to fetch a linked PR's diff as secondary context)
 ---
 
@@ -88,9 +92,7 @@ Read the user story in one of two modes and produce a single
 - Initializes `artifact_paths`, `review_gates`, and `status`.
 
 The Analyst does not design tests and does not explore the
-application. It does not write to Jira in Phase 1 (read-only). In
-Phase 2 the only permitted Jira write is one optional, human-approved
-"pipeline started" comment (see §2); everything else stays read-only.
+application. It never writes to Jira (see §2).
 It anchors the chain and stops at Gate 1.
 
 ---
@@ -114,7 +116,7 @@ It anchors the chain and stops at Gate 1.
 - **Mode B (Jira).** A Jira issue key (e.g. `QA-1042`) passed as an
   argument via `--jira <KEY>`. The Analyst calls
   `mcp-atlassian:jira_get_issue` (the **read-only** `atlassian` MCP
-  entry, not `atlassian-write`) to fetch summary, description, ACs,
+  entry) to fetch summary, description, ACs,
   comments, remote links. If the issue links to Confluence pages, the
   Analyst may call `mcp-atlassian:confluence_get_page` to read AC
   detail, but does NOT export every linked page to disk.
@@ -148,24 +150,14 @@ Mode is chosen by what's available:
 
 **Mode B is the Phase 2 enhancement.** The fetch itself stays
 read-only in every phase — reading a story never needs write access.
-The one optional write is described next.
 
-### Optional Jira write-back (Phase 2, explicitly gated)
+### No Jira writes
 
-Phase 2 allows the Analyst to post a single "QA pipeline started —
-context.json created" comment on the source Jira issue. This is OFF by
-default and happens only when BOTH hold (the "writes are never a side
-effect" rule, `docs/mcp-setup.md`):
-
-1. **Capability** — the `atlassian-write` MCP entry is loaded.
-2. **Intent** — the human explicitly asked for it on this run (e.g. a
-   `--comment-on-jira` flag or a direct instruction). Fetching a story,
-   or running the Analyst normally, NEVER posts a comment.
-
-If either is missing, the Analyst does not comment — it simply produces
-`context.json` and stops at Gate 1. The Analyst never opens, transitions,
-or otherwise mutates the issue; the only permitted write is that one
-additive comment, and only with explicit per-run approval.
+The Analyst never writes to Jira: no comment, no edit, no transition. No
+write-enabled Atlassian MCP entry is loaded in any session. Every Jira write
+in the pipeline goes through a deterministic script that a human runs with
+an explicit `--apply` (for example `node scripts/create-jira-bugs.js
+--apply`).
 
 ---
 
@@ -320,12 +312,6 @@ schemas/context.schema.json context.json` (or `npm run
 validate:context`). Fix and re-validate until the script exits 0.
 12. **Stop at Gate 1.** Hand off to the human. Do not invoke the
     Test Designer.
-13. **(Mode B, optional, Phase 2 only) Post the "pipeline started"
-    comment** — ONLY if the human explicitly requested it on this run
-    AND `atlassian-write` is loaded. Use
-    `mcp-atlassian:jira_add_comment` with a short note like "QA
-    pipeline started — context.json created (run_id …)". Skip silently
-    if not requested. Never transition the issue or edit any field.
 
 ---
 
@@ -345,10 +331,7 @@ validate:context`). Fix and re-validate until the script exits 0.
   is followed by re-validation against `schemas/context.schema.json`.
   An invalid `context.json` is not a valid handoff.
 - **Mode B fetch is always read-only.** Passing `--jira` reads the
-  issue; it never writes. In Phase 2 the only write the Analyst can make
-  is the optional, explicitly-approved "pipeline started" comment (§2,
-  step 12) — and even that requires both `atlassian-write` loaded and a
-  per-run human request. Phase 1 makes no Jira writes at all.
+  issue; it never writes, and the Analyst has no Jira write capability.
 - **Traceability is preserved at this layer.** `story.id` MUST match
   the source: `STORY-XXX` for manual, the literal Jira key for Jira
   mode. Picking your own id ("STORY-AB42") for a Jira-sourced story
@@ -360,10 +343,7 @@ validate:context`). Fix and re-validate until the script exits 0.
 
 - Creating or updating Jira issues, or transitioning their status —
   in any phase. The Analyst never opens, edits, or moves an issue.
-- Commenting on a Jira issue, EXCEPT the single optional "pipeline
-  started" comment in Phase 2, and only when the human explicitly
-  requested it on this run with `atlassian-write` loaded (§2). A comment
-  as a side effect of a normal run is forbidden.
+- Commenting on a Jira issue, in any phase.
 - Writing into `test-cases/`, `planner-input/`, `specs/`, `tests/`,
   `analysis/`, or `release/`.
 - Generating Playwright tests, Playwright specs, planner briefs, or

@@ -191,6 +191,6 @@ that judgment and pollute the tracker with non-bugs.
   after promotion.
 - `scripts/create-jira-bugs.js` — the promotion script.
 - `config/jira-priority-map.json` — severity → priority mapping.
-- `docs/mcp-setup.md` — the `atlassian-write` entry and the
-  "writes are never a side effect" rule.
+- `docs/mcp-setup.md` — why Jira writes go through scripts, never an MCP
+  server, and the "writes are never a side effect" rule.
 - `docs/traceability.md` — where `BUG-XXX` sits in the chain.

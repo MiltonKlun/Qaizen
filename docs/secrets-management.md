@@ -118,23 +118,26 @@ from forks.
 
 ---
 
-## 4. Read-only vs write-enabled Atlassian (the allowlist, not the token)
+## 4. Atlassian: a read-only MCP server and write scripts, with separate credentials
 
-The Atlassian MCP's capability is controlled by `ENABLED_TOOLS`, not by
-the token:
+The Atlassian MCP server is read-only in every phase: `ENABLED_TOOLS` lists
+only read tools and the server runs with `READ_ONLY_MODE=true`:
 
-- **Phase 1 / read-only:**
-  `ENABLED_TOOLS=jira_get_issue,jira_search,jira_get_link_types,confluence_get_page,confluence_search`
-- **Phase 2 / write-enabled:**
-  `ATLASSIAN_ENABLED_TOOLS_WRITE=...,jira_create_issue,jira_update_issue,jira_add_comment,...`
+`ENABLED_TOOLS=jira_get_issue,jira_search,jira_get_link_types,confluence_get_page,confluence_search`
 
-**Recommended setup:** keep two env files — `.env.dev` (read-only
-allowlist) and `.env.prod` (write allowlist) — and point the MCP at one
-or the other deliberately. Even with writes enabled, the agent **never**
-creates a Jira issue as a side effect: bug creation only happens through
-`node scripts/create-jira-bugs.js --apply` with an explicit human flag
-(Phase 2 TG5). The allowlist is the capability; the `--apply` flag is the
-intent. Both are required for a write to happen. See `docs/mcp-setup.md`.
+No MCP server can write to Jira. Writes happen only through deterministic
+scripts a human runs with an explicit `--apply` (`node scripts/create-jira-bugs.js --apply`,
+`node scripts/create-jira-testcases.js --apply`).
+
+The two paths use different credentials:
+
+- `ATLASSIAN_READ_USERNAME` / `ATLASSIAN_READ_API_TOKEN` — the MCP server's
+  credential. Create it on an account that can only read the projects and
+  spaces the pipeline needs. An Atlassian API token carries all of its
+  account's permissions, so a read-only account is what keeps a token that
+  can write out of every agent session.
+- `JIRA_USERNAME` / `JIRA_API_TOKEN` — the scripts' credential, used only
+  when a human runs them. See `docs/mcp-setup.md`.
 
 ---
 
