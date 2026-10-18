@@ -28,7 +28,7 @@
         "TOOLSETS",
         "-e",
         "READ_ONLY_MODE",
-        "ghcr.io/sooperset/mcp-atlassian:0.23.1"
+        "ghcr.io/sooperset/mcp-atlassian:0.23.1@sha256:5b7c9b64d4eb3210cab74be8bf3e6aeea9ed14f3042dc59ba5c5287bd4dbe466"
       ],
       "env": {
         "JIRA_URL": "${JIRA_URL}",
@@ -44,7 +44,7 @@
     },
     "postman": {
       "command": "cmd",
-      "args": ["/c", "npx", "@postman/postman-mcp-server", "--full"],
+      "args": ["/c", "npx", "-y", "@postman/postman-mcp-server@2.13.0"],
       "env": {
         "POSTMAN_API_KEY": "${POSTMAN_API_KEY}"
       }
@@ -58,12 +58,18 @@
         "-e",
         "GITHUB_PERSONAL_ACCESS_TOKEN",
         "-e",
-        "GITHUB_TOOLSETS",
-        "ghcr.io/github/github-mcp-server"
+        "GITHUB_TOOLS",
+        "-e",
+        "GITHUB_READ_ONLY",
+        "-e",
+        "GITHUB_LOCKDOWN_MODE",
+        "ghcr.io/github/github-mcp-server:v2.0.2@sha256:ffced0d76e77428532a2ced185516992d77fd146d69eec2f244e6237d1a97796"
       ],
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}",
-        "GITHUB_TOOLSETS": "${GITHUB_TOOLSETS}"
+        "GITHUB_TOOLS": "pull_request_read,get_file_contents,get_commit",
+        "GITHUB_READ_ONLY": "1",
+        "GITHUB_LOCKDOWN_MODE": "1"
       }
     }
   }

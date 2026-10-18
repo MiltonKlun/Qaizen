@@ -98,8 +98,10 @@ unscoped `postman-mcp-server` is published by a third party, not by Postman.
 
 **Decision.** Use the official scoped package, `@postman/postman-mcp-server`
 (source: `github.com/postmanlabs/postman-mcp-server`), in local STDIO mode:
-`npx @postman/postman-mcp-server --full` with `POSTMAN_API_KEY` from the
-environment. The unscoped third-party package is rejected, since the stack
+`npx @postman/postman-mcp-server` with `POSTMAN_API_KEY` from the
+environment. (Originally run with `--full`; since 2026-10 it runs in the
+default minimal mode, pinned to an exact version — see
+`docs/postman-integration.md`.) The unscoped third-party package is rejected, since the stack
 only admits official MCP servers (`CLAUDE.md` §4).
 
 **Consequences.** Configured in `.mcp.json` and documented in
