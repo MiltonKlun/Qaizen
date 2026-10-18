@@ -164,6 +164,14 @@ environment (which is loaded from `.env`) before launching the container.
 The container then sees the variables as part of its own environment and
 applies the `ENABLED_TOOLS` filter at startup.
 
+The names are not always the same on both sides: the container's
+`JIRA_USERNAME`, `JIRA_API_TOKEN`, `CONFLUENCE_USERNAME` and
+`CONFLUENCE_API_TOKEN` are filled from `ATLASSIAN_READ_USERNAME` and
+`ATLASSIAN_READ_API_TOKEN`. An older `.env` without those two variables
+leaves the server unable to authenticate; add them (they may repeat the
+`JIRA_*` values until you have a read-only account) and restart the MCP
+client.
+
 If the agent ever reports "JIRA_URL is empty" or similar, the most likely
 cause is that `.env` is missing or the MCP client wasn't restarted after
 `.env` changed.

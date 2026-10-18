@@ -42,10 +42,11 @@ compromised: rotate it immediately and scrub it from history.
    - `JIRA_USERNAME` — the Atlassian account email
    - `JIRA_API_TOKEN` — the token
    - `JIRA_PROJECT_KEY` — the project bugs go to, e.g. `QA`
-   - `CONFLUENCE_*` — same token if on the same Atlassian site.
-4. The same token authorizes both read (Phase 1) and write (Phase 2)
-   tools. What differs is the MCP's `ENABLED_TOOLS` allowlist, not the
-   token. See §4.
+   - `ATLASSIAN_READ_USERNAME`, `ATLASSIAN_READ_API_TOKEN` — the read-only
+     MCP server's own credential for Jira and Confluence, ideally from an
+     account that can only read.
+4. `JIRA_USERNAME` / `JIRA_API_TOKEN` are used only by the scripts a human
+   runs; the MCP server never sees them. See §4.
 
 ### TestLink (API key)
 
@@ -221,6 +222,6 @@ during development are flagged for rotation.
 ## 8. References
 
 - `.env.example` — the committed template of every key.
-- `docs/mcp-setup.md` — Atlassian read-only vs write allowlist.
+- `docs/mcp-setup.md` — the read-only Atlassian server and why Jira writes go through scripts.
 - `docs/postman-integration.md` — Postman / reqres / Newman secrets.
 - `docs/testlink-integration.md` — TestLink setup.

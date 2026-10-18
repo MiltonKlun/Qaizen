@@ -292,7 +292,6 @@ Back to Step 1 with `SK-13`, then `SK-16` (each on its own
 | Sync test cases to TestLink   | `node scripts/sync-to-testlink.js <id> --apply-testlink`                  | TestLink  |
 | Promote bug drafts to Jira    | `node scripts/create-jira-bugs.js --apply`                                | Jira      |
 | Sync exec results to TestLink | `node scripts/sync-testlink-execution.js <id> --apply-testlink-execution` | TestLink  |
-| Pipeline-started Jira comment | (ask the Analyst explicitly)                                              | Jira      |
 
 Every one is dry-run by default. Nothing writes outward without the flag
 you type. CI never runs any of these.

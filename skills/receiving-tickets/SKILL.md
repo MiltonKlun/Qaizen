@@ -96,8 +96,8 @@ Steps:
    - `story.jira_issue_key` = the same issue key.
    - `story.path` = `"story.md"` (the local copy).
 
-Phase 2 enables write tools and adds the option to post a "QA pipeline
-started" comment back to Jira, but only with explicit human approval.
+The MCP server stays read-only in every phase. Jira writes go only through
+the deterministic scripts a human runs with `--apply`.
 
 ## Required `context.json` fields
 

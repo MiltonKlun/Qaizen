@@ -33,7 +33,7 @@
 //   ... --release-stale-lock   # take over the lock of a sync that is no longer running
 //
 // Env (loaded from the repository's .env if present, else process.env):
-//   JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN  — same as the read MCP
+//   JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN  — the scripts' credential (the MCP uses ATLASSIAN_READ_*)
 //   JIRA_PROJECT_KEY                          — target project (e.g. SK)
 //   JIRA_BUG_ISSUETYPE                        — default "Bug"
 //   QAIZEN_HTTP_TIMEOUT_MS                    — default 30000
