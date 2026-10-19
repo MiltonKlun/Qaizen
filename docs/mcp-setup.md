@@ -56,9 +56,10 @@ real Jira project.
 
 ### Version, tool groups and read-only mode
 
-`.mcp.json` pins the image to a release (`ghcr.io/sooperset/mcp-atlassian:0.23.1`)
-rather than `latest`, so an upstream release cannot change the tools under
-the allowlist without a reviewed change here. Two server settings back the
+`.mcp.json` pins the image to a release and its digest
+(`ghcr.io/sooperset/mcp-atlassian:0.23.1@sha256:…`) rather than `latest`, so
+neither an upstream release nor a re-pushed tag can change the tools under the
+allowlist without a reviewed change here. Two server settings back the
 allowlist up:
 
 - `TOOLSETS=all`. The server filters by tool group as well
@@ -215,13 +216,26 @@ The Analyst NEVER generates expected-behavior assertions from "what the code
 does" (that would validate the implementation against itself). This is the
 §3.8 rule applied to code: anchor on the requirement, use the diff to sharpen.
 
-### Read-only, by design
+### Read-only, enforced three ways
 
-- The token is a **fine-grained PAT scoped to read** pull requests + repo
-  contents — no write/admin scopes.
-- `GITHUB_TOOLSETS=repos,pull_requests` restricts which tool groups the MCP
-  server even loads; write-oriented toolsets (issues, actions, etc.) are not
-  enabled. The pipeline never writes to GitHub.
+The `repos` and `pull_requests` toolsets that an earlier version enabled
+include write tools (`push_files`, `create_pull_request`,
+`merge_pull_request`, `delete_repository`), so "read-only" used to depend
+entirely on the token. It no longer does. `.mcp.json` fixes the server's
+configuration (not `.env`):
+
+- `GITHUB_TOOLS=pull_request_read,get_file_contents,get_commit` — only the
+  three read tools the Analyst needs are loaded.
+- `GITHUB_READ_ONLY=1` — the server's own filter, which disables every write
+  tool even if one is requested.
+- `GITHUB_LOCKDOWN_MODE=1` — in public repositories, only surfaces content
+  written by users with push access. It reduces prompt-injection risk from untrusted issue
+  and comment text; GitHub describes it as a best-effort content filter, not
+  an authorization boundary.
+
+And the token should still be a **fine-grained PAT scoped to read** pull
+requests and contents — no write or admin scopes. The pipeline never writes
+to GitHub.
 
 ### Optional + PR-dependent
 
@@ -236,13 +250,47 @@ by definition, so they never use it.
 1. Create a fine-grained PAT at
    `https://github.com/settings/personal-access-tokens` with **read-only**
    Pull requests + Contents on the relevant repo(s).
-2. Put it in `.env` as `GITHUB_PERSONAL_ACCESS_TOKEN`; leave
-   `GITHUB_TOOLSETS=repos,pull_requests`.
+2. Put it in `.env` as `GITHUB_PERSONAL_ACCESS_TOKEN`. (A
+   `GITHUB_TOOLSETS` line left in an older `.env` is ignored; the tool list
+   lives in `.mcp.json`.)
 3. Restart the MCP client so it loads the `github` entry from `.mcp.json`.
 
 `code_change_context` in `context.json` (optional) records what was fetched:
 `linked_pr`, `base_sha`, `head_sha`, `changed_files[]`, `summary`,
 `fetched_at`. Absent when there is no linked PR.
+
+---
+
+## Pinning and platforms
+
+Every server is pinned to an exact version, so a new release of a server
+never runs without a reviewed change:
+
+| Server            | Pinned by                                                   |
+| ----------------- | ----------------------------------------------------------- |
+| `playwright-test` | the repository's installed Playwright (`package-lock.json`) |
+| `atlassian`       | image tag and digest                                        |
+| `postman`         | exact npm version (`@postman/postman-mcp-server@<version>`) |
+| `github`          | image tag and digest                                        |
+
+Upgrades follow `docs/dependency-maintenance.md`: check the new version's
+release notes and advisories, prefer a release that has been public for at
+least a week, update the pin (for an image, resolve the new digest), and
+re-check the tool settings above, since a renamed tool silently drops out of
+an allowlist. `test/mcp-config.test.js` fails if a server is left unpinned or
+loses its read-only settings.
+
+`.mcp.json` is written for Windows, the primary platform: Claude Code needs
+the `cmd /c` wrapper to start `npx` there. On macOS or Linux, change the two
+`npx` entries to run `npx` directly, keeping the same arguments without
+`/c`:
+
+```json
+"playwright-test": { "command": "npx", "args": ["playwright", "run-test-mcp-server"] },
+"postman": { "command": "npx", "args": ["-y", "@postman/postman-mcp-server@2.13.0"], "env": { "POSTMAN_API_KEY": "${POSTMAN_API_KEY}" } }
+```
+
+The Docker entries work unchanged on every platform.
 
 ---
 
