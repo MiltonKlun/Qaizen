@@ -162,6 +162,35 @@ finishes or undoes it before doing anything else, deterministically:
 | **Gate**  | gate1, gate2, gate3, gate4, gate3-api, gate4-api, gate3-ext, gate4-ext                                                  | **You, interactively.** Brief rendered, decision captured, audit + telemetry written.                                |
 | **Exec**  | execute, execute-api, classify                                                                                          | **The runner.** Deterministic: `npx playwright test`, `run-newman.js`, then `normalize-results.js` → the classifier. |
 
+### Each agent step runs with only its MCP servers
+
+Under every agent step the runner prints the command that starts a fresh
+session with only the MCP servers that step needs, for example:
+
+```
+claude --strict-mcp-config --mcp-config config/mcp/analyst.json
+```
+
+`--strict-mcp-config` makes Claude Code ignore every other MCP configuration
+(`.mcp.json`, user and local servers). The configs under `config/mcp/` hold
+exact copies of the reviewed `.mcp.json` entries (`test/mcp-steps.test.js`
+checks they never drift):
+
+| Step                                                        | Config            | Servers                                |
+| ----------------------------------------------------------- | ----------------- | -------------------------------------- |
+| analyst                                                     | `analyst.json`    | `atlassian`, `github` (both read-only) |
+| planner, generator, healer                                  | `playwright.json` | `playwright-test`                      |
+| api                                                         | `postman.json`    | `postman`                              |
+| test-designer, external-plan, finalize (classifier), report | `none.json`       | none                                   |
+
+The reason is the combination, not any one server: a step that reads
+untrusted text (a ticket, a web page, an API response) should not also hold
+MCP tools that reach other systems. This narrows MCP servers only. Built-in
+tools such as Bash and WebFetch stay available in every session, so they are
+governed by Claude Code's permission rules and prompts, not by these configs.
+Running a step inside an existing session that loaded all of `.mcp.json`
+works, but gives up the separation. See `docs/mcp-setup.md`.
+
 Playwright failures at the execute step are **data for the classifier**, not
 a runner error — a failing suite with a valid report continues to
 `classify`. A test runner that **could not start, or wrote no valid report of

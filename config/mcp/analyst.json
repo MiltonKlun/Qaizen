@@ -1,0 +1,65 @@
+{
+  "mcpServers": {
+    "atlassian": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "JIRA_URL",
+        "-e",
+        "JIRA_USERNAME",
+        "-e",
+        "JIRA_API_TOKEN",
+        "-e",
+        "CONFLUENCE_URL",
+        "-e",
+        "CONFLUENCE_USERNAME",
+        "-e",
+        "CONFLUENCE_API_TOKEN",
+        "-e",
+        "ENABLED_TOOLS",
+        "-e",
+        "TOOLSETS",
+        "-e",
+        "READ_ONLY_MODE",
+        "ghcr.io/sooperset/mcp-atlassian:0.23.1@sha256:5b7c9b64d4eb3210cab74be8bf3e6aeea9ed14f3042dc59ba5c5287bd4dbe466"
+      ],
+      "env": {
+        "JIRA_URL": "${JIRA_URL}",
+        "JIRA_USERNAME": "${ATLASSIAN_READ_USERNAME}",
+        "JIRA_API_TOKEN": "${ATLASSIAN_READ_API_TOKEN}",
+        "CONFLUENCE_URL": "${CONFLUENCE_URL}",
+        "CONFLUENCE_USERNAME": "${ATLASSIAN_READ_USERNAME}",
+        "CONFLUENCE_API_TOKEN": "${ATLASSIAN_READ_API_TOKEN}",
+        "ENABLED_TOOLS": "${ENABLED_TOOLS}",
+        "TOOLSETS": "all",
+        "READ_ONLY_MODE": "true"
+      }
+    },
+    "github": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "-e",
+        "GITHUB_TOOLS",
+        "-e",
+        "GITHUB_READ_ONLY",
+        "-e",
+        "GITHUB_LOCKDOWN_MODE",
+        "ghcr.io/github/github-mcp-server:v2.0.2@sha256:ffced0d76e77428532a2ced185516992d77fd146d69eec2f244e6237d1a97796"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}",
+        "GITHUB_TOOLS": "pull_request_read,get_file_contents,get_commit",
+        "GITHUB_READ_ONLY": "1",
+        "GITHUB_LOCKDOWN_MODE": "1"
+      }
+    }
+  }
+}

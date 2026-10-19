@@ -290,7 +290,19 @@ the `cmd /c` wrapper to start `npx` there. On macOS or Linux, change the two
 "postman": { "command": "npx", "args": ["-y", "@postman/postman-mcp-server@2.13.0"], "env": { "POSTMAN_API_KEY": "${POSTMAN_API_KEY}" } }
 ```
 
-The Docker entries work unchanged on every platform.
+The same two entries are copied into the per-step configs
+`config/mcp/playwright.json` and `config/mcp/postman.json`; change them there
+too. The Docker entries work unchanged on every platform.
+
+### Per-step configs
+
+The runner tells you to start each agent step in its own session with only
+the servers that step needs, from `config/mcp/` (`analyst.json`,
+`playwright.json`, `postman.json`, `none.json`) and `--strict-mcp-config`.
+Those files hold exact copies of the entries above, and
+`test/mcp-steps.test.js` fails if one drifts, so a pin or a read-only setting
+is changed in `.mcp.json` and copied, never edited in one place only. See
+`docs/pipeline-runner.md` §3.
 
 ---
 
