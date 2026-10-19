@@ -32,7 +32,7 @@ export const DANGEROUS_TOOLS = Object.freeze([
  * @returns {AgentDefinition}
  */
 export function parseAgentDefinition(file, text) {
-  const clean = text.replace(/^﻿/, '');
+  const clean = text.replace(/^\uFEFF/, '');
   const front = clean.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
   const head = front ? front[1] : '';
   const body = front ? front[2] : clean;

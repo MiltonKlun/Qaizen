@@ -39,7 +39,7 @@ test('an agent with no tools field inherits every tool', () => {
 test('YAML-list tools and a byte-order mark parse the same way', () => {
   const a = parseAgentDefinition(
     'p.md',
-    `﻿---\nname: playwright-test-planner\ntools:\n  - Read\n  - ${UNSAFE}\n---\n\nPlan.\n`
+    `\uFEFF---\nname: playwright-test-planner\ntools:\n  - Read\n  - ${UNSAFE}\n---\n\nPlan.\n`
   );
   assert.deepEqual(a.tools, ['Read', UNSAFE]);
 });
