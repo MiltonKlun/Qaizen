@@ -9,7 +9,8 @@
 // input check (config/gate-checks.json).
 //
 //   Gate 1   every acceptance criterion appears word for word in the story;
-//            every risk is scored likelihood × impact
+//            the story has no hidden text; every risk is scored
+//            likelihood × impact
 //   Gate 2   every criterion and risk has an approved case; the mix of test
 //            design techniques behind the cases
 //   lite     both (the consolidated gate reviews Gates 1 and 2 together)
@@ -21,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { criteriaNotInStory } from '../gate-briefs.js';
 import { readValidatedJson } from './artifact-io.js';
 import { techniqueLine, techniqueSummary } from './case-decisions.js';
+import { hiddenText, hiddenTextLine } from './hidden-text.js';
 import { coverageLine, scopeCoverage } from './scope-coverage.js';
 
 /** @typedef {import('./approval-binding.js').Context} Context */
@@ -45,15 +47,19 @@ export function briefChecks(step, context, root = '.') {
     // one is in the story, so a reworded or invented one stands out.
     const storyPath = context?.story?.path || 'story.md';
     if (existsSync(join(root, storyPath))) {
+      const story = readFileSync(join(root, storyPath), 'utf8');
       const missing = criteriaNotInStory(
         context.acceptance_criteria ?? [],
-        readFileSync(join(root, storyPath), 'utf8')
+        story
       );
       checks.push(
         missing.length
           ? `ATTENTION: ${missing.map((n) => `AC ${n}`).join(', ')} not found word for word in ${storyPath}; check ${missing.length === 1 ? 'it is' : 'they are'} not reworded or invented`
           : `every acceptance criterion appears word for word in ${storyPath}`
       );
+      // Text the rendered ticket hides, or that speaks to an AI: shown to
+      // the reviewer, never removed (the story's digest is what Gate 1 binds).
+      checks.push(hiddenTextLine(storyPath, hiddenText(story)));
     }
     // Every risk scored likelihood × impact (the schema already holds each
     // severity to its matrix cell).

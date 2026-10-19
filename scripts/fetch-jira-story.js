@@ -36,6 +36,7 @@ import { argv, env, exit } from 'node:process';
 
 import { loadDotEnv, parseCliOrExit } from './lib/cli.js';
 import { JIRA_KEY, repoFile } from './lib/integration-io.js';
+import { hiddenText, hiddenTextLine } from './lib/hidden-text.js';
 import { storyMarkdown } from './lib/jira-story.js';
 
 loadDotEnv(env, repoFile('.env'));
@@ -106,14 +107,22 @@ async function main() {
     comments,
   });
 
+  // Kept exactly as fetched, but say so (on stderr) when it hides text; the
+  // Gate 1 brief shows the same finding.
+  const hidden = hiddenText(md);
+  const warnHidden = (/** @type {string} */ file) => {
+    if (hidden.length) console.warn(hiddenTextLine(file, hidden));
+  };
   if (PRINT) {
     process.stdout.write(md);
+    warnHidden(key);
     exit(0);
   }
   writeFileSync(outPath, md);
   console.log(
     `Wrote ${outPath} from ${key} (read-only fetch; Jira not modified).`
   );
+  warnHidden(outPath);
   console.log(
     'Next: run the Analyst on this story.md (Mode B) to produce context.json.'
   );
