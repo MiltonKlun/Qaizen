@@ -139,6 +139,38 @@ also a data-safety rule — what is never inlined cannot leak through a prompt.
 - Phase 3 TG7 (token-efficient context handling) formalizes the per-agent
   "loads only these files" declaration; the data-safety motivation is here.
 
+### The project permission policy (`.claude/settings.json`)
+
+Agents read text written by other people — tickets, comments, web pages, API
+responses — and that text can carry instructions. The tracked
+`.claude/settings.json` is the project's permission policy for every Claude
+Code session in this repository. Claude Code evaluates deny rules first, then
+ask, then allow, across all settings files, so a personal allow rule cannot
+undo it:
+
+- **Denied:** Playwright's `browser_run_code_unsafe` (it runs arbitrary code;
+  the generated planner is granted it), reading or editing `.env` and
+  `.env.local`, and force pushes (`--force`, `--force-with-lease`, `-f` and
+  `+` refspecs). Each shell rule is written twice, for Bash and for
+  PowerShell, because Claude Code matches the two shells' commands
+  separately.
+- **Asked every time:** `git push`, `npm install` / `npm i`, and `npx -y` /
+  `npx --yes`.
+- **No silent downloads:** the policy sets `npm_config_yes=false` for the
+  session. npm otherwise assumes "yes" when it is not running in a terminal,
+  as in an agent's shell, so a plain `npx <package>` would download and run a
+  package without asking. With it, `npx` only runs what is already installed
+  (like the repository's own Playwright and Prettier) unless you pass `-y`,
+  which the ask rule above catches.
+
+Limits, stated plainly: a `Read` or `Edit` deny covers Claude's file tools,
+the file commands Claude Code recognizes in a shell (`cat`, `head`, `tail`,
+`sed`, `tee`) and redirect targets, but not a script or program that opens the
+file itself (`node -e …`, a recursive `grep`), so shell permission prompts
+remain the control there; and these rules narrow what a session may do without
+making any content trustworthy. Personal preferences belong in
+`.claude/settings.local.json`, which stays untracked. After every `npx playwright init-agents`, run `npm run check:agents`.
+
 ---
 
 ## 6. Credential-logging audit (Phase 3 TG9)

@@ -12,7 +12,10 @@ playwright-report/
 test-results/
 .playwright-mcp/
 .DS_Store
-.claude/
+# Claude Code's local state and generated agents stay untracked; the shared
+# project permission policy (.claude/settings.json) is tracked.
+.claude/*
+!.claude/settings.json
 
 # Maintainer-only files: plans, strategy, reviews, follow-ups, session notes
 # and local agent configuration. Kept on the maintainer's machine, never
