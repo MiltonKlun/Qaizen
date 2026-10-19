@@ -6,13 +6,11 @@
 // Mode B describes (agents/analyst.md §2) — pulled into a script so the
 // vertical slice does not depend on hand-copying ACs out of Jira.
 //
-// READ ONLY. It never writes to Jira. The optional "pipeline started"
-// comment is a separate, explicitly-approved action (not done here).
+// READ ONLY. It never writes to Jira.
 //
-// It uses the Jira REST API directly (same credentials the atlassian MCP
-// uses), because a plain Node script can't reach the MCP and this must also
-// work in a no-agent context. It reads the READ-ONLY token; no write scope
-// is needed or used.
+// It uses the Jira REST API directly with JIRA_USERNAME / JIRA_API_TOKEN,
+// because a plain Node script can't reach the MCP and this must also work in
+// a no-agent context. It only reads; no write scope is needed or used.
 //
 // The text is converted, not interpreted (scripts/lib/jira-story.js): the
 // same issue always gives the same story.md, whose digest Gate 1 binds.

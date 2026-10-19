@@ -359,9 +359,10 @@ zero units. `code_reviewed` is never set for code that does not exist.
 
 Phase 2 keeps the local flow intact and adds:
 
-- `mcp-atlassian` switches from read-only to a writes-enabled allowlist
-  (`ATLASSIAN_ENABLED_TOOLS_WRITE`), as a separate `atlassian-write`
-  entry. Writes are never a side effect — see `docs/mcp-setup.md`.
+- Jira writes (bug and test-case promotion) go through deterministic
+  scripts a human runs with `--apply`; `mcp-atlassian` stays read-only, and
+  no MCP server can write to Jira. Writes are never a side effect — see
+  `docs/mcp-setup.md`.
 - The TestLink XML-RPC sync (`scripts/sync-to-testlink.js`) pushes
   approved test cases and execution results to TestLink (the MCP bridge
   was dropped — see `docs/testlink-integration.md` and

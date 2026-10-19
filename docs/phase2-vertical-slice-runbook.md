@@ -125,12 +125,6 @@ stops at Gate 1.
 npm run validate:context             # must exit 0
 ```
 
-### Step 3.5 — [OPTIONAL][YOU] "Pipeline started" Jira comment
-
-Only if you want it. Ask the agent explicitly: **"post the pipeline-started
-comment on SK-10."** Requires `atlassian-write` + your explicit ask
-(`agents/analyst.md` §2). Skip otherwise.
-
 ### Step 4 — [YOU] GATE 1 — Requirement Interpretation
 
 Read `context.json` against the Jira issue. Criteria in
@@ -298,7 +292,6 @@ Back to Step 1 with `SK-13`, then `SK-16` (each on its own
 | Sync test cases to TestLink   | `node scripts/sync-to-testlink.js <id> --apply-testlink`                  | TestLink  |
 | Promote bug drafts to Jira    | `node scripts/create-jira-bugs.js --apply`                                | Jira      |
 | Sync exec results to TestLink | `node scripts/sync-testlink-execution.js <id> --apply-testlink-execution` | TestLink  |
-| Pipeline-started Jira comment | (ask the Analyst explicitly)                                              | Jira      |
 
 Every one is dry-run by default. Nothing writes outward without the flag
 you type. CI never runs any of these.

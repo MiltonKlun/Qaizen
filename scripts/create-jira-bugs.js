@@ -19,8 +19,9 @@
 //
 // It talks to the Jira REST API directly (same approach the codebase uses
 // for TestLink XML-RPC in scripts/sync-to-testlink.js): the MCP isn't
-// reachable from a plain Node script and CI has no agent. The credentials
-// are exactly those the atlassian-write MCP uses.
+// reachable from a plain Node script and CI has no agent. It uses
+// JIRA_USERNAME / JIRA_API_TOKEN; the read-only MCP server has its own
+// credential, so no agent session holds the token these writes use.
 //
 // Usage:
 //   node scripts/create-jira-bugs.js                    # dry-run (default)
@@ -32,7 +33,7 @@
 //   ... --release-stale-lock   # take over the lock of a sync that is no longer running
 //
 // Env (loaded from the repository's .env if present, else process.env):
-//   JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN  — same as the read MCP
+//   JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN  — the scripts' credential (the MCP uses ATLASSIAN_READ_*)
 //   JIRA_PROJECT_KEY                          — target project (e.g. SK)
 //   JIRA_BUG_ISSUETYPE                        — default "Bug"
 //   QAIZEN_HTTP_TIMEOUT_MS                    — default 30000

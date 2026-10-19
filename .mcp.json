@@ -32,49 +32,14 @@
       ],
       "env": {
         "JIRA_URL": "${JIRA_URL}",
-        "JIRA_USERNAME": "${JIRA_USERNAME}",
-        "JIRA_API_TOKEN": "${JIRA_API_TOKEN}",
+        "JIRA_USERNAME": "${ATLASSIAN_READ_USERNAME}",
+        "JIRA_API_TOKEN": "${ATLASSIAN_READ_API_TOKEN}",
         "CONFLUENCE_URL": "${CONFLUENCE_URL}",
-        "CONFLUENCE_USERNAME": "${CONFLUENCE_USERNAME}",
-        "CONFLUENCE_API_TOKEN": "${CONFLUENCE_API_TOKEN}",
+        "CONFLUENCE_USERNAME": "${ATLASSIAN_READ_USERNAME}",
+        "CONFLUENCE_API_TOKEN": "${ATLASSIAN_READ_API_TOKEN}",
         "ENABLED_TOOLS": "${ENABLED_TOOLS}",
         "TOOLSETS": "all",
         "READ_ONLY_MODE": "true"
-      }
-    },
-    "atlassian-write": {
-      "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "JIRA_URL",
-        "-e",
-        "JIRA_USERNAME",
-        "-e",
-        "JIRA_API_TOKEN",
-        "-e",
-        "CONFLUENCE_URL",
-        "-e",
-        "CONFLUENCE_USERNAME",
-        "-e",
-        "CONFLUENCE_API_TOKEN",
-        "-e",
-        "ENABLED_TOOLS",
-        "-e",
-        "TOOLSETS",
-        "ghcr.io/sooperset/mcp-atlassian:0.23.1"
-      ],
-      "env": {
-        "JIRA_URL": "${JIRA_URL}",
-        "JIRA_USERNAME": "${JIRA_USERNAME}",
-        "JIRA_API_TOKEN": "${JIRA_API_TOKEN}",
-        "CONFLUENCE_URL": "${CONFLUENCE_URL}",
-        "CONFLUENCE_USERNAME": "${CONFLUENCE_USERNAME}",
-        "CONFLUENCE_API_TOKEN": "${CONFLUENCE_API_TOKEN}",
-        "ENABLED_TOOLS": "${ATLASSIAN_ENABLED_TOOLS_WRITE}",
-        "TOOLSETS": "all"
       }
     },
     "postman": {
