@@ -90,6 +90,10 @@ that applies a patch or records a gate decision.
 ## 5. After a Playwright upgrade
 
 1. Regenerate the agents: `npx playwright init-agents --loop=claude`.
-2. Read the new `.claude/agents/playwright-test-healer.md` for instructions
+2. Run `npm run check:agents`. It fails if a regenerated agent is granted a
+   tool that runs arbitrary code (such as `browser_run_code_unsafe`) that
+   `.claude/settings.json` does not deny, and warns while the healer's own
+   instructions still allow fixing assertions.
+3. Read the new `.claude/agents/playwright-test-healer.md` for instructions
    that conflict with section 1, and add them to the table if new.
-3. Keep using the invocation in section 2. Never edit the generated file.
+4. Keep using the invocation in section 2. Never edit the generated file.

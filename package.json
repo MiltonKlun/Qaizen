@@ -26,6 +26,7 @@
     "validate:examples": "node scripts/validate-examples.js",
     "validate:all": "node scripts/validate-all.js",
     "check:contracts": "node scripts/check-contract-changes.js",
+    "check:agents": "node scripts/check-agent-definitions.js",
     "ci:summary": "node scripts/ci-summary.js",
     "evaluate": "node scripts/evaluate-agents.js",
     "fetch-story": "node scripts/fetch-jira-story.js",

@@ -1,0 +1,36 @@
+{
+  "env": {
+    "npm_config_yes": "false"
+  },
+  "permissions": {
+    "deny": [
+      "mcp__playwright-test__browser_run_code_unsafe",
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Edit(./.env)",
+      "Edit(./.env.local)",
+      "Bash(git push *--force*)",
+      "Bash(git push -f *)",
+      "Bash(git push * -f)",
+      "Bash(git push * -f *)",
+      "Bash(git push * +*)",
+      "PowerShell(git push *--force*)",
+      "PowerShell(git push -f *)",
+      "PowerShell(git push * -f)",
+      "PowerShell(git push * -f *)",
+      "PowerShell(git push * +*)"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(npm install *)",
+      "Bash(npm i *)",
+      "Bash(npx -y *)",
+      "Bash(npx --yes *)",
+      "PowerShell(git push *)",
+      "PowerShell(npm install *)",
+      "PowerShell(npm i *)",
+      "PowerShell(npx -y *)",
+      "PowerShell(npx --yes *)"
+    ]
+  }
+}
