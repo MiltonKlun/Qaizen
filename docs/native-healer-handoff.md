@@ -26,8 +26,15 @@ every invocation (section 2). They override the installed prompt.
 
 ## 2. The invocation
 
-Pick one **Green** failure from the triage (`npm run heal`). Then start the
-native healer with this prompt, filling in the three placeholders:
+Pick one **Green** failure from the triage (`npm run heal`). Start a fresh
+session with only the Playwright MCP server:
+
+```text
+claude --strict-mcp-config --mcp-config config/mcp/playwright.json
+```
+
+Then start the native healer with this prompt, filling in the three
+placeholders:
 
 ```text
 Propose a fix for ONE failing test: FAIL-XXX in tests/<story>.spec.ts, test "<title>".

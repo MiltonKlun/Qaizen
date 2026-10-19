@@ -52,6 +52,7 @@ import {
 } from './pipeline-state.js';
 import { GATE_BRIEFS, renderGateBrief } from './gate-briefs.js';
 import { briefChecks } from './lib/brief-checks.js';
+import { launchLine } from './lib/step-mcp.js';
 import {
   applyCaseDecisions,
   describeCase,
@@ -907,22 +908,26 @@ function storyId(context) {
 const GUIDE_STEPS = {
   analyst: () =>
     'Run the ANALYST: agents/analyst.md against story.md.\n' +
+    launchLine('analyst') +
     '  It writes context.json (risks, ACs, ambiguities; all gates false).\n' +
     stagedRunLine() +
     '  Then: node scripts/validate-json.js schemas/context.schema.json context.json\n' +
     '  Then: npm run pipeline -- --resume',
   'test-designer': (ctx) =>
     `Run the TEST DESIGNER: agents/test-designer.md for ${storyId(ctx)}.\n` +
+    launchLine('test-designer') +
     `  It writes test-cases/${storyId(ctx)}.json + planner-input/${storyId(ctx)}.planner-brief.md\n` +
     '  and fills artifact_paths.test_cases / .planner_brief in context.json.\n' +
     '  Then: npm run pipeline -- --resume',
   planner: (ctx) =>
     `Run the PLAYWRIGHT PLANNER native agent with planner-input/${storyId(ctx)}.planner-brief.md\n` +
     `  (it explores the real app via Playwright MCP — never from text alone, CLAUDE.md §3.8).\n` +
+    launchLine('planner') +
     `  It writes specs/${storyId(ctx)}.md; fill artifact_paths.playwright_spec.\n` +
     '  Then: npm run pipeline -- --resume',
   api: (ctx) =>
     `Run the API AGENT: agents/api-agent.md for the automate_api cases of ${storyId(ctx)}.\n` +
+    launchLine('api') +
     `  It writes api-tests/collections/${storyId(ctx)}.postman_collection.json (+ environment),\n` +
     '  verifying endpoint shapes via Postman MCP / OpenAPI — never invented.\n' +
     "  Then: npm run pipeline -- --resume   (the collection goes to Gate 3' and Gate 4')",
@@ -932,6 +937,7 @@ const GUIDE_STEPS = {
     '  mark them manual/skip with a reason) and re-review Gate 2.',
   'external-plan': (ctx) =>
     `Run the TEST DESIGNER: agents/test-designer.md (external plan) for ${storyId(ctx)}.\n` +
+    launchLine('external-plan') +
     `  It writes ${externalPaths(ctx).plan}: one entry per approved manual, component\n` +
     '  and skip case (procedure or command, expected outcome, evidence required, or the\n' +
     '  exclusion reason). Nothing is executed before this plan is reviewed.\n' +
@@ -945,10 +951,12 @@ const GUIDE_STEPS = {
     '  Then: npm run pipeline -- --resume',
   generator: (ctx) =>
     `Run the PLAYWRIGHT GENERATOR native agent on specs/${storyId(ctx)}.md.\n` +
+    launchLine('generator') +
     `  It writes tests/${storyId(ctx)}.spec.ts; fill artifact_paths.generated_test.\n` +
     '  Then: npm run pipeline -- --resume',
   finalize: (ctx) =>
     `Run the FAILURE CLASSIFIER: agents/failure-classifier.md for ${storyId(ctx)}.\n` +
+    launchLine('finalize') +
     '  The rule-based pre-classifier wrote a DRAFT analysis. Confirm or correct each\n' +
     '  classification, write release/bug-drafts/BUG-XXX.md for every Red failure and set\n' +
     '  its bug_draft_path, resolve or acknowledge unresolved links, then set\n' +
@@ -956,6 +964,7 @@ const GUIDE_STEPS = {
     '  Then: npm run pipeline -- --resume',
   report: (ctx) =>
     `Run the REPORTER: agents/reporter.md for ${storyId(ctx)}.\n` +
+    launchLine('report') +
     '  It writes release/release-report.{md,json} from the FINALIZED failure analysis\n' +
     '  (summaries only) and fills artifact_paths.release_report_md/_json.\n' +
     '  It does not set context.json status; the runner does, after validating.\n' +
