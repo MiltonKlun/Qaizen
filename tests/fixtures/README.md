@@ -1,12 +1,14 @@
 # Fixtures
 
-Fixtures are app-specific and are deferred until they are actually
-needed. In Phase 1 this folder is a placeholder so the directory
-layout is stable.
+Fixtures are app-specific and are added only when a test needs one.
+`accessibility.ts` (axe checks, `expectAccessible`) is the first.
 
 When fixtures become necessary:
 
-- Create `tests/fixtures.ts` with custom Playwright fixtures.
+- Create them in this folder, e.g. `tests/fixtures/auth.ts` (as
+  `tests/fixtures/accessibility.ts` does). Gate 4 binds this folder, so an
+  approved test cannot change behavior through a fixture edited later; a
+  file outside it, such as `tests/fixtures.ts`, would not be bound.
 - Document each fixture in this README (name, purpose, how to use,
   any test-data requirements).
 

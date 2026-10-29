@@ -1,6 +1,6 @@
 # Evidence — pipeline vs. raw prompting
 
-> **Status:** EARLY RESULTS (2 stories). STORY-003 ran through both arms
+> **Status:** EARLY RESULTS (2 stories, 4 records). STORY-003 ran through both arms
 > (the pilot, §1–§5); STORY-020 ran through the full pipeline arm solo (§5a),
 > its "explored-but-ungated" attempt surfaced the §5b finding, and its **true
 > text-only raw arm is now complete (§5c)** — where a green run on live
@@ -8,6 +8,12 @@
 > test. The protocol's aggregate verdict still awaits the full series
 > (`docs/benchmark-protocol.md`). The project reports only what it has actually
 > measured and does not over-claim from a handful of data points.
+>
+> **These results predate the current pipeline.** Every record ran on or
+> before 2026-07-04. Approval binding, the execution ledger and the rule-based
+> classifier arrived on 2026-09-24, and the syntax-tree healer guardrail with
+> isolated validation on 2026-09-29. They describe the July 2026 pipeline, not
+> today's, until the stories are re-run.
 
 This is the project's answer to its own central question: **why use this
 ceremony instead of asking an AI directly?** It reports measured results —
@@ -16,7 +22,7 @@ in `docs/benchmark-protocol.md` §5.
 
 ---
 
-> **Status: PILOT (n = 1).** One story (`cart-badge-count-bugfix`, STORY-003)
+> **§1–§5, the pilot (n = 1).** One story (`cart-badge-count-bugfix`, STORY-003)
 > through both arms — a single data point to **prove the measurement loop**, not
 > to draw the verdict. The thresholds in `docs/benchmark-protocol.md` §5 are
 > aggregate calls and are **not** evaluated here; they need the full 5–10 story
@@ -244,9 +250,13 @@ text-only raw prompting can pass and even "catch" the bug — while producing
 exactly the brittle, ungrounded, untraceable test the pipeline exists to
 prevent.** The green run flatters raw; the `fictional_rate 1.0`,
 `gate4_corrections 1`, `traceability 0.0`, and the hard-coded money tell the
-real story. It also validates the local Bench Shop app (Phase 5): a target that
-is _not_ in training data (and can be mutated) is what stops raw from getting
-lucky — the honest test of grounding.
+real story. It also shows why a target outside the model's training data
+matters: only such a target stops raw prompting from getting lucky. The local
+Bench Shop app is meant to be that target, but it currently mirrors SauceDemo
+(the same products, prices, 8% tax, login and `data-test` names), so its
+totals include the same `$39.98` the text-only arm recalled. It is not yet a
+training-data-free target; it becomes one once its catalogue, prices, tax and
+credentials change.
 
 ---
 
@@ -278,10 +288,12 @@ around them.
 ## 6. Next steps
 
 - **Done:** the text-only raw arm for STORY-020 (§5c) — completed the §5b gap.
-- **Re-run the benchmark against the local Bench Shop app** (§5c, Phase 5) for a
-  target that is _not_ in training data and _can_ be mutated — the honest test
-  of grounding that public SauceDemo cannot give (`--bug` for catch rate, `v1`
-  vs `v2` for selector survival, both now measurable).
+- **Make Bench Shop a fair target, then re-run the benchmark against it**
+  (§5c, Phase 5). Today it mirrors SauceDemo, so first change its catalogue,
+  prices, tax and credentials; then it can give the honest test of grounding
+  that public SauceDemo cannot (`--bug` for catch rate, `v1` vs `v2` for
+  selector survival). Re-run on the current pipeline, since every record so
+  far predates its trust mechanisms.
 - Add the remaining slate stories (protocol §2) to move toward a real series;
   re-evaluate §5 thresholds once ≥5 stories are in. (Solo single-session runs,
   per §5a, give the cleanest timing.)
@@ -295,6 +307,7 @@ around them.
 
 - `docs/benchmark-protocol.md` — the pre-registered protocol.
 - `docs/benchmark-scoring-rubric.md` — how each metric is scored (with evidence).
-- `evidence/benchmark.jsonl` — the raw records (2 so far: STORY-003 raw + pipeline).
+- `evidence/benchmark.jsonl` — the raw records (4 so far: STORY-003 and
+  STORY-020, raw and pipeline).
 - `evidence/README.md` — the raw-data folder.
 - `npm run metrics` — the prompt-stability threshold this series also feeds.

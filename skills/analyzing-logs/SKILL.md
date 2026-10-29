@@ -9,7 +9,7 @@ description: |
   validated against schemas/failure-analysis.schema.json. For each Red
   failure, creates a bug draft in release/bug-drafts/BUG-XXX.md.
 disable-model-invocation: true
-adapted_from: dogkeeper886/ai-qa-workflow @ v3.0
+adapted_from: dogkeeper886/agent-workflows @ v3.0 (989343d; the repository was formerly dogkeeper886/ai-qa-workflow)
 adaptation_notes: |
   Original skill parsed Robot Framework output.xml / log.html. This
   pipeline runs Playwright (and Newman in P1.5+), so the inputs are the

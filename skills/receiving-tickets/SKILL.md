@@ -7,7 +7,7 @@ description: |
   risks, and ambiguities. Sets the initial traceability anchor for the rest
   of the pipeline. Run first when a new story enters the QA pipeline.
 disable-model-invocation: true
-adapted_from: dogkeeper886/ai-qa-workflow @ v3.0
+adapted_from: dogkeeper886/agent-workflows @ v3.0 (989343d; the repository was formerly dogkeeper886/ai-qa-workflow)
 adaptation_notes: |
   Original skill scaffolds an `active/<TICKET>/` workspace with many
   documentation files (00_Main_Task, README, Ticket_Relationship_Diagram,

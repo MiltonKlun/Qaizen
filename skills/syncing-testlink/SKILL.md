@@ -8,7 +8,7 @@ description: |
   in Phase 2 TG10 — reports execution results against the test plan.
   Source of truth is test-cases/*.json; TestLink is a downstream target.
 disable-model-invocation: true
-adapted_from: dogkeeper886/ai-qa-workflow @ v3.0
+adapted_from: dogkeeper886/agent-workflows @ v3.0 (989343d; the repository was formerly dogkeeper886/ai-qa-workflow)
 adaptation_notes: |
   Original skill reads ai-qa-workflow's test_cases/TS-XX_*.md markdown
   files and drives /tl-* slash commands. This adaptation reads our

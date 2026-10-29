@@ -15,7 +15,7 @@ Qaizen is an AI-assisted QA pipeline that takes a user story (from Jira via MCP,
 - Bug drafts that can be promoted to Jira issues with explicit human approval.
 - Optional sync of test cases and execution results to TestLink.
 
-The system is built by combining mature open-source pieces (Playwright Native Agents, official MCPs for Atlassian/Playwright/Postman/TestLink, skills adapted from `dogkeeper886/ai-qa-workflow`) under a strict discipline layer (JSON Schemas + AJV, traceability IDs, four human gates, folder ownership, Architecture Stability Rule). The goal is ~40–50% less custom code than building from scratch, without losing any quality guarantees.
+The system is built by combining mature open-source pieces (Playwright Native Agents, official MCPs for Atlassian/Playwright/Postman/GitHub, TestLink over XML-RPC, skills adapted from `dogkeeper886/agent-workflows`) under a strict discipline layer (JSON Schemas + AJV, traceability IDs, four human gates, folder ownership, Architecture Stability Rule). The goal is ~40–50% less custom code than building from scratch, without losing any quality guarantees.
 
 ---
 
@@ -157,7 +157,7 @@ For the API branch, the equivalent is: do not invent endpoint shapes. If there i
 When deciding between two approaches, choose the one that reuses more.
 
 - Official MCP > custom script.
-- Existing skill (adapted from `ai-qa-workflow`) > new agent prompt.
+- Existing skill (adapted from `agent-workflows`, formerly `ai-qa-workflow`) > new agent prompt.
 - Playwright Native Agent > custom browser automation.
 - AJV + JSON Schema > custom validation logic.
 - GitHub Actions > external orchestrator.
@@ -217,11 +217,11 @@ You can install and use these. Anything else needs explicit human approval.
 - `microsoft/playwright-mcp` (installed via `npx playwright init-agents --loop=claude`).
 - `ghcr.io/sooperset/mcp-atlassian`, pinned to a release in `.mcp.json` (Jira + Confluence; read-only in every phase — Jira writes go through deterministic scripts a human runs with `--apply`).
 - `postmanlabs/postman-mcp-server` (Phase 1.5+).
-- `dogkeeper886/testlink-mcp:latest` (Phase 2+).
+- `dogkeeper886/testlink-mcp:latest` (Phase 2+) — allowed, but not in use: its bridge never completed a handshake, so TestLink is reached through `scripts/sync-to-testlink.js` (XML-RPC).
 
 **Reference, not runtime dependency:**
 
-- `dogkeeper886/ai-qa-workflow` — clone temporarily outside the project, copy and adapt specific skills (`receiving-tickets`, `planning-tests`, `designing-cases`, `analyzing-logs`, `syncing-testlink`). Don't add it as a submodule.
+- `dogkeeper886/agent-workflows` (formerly `dogkeeper886/ai-qa-workflow`, which redirects there) — clone temporarily outside the project, copy and adapt specific skills (`receiving-tickets`, `planning-tests`, `designing-cases`, `analyzing-logs`, `syncing-testlink`). Don't add it as a submodule.
 
 **Explicitly forbidden:**
 
@@ -255,7 +255,7 @@ This project has a small number of custom agents and a small number of adapted s
 
 Do not edit these by hand. Regenerate with `npx playwright init-agents` after Playwright upgrades.
 
-**Adapted skills** (live in `skills/*/SKILL.md`, copied and adapted from `dogkeeper886/ai-qa-workflow`):
+**Adapted skills** (live in `skills/*/SKILL.md`, copied and adapted from `dogkeeper886/agent-workflows`, formerly `dogkeeper886/ai-qa-workflow`):
 
 - `receiving-tickets` — Discover phase. Reads Jira/Confluence, populates `context.json`.
 - `planning-tests` — Plan phase. Writes the test plan.
@@ -263,7 +263,7 @@ Do not edit these by hand. Regenerate with `npx playwright init-agents` after Pl
 - `analyzing-logs` — Report phase. Helps the Failure Classifier.
 - `syncing-testlink` — Manage phase. Syncs approved test cases to TestLink (Phase 2+).
 
-Each adapted skill declares `adapted_from: dogkeeper886/ai-qa-workflow @ v3.0` in its frontmatter.
+Each adapted skill declares `adapted_from: dogkeeper886/agent-workflows @ v3.0` in its frontmatter, with the tag's commit (`989343d`).
 
 ---
 
