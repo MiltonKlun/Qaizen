@@ -133,6 +133,11 @@ test('B3: a new story after a COMPLETED run archives it and reaches the Analyst'
     // The bug: this used to print "Run complete" for the OLD run.
     assert.doesNotMatch(r.out, /Run complete/);
     assert.match(r.out, /Next step: ANALYST/);
+    // The step names the session to start, with only its MCP servers.
+    assert.match(
+      r.out,
+      /claude --strict-mcp-config --mcp-config config\/mcp\/analyst\.json/
+    );
 
     // No inherited context, gates or output pointers.
     assert.equal(existsSync(join(dir, 'context.json')), false);
