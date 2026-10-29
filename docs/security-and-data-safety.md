@@ -154,8 +154,11 @@ undo it:
   `+` refspecs). Each shell rule is written twice, for Bash and for
   PowerShell, because Claude Code matches the two shells' commands
   separately.
-- **Asked every time:** `git push`, `npm install` / `npm i`, and `npx -y` /
-  `npx --yes`.
+- **Asked every time:** `git push`, `npm install` / `npm i`, `npx -y` /
+  `npx --yes`, and any command that passes an `--apply` flag
+  (`--apply`, `--apply-testlink`, `--apply-testlink-execution`), so an agent
+  can never run a Jira or TestLink write script without you approving that
+  exact command.
 - **No silent downloads:** the policy sets `npm_config_yes=false` for the
   session. npm otherwise assumes "yes" when it is not running in a terminal,
   as in an agent's shell, so a plain `npx <package>` would download and run a
@@ -221,6 +224,8 @@ touches credentials is added.
 
 ## 8. References
 
+- `docs/threat-model.md` — what agents can do while they read untrusted text,
+  per step, mapped to the OWASP Top 10 for Agentic Applications.
 - `docs/secrets-management.md` — credential handling, CI secrets, rotation.
 - `docs/context-json-guide.md` — manifest rule (paths, not contents) and
   token-efficient context handling.

@@ -30,7 +30,9 @@
       "PowerShell(npm install *)",
       "PowerShell(npm i *)",
       "PowerShell(npx -y *)",
-      "PowerShell(npx --yes *)"
+      "PowerShell(npx --yes *)",
+      "Bash(*--apply*)",
+      "PowerShell(*--apply*)"
     ]
   }
 }
