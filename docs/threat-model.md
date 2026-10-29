@@ -57,11 +57,12 @@ something an agent did while working.
   test cases (`scripts/create-jira-bugs.js`, `scripts/create-jira-testcases.js`)
   and TestLink sync (`scripts/sync-to-testlink.js --apply-testlink`,
   `scripts/sync-testlink-execution.js --apply-testlink-execution`) only print
-  what they would do without the flag. The flag is a plain argument, not a
-  terminal check, so an agent's shell could pass it too; see section 5.
+  what they would do without the flag. The flag is a plain argument, so the
+  project policy asks you before any command that passes it runs.
 - **A project permission policy.** `.claude/settings.json` denies Playwright's
   code-running tool, reading or editing `.env`, and force pushes; asks before
-  `git push`, `npm install` and `npx -y`; and stops `npx` from downloading
+  `git push`, `npm install`, `npx -y` and any command with an `--apply` flag;
+  and stops `npx` from downloading
   packages silently (`docs/security-and-data-safety.md` §5).
   `npm run check:agents` checks regenerated Playwright agents against it.
 - **Hidden text is shown at Gate 1.** The brief flags comments, invisible
@@ -83,18 +84,18 @@ something an agent did while working.
 Mapped from the [OWASP list](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/)
 to this setup.
 
-| ID    | Risk                               | Relevance here                                 | Main controls                                                         | What remains                                                                                                                            |
-| ----- | ---------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| ASI01 | Agent goal hijack                  | High: every agent reads text from other people | Read-only servers, per-step sessions, hidden-text check, gates        | An instruction the reviewer misses can still shape an artifact                                                                          |
-| ASI02 | Tool misuse and exploitation       | High                                           | No MCP writes; permission policy; writes only through flagged scripts | Built-in shell and web tools, which could also run a write script with its flag; Postman minimal-mode writes, including published mocks |
-| ASI03 | Identity and privilege abuse       | High                                           | Separate read credential; read-only GitHub token; per-step servers    | Until a read-only Atlassian account exists, the read token can write                                                                    |
-| ASI04 | Agentic supply chain               | High                                           | Pinned servers and Actions; `npm_config_yes=false`; dependency review | `npx`-launched Postman's own dependencies are not pinned                                                                                |
-| ASI05 | Unexpected code execution          | Medium                                         | `browser_run_code_unsafe` denied; generated agents checked            | Shell commands, under permission prompts                                                                                                |
-| ASI06 | Memory and context poisoning       | Medium                                         | Agents load only their step's files; artifacts are schema-validated   | A poisoned story or page persists into later steps through the artifacts                                                                |
-| ASI07 | Insecure inter-agent communication | Low                                            | Agents never talk to each other; they hand off validated files        | —                                                                                                                                       |
-| ASI08 | Cascading failures                 | Medium                                         | Gates up to Gate 4; approvals bound to what was reviewed              | Classification, bug drafts and the release report after Gate 4 have no gate, and bug drafts can be filed to Jira                        |
-| ASI09 | Human-agent trust exploitation     | High: the gates are the main control           | Briefs show mechanical checks; approvals are bound and recorded       | How often a reviewer catches a problem is not yet measured                                                                              |
-| ASI10 | Rogue agents                       | Low: no autonomous loop                        | The runner never launches agents; the healer is bounded               | —                                                                                                                                       |
+| ID    | Risk                               | Relevance here                                 | Main controls                                                         | What remains                                                                                                                                   |
+| ----- | ---------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| ASI01 | Agent goal hijack                  | High: every agent reads text from other people | Read-only servers, per-step sessions, hidden-text check, gates        | An instruction the reviewer misses can still shape an artifact                                                                                 |
+| ASI02 | Tool misuse and exploitation       | High                                           | No MCP writes; permission policy; writes only through flagged scripts | Built-in shell and web tools (a write script needs your approval of the exact command); Postman minimal-mode writes, including published mocks |
+| ASI03 | Identity and privilege abuse       | High                                           | Separate read credential; read-only GitHub token; per-step servers    | Until a read-only Atlassian account exists, the read token can write                                                                           |
+| ASI04 | Agentic supply chain               | High                                           | Pinned servers and Actions; `npm_config_yes=false`; dependency review | `npx`-launched Postman's own dependencies are not pinned                                                                                       |
+| ASI05 | Unexpected code execution          | Medium                                         | `browser_run_code_unsafe` denied; generated agents checked            | Shell commands, under permission prompts                                                                                                       |
+| ASI06 | Memory and context poisoning       | Medium                                         | Agents load only their step's files; artifacts are schema-validated   | A poisoned story or page persists into later steps through the artifacts                                                                       |
+| ASI07 | Insecure inter-agent communication | Low                                            | Agents never talk to each other; they hand off validated files        | —                                                                                                                                              |
+| ASI08 | Cascading failures                 | Medium                                         | Gates up to Gate 4; approvals bound to what was reviewed              | Classification, bug drafts and the release report after Gate 4 have no gate, and bug drafts can be filed to Jira                               |
+| ASI09 | Human-agent trust exploitation     | High: the gates are the main control           | Briefs show mechanical checks; approvals are bound and recorded       | How often a reviewer catches a problem is not yet measured                                                                                     |
+| ASI10 | Rogue agents                       | Low: no autonomous loop                        | The runner never launches agents; the healer is bounded               | —                                                                                                                                              |
 
 ## 5. Residual risks and how to reduce them
 
@@ -109,11 +110,13 @@ to this setup.
 - **Human review is unmeasured.** Until gate catch rates are measured, treat a
   fast approval as unverified, especially for payment, permission and
   security stories.
-- **An agent's shell could run a write script.** The scripts load the write
-  credential from `.env` and act on a plain `--apply` argument. Keep shell
-  permission prompts on, read every prompt that runs one of these scripts,
-  and file bug drafts yourself after reading them: text injected upstream can
-  travel into a draft after Gate 4, where no gate reviews it.
+- **A write script is one approval away.** The scripts load the write
+  credential from `.env` and act on a plain `--apply` argument. The project
+  policy makes Claude Code ask before any command with that flag runs, so
+  read that prompt as carefully as a gate, and file bug drafts yourself after
+  reading them: text injected upstream can travel into a draft after Gate 4,
+  where no gate reviews it. A session started with permission checks
+  bypassed skips the prompt.
 - **Reports can hold secrets.** A Playwright HTML report or trace can contain
   values typed into the app, and CI uploads the HTML report; see
   `docs/security-and-data-safety.md` §4 before pointing the pipeline at a

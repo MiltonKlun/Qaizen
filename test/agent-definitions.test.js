@@ -112,4 +112,8 @@ test('the tracked project settings deny the unsafe tool', async () => {
   const settings = JSON.parse(readFileSync('.claude/settings.json', 'utf8'));
   assert.equal(isDenied(UNSAFE, settings.permissions.deny), true);
   assert.ok(settings.permissions.deny.includes('Read(./.env)'));
+  // A Jira or TestLink write script never runs without the operator's yes.
+  for (const shell of ['Bash', 'PowerShell']) {
+    assert.ok(settings.permissions.ask.includes(`${shell}(*--apply*)`), shell);
+  }
 });
