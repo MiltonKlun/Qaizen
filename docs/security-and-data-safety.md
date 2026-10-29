@@ -221,6 +221,8 @@ touches credentials is added.
 
 ## 8. References
 
+- `docs/threat-model.md` — what agents can do while they read untrusted text,
+  per step, mapped to the OWASP Top 10 for Agentic Applications.
 - `docs/secrets-management.md` — credential handling, CI secrets, rotation.
 - `docs/context-json-guide.md` — manifest rule (paths, not contents) and
   token-efficient context handling.

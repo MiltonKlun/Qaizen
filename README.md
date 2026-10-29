@@ -210,7 +210,7 @@ and **changes nothing**; you accept, defer or reject each finding. See
 - [Pipeline runner](docs/pipeline-runner.md) · [Review gates](docs/review-gates.md) · [Architecture](docs/pipeline-architecture.md)
 - [Traceability](docs/traceability.md) · [Healer guardrails](docs/healer-guardrails.md) · [Automation decisions](docs/automation-decision-model.md)
 - [Artifact ownership](docs/artifact-boundaries.md) · [Runtime contracts](docs/runtime-contracts.md)
-- [Design decisions](docs/design-decisions.md) · [Evolve loop](docs/evolve-loop.md)
+- [Design decisions](docs/design-decisions.md) · [Evolve loop](docs/evolve-loop.md) · [Threat model](docs/threat-model.md)
 - [CLAUDE.md](CLAUDE.md): operating rules for an AI agent working in this repo
 
 ---
