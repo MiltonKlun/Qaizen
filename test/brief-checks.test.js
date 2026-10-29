@@ -3,7 +3,7 @@
 // instead of silently disappearing from the brief.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -72,8 +72,23 @@ test('Gate 2 shows the scope coverage and the test design techniques', (t) => {
   const { dir, ctx } = run(t);
   assert.deepEqual(briefChecks('gate2', ctx, dir), [
     'ATTENTION: AC 2 has no approved test case',
-    'ATTENTION: TC-001, TC-002, TC-004 name no technique',
+    'test design techniques: Use case 1, Equivalence partition 1, Checklist 1',
   ]);
+});
+
+test('a case without a technique label is named at Gate 2', (t) => {
+  const { dir, ctx } = run(t);
+  const file = join(dir, 'test-cases', 'BC-1.json');
+  const doc = JSON.parse(readFileSync(file, 'utf8'));
+  doc.test_cases[1].description = doc.test_cases[1].description.replace(
+    /^\[[^\]]+\]\s*/,
+    ''
+  );
+  writeFileSync(file, JSON.stringify(doc));
+  assert.equal(
+    briefChecks('gate2', ctx, dir)[1],
+    'ATTENTION: TC-002 names no technique (named: Use case 1, Checklist 1)'
+  );
 });
 
 test('the lite gate shows them all; other gates show none', (t) => {
@@ -83,7 +98,7 @@ test('the lite gate shows them all; other gates show none', (t) => {
     'story.md has no hidden text (HTML comments, invisible or direction-control characters, text addressed to an AI)',
     'every risk (1) is scored likelihood × impact, with its severity on the matrix',
     'ATTENTION: AC 2 has no approved test case',
-    'ATTENTION: TC-001, TC-002, TC-004 name no technique',
+    'test design techniques: Use case 1, Equivalence partition 1, Checklist 1',
   ]);
   for (const step of ['gate3', 'gate4', 'gate3-api', 'gate4-ext']) {
     assert.deepEqual(briefChecks(step, ctx, dir), [], step);

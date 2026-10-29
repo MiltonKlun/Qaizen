@@ -7,7 +7,7 @@
     {
       "test_case_id": "TC-001",
       "title": "Valid login shows the inventory",
-      "description": "A user with valid credentials lands on the inventory page and sees the product list.",
+      "description": "[Use case] A user with valid credentials lands on the inventory page and sees the product list.",
       "risk_ids": ["RISK-001"],
       "acceptance_criteria_refs": [0],
       "priority": "P0",
@@ -44,7 +44,7 @@
     {
       "test_case_id": "TC-002",
       "title": "Invalid password shows the exact error copy and no session",
-      "description": "An invalid password keeps the user on the login form with the agreed error message \"Invalid credentials\".",
+      "description": "[Equivalence partition] An invalid password keeps the user on the login form with the agreed error message \"Invalid credentials\".",
       "risk_ids": ["RISK-002"],
       "acceptance_criteria_refs": [1],
       "priority": "P1",
