@@ -33,8 +33,9 @@ It is built on three deliberate choices documented in the project `README.md`
 section 1:
 
 1. **Reuse mature pieces.** Playwright Native Agents, official MCPs
-   (Atlassian / Playwright Test / Postman / TestLink), and skills adapted
-   from `dogkeeper886/ai-qa-workflow` instead of building equivalents from
+   (Atlassian / Playwright Test / Postman / GitHub; TestLink over XML-RPC),
+   and skills adapted
+   from `dogkeeper886/agent-workflows` (formerly `ai-qa-workflow`) instead of building equivalents from
    scratch.
 2. **Wrap them in a strict discipline layer.** JSON Schemas + AJV, the
    Architecture Stability Rule, traceability IDs, folder ownership, and an
@@ -55,7 +56,7 @@ section 1:
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ CAPA 1 — Skills lifecycle (adapted from ai-qa-workflow)                  │
+│ CAPA 1 — Skills lifecycle (adapted from agent-workflows)                 │
 │ skills/receiving-tickets · skills/planning-tests                         │
 │ skills/designing-cases · skills/analyzing-logs                           │
 │ skills/syncing-testlink (Phase 2)                                        │
@@ -72,9 +73,9 @@ section 1:
                               ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ CAPA 3 — Official MCPs (never re-written)                                │
-│ atlassian (read-only in P1; writes in P2)                                │
+│ atlassian (read-only in every phase)                                     │
 │ playwright-test (Native Agents)                                          │
-│ postman (Phase 1.5) · testlink (Phase 2)                                 │
+│ postman (Phase 1.5) · github (Phase 3, read-only)                        │
 └─────────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -380,14 +381,16 @@ Phase 2 keeps the local flow intact and adds:
 ### 6.1 GitHub Actions CI (TG8)
 
 The workflow is `.github/workflows/qa-pipeline.yml`. It triggers on PRs
-to `main` / `develop` and on manual dispatch. Four jobs:
+to `main` / `develop` and on manual dispatch. Its jobs:
 
 | Job                  | Blocking?                                    | What it does                                                                                                                                                                                                                                                                                                                                      |
 | -------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `quality-checks`     | **Required / blocking**                      | `npm ci`, then typecheck (the TypeScript tests, and a strict JSDoc check of every runtime script) + lint + format check + `validate:all` (committed artifacts) + `validate:examples` + the pipeline's own **unit tests** (`test:unit` — Healer guardrails) and **smoke tests** (`test:smoke` — scripts run + behave). Fails the run on any error. |
+| `pipeline-tests`     | **Blocking**                                 | The pipeline's own tests, browser-backed ones included, on Ubuntu and Windows at the supported Node floor and the current LTS.                                                                                                                                                                                                                    |
+| `contract-stability` | Informational (`continue-on-error`)          | Checks that a PR changing a schema also changes its companions (Architecture Stability Rule).                                                                                                                                                                                                                                                     |
+| `gate4-scan`         | Informational, PR-only                       | Runs the Gate 4 static scan on PRs that change `tests/`.                                                                                                                                                                                                                                                                                          |
 | `playwright-full`    | Informational (`continue-on-error`)          | Installs browsers, runs `npm test`, uploads `reports/html` + `results.json` as an artifact.                                                                                                                                                                                                                                                       |
 | `newman-api`         | Informational (`continue-on-error`)          | Runs Newman for each `api-tests/collections/*.json` (skipped if none), uploads the Newman report.                                                                                                                                                                                                                                                 |
-| `healer`             | Informational (`continue-on-error`, PR-only) | Runs only when the Playwright report shows failures (TG3). Runs the TG1 classifier + TG2 Green-only healer harness, uploads a `healer-patches` artifact (read-only: it posts no PR comment). **Never commits, never merges** (CLAUDE.md §3.6); in CI without a Gate-4 context it reports rather than patches.                                     |
 | `fixture-validation` | Informational (`continue-on-error`, PR-only) | Runs only when the PR changes `agents/`. Runs `npm run evaluate`: the expected fixture validation of the committed gold outputs. It reads no prompt, so it does not evaluate the change; a prompt change is evaluated by scoring a generated candidate (`docs/prompt-versioning.md` §3). Never blocks, never edits prompts.                       |
 | `ci-summary`         | Always runs (`if: always()`)                 | Downloads both report artifacts and runs `npm run ci:summary` to post a pass/fail table to the PR step summary.                                                                                                                                                                                                                                   |
 
@@ -635,13 +638,16 @@ companion file entirely — cheaply and early.
 | MCP server        | Provides                                                                                                  | Phase introduced |
 | ----------------- | --------------------------------------------------------------------------------------------------------- | ---------------- |
 | `playwright-test` | The browser + test-runner MCP that the Playwright Native Agents call via `mcp__playwright-test__*` tools. | 1 (TG3)          |
-| `atlassian`       | `sooperset/mcp-atlassian` — Jira + Confluence. **Read-only allowlist in Phase 1.**                        | 1 (TG4)          |
-| `postman`         | `postmanlabs/postman-mcp-server` — collections + environments.                                            | **1.5**          |
-| `testlink`        | `dogkeeper886/testlink-mcp` — TestLink XML-RPC.                                                           | **2**            |
+| `atlassian`       | `sooperset/mcp-atlassian` — Jira + Confluence. **Read-only in every phase.**                              | 1 (TG4)          |
+| `postman`         | `@postman/postman-mcp-server` — collections + environments (minimal mode).                                | **1.5**          |
+| `github`          | `github/github-mcp-server` — a linked PR's diff, three read tools only.                                   | 3 (TG15)         |
 
-Setup and verification live in `docs/mcp-setup.md`. The Phase 1
-`ENABLED_TOOLS` allowlist is the policy: writes attempted by the agent
-fail at the MCP layer, not at a policy check.
+There is no TestLink MCP server: its bridge never completed a handshake, so
+TestLink is reached through `scripts/sync-to-testlink.js` (XML-RPC) instead.
+Setup, pins and verification live in `docs/mcp-setup.md`; each agent step
+loads only its own servers (`docs/pipeline-runner.md` §3). No MCP server can
+write to Jira, Confluence or GitHub: writes attempted by an agent fail at the
+MCP layer, and Jira writes go through scripts a human runs with `--apply`.
 
 ---
 

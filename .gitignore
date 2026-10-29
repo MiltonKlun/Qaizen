@@ -88,6 +88,11 @@ evolve/evolve-proposal.md
 # Scratchpad — throwaway working area (e.g. the benchmark raw-arm output)
 scratchpad/
 
+# The active run's story and context at the repository root: local working
+# state. Archived runs under runs/ are the versioned record.
+/context.json
+/story.md
+
 # Transient runner state: the new-story transition record and its staging
 # directory (scripts/lib/run-lifecycle.js, task group 4.1). Local only.
 .qaizen/

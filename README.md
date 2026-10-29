@@ -182,7 +182,7 @@ Design choices:
 
 | Path | Contents |
 | --- | --- |
-| `agents` · `skills` | Agent prompts · lifecycle skills adapted from `dogkeeper886/ai-qa-workflow` |
+| `agents` · `skills` | Agent prompts · lifecycle skills adapted from `dogkeeper886/agent-workflows` (formerly `ai-qa-workflow`) |
 | `schemas` | JSON Schema contract for every artifact |
 | `scripts` | The runner, validators, classifier, healer, metrics, demo |
 | `docs` | Architecture, gates, traceability, integration and fit guides |

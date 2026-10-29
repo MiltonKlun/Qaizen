@@ -8,7 +8,7 @@ description: |
   and an Automation Decision (automate_e2e / automate_api /
   automate_component / manual / skip) with a written reason.
 disable-model-invocation: true
-adapted_from: dogkeeper886/ai-qa-workflow @ v3.0
+adapted_from: dogkeeper886/agent-workflows @ v3.0 (989343d; the repository was formerly dogkeeper886/ai-qa-workflow)
 adaptation_notes: |
   Original skill writes per-scenario Markdown files (TS-XX_*.md) and
   publishes them to Confluence. Our output is a single JSON artifact

@@ -104,6 +104,8 @@ metrics (TG6) and `/evolve` (TG10) read back.
 > auto-injected by a script — that would require a runtime the project
 > deliberately does not have. The field + this convention are the contract; a
 > helper can be added later if the manual step proves to be friction.
+> None of the archived runs under `runs/` records it yet, so their prompt
+> versions are unknown, not assumed.
 
 ---
 

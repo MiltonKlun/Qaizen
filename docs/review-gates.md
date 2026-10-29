@@ -102,16 +102,19 @@ Gate 4).
 **Reading a gate (binding for agents and scripts):** a gate is
 _passed_ when its value is the boolean `true` **or** an object whose
 `status` is `true`. Anything else (false, `{ status: false }`, absent)
-is _not passed_. Agents that gate on `code_reviewed` /
+is _not passed_. The runner adds one condition: an approval must carry the
+`input_digest` it recorded, and that digest must still match the inputs.
+A bare `true`, or an object without a digest, is a legacy approval it
+returns to pending for re-review (`docs/pipeline-runner.md` §4). Agents that gate on `code_reviewed` /
 `requirements_reviewed` etc. apply exactly this rule — see the
 preconditions in `agents/test-designer.md`, `agents/failure-classifier.md`,
 and `agents/reporter.md`.
 
-**Who writes the audit fields:** the agent never self-approves a gate
-(CLAUDE.md §3.5). The human approves; when they hand the agent a
-reviewer name / reason ("approved by alice, AC clarified"), the agent
-records them in the object form instead of just flipping the boolean.
-Gate 4 stays human permanently regardless of form.
+**Who writes the audit fields:** the runner, never an agent. An agent
+never writes `review_gates` (CLAUDE.md §3.5): the human decides at the
+runner's prompt, and the runner records the decision in the object form,
+with the reviewer, the time and a digest of the inputs reviewed
+(`docs/pipeline-runner.md` §4). Gate 4 stays human regardless of form.
 
 **Migration path (boolean → object).** Migrating is _optional_ — old
 boolean contexts stay valid forever. If you want the audit slots
@@ -279,7 +282,7 @@ when domain detail is in question.
 
 **On approval:**
 
-1. Set `review_gates.requirements_reviewed = true`.
+1. Approve `review_gates.requirements_reviewed` — through the runner, which binds the approval to a digest of the inputs it reviewed (`docs/pipeline-runner.md` §4). A `true` set by hand is a legacy approval the runner treats as stale.
 2. Set `status = "in_progress"`.
 3. Re-validate `context.json`.
 4. Proceed to the Test Designer.
@@ -420,7 +423,7 @@ the assistance never changes the approval bar** (`CLAUDE.md` §3.5).
 
 **On approval:**
 
-1. Set `review_gates.specs_reviewed = true`.
+1. Approve `review_gates.specs_reviewed` — through the runner, which binds the approval to a digest of the inputs it reviewed (`docs/pipeline-runner.md` §4). A `true` set by hand is a legacy approval the runner treats as stale.
 2. Re-validate `context.json`.
 3. Proceed to the Playwright Generator Native Agent.
 
@@ -551,7 +554,7 @@ etc. all leave Gate 4 human.
 
 **On approval:**
 
-1. Set `review_gates.code_reviewed = true`.
+1. Approve `review_gates.code_reviewed` — through the runner, which binds the approval to a digest of the inputs it reviewed (`docs/pipeline-runner.md` §4). A `true` set by hand is a legacy approval the runner treats as stale.
 2. Re-validate `context.json`.
 3. Proceed to `npm run test`.
 

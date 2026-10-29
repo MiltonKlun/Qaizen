@@ -8,7 +8,7 @@ description: |
   contain step-by-step test cases — those live in test-cases/[story-id].json
   (produced by the designing-cases skill).
 disable-model-invocation: true
-adapted_from: dogkeeper886/ai-qa-workflow @ v3.0
+adapted_from: dogkeeper886/agent-workflows @ v3.0 (989343d; the repository was formerly dogkeeper886/ai-qa-workflow)
 adaptation_notes: |
   Original skill produced an ISO/IEC/IEEE 29119-3 test plan tree
   (test_plan/sections/, test_design/scenarios/TS-XX, traceability matrix,

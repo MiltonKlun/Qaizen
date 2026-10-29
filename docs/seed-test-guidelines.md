@@ -161,7 +161,8 @@ The reasoning:
   Playwright's `storageState` pattern — see
   https://playwright.dev/docs/auth. The seed is updated to capture
   storage state once; subsequent tests reuse it via fixtures defined
-  in `tests/fixtures.ts`.
+  in `tests/fixtures/` (for example `tests/fixtures/auth.ts`), the folder
+  Gate 4 binds.
 
 Until that need actually appears, `tests/fixtures/` stays a
 placeholder.
