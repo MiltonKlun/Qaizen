@@ -46,8 +46,9 @@ the Postman cloud workspace is optional/secondary storage.
 The package is **`@postman/postman-mcp-server`** (the official scoped package
 from Postman). It runs in two modes:
 
-- **Local (STDIO):** `npx @postman/postman-mcp-server --full`, configured in
-  `.mcp.json`. Needs `POSTMAN_API_KEY`. This is what this project uses.
+- **Local (STDIO):** `npx -y @postman/postman-mcp-server@<pinned version>` in
+  its default minimal mode, configured in `.mcp.json`. Needs
+  `POSTMAN_API_KEY`. This is what this project uses.
 - **Remote (hosted):** `https://mcp.postman.com` with OAuth. Not used here —
   we keep everything local for Phase 1.5.
 
@@ -64,7 +65,7 @@ from Postman). It runs in two modes:
   "mcpServers": {
     "postman": {
       "command": "cmd",
-      "args": ["/c", "npx", "@postman/postman-mcp-server", "--full"],
+      "args": ["/c", "npx", "-y", "@postman/postman-mcp-server@2.13.0"],
       "env": {
         "POSTMAN_API_KEY": "${POSTMAN_API_KEY}"
       }
@@ -74,11 +75,27 @@ from Postman). It runs in two modes:
 ```
 
 (The `cmd /c` wrapper is for Windows `npx` resolution, matching the
-`playwright-test` entry. On macOS/Linux a bare `npx` command also works.)
+`playwright-test` entry. On macOS/Linux use `"command": "npx"` with the same
+arguments minus `/c`; see `docs/mcp-setup.md`.)
 
-The `--full` flag exposes the complete tool surface (workspace, collection,
-request, environment, folder, mock-server management). For Phase 1.5 the API
-Agent primarily needs collection + environment read/write.
+The server runs in its default **minimal** mode: 42 tools in 2.13.0, which
+include everything the API Agent needs — reading and updating collections
+(`getCollection`, `getCollections`, `putCollection`), environments, and
+running a collection (`runCollection`) to check an endpoint's real response.
+`--full` (over 100 tools, adding monitors, forks, pull requests, comments,
+team and user administration, private networks and the API catalog) is
+deliberately not used; the smaller surface is less to misuse if an agent
+follows instructions hidden in content it reads. Minimal mode is not
+read-only, though: it can still create and update collections, environments,
+specs and workspaces, and create, update and publish mocks.
+
+The package version is pinned. An unpinned `npx` would run whatever was
+published last, the moment it was published: versions 2.4.10–2.4.12 of this
+package shipped a credential-stealing payload in November 2025. Only the
+top-level package is pinned, though. It ships no shrinkwrap and declares its
+own dependencies as version ranges, so a fresh `npx` install can still pull
+newer versions of them. Upgrades are reviewed like any other dependency
+(`docs/dependency-maintenance.md`).
 
 ---
 
