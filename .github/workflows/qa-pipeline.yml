@@ -52,7 +52,7 @@ concurrency:
 jobs:
   quality-checks:
     name: Quality checks (required)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -80,7 +80,10 @@ jobs:
   pipeline-tests:
     name: Pipeline tests (${{ matrix.os }}, Node ${{ matrix.node }})
     needs: quality-checks
-    runs-on: ${{ matrix.os }}
+    # The matrix keeps the ubuntu-latest label so check names stay stable, but
+    # runs on a pinned image: ubuntu-latest moved to 26.04, where Playwright's
+    # browser install is not supported yet.
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -105,7 +108,7 @@ jobs:
 
   contract-stability:
     name: Architecture Stability check (informational)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Only on PRs — needs a base ref to diff against. Informational: warns
     # if schemas/ changed without agents/ + docs/ + examples/expected/.
     if: github.event_name == 'pull_request'
@@ -127,7 +130,7 @@ jobs:
 
   fixture-validation:
     name: Expected fixture validation (informational)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Only on PRs that touch agent prompts, as a reminder that the gold
     # fixtures are the bar a candidate is held to. It scores those committed
     # fixtures, not the changed prompts: it cannot show a prompt regression.
@@ -166,7 +169,7 @@ jobs:
 
   gate4-scan:
     name: Gate-4 static scan (informational)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Only on PRs that touch tests/. IMPROVEMENT-PLAN Phase 6 / PFI-5: run the
     # pre-Gate-4 mechanical scanner over the changed test files and post a
     # findings summary so the human reviewer opens Gate 4 with the mechanical
@@ -226,7 +229,7 @@ jobs:
 
   playwright-full:
     name: Playwright E2E (informational)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: quality-checks
     continue-on-error: true
     env:
@@ -261,7 +264,7 @@ jobs:
 
   newman-api:
     name: Newman API (informational)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: quality-checks
     continue-on-error: true
     env:
@@ -326,7 +329,7 @@ jobs:
 
   healer:
     name: Healer (informational, Green-only)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: playwright-full
     # Only worth running on PRs (where a human reviews the suggestions), and
     # only when the Playwright suite actually had failures. playwright-full is
@@ -395,7 +398,7 @@ jobs:
 
   ci-summary:
     name: CI summary
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [quality-checks, playwright-full, newman-api]
     if: always()
     steps:
