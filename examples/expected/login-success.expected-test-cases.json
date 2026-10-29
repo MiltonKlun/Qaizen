@@ -7,7 +7,7 @@
     {
       "test_case_id": "TC-001",
       "title": "Valid user sees inventory after login",
-      "description": "Happy path: a registered, non-locked user signs in with correct credentials and reaches the inventory list.",
+      "description": "[Use case] Happy path: a registered, non-locked user signs in with correct credentials and reaches the inventory list.",
       "risk_ids": ["RISK-001"],
       "acceptance_criteria_refs": [0],
       "priority": "P0",
@@ -45,7 +45,7 @@
     {
       "test_case_id": "TC-002",
       "title": "Invalid password is rejected with a clear error",
-      "description": "Negative case: the user submits a wrong password. The form rejects the credentials and shows an error.",
+      "description": "[Equivalence partition] Negative case: the user submits a wrong password. The form rejects the credentials and shows an error.",
       "risk_ids": ["RISK-001"],
       "acceptance_criteria_refs": [1],
       "priority": "P1",
@@ -79,7 +79,7 @@
     {
       "test_case_id": "TC-003",
       "title": "Locked account is rejected at the API boundary",
-      "description": "Permission check: when a locked account submits valid credentials, the auth endpoint must refuse the request and not create a session. The UI's error display is covered by a separate E2E sibling case if needed; this case asserts the server-side guarantee.",
+      "description": "[Decision table] Permission check: when a locked account submits valid credentials, the auth endpoint must refuse the request and not create a session. The UI's error display is covered by a separate E2E sibling case if needed; this case asserts the server-side guarantee.",
       "risk_ids": ["RISK-002"],
       "acceptance_criteria_refs": [2],
       "priority": "P0",
@@ -109,7 +109,7 @@
     {
       "test_case_id": "TC-004",
       "title": "Visual review of login error styling",
-      "description": "Subjective check that the error banner is legible and on-brand. Captured for manual execution; not automated.",
+      "description": "[Checklist] Subjective check that the error banner is legible and on-brand. Captured for manual execution; not automated.",
       "risk_ids": ["RISK-001"],
       "acceptance_criteria_refs": [1, 2],
       "priority": "P3",

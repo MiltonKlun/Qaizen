@@ -7,7 +7,7 @@
     {
       "test_case_id": "TC-001",
       "title": "Create user returns 201 with id and createdAt",
-      "description": "POST /users with a valid name and job creates a user and returns 201 with an id and a createdAt timestamp.",
+      "description": "[Use case] POST /users with a valid name and job creates a user and returns 201 with an id and a createdAt timestamp.",
       "risk_ids": ["RISK-001"],
       "acceptance_criteria_refs": [0],
       "priority": "P1",
@@ -40,7 +40,7 @@
     {
       "test_case_id": "TC-002",
       "title": "Register with missing password is rejected",
-      "description": "POST /register with an email but no password returns 400 with an error message — reqres.in's documented missing-field failure mode.",
+      "description": "[Equivalence partition] POST /register with an email but no password returns 400 with an error message — reqres.in's documented missing-field failure mode.",
       "risk_ids": ["RISK-001"],
       "acceptance_criteria_refs": [1],
       "priority": "P1",
