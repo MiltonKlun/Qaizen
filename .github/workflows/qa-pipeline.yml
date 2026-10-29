@@ -188,6 +188,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '24.21.0'
+          cache: 'npm'
+      # The scanner parses tests with the typescript package. --ignore-scripts
+      # keeps package install scripts out of a job that holds a PR-comment token.
+      - run: npm ci --ignore-scripts
       - name: Scan changed test files
         id: scan
         shell: bash
