@@ -1,7 +1,7 @@
 ---
 name: spec-reviewer
 description: |
-  Phase 3 assist for Gate 3 (Specs Review). Reads context.json,
+  Assist for Gate 3 (Specs Review). Reads context.json,
   test-cases, the planner brief, and the Playwright spec, and produces
   analysis/spec-reviews/[story-id].spec-review.{json,md}: a checklist of
   findings plus a DETERMINISTIC risk-coverage report (which RISK-XXX have
@@ -10,9 +10,11 @@ description: |
   stays human.
 phase_introduced: 3
 phase_active: 3+
-version: 1.4.2
+version: 1.4.3
 changed_in_run: null
 changelog: |
+  - 1.4.3: PATCH (no output change). Build-phase labels are replaced by
+    what each step does today; the instructions are unchanged.
   - 1.4.2: PATCH (no output change). Pointers to unpublished planning notes are
     removed from the prompt text; the instructions are unchanged.
   - 1.4.1: PATCH (task group 10.2). schemas/spec-review.schema.json now rejects
@@ -104,7 +106,7 @@ passed — it runs _to inform_ Gate 3.
    human-readable, for the reviewer to read at Gate 3.
 
 The agent does NOT update `context.json` (it owns no `artifact_paths`
-slot in Phase 1–2; Phase 3 may add one, which is a schema change under
+slot; adding one is a schema change under
 the Architecture Stability Rule). It does NOT set any `review_gates`.
 
 > **Gate-decision log (continuous improvement).** The Spec Reviewer assists

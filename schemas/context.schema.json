@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://qaizen/schemas/context.schema.json",
   "title": "Pipeline Run Context",
-  "description": "Manifest for a single pipeline run. See docs/context-json-guide.md. The boolean form of each review_gates entry is the Phase 1 baseline; the object form is reserved for the Phase 2 audit-field extension (oneOf accepts both, backward-compatible).",
+  "description": "Manifest for a single pipeline run. See docs/context-json-guide.md. Each review_gates entry is a boolean or an audit-field object (oneOf accepts both, backward-compatible).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,12 +19,12 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "description": "Version of this schema the document conforms to. Phase 1 uses '1.0'.",
+      "description": "Version of this schema the document conforms to, currently '1.0'.",
       "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
     },
     "run_id": {
       "type": "string",
-      "description": "Unique per-run identifier. Phase 1 convention: ISO-8601-ish timestamp + short hash, e.g. 2026-05-28T14-32-01Z-a1b2c3d.",
+      "description": "Unique per-run identifier. Convention: ISO-8601-ish timestamp + short hash, e.g. 2026-05-28T14-32-01Z-a1b2c3d.",
       "minLength": 1
     },
     "story": {
@@ -404,7 +404,7 @@
     "track_floor": {
       "type": "object",
       "additionalProperties": false,
-      "description": "OPTIONAL (Phase 4). The LOWEST track this story is allowed to use, computed by scripts/track-floor.js from the Red-taxonomy domains (docs/healer-guardrails.md §4) plus size heuristics. The runner refuses to record a `track` below `minimum`. Advisory metadata: absent on older runs and on runs that never considered lite.",
+      "description": "OPTIONAL. The LOWEST track this story is allowed to use, computed by scripts/track-floor.js from the Red-taxonomy domains (docs/healer-guardrails.md §4) plus size heuristics. The runner refuses to record a `track` below `minimum`. Advisory metadata: absent on older runs and on runs that never considered lite.",
       "required": ["minimum", "reasons"],
       "properties": {
         "minimum": {
@@ -493,7 +493,7 @@
           "type": "string"
         },
         "execution_ledger": {
-          "description": "OPTIONAL. Path to analysis/execution-ledger.json, the canonical cross-runner counting model for this run (schemas/execution-ledger.schema.json). ADDITIVE and not required: every pre-2.2a context stays valid, and nothing writes this yet — the execution adapters that populate it arrive in Phase 3. The existing report-path fields remain for compatibility; they are PATHS, not substitutes for a valid ledger.",
+          "description": "OPTIONAL. Path to analysis/execution-ledger.json, the canonical cross-runner counting model for this run (schemas/execution-ledger.schema.json). ADDITIVE and not required: every context written before it existed stays valid. scripts/normalize-results.js writes the ledger. The existing report-path fields remain for compatibility; they are PATHS, not substitutes for a valid ledger.",
           "type": "string"
         }
       }
@@ -501,7 +501,7 @@
     "review_gates": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Phase 1 form uses booleans. Phase 2 introduces an optional audit-field object alongside the boolean via oneOf; both forms remain valid. Phase 2 adds the OPTIONAL qa_scope_approved gate that consolidates Gates 1 and 2 — see docs/review-gates.md. The four per-gate fields stay required for backward compatibility; qa_scope_approved is additive and never replaces code_reviewed (Gate 4 never consolidates).",
+      "description": "Each gate is a boolean or an optional audit-field object (oneOf); both forms remain valid. The OPTIONAL qa_scope_approved gate consolidates Gates 1 and 2 — see docs/review-gates.md. The four per-gate fields stay required for backward compatibility; qa_scope_approved is additive and never replaces code_reviewed (Gate 4 never consolidates).",
       "required": [
         "requirements_reviewed",
         "test_scope_reviewed",
@@ -545,7 +545,7 @@
     },
     "gate_decisions": {
       "type": "array",
-      "description": "OPTIONAL (continuous improvement). An append-only LOG of gate decision events for this run — both approvals AND rejections. review_gates holds the final state; this holds the history, so metrics can count rejections per run (the Phase 3 retro gap: Gate 3/4 rejection rate was 'not tracked'). A rejection is recorded, then a later approval is appended when the human re-approves after rework. Absent on older runs; the pipeline runs identically without it.",
+      "description": "OPTIONAL (continuous improvement). An append-only LOG of gate decision events for this run — both approvals AND rejections. review_gates holds the final state; this holds the history, so metrics can count rejections per run. A rejection is recorded, then a later approval is appended when the human re-approves after rework. Absent on older runs; the pipeline runs identically without it.",
       "items": {
         "type": "object",
         "additionalProperties": false,

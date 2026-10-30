@@ -21,14 +21,14 @@ approved blocks the next stage; the orchestrator does not advance.
 
 ## The four gates
 
-| #   | Name                              | Approved after                          | Blocks                                               |
-| --- | --------------------------------- | --------------------------------------- | ---------------------------------------------------- |
-| 1   | Requirement Interpretation        | Analyst writes `context.json`           | Test Designer (`planning-tests` + `designing-cases`) |
-| 2   | Test Scope Approval               | Test Designer writes test cases + brief | Playwright Planner Native Agent + API Agent (P1.5)   |
-| 3   | Specs Review                      | Playwright Planner writes the spec      | Playwright Generator Native Agent                    |
-| 3'  | (Phase 1.5+) Collection Review    | API Agent writes the Postman collection | Newman execution                                     |
-| 4   | Code Review **(PERMANENT)**       | Playwright Generator writes the test    | Test execution                                       |
-| 4'  | (Phase 1.5+) API Assertion Review | API Agent finalizes assertions          | Newman execution                                     |
+| #   | Name                        | Approved after                          | Blocks                                               |
+| --- | --------------------------- | --------------------------------------- | ---------------------------------------------------- |
+| 1   | Requirement Interpretation  | Analyst writes `context.json`           | Test Designer (`planning-tests` + `designing-cases`) |
+| 2   | Test Scope Approval         | Test Designer writes test cases + brief | Playwright Planner Native Agent + API Agent          |
+| 3   | Specs Review                | Playwright Planner writes the spec      | Playwright Generator Native Agent                    |
+| 3'  | (API) Collection Review     | API Agent writes the Postman collection | Newman execution                                     |
+| 4   | Code Review **(PERMANENT)** | Playwright Generator writes the test    | Test execution                                       |
+| 4'  | (API) Assertion Review      | API Agent finalizes assertions          | Newman execution                                     |
 
 The `'` (prime) gates are the API-branch equivalents — they run in
 parallel with the E2E-branch gates when the story has both
@@ -89,13 +89,13 @@ The pipeline orchestrator (the human operator, or the thin gated runner —
 `docs/pipeline-runner.md`) checks the relevant flag before invoking the
 next agent.
 
-**Phase 2 enhancement:** any gate's value may also be an object
+**Audit fields:** any gate's value may also be an object
 `{ status: boolean, reviewer: string, reviewed_at: ISO_DATE, notes: string }`,
 plus an optional `opened_at: ISO_DATE | null` (gate telemetry — when the
 review _started_; see "Gate telemetry" below).
 The boolean form continues to validate (it's a `oneOf` —
-`gateValue` in `schemas/context.schema.json`). Phase 1 uses booleans
-only; Phase 2 may use either, per gate, in the same file (a context can
+`gateValue` in `schemas/context.schema.json`). Either form may be
+used per gate in the same file (a context can
 mix forms — e.g. audited objects for Gates 1–3 and a bare boolean for
 Gate 4).
 
@@ -153,7 +153,7 @@ QA-scope sign-off in place of the two separate ones.
 (boolean `true`, or `{ status, reviewer, reviewed_at, notes }`), and is
 _passed_ by the same rule (boolean `true` or object `status: true`).
 
-### The lite track uses this consolidation (Phase 4)
+### The lite track uses this consolidation
 
 The `lite` track (`context.track == "lite"`; `docs/context-json-guide.md`,
 `docs/pipeline-architecture.md`) is the standing case for consolidation. A
@@ -289,8 +289,8 @@ when domain detail is in question.
 **On rejection:**
 
 1. Do NOT set the flag.
-2. Write correction notes (Phase 1: in chat / in a comment on the
-   story; Phase 2 audit fields capture them in `notes`).
+2. Write correction notes (in chat or a comment on the story; the
+   audit fields capture them in `notes`).
 3. Re-run the Analyst with the corrections.
 4. Repeat the gate.
 
@@ -362,9 +362,8 @@ product owner co-approves.
    which binds the approval to a digest of the test cases and planner
    brief it covered (`docs/pipeline-runner.md` §4).
 3. Re-validate `context.json` and `test-cases/[story-id].json`.
-4. Proceed to the Playwright Planner Native Agent — and, if Phase 1.5
-   is active and there are `automate_api` cases, also to the API
-   Agent.
+4. Proceed to the Playwright Planner Native Agent — and, if there are
+   `automate_api` cases, also to the API Agent.
 
 **On rejection:**
 
@@ -435,7 +434,7 @@ the assistance never changes the approval bar** (`CLAUDE.md` §3.5).
 3. Re-run the Playwright Planner.
 4. Repeat the gate.
 
-### Gate 3' — Collection Review (Phase 1.5+)
+### Gate 3' — Collection Review (API branch)
 
 The API-branch equivalent of Gate 3. Runs in parallel with Gate 3 when
 a story has `automate_api` cases.
@@ -565,7 +564,7 @@ etc. all leave Gate 4 human.
    generated artifact are normal.
 3. Repeat the gate.
 
-### Gate 4' — API Assertion Review (Phase 1.5+) **(human sign-off, always)**
+### Gate 4' — API Assertion Review **(human sign-off, always)**
 
 The API-branch equivalent of Gate 4. Like Gate 4, this is permanently
 human — it is the assertion-level review that decides whether the API
@@ -793,22 +792,22 @@ it survives nothing. Reject.
 - **Approval after a Red failure** — see
   `docs/healer-guardrails.md`. Red failures only produce bug drafts;
   fixing them is always a human decision.
-- **Real Jira / TestLink writes without `--apply`** — see Phase 2 plan.
+- **Real Jira / TestLink writes without `--apply`.**
   Bug promotion and TestLink sync are explicit-flag operations.
 
 ---
 
 ## What rejection looks like
 
-In Phase 1, a rejection is informal: the reviewer says no, the agent
-re-runs the relevant step. From Phase 2 onward, the `reviewer` and
+A rejection can be informal: the reviewer says no, the agent
+re-runs the relevant step. The `reviewer` and
 `notes` audit fields let the team see who rejected what and why,
 without losing it to chat history.
 
 **Recording the decision (continuous improvement).** `review_gates` holds the
 **final state** of each gate; it does not remember that a gate was _rejected
 once and approved later_. To keep that history — so metrics can compute a
-per-run gate-rejection rate (the Phase 3 retro gap) — append an event to the
+per-run gate-rejection rate — append an event to the
 optional `context.json.gate_decisions[]` log at each decision:
 
 ```jsonc

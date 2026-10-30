@@ -32,7 +32,7 @@ JIRA-XXX (or STORY-XXX)
    RISK-XXX
        │
        ▼
-    TC-XXX  ────────────►  API-XXX        (Phase 1.5+, when automate_api)
+    TC-XXX  ────────────►  API-XXX        (when automate_api)
        │                       │
        ▼                       ▼
    SPEC-XXX                COL-XXX → REQ-XXX
@@ -48,7 +48,7 @@ JIRA-XXX (or STORY-XXX)
               BUG-XXX  (one per Red failure)
                  │
                  ▼
-       (Phase 2: Jira Issue Key promoted via --apply)
+       (Jira Issue Key promoted via --apply)
 ```
 
 Top of the chain: a single story. Bottom of the chain: bugs raised
@@ -73,7 +73,7 @@ that knows where it came from.
 | `FAIL-XXX`  | An individual failed test (Playwright or Newman).                    | Failure Classifier (`skills/analyzing-logs`).  | `analysis/failure-analysis.json` `failures[].failure_id`.                                  | 1                |
 | `BUG-XXX`   | A bug draft (one-to-one with each Red `FAIL-XXX`).                   | Failure Classifier; Reporter may add Jira key. | `release/bug-drafts/BUG-XXX.md`.                                                           | 1                |
 
-Phase 2 introduces no new ID — it adds the `Jira Issue Key` to each
+Promotion to Jira introduces no new ID — it adds the `Jira Issue Key` to each
 existing `BUG-XXX` after `scripts/create-jira-bugs.js --apply`. The
 Jira key is _data_ on the bug draft, not a separate traceability ID.
 
@@ -182,7 +182,7 @@ inside a `test.describe('Seed: ...')` group is a documented
 non-business check and needs no ids. It exempts nothing else, not even
 another test in the same file.
 
-### 3.7 Every Postman request references its TC (Phase 1.5+)
+### 3.7 Every Postman request references its TC
 
 `COL-XXX → REQ-XXX → TC-XXX` (where the TC is one with
 `automation_decision == "automate_api"`, also labelled `API-XXX`).
@@ -227,10 +227,10 @@ Each bug draft carries:
   if multiple, list all).
 - `Linked Test Case` — `TC-XXX` (or `API-XXX`).
 
-These four lines are the bug draft's traceability header. Phase 2's
+These four lines are the bug draft's traceability header.
 `scripts/create-jira-bugs.js` parses them.
 
-### 3.10 Phase 2 — bug drafts → Jira issues
+### 3.10 Bug drafts → Jira issues
 
 `scripts/create-jira-bugs.js --apply` reads each
 `release/bug-drafts/BUG-XXX.md`, creates a Jira issue, and writes the
@@ -263,7 +263,7 @@ For each `RISK-XXX` in `context.json.risks[]`:
 The Reporter emits this view as `release_report.json.coverage_by_risk[]`.
 The schema for that field is in `schemas/release-report.schema.json`.
 
-**Explicit coverage gaps (Phase 2.6, Improvement 3).** The Reporter also
+**Explicit coverage gaps.** The Reporter also
 emits two derived fields so a zero-coverage risk is impossible to miss:
 `uncovered_risks` (every `risk_id` whose `coverage_by_risk` status is
 `uncovered`) and `uncovered_high_severity_count` (how many of those are
@@ -280,8 +280,8 @@ For each AC (by index in `context.json.acceptance_criteria`):
 - Are they all `approved`?
 
 AC coverage is checked at Gate 2 by the human reviewer; the Reporter
-does not emit a separate matrix for it in Phase 1. Phase 3
-may add it to the release report.
+does not emit a separate matrix for it in the release
+report.
 
 ---
 
@@ -299,14 +299,14 @@ Concrete examples:
   has no `TC-XXX`. Record with `test_case_id: null` and
   `traceability_unresolved: true`, reason `"seed test — no TC"`.
 - **Test running but no longer linked to a TC.** Should never happen
-  in Phase 1 (the Generator wires it in), but if a developer
+  (the Generator wires it in), but if a developer
   hand-edits a test and removes its annotation, the Failure
   Classifier flags it.
 - **Risk with no TC.** Either Gate 2 rejected this (preferred) or the
   team explicitly accepted the risk without testing. The accepted-
   without-test case must be written down somewhere — either in
   `context.json.risks[].description` ("accepted, reason: ...") or as
-  a Gate 2 note (Phase 2 audit fields).
+  a Gate 2 note (in the audit fields).
 
 The point of `traceability_unresolved` is that downstream tooling
 (reports, metrics, `/evolve`) can _see_ the gap. A faked link is
@@ -314,14 +314,13 @@ invisible until it causes a worse problem downstream.
 
 ---
 
-## 6. Cross-run identity (Phase 3 preview)
+## 6. Cross-run identity
 
-Phase 1 runs one story at a time and overwrites the working
-directory on each run. So `TC-001` for run A and `TC-001` for run B
-on the same story are the same TC unless the Test Designer changed
-it between runs.
+The working directory holds one story's run at a time. So `TC-001` for
+run A and `TC-001` for run B on the same story are the same TC unless
+the Test Designer changed it between runs.
 
-Phase 3 introduces `runs/[story-id]/[run-id]/...`. After that:
+Completed runs are archived under `runs/[story-id]/[run-id]/...`, so:
 
 - A TC's global identity is `<story.id>::<run-id>::TC-XXX`.
 - A FAIL's global identity is `<story.id>::<run-id>::FAIL-XXX`.

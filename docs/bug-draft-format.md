@@ -1,7 +1,7 @@
 # Bug-draft format
 
-> **Status:** stable from Phase 1; the binding contract for the
-> Phase 2 promotion script `scripts/create-jira-bugs.js`. This file is
+> **Status:** stable; the binding contract for the
+> promotion script `scripts/create-jira-bugs.js`. This file is
 > the single source of truth for the bug-draft layout. The Failure
 > Classifier writes drafts in this format; the script parses them; the
 > Reporter reads (and, post-promotion, updates) them. If this format

@@ -327,8 +327,8 @@ const proposal = {
   findings,
   disclaimer:
     'Suggestions only. /evolve never edits prompts, schemas, docs, or code. ' +
-    'A human reviews and confirms each action before it is applied (CLAUDE.md ' +
-    'Phase 3 §2: metrics guide improvement, they do not rewrite contracts).',
+    'A human reviews and confirms each action before it is applied (metrics ' +
+    'guide improvement; they do not rewrite contracts).',
 };
 
 if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
