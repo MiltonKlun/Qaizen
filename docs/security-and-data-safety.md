@@ -46,7 +46,7 @@ trade-off.
   `.env.example` as an empty key.
 - Run-time injection (`--env-var "api_key=$REQRES_API_KEY"`) so committed
   files keep secrets empty.
-- The known Newman-results leak (A5): a results file can capture a live
+- The known Newman-results leak: a results file can capture a live
   `x-api-key` header; scrub auth headers before CI uploads it.
 - Rotation, and the pre-commit checklist.
 
@@ -196,7 +196,7 @@ Method: searched for credential identifiers (`*_TOKEN`, `*_API_KEY`,
 - **`run-newman.js`** injects `REQRES_API_KEY` via `--env-var` at run time so
   the committed environment file stays empty; it does not log the value. (The
   separate Newman-_results_ leak is tracked in `docs/secrets-management.md` §5
-  / ambiguities A5 — scrub before CI upload.)
+  — scrub before CI upload.)
 - **Agent prompts** already instruct: credentials from env, never hardcoded
   into collections/specs/reports (`api-agent.md`, `test-management-adapter.md`).
   No prompt instructs an agent to print or inline a secret.

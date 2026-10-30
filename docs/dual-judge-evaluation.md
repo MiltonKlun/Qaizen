@@ -29,7 +29,7 @@ the framework's **YAML** form, and every run pays for an extra LLM judgment.
 
 ## 2. The decision criteria
 
-The plan says: **only evaluate after 10+ complete Phase-3 runs**, and adopt only
+The rule: **only evaluate after 10+ complete Phase-3 runs**, and adopt only
 if **3+ of these criteria** justify it.
 
 | #   | Criterion                                                             | Current finding                                                                                                                                                                                                                          | Justifies adoption? |

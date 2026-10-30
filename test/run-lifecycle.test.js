@@ -6,10 +6,10 @@
 // held the NEW story and context.json still carried the OLD run's four passed
 // gates. A new story silently inherited approvals it never received.
 //
-// These drive the real runner and new-run in throwaway mini-repos, covering
-// the plan's matrix: complete-old/new-story, incomplete-old/new-story, same
-// story, local and Jira fetch failure, interrupted initialization, archive
-// write failure, and filenames with spaces.
+// These drive the real runner and new-run in throwaway mini-repos, covering:
+// complete-old/new-story, incomplete-old/new-story, same story, local and Jira
+// fetch failure, interrupted initialization, archive write failure, and
+// filenames with spaces.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -120,7 +120,7 @@ test('--story with --resume, and --status with either, are refused before any wr
 
 // ------------------------------------------------ complete old, new story --
 
-test('B3: a new story after a COMPLETED run archives it and reaches the Analyst', () => {
+test('a new story after a COMPLETED run archives it and reaches the Analyst', () => {
   const dir = repo();
   try {
     const owned = classifyRootArtifacts(runContext(), dir).owned;

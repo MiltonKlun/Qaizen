@@ -11,9 +11,11 @@ description: |
   run completed: the runner does, after validating every artifact.
 phase_introduced: 1
 phase_active: 1+
-version: 4.0.2
+version: 4.0.3
 changed_in_run: null
 changelog: |
+  - 4.0.3: PATCH (no output change). Review-finding labels that only made
+    sense next to unpublished notes are removed; the instructions are unchanged.
   - 4.0.2: PATCH (no output change). Pointers to unpublished planning notes are
     removed from the prompt text; the instructions are unchanged.
   - 4.0.1: PATCH. States that the runner now enforces the core release rules
@@ -227,8 +229,8 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
 3. **Copy `execution_summary` from the ledger** (2.x analysis). Run
    `npm run report:summary` and paste its output, unchanged, as
    `execution_summary`. **Never compute these numbers yourself**, and never
-   from raw reports: that dropped timed-out tests (B2) and could produce
-   negative counts (B5). The command reads the ledger the analysis names and
+   from raw reports: that dropped timed-out tests and could produce
+   negative counts. The command reads the ledger the analysis names and
    prints:
    - the flat form `{ total, passed, failed, skipped, pass_rate,
 outcome_breakdown }` when only Playwright ran, and the grouped form

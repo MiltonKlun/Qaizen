@@ -142,7 +142,7 @@ test('diagnostics name the field path and never dump the artifact value', () => 
   }
 });
 
-// --- the core I6 guarantee: an invalid write never lands ------------------
+// --- the core guarantee: an invalid write never lands ----------------------
 
 test('writeJsonAtomic refuses an invalid value and leaves the existing file intact', () => {
   const dir = scratch('io-write');

@@ -10,9 +10,11 @@ description: |
   does not own that path.
 phase_introduced: 1
 phase_active: 1+
-version: 2.3.2
+version: 2.3.3
 changed_in_run: null
 changelog: |
+  - 2.3.3: PATCH (no output change). Review-finding labels that only made
+    sense next to unpublished notes are removed; the instructions are unchanged.
   - 2.3.2: PATCH (no output change). Pointers to unpublished planning notes are
     removed from the prompt text; the instructions are unchanged.
   - 2.3.1: PATCH (task group 10.2). The Inputs section lists what the instructions already
@@ -201,7 +203,7 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
    `analysis/execution-ledger.json`, which is the counting model: the
    flat totals are its legacy projection and `outcome_breakdown` explains
    them. **Never recompute totals from raw reports** -- that is how timed-out
-   tests vanished (B2) and pass counts went negative (B5).
+   tests vanished and pass counts went negative.
 3. **For each failure in the draft** (every failed, blocked and flaky unit
    is already present, once):
    - Keep its `FAIL-XXX` and `unit_id`. `execution_outcome` is what the

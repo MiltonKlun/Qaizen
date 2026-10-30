@@ -177,7 +177,7 @@ test('evaluate-agents: dataset mode still scores the committed expected outputs'
   assert.match(r.out, /Overall: 100%/);
 });
 
-// --- I1 / 3.3: execution results are reported only from evidence --------
+// --- I1: execution results are reported only from evidence --------------
 // Covered by test/execution-sync.test.js: the ledger-based
 // outcome rules, the draft-analysis refusal, and the status-map guard.
 

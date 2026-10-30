@@ -190,7 +190,7 @@ export function ledgerInvariants(ledger) {
       );
     }
 
-    // A null link needs a stated reason; IDs are never invented (B6).
+    // A null link needs a stated reason; IDs are never invented.
     const links = u.domain_links;
     if (links) {
       /** @type {(keyof DomainLinks)[]} */

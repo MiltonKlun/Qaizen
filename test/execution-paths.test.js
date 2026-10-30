@@ -174,7 +174,7 @@ test('an explicit execution id wins; an inherited one is used; a bad one is refu
 
 // --- the CI summary counts one execution, not all of history ---------------
 
-test('a stale execution does not contribute to the current summary (I4)', () => {
+test('a stale execution does not contribute to the current summary', () => {
   const cwd = workspace();
   publish(cwd, 'exec-2026-09-01T00-00-00-000Z-old', 'OLD-STORY', {
     total: 5,
