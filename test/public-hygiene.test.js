@@ -168,16 +168,11 @@ const TRACKED = execFileSync('git', ['-C', ROOT, 'ls-files', '-z'], {
   .split('\0')
   .filter(Boolean);
 
-/**
- * Every tracked text file to check, as [path, text]. Schema descriptions are
- * cleaned in their own change (a schema edit is a contract change, CLAUDE.md
- * §3.10); until then schemas/ is skipped.
- */
+/** Every tracked text file, as [path, text]. */
 function trackedTexts() {
   /** @type {Array<[string, string]>} */
   const out = [];
   for (const file of TRACKED) {
-    if (file.startsWith('schemas/')) continue;
     let text;
     try {
       text = readFileSync(join(ROOT, file), 'utf8');

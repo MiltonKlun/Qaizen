@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://qaizen/schemas/execution-ledger.schema.json",
   "title": "Execution Ledger for a Pipeline Run",
-  "description": "analysis/execution-ledger.json. THE canonical cross-runner counting model for one run (IMPLEMENTATION_PLAN task group 2.2a). Raw Playwright/Newman reports are evidence INPUTS, not the source of truth: they disagree about what a 'test' is, they lose timed-out and interrupted results, and they are secret-bearing. The ledger normalizes every runner into one mutually exclusive outcome per unit, keeps approved-case coverage separate from runner-unit totals, and records provenance so an unverified result can never read as a pass. Produced by execution adapters through the shared normalizer; consumed by the Failure Classifier, the Reporter, and the TestLink execution sync. Sanitized: it must never carry raw request/response bodies, headers, or injected secrets (docs/secrets-management.md).",
+  "description": "analysis/execution-ledger.json. THE canonical cross-runner counting model for one run. Raw Playwright/Newman reports are evidence INPUTS, not the source of truth: they disagree about what a 'test' is, they lose timed-out and interrupted results, and they are secret-bearing. The ledger normalizes every runner into one mutually exclusive outcome per unit, keeps approved-case coverage separate from runner-unit totals, and records provenance so an unverified result can never read as a pass. Produced by execution adapters through the shared normalizer; consumed by the Failure Classifier, the Reporter, and the TestLink execution sync. Sanitized: it must never carry raw request/response bodies, headers, or injected secrets (docs/secrets-management.md).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -133,7 +133,7 @@
             }
           },
           "domain_links": {
-            "description": "Proven-from-metadata domain IDs. An ID is null WITH a reason when it cannot be proven — IDs are NEVER derived from failure ordering (review finding B6).",
+            "description": "Proven-from-metadata domain IDs. An ID is null WITH a reason when it cannot be proven — IDs are NEVER derived from failure ordering.",
             "type": "object",
             "additionalProperties": false,
             "properties": {

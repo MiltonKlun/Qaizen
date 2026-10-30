@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://qaizen/schemas/release-report.schema.json",
   "title": "Release Report",
-  "description": "release/release-report.json. Produced by the Reporter Agent from context.json + test-cases + failure-analysis + bug drafts. coverage_by_risk is derived from the traceability chain (docs/traceability.md). Version 2.x (task group 2.2b) is written for a 2.x failure analysis: each execution_summary block carries the per-outcome breakdown its flat counts project, and a null pass_rate when nothing ran; its numbers are derived from the execution ledger (npm run report:summary). 1.x reports keep their original meaning and are not reinterpreted.",
+  "description": "release/release-report.json. Produced by the Reporter Agent from context.json + test-cases + failure-analysis + bug drafts. coverage_by_risk is derived from the traceability chain (docs/traceability.md). Version 2.x is written for a 2.x failure analysis: each execution_summary block carries the per-outcome breakdown its flat counts project, and a null pass_rate when nothing ran; its numbers are derived from the execution ledger (npm run report:summary). 1.x reports keep their original meaning and are not reinterpreted.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -85,7 +85,7 @@
     },
     "uncovered_risks": {
       "type": "array",
-      "description": "OPTIONAL (Phase 2.6, Improvement 3). risk_ids from context.json.risks[] that have ZERO covering test cases — i.e. coverage_by_risk entries whose status is 'uncovered'. Derived deterministically from the traceability chain; no LLM. Surfaced explicitly so a reviewer sees gaps without having to scan coverage_by_risk by hand.",
+      "description": "OPTIONAL. risk_ids from context.json.risks[] that have ZERO covering test cases — i.e. coverage_by_risk entries whose status is 'uncovered'. Derived deterministically from the traceability chain; no LLM. Surfaced explicitly so a reviewer sees gaps without having to scan coverage_by_risk by hand.",
       "items": {
         "type": "string",
         "pattern": "^RISK-[0-9]+$"
@@ -99,7 +99,7 @@
     "summary_by_risk_level": {
       "type": "object",
       "additionalProperties": false,
-      "description": "OPTIONAL (Phase 3 TG12). Per-severity rollup of coverage_by_risk, so a reviewer reads the release at a glance: how many high/medium/low risks are passing, failing, or uncovered. Derived deterministically from coverage_by_risk + context.json.risks[].severity; no LLM.",
+      "description": "OPTIONAL. Per-severity rollup of coverage_by_risk, so a reviewer reads the release at a glance: how many high/medium/low risks are passing, failing, or uncovered. Derived deterministically from coverage_by_risk + context.json.risks[].severity; no LLM.",
       "properties": {
         "high": {
           "$ref": "#/definitions/riskLevelRollup"
@@ -114,7 +114,7 @@
     },
     "untested_high_risk_items": {
       "type": "array",
-      "description": "OPTIONAL (Phase 3 TG12). The high-severity risks with NO covering test (the named version of uncovered_high_severity_count). 'No hidden untested risks' — the report must surface these, never omit them.",
+      "description": "OPTIONAL. The high-severity risks with NO covering test (the named version of uncovered_high_severity_count). 'No hidden untested risks' — the report must surface these, never omit them.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -132,7 +132,7 @@
     },
     "flaky_tests": {
       "type": "array",
-      "description": "OPTIONAL (Phase 3 TG12). Tests that passed on retry / showed instability, IF flakiness is tracked for this run. Empty or omitted when not tracked — never fabricated.",
+      "description": "OPTIONAL. Tests that passed on retry / showed instability, IF flakiness is tracked for this run. Empty or omitted when not tracked — never fabricated.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -155,7 +155,7 @@
     "open_bugs_summary": {
       "type": "object",
       "additionalProperties": false,
-      "description": "OPTIONAL (Phase 3 TG12). Rollup of bug_drafts[] for the release decision: how many open bugs, by severity, and how many have / lack a Jira key.",
+      "description": "OPTIONAL. Rollup of bug_drafts[] for the release decision: how many open bugs, by severity, and how many have / lack a Jira key.",
       "required": ["total"],
       "properties": {
         "total": {
@@ -182,7 +182,7 @@
     },
     "conditional_pass_criteria": {
       "type": "array",
-      "description": "OPTIONAL (Phase 3 TG12). When release_recommendation is 'conditional_pass', the explicit, checkable conditions that must hold before release — the structured form of what release_recommendation_reasoning states in prose. The rule 'conditional_pass MUST list its conditions' is satisfied by either; this field makes them machine-checkable.",
+      "description": "OPTIONAL. When release_recommendation is 'conditional_pass', the explicit, checkable conditions that must hold before release — the structured form of what release_recommendation_reasoning states in prose. The rule 'conditional_pass MUST list its conditions' is satisfied by either; this field makes them machine-checkable.",
       "items": {
         "type": "string",
         "minLength": 1
@@ -190,7 +190,7 @@
     },
     "external_links": {
       "type": "array",
-      "description": "OPTIONAL (Phase 3 TG12). Links to external systems for this release: TestLink test plan, Jira issues/epics, dashboards. Tool-agnostic { system, label, url } so the project stays generic (TestLink + Jira today, others later). URLs only — never embed credentials.",
+      "description": "OPTIONAL. Links to external systems for this release: TestLink test plan, Jira issues/epics, dashboards. Tool-agnostic { system, label, url } so the project stays generic (TestLink + Jira today, others later). URLs only — never embed credentials.",
       "items": {
         "type": "object",
         "additionalProperties": false,

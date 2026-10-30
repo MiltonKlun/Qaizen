@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://qaizen/schemas/healer-validation.schema.json",
   "title": "Healer candidate validation record",
-  "description": "analysis/healer-validation/<FAIL-id>.attempt-<n>.json. One record per candidate submitted to scripts/run-healer.js --apply (task group 6.3). Records what was checked and what happened; it never approves anything. A 'validated' record means the candidate passed the static check and the exact failing test passed with it in an isolated copy; a human still reviews the patch.",
+  "description": "analysis/healer-validation/<FAIL-id>.attempt-<n>.json. One record per candidate submitted to scripts/run-healer.js --apply. Records what was checked and what happened; it never approves anything. A 'validated' record means the candidate passed the static check and the exact failing test passed with it in an isolated copy; a human still reviews the patch.",
   "type": "object",
   "additionalProperties": false,
   "required": [
