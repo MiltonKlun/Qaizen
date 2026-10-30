@@ -17,7 +17,7 @@ When fixtures become necessary:
 `tests/seed.spec.ts` is auth-free — it only loads `BASE_URL` and
 checks the page title. No fixture is needed for the seed.
 
-Phase 2 may introduce auth-aware fixtures alongside the GitHub
-Actions work, using Playwright's `storageState` pattern. See
+Auth-aware fixtures may come later, using Playwright's
+`storageState` pattern. See
 `docs/seed-test-guidelines.md` section 6 for the reasoning behind
 the deferral and the conditions that would trigger fixture work.

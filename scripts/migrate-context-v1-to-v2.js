@@ -2,8 +2,8 @@
 // @ts-check
 // context.json migration v1 -> v2: review-gate audit fields.
 //
-// v1 (Phase 1): each review_gates.<gate> is a bare boolean.
-// v2 (Phase 2): each gate MAY be the richer object
+// v1: each review_gates.<gate> is a bare boolean.
+// v2: each gate MAY be the richer object
 //   { status: <boolean>, reviewer: null, reviewed_at: null, notes: null }.
 // The schema's gateValue oneOf accepts BOTH forms, so this migration is
 // optional — it only matters if the team wants the audit slots present

@@ -2,7 +2,7 @@
 name: analyzing-logs
 description: |
   Report phase. Reads the execution ledger and the pre-classifier's
-  draft analysis (both derived from Playwright and, from Phase 1.5, Newman
+  draft analysis (both derived from Playwright and, for the API branch, Newman
   results), confirms the classification of every failure using the
   Failure Classifier taxonomy, marks Green/Yellow/Red severity per the
   Healer guardrails, and produces analysis/failure-analysis.json
@@ -12,7 +12,7 @@ disable-model-invocation: true
 adapted_from: dogkeeper886/agent-workflows @ v3.0 (989343d; the repository was formerly dogkeeper886/ai-qa-workflow)
 adaptation_notes: |
   Original skill parsed Robot Framework output.xml / log.html. This
-  pipeline runs Playwright (and Newman in P1.5+), so the inputs are the
+  pipeline runs Playwright (and Newman for the API branch), so the inputs are the
   Playwright JSON reporter output and Newman's JSON reporter output.
   The taxonomy (locator/wait/UI structural / product bug / test bug /
   flaky / environment / test data / unknown) is new and ours; the source
@@ -27,8 +27,8 @@ tools:
 
 # analyzing-logs
 
-**Phase:** 1+ (Playwright only). Phase 1.5+ adds Newman/API failures
-to the same artifact.
+**Scope:** Playwright failures, and Newman/API failures from the API
+branch, in the same artifact.
 **Owned by this skill:** the `agents/failure-classifier.md` agent uses
 this skill to produce `analysis/failure-analysis.json` and bug drafts.
 **Folder ownership:** writes only into `analysis/` and into
@@ -57,8 +57,8 @@ Two outputs:
 1. `analysis/failure-analysis.json` — validated against
    `schemas/failure-analysis.schema.json`.
 2. `release/bug-drafts/BUG-XXX.md` — one Markdown draft per Red
-   failure. Phase 1 stops here (drafts only); Phase 2 adds optional
-   promotion to real Jira issues via `scripts/create-jira-bugs.js
+   failure. This skill stops at drafts; a human may later
+   promote them to real Jira issues via `scripts/create-jira-bugs.js
 --apply`.
 
 After writing, run:
@@ -82,7 +82,7 @@ node scripts/validate-json.js schemas/failure-analysis.schema.json analysis/fail
 - `context.json` — for story metadata and traceability links.
 - `test-cases/[story-id].json` — to map executed tests back to the
   `TC-XXX` that originated them.
-- `api-tests/collections/[story-id].postman_collection.json` (Phase 1.5+)
+- `api-tests/collections/[story-id].postman_collection.json` (API branch)
   — to map Newman requests back to `REQ-XXX` and `API-XXX`.
 
 If a Playwright test cannot be linked to a `TC-XXX` (e.g. the seed
@@ -107,7 +107,7 @@ Every failure is classified into exactly one of these categories
 | `test_data_issue`            | The test's input data is no longer valid (account deleted, SKU removed, fixture drifted).                                                                                               |
 | `unknown_needs_human_review` | Signals contradict each other or are insufficient. Default when confidence is low — never guess.                                                                                        |
 
-For Newman/API failures (Phase 1.5+), additional rules of thumb:
+For Newman/API failures, additional rules of thumb:
 
 - `status code mismatch (non-5xx)` on a business endpoint → likely
   `product_bug` (the API returned something other than what the AC
@@ -148,11 +148,11 @@ exactly this order and records its reason on each failure.
 Independent of the classification above, each failure also gets a
 severity per `docs/healer-guardrails.md`:
 
-| Severity   | Definition                                                                                                                       | Phase 1 action                                                            | Phase 3 action                                                     |
+| Severity   | Definition                                                                                                                       | Classifier action                                                         | Healer action                                                      |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| **Green**  | Locator broken, wait unstable, timeout stabilization, minor selector refactor that preserves business meaning.                   | Document in `failure-analysis.json`. Phase 1 takes no auto-fix action.    | Healer may generate a reviewable `.patch` (never a direct commit). |
+| **Green**  | Locator broken, wait unstable, timeout stabilization, minor selector refactor that preserves business meaning.                   | Document in `failure-analysis.json`. No auto-fix.                         | Healer may generate a reviewable `.patch` (never a direct commit). |
 | **Yellow** | UI structural change, new modal, layout reorganization. Behavior may still be valid; needs a human to decide.                    | Document. No fix.                                                         | Healer writes a suggestion only; human must approve.               |
-| **Red**    | Business assertion, permission/role, security, pricing, payment, compliance, data integrity, or any change in assertion meaning. | Document AND create `release/bug-drafts/BUG-XXX.md`. Never propose a fix. | Same as Phase 1 — bug draft only.                                  |
+| **Red**    | Business assertion, permission/role, security, pricing, payment, compliance, data integrity, or any change in assertion meaning. | Document AND create `release/bug-drafts/BUG-XXX.md`. Never propose a fix. | None — bug draft only.                                             |
 
 **Newman/API failures are never touched by the Healer** in any phase
 (plan-wide rule). Treat all API failures as bug-draft-or-document only.
@@ -176,8 +176,8 @@ Defined in `schemas/failure-analysis.schema.json`. Top-level required:
   - `playwright_test_id` — `PW-XXX` for Playwright failures when proven
     from metadata; in 2.x `null` + `id_unresolved_reason` otherwise.
     Never derived from the order failures appear.
-  - `source` — `"playwright"` or `"newman"` (Phase 1.5+ adds the
-    `"newman"` value via schema extension).
+  - `source` — `"playwright"` or `"newman"` (the API branch
+    uses `"newman"`).
   - `request_id` — `REQ-XXX` for Newman failures; same rule as
     `playwright_test_id`.
   - `classification` — one of the taxonomy values above.
@@ -190,13 +190,13 @@ Defined in `schemas/failure-analysis.schema.json`. Top-level required:
     draft that does not exist; `finalized` requires one for every Red.
 - `status` — `draft` while in progress, `finalized` once the human
   agrees the classification is right and the bug drafts are ready for
-  Phase 2 promotion.
+  promotion.
 
 ## Bug draft format
 
-Phase 2 `docs/bug-draft-format.md` defines the exact format that
-`scripts/create-jira-bugs.js` will later parse. In Phase 1, just
-follow the same structure so the format is stable:
+`docs/bug-draft-format.md` defines the exact format that
+`scripts/create-jira-bugs.js` parses. Follow the same structure so
+the format is stable:
 
 ```markdown
 # BUG-XXX
@@ -223,7 +223,7 @@ RISK-XXX (from the originating TC's risk_ids)
 
 ## Linked Test Case
 
-TC-XXX (or API-XXX for Phase 1.5+ API failures)
+TC-XXX (or API-XXX for API failures)
 
 ## Steps to Reproduce
 
@@ -248,11 +248,11 @@ TC-XXX (or API-XXX for Phase 1.5+ API failures)
 
 ## Jira Issue Key
 
-(empty — populated by Phase 2 `scripts/create-jira-bugs.js --apply`)
+(empty — populated by `scripts/create-jira-bugs.js --apply`)
 ```
 
-The `Jira Issue Key` line MUST be present and empty in Phase 1. Phase 2
-parses it; an entry that already has a key is skipped (de-dup safety).
+The `Jira Issue Key` line MUST be present and empty when you write it.
+`scripts/create-jira-bugs.js` parses it; an entry that already has a key is skipped (de-dup safety).
 
 ## Steps
 
@@ -283,12 +283,12 @@ parses it; an entry that already has a key is skipped (de-dup safety).
 ## What this skill does NOT do
 
 - **Modify tests, specs, or any source code.** Healer guardrails. Even
-  for Green failures, this skill only documents; in Phase 3 the
+  for Green failures, this skill only documents; the
   separate Healer flow does the patching.
 - **Decide release pass/fail.** That's the Reporter (`agents/reporter.md`).
-- **Promote bug drafts to real Jira.** That's Phase 2's
+- **Promote bug drafts to real Jira.** That's
   `scripts/create-jira-bugs.js --apply`, gated by explicit human flag.
-- **Re-run failed tests.** Phase 3's controlled Healer re-runs the
+- **Re-run failed tests.** The controlled Healer re-runs the
   affected test in an isolated workspace after a patch; this skill
   does not.
 
@@ -328,8 +328,8 @@ classification later, re-run this skill, not the Reporter.
 - `docs/review-gates.md` — Gate 4 precondition.
 - `docs/traceability.md` — full chain; this skill creates the FAIL
   layer and seeds the BUG layer.
-- `docs/bug-draft-format.md` — bug draft template parsed by Phase 2
-  (the format is stable).
+- `docs/bug-draft-format.md` — bug draft template parsed by
+  `scripts/create-jira-bugs.js` (the format is stable).
 - `agents/failure-classifier.md` — the agent prompt that calls this
   skill.
 - `agents/reporter.md` — the downstream consumer.

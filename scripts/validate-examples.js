@@ -15,13 +15,12 @@
 //   *.expected-execution-ledger.json schemas/execution-ledger.schema.json
 //   *.expected-release-report.json   schemas/release-report.schema.json
 //   *.expected-collection.json       schemas/postman-collection.schema.json
-//   *.expected-external-plan.json    schemas/external-execution.schema.json (7.2)
-//   *.expected-external-results.json schemas/external-execution.schema.json (7.2)
-//                                    (Phase 1.5+; skipped if the schema
-//                                    file does not yet exist)
-//   *.expected-spec-review.json      schemas/spec-review.schema.json (Phase 3)
-//   *.expected-healer-validation.json schemas/healer-validation.schema.json (6.3)
-//   *.expected-benchmark-record.json schemas/benchmark-record.schema.json (Phase 5)
+//   *.expected-external-plan.json    schemas/external-execution.schema.json
+//   *.expected-external-results.json schemas/external-execution.schema.json
+//   *.expected-spec-review.json      schemas/spec-review.schema.json
+//   *.expected-healer-validation.json schemas/healer-validation.schema.json
+//   *.expected-benchmark-record.json schemas/benchmark-record.schema.json
+//   (a pattern whose schema file does not exist is skipped with a warning)
 //
 // Files in examples/expected/ that do not match any pattern are flagged
 // as warnings — not failures — so the team can land a file before
@@ -96,7 +95,7 @@ if (!existsSync(EXAMPLES_DIR)) {
 
 // Compilation + caching live in scripts/lib/artifact-io.js.
 // This wrapper keeps its OWN policy for an absent schema: a missing schema
-// (e.g. the Phase 1.5 postman-collection schema during Phase 1) is a skip with
+// (e.g. a schema added after the example) is a skip with
 // a warning, not a failure — deliberately different from validate-all.js,
 // which treats the same condition as fatal. The shared module reports absence;
 // each wrapper decides what absence means.

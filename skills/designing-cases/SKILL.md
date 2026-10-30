@@ -31,7 +31,7 @@ skill (together with `planning-tests`) to produce
 `test-cases/[story-id].json`.
 **Folder ownership:** writes only into `test-cases/`. Never touches
 `planner-input/` (that's `planning-tests`), `specs/` (Playwright Planner),
-`tests/` (Playwright Generator), `api-tests/` (Phase 1.5 API Agent),
+`tests/` (Playwright Generator), `api-tests/` (API Agent),
 `analysis/`, or `release/`.
 **Gate upstream:** **Gate 1** must already be passed
 (`context.json.review_gates.requirements_reviewed == true`).
@@ -79,12 +79,12 @@ test case includes:
 - `preconditions`, `steps`, `expected_results`.
 - `status` — `draft` initially. The human flips it to `approved` or
   `rejected` during Gate 2.
-- `qmetry_fields` — optional, unused in Phase 1. Reserved.
-- `testlink_id` — optional, populated by Phase 2 TestLink sync.
+- `qmetry_fields` — optional, unused. Reserved.
+- `testlink_id` — optional, populated by the TestLink sync.
 
-Phase 1.5 adds an optional `api_metadata` object when `automation_decision
-== "automate_api"` (method, endpoint, expected status codes, etc.). Do
-not populate it in Phase 1 — leave the field out entirely.
+The schema also has an optional `api_metadata` object for
+`automation_decision == "automate_api"` (method, endpoint, expected status
+codes, etc.). This skill does not populate it — leave the field out entirely.
 
 ## The Automation Decision Model (mandatory)
 
@@ -92,13 +92,13 @@ This is the most-policed rule of this skill. Every test case MUST get
 exactly one decision and a real reason. See
 `docs/automation-decision-model.md` for the canonical list.
 
-| Decision             | Use when                                                                                                                                                                                                              |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `automate_e2e`       | High-value user journey, smoke/regression critical, UI-critical flow that an API call cannot validate.                                                                                                                |
-| `automate_api`       | Business logic / validations / permissions / filtering / data-heavy checks that don't need UI verification. Phase 1.5 wires the API branch; in Phase 1 you may still mark cases `automate_api` — they queue for P1.5. |
-| `automate_component` | UI state below the E2E level — a single component in isolation.                                                                                                                                                       |
-| `manual`             | Exploratory, usability, subjective visual, accessibility review with human judgment.                                                                                                                                  |
-| `skip`               | Low-risk, duplicate of another case, or out-of-scope. The `automation_decision_reason` must explain which other case covers it or why it is out of scope.                                                             |
+| Decision             | Use when                                                                                                                                                                      |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `automate_e2e`       | High-value user journey, smoke/regression critical, UI-critical flow that an API call cannot validate.                                                                        |
+| `automate_api`       | Business logic / validations / permissions / filtering / data-heavy checks that don't need UI verification. The API Agent turns these into a Postman collection after Gate 2. |
+| `automate_component` | UI state below the E2E level — a single component in isolation.                                                                                                               |
+| `manual`             | Exploratory, usability, subjective visual, accessibility review with human judgment.                                                                                          |
+| `skip`               | Low-risk, duplicate of another case, or out-of-scope. The `automation_decision_reason` must explain which other case covers it or why it is out of scope.                     |
 
 **The "everything is E2E" failure mode:** if your case list is more
 than ~60% `automate_e2e`, stop and re-evaluate. Most validation logic,
@@ -189,9 +189,9 @@ relative path of the new file, then re-validate `context.json`.
 - Writing the planner brief (→ `planning-tests`).
 - Producing Playwright specs (→ Playwright Planner, after Gate 3 setup).
 - Producing Playwright tests (→ Playwright Generator, after Gate 4).
-- Producing Postman collections (→ `agents/api-agent.md`, Phase 1.5).
+- Producing Postman collections (→ `agents/api-agent.md`).
 - Publishing to Confluence — not in this pipeline.
-- Sync to TestLink (→ `syncing-testlink`, Phase 2).
+- Sync to TestLink (→ `syncing-testlink`).
 - Modifying the schema (`schemas/test-cases.schema.json`). If you need
   a field that doesn't exist, that's the Architecture Stability Rule
   scenario (`CLAUDE.md` section 3.10). Stop, propose the change.
@@ -234,7 +234,7 @@ After Gate 2 passes:
 - Playwright Planner Native Agent runs against
   `planner-input/[story-id].planner-brief.md` + `tests/seed.spec.ts` and
   produces `specs/[story-id].md`. Then Gate 3.
-- Phase 1.5+: the API Agent (`agents/api-agent.md`) reads the subset of
+- The API Agent (`agents/api-agent.md`) reads the subset of
   TCs marked `automate_api` and produces
   `api-tests/collections/[story-id].postman_collection.json`. Then a
   parallel Gate 3 / Gate 4 for the API branch.

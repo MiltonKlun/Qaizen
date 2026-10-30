@@ -40,17 +40,12 @@ variables that the MCP client passes through from `.env`.
 ### Why it is read-only
 
 The system has four human gates and a strict "no invented requirements"
-rule. Phase 1 is the foundation slice — there are no human-approved bug
-drafts yet, no traceability to a real failure that should write back to
-Jira, and no audit trail for writes. Until the pipeline has produced a
-validated `release-report.json` and at least one Gate-4-approved
-generated test, the agent has no reason to mutate Jira. So Phase 1
-locks the toolset down to the read tools only.
+rule. An agent that reads a story has no reason to mutate Jira, so the
+MCP toolset is locked down to the read tools only.
 
-Phase 2 added Jira writes, but only through deterministic scripts that a
+Jira writes exist, but only through deterministic scripts that a
 human runs with `--apply` (`scripts/create-jira-bugs.js`,
-`scripts/create-jira-testcases.js`). The MCP server stays read-only in every
-phase: an agent reads tickets written by other people, and a write-capable
+`scripts/create-jira-testcases.js`). The MCP server stays read-only: an agent reads tickets written by other people, and a write-capable
 server in the same session would let instructions hidden in a ticket reach a
 real Jira project.
 
@@ -204,7 +199,7 @@ flag, stop and ask — the same "stop before guessing" rule as everywhere else.
 
 ## `github` — read-only PR/diff access
 
-Phase 3 adds a **read-only** GitHub MCP so the Analyst (Mode B) can fetch a
+A **read-only** GitHub MCP lets the Analyst (Mode B) fetch a
 linked PR's diff as **secondary context** for risk/regression prioritization.
 It runs as a stdio Docker container, like the Atlassian MCP.
 
@@ -306,13 +301,13 @@ is changed in `.mcp.json` and copied, never edited in one place only. See
 
 ---
 
-## Future state
+## History
 
-Phase 1.5 — adds the Postman MCP for the API branch. Documented in
+The Postman MCP was added for the API branch. Documented in
 `docs/postman-integration.md`.
 
-Phase 2 — added a writes-enabled `atlassian-write` entry, since removed
-(see "Jira writes" above). It was **intended** to also add a `testlink` MCP, but that bridge
+A writes-enabled `atlassian-write` entry was added and later removed
+(see "Jira writes" above). A `testlink` MCP was **intended** too, but that bridge
 (`dogkeeper886/testlink-mcp`) would not complete its handshake in the MCP
 client (`-32000`, zero diagnostics), so it was removed from `.mcp.json`. The
 supported TestLink path is the XML-RPC script `scripts/sync-to-testlink.js`
@@ -322,6 +317,6 @@ in `docs/sync-recovery.md` §7). See `docs/testlink-integration.md` and
 `playwright-test`, `atlassian` (read-only), `postman` and `github` — **no
 `testlink`** and no write-enabled Atlassian entry.
 
-Phase 3 — adds the read-only `github` MCP (above) for code-change
-awareness. Otherwise hardening, prompt versioning, and metrics are
+The read-only `github` MCP (above) was added for code-change
+awareness. Hardening, prompt versioning, and metrics are
 application-level.

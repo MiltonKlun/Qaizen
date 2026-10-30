@@ -21,12 +21,11 @@ traceable QA package:
   component / manual / skip).
 - A Playwright Markdown spec (from the Playwright Planner Native Agent) and
   generated Playwright tests (from the Playwright Generator Native Agent).
-- _(Phase 1.5+)_ A Postman collection plus a Newman environment for the API
-  branch.
+- _(API branch)_ A Postman collection plus a Newman environment.
 - A classified failure analysis with per-failure severity (Green/Yellow/Red)
   per the Healer guardrails.
 - A release report and, for every Red failure, a bug draft.
-- _(Phase 2+)_ Bugs promoted to Jira issues with explicit human approval, and
+- _(Optional)_ Bugs promoted to Jira issues with explicit human approval, and
   test cases / execution results synced to TestLink.
 
 It is built on three deliberate choices documented in the project `README.md`
@@ -59,7 +58,7 @@ section 1:
 │ CAPA 1 — Skills lifecycle (adapted from agent-workflows)                 │
 │ skills/receiving-tickets · skills/planning-tests                         │
 │ skills/designing-cases · skills/analyzing-logs                           │
-│ skills/syncing-testlink (Phase 2)                                        │
+│ skills/syncing-testlink                                                  │
 └─────────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -67,7 +66,7 @@ section 1:
 │ CAPA 2 — Custom agents (only where no reuse exists)                      │
 │ agents/analyst · agents/test-designer                                    │
 │ agents/failure-classifier · agents/reporter                              │
-│ agents/api-agent (Phase 1.5) · agents/spec-reviewer (Phase 3)            │
+│ agents/api-agent · agents/spec-reviewer                                  │
 └─────────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -75,7 +74,7 @@ section 1:
 │ CAPA 3 — Official MCPs (never re-written)                                │
 │ atlassian (read-only in every phase)                                     │
 │ playwright-test (Native Agents)                                          │
-│ postman (Phase 1.5) · github (Phase 3, read-only)                        │
+│ postman · github (read-only)                                             │
 └─────────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -86,7 +85,7 @@ section 1:
               │                              │
               ▼                              ▼
 ┌──────────────────────────────┐ ┌─────────────────────────────────────┐
-│ E2E branch                   │ │ API branch (Phase 1.5+)              │
+│ E2E branch                   │ │ API branch                           │
 │ Playwright Native Agents     │ │ Postman MCP + Newman                 │
 │ (planner / generator /       │ │ Collections + environments           │
 │ healer)                      │ │ Failure classifier (extended)        │
@@ -97,22 +96,22 @@ section 1:
                              ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ CAPA 5 — Execution + reporting                                           │
-│ Failure Classifier (rule-based first, LLM only on ambiguous in Phase 3)  │
-│ Healer guardrails Green/Yellow/Red (enforced in code in Phase 3)         │
-│ Bug drafts → Jira with explicit human approval (Phase 2+)                │
-│ TestLink result sync (Phase 2+)                                          │
+│ Failure Classifier (rule-based first, LLM only on ambiguous cases)       │
+│ Healer guardrails Green/Yellow/Red (enforced in code)                    │
+│ Bug drafts → Jira with explicit human approval                           │
+│ TestLink result sync                                                     │
 └─────────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ CAPA 6 — Continuous improvement (Phase 3+)                               │
+│ CAPA 6 — Continuous improvement                                          │
 │ Retrospective per phase · /evolve every 90 days · pipeline metrics       │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 4. Phase 1 vertical slice (end-to-end)
+## 4. The E2E vertical slice (end-to-end)
 
 This is what runs today. The flow is **manual orchestration**: a human
 moves the work from one stage to the next, with the gates in between.
@@ -187,7 +186,7 @@ story.md (manual) ─or─ Jira issue (mcp-atlassian read-only)
 
 A run is complete when one story has produced this full traceability chain.
 
-### 4.1 Two entry points (Phase 2.6, shift-left)
+### 4.1 Two entry points (shift-left)
 
 The chain above splits into a **design half** (Analyst → Gate 1 → Test
 Designer → Gate 2 — no code needed) and an **execution half** (Planner →
@@ -255,7 +254,7 @@ automation-decision requirement hold in every track.
 
 ---
 
-## 5. API branch — Phase 1.5+
+## 5. API branch
 
 The API branch runs **in parallel** with the E2E branch. When the Test
 Designer marks a case `automate_api`, that case feeds the API Agent
@@ -264,7 +263,7 @@ share the same upstream (Analyst → Gate 1 → Test Designer → Gate 2) and
 the same downstream (Failure Classifier → Reporter); they diverge only in
 the middle (authoring + execution).
 
-For Phase 1.5 the API under test is **reqres.in** (`https://reqres.in/api`),
+The reference API under test is **reqres.in** (`https://reqres.in/api`),
 because Saucedemo — the E2E target — has no real backend API. See
 `docs/design-decisions.md` D3.
 
@@ -355,9 +354,9 @@ zero units. `code_reviewed` is never set for code that does not exist.
 
 ---
 
-## 6. Phase 2 — Integrations and CI
+## 6. Integrations and CI
 
-Phase 2 keeps the local flow intact and adds:
+The integrations keep the local flow intact and add:
 
 - Jira writes (bug and test-case promotion) go through deterministic
   scripts a human runs with `--apply`; `mcp-atlassian` stays read-only, and
@@ -488,7 +487,7 @@ schema, sensitivity, archival and compatibility, is
 The repo **root** holds the artifacts of the **current run** —
 `context.json`, `test-cases/`, `specs/`, `tests/`, `analysis/`,
 `release/`, etc. These are single-occupancy: a new story overwrites the
-previous one. The Phase 2 retrospective flagged this as the top pain (a
+previous one. A retrospective flagged this as the top pain (a
 near-miss clobber during the SK-13 slice).
 
 `runs/` is the **immutable history** that fixes it, using the
@@ -532,7 +531,7 @@ not change any agent's behavior — agents still read/write the root.
 `scripts/pipeline-metrics.js` (`npm run metrics`) walks the archived runs
 under `runs/` and writes `metrics/pipeline-metrics.{md,json}`. Recommended
 cadence: after every ~5 completed runs. **Metrics guide improvement; they
-never rewrite prompts or contracts automatically** (Phase 3 non-negotiable
+never rewrite prompts or contracts automatically** (a non-negotiable
 rule).
 
 | Metric                                | What it tells you                                                                  |

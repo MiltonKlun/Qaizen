@@ -1,6 +1,6 @@
 # Dual-Judge Framework — Evaluation & Decision
 
-> **Status:** Phase 3. This document evaluates whether to adopt the
+> This document evaluates whether to adopt the
 > dual-judge testing model from `dogkeeper886/test-framework-template` as an
 > **additional** layer, and records the decision. **Decision: DEFER** — with an
 > explicit re-evaluation trigger. The current Failure Classifier (rule-based +
@@ -29,7 +29,7 @@ the framework's **YAML** form, and every run pays for an extra LLM judgment.
 
 ## 2. The decision criteria
 
-The rule: **only evaluate after 10+ complete Phase-3 runs**, and adopt only
+The rule: **only evaluate after 10+ complete runs**, and adopt only
 if **3+ of these criteria** justify it.
 
 | #   | Criterion                                                             | Current finding                                                                                                                                                                                                                          | Justifies adoption? |
@@ -42,7 +42,7 @@ if **3+ of these criteria** justify it.
 **0 of 4 criteria** currently justify adoption (adoption needs 3+).
 
 Additionally, the **precondition is not met**: evaluation requires 10+ complete
-Phase-3 runs before evaluating; the project has **5** archived runs
+runs before evaluating; the project has **5** archived runs
 (`npm run list-runs`). Evaluating the framework's worth on half the required
 sample would be premature on its own terms.
 
@@ -52,7 +52,7 @@ sample would be premature on its own terms.
 
 **DEFER.** Do not adopt the dual-judge framework now. Reasons:
 
-1. The precondition (10+ Phase-3 runs) is unmet — only 5 exist.
+1. The precondition (10+ complete runs) is unmet — only 5 exist.
 2. 0 of 4 adoption criteria are currently satisfied; the bar is 3+.
 3. The existing Failure Classifier already encodes the "semantic doubt"
    path: when no rule matches with confidence, it escalates to
@@ -73,7 +73,7 @@ evidence or scale, and the system has a cheaper approximation of it today.
 
 Re-open this evaluation when **any** of the following becomes true:
 
-- **10+ complete Phase-3 runs** exist (the precondition) AND
+- **10+ complete runs** exist (the precondition) AND
 - metrics or `/evolve` surface **false negatives** — tests that passed but
   should have failed — as a recurring theme (3+ occurrences), OR
 - the Gate-4 reviewer repeatedly catches "technically passed but wrong"

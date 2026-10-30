@@ -128,7 +128,7 @@ latency. (n = 1; it will become a median over the series.)
   version is available; the replay harness refuses to invent a number
   (`scripts/selector-survival.js`). This is now measurable for _new_ stories run
   against the local Bench Shop app, which ships `v1` and a drifted `v2`
-  (`examples/benchmark-app/`, Phase 5).
+  (`examples/benchmark-app/`).
 - **Operator was an AI**, not a working QA; both arms share that, but it limits
   external validity. A human-operated series is the next step.
 - **Author and reviewer are currently the same person:** the gates are
@@ -289,7 +289,7 @@ around them.
 
 - **Done:** the text-only raw arm for STORY-020 (§5c) — completed the §5b gap.
 - **Make Bench Shop a fair target, then re-run the benchmark against it**
-  (§5c, Phase 5). Today it mirrors SauceDemo, so first change its catalogue,
+  (§5c). Today it mirrors SauceDemo, so first change its catalogue,
   prices, tax and credentials; then it can give the honest test of grounding
   that public SauceDemo cannot (`--bug` for catch rate, `v1` vs `v2` for
   selector survival). Re-run on the current pipeline, since every record so

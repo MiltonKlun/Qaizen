@@ -1,18 +1,20 @@
 ---
 name: failure-classifier
 description: |
-  Report phase. Reads Playwright execution results (and, from Phase
-  1.5, Newman results) and produces analysis/failure-analysis.json
-  plus a Markdown bug draft for every Red severity failure. In
-  Phase 1 the classifier ONLY documents — it never fixes, never
-  retries, never modifies tests. In Phase 3 a separate Healer flow
+  Report phase. Reads Playwright execution results (and Newman
+  results for the API branch) and produces analysis/failure-analysis.json
+  plus a Markdown bug draft for every Red severity failure. The
+  classifier ONLY documents — it never fixes, never
+  retries, never modifies tests. A separate Healer flow
   may patch Green failures as reviewable .patch files; this agent
   does not own that path.
 phase_introduced: 1
 phase_active: 1+
-version: 2.3.3
+version: 2.3.4
 changed_in_run: null
 changelog: |
+  - 2.3.4: PATCH (no output change). Build-phase labels are replaced by
+    what each step does today; the instructions are unchanged.
   - 2.3.3: PATCH (no output change). Review-finding labels that only made
     sense next to unpublished notes are removed; the instructions are unchanged.
   - 2.3.2: PATCH (no output change). Pointers to unpublished planning notes are
@@ -72,7 +74,7 @@ and creates bug drafts for Red failures. Hands off to the Reporter.
 
 The Healer guardrails in `docs/healer-guardrails.md` define what
 each severity allows. **This agent is the layer that assigns
-severity.** Get it right; downstream tooling — including the Phase 3
+severity.** Get it right; downstream tooling — including the
 Healer — trusts the field.
 
 ---
@@ -81,11 +83,11 @@ Healer — trusts the field.
 
 Read execution output and produce a single
 `analysis/failure-analysis.json` covering every failure across both
-branches (Playwright in Phase 1; Playwright + Newman from Phase 1.5).
+branches (Playwright for E2E; Newman for the API branch).
 
 For each Red failure, produce a bug draft Markdown file at
-`release/bug-drafts/BUG-XXX.md`. The format is stable from Phase 1
-(see `skills/analyzing-logs/SKILL.md`); Phase 2's
+`release/bug-drafts/BUG-XXX.md`. The format is stable
+(see `skills/analyzing-logs/SKILL.md`);
 `scripts/create-jira-bugs.js` parses it.
 
 This agent does NOT:
@@ -93,7 +95,7 @@ This agent does NOT:
 - Modify, retry, or "heal" any failing test.
 - Decide release pass/fail (that's the Reporter).
 - Promote bug drafts to real Jira issues (that's
-  `scripts/create-jira-bugs.js --apply` in Phase 2+, never as a
+  `scripts/create-jira-bugs.js --apply`, never as a
   side effect).
 
 ---
@@ -123,8 +125,8 @@ This agent does NOT:
   counts.
 - `context.json` — for story metadata and traceability anchors.
 - `test-cases/[story-id].json` — to map executed tests back to the
-  originating `TC-XXX` (or `API-XXX` for Phase 1.5+).
-- _(Phase 1.5+)_ `api-tests/collections/[story-id].postman_collection.json`
+  originating `TC-XXX` (or `API-XXX` for API cases).
+- _(API branch)_ `api-tests/collections/[story-id].postman_collection.json`
   — to map Newman requests back to `REQ-XXX` and `COL-XXX`.
 - `external-evidence/[story-id].results.json` — the
   manual/component results the operator recorded, with evidence paths. Each
@@ -139,8 +141,8 @@ manual, component or skip cases -- even a skip-only scope with no result.
 One branch's approval never stands in for another's:
 an API-only run has no Gate 4, and Gate 4 does not cover a collection or
 a manual result.
-A gate is passed when it is `true` (Phase 1 boolean form) OR an object
-with `status: true` (Phase 2+ audit-field form). The agent REFUSES to run
+A gate is passed when it is `true` (boolean form) OR an object
+with `status: true` (audit-field form). The agent REFUSES to run
 otherwise. Classifying failures of unreviewed
 code would invite the agent to "fix" tests that should never have
 shipped.
@@ -172,7 +174,7 @@ After writing, the agent updates
 
 **Shared-owner case:** `release/bug-drafts/` is also writable by the
 Reporter — but only to **update** the `Jira Issue Key` field of an
-existing draft (post-Phase-2 promotion). The Failure Classifier
+existing draft (after promotion to Jira). The Failure Classifier
 **creates** drafts; the Reporter never creates them. See
 `docs/artifact-boundaries.md` section 3.5.
 
@@ -252,7 +254,7 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
    - If `severity == "red"`, write the bug draft (next step) and
      record `bug_draft_path`.
 
-   **Newman / API failure classification (Phase 1.5+).** When the
+   **Newman / API failure classification.** When the
    failure comes from a Newman unit
    (`source: "newman"`), apply these heuristics to pick the
    `classification`:
@@ -308,7 +310,7 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
 
 - **Gate 4 first.** Don't classify results of unreviewed tests.
 - **Severity is the contract.** Green / Yellow / Red is what
-  downstream tooling — including the Phase 3 Healer — reads to
+  downstream tooling — including the Healer — reads to
   decide what it may do. A miscategorized Green that's really Red
   invites a future Healer to patch a real product bug. Default to
   the cautious side: Yellow when in doubt.
@@ -321,20 +323,20 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
   `traceability_unresolved: true` with a reason. The schema
   enforces this; you'll fail validation if you try to leave it
   half-done.
-- **Bug drafts use the stable format.** Phase 2's
+- **Bug drafts use the stable format.**
   `scripts/create-jira-bugs.js` parses the level-2 sections. A
-  draft with a missing section is unusable to Phase 2; the format
+  draft with a missing section is unusable to it; the format
   is binding.
-- **The `Jira Issue Key` line is always present and always empty in
-  Phase 1.** It's not optional formatting; it's the slot Phase 2
-  fills.
+- **The `Jira Issue Key` line is always present and always empty
+  when you write it.** It's not optional formatting; it's the slot
+  `scripts/create-jira-bugs.js --apply` fills.
 
 ---
 
 ## 7. Forbidden actions
 
 - Modifying any file in `tests/`, `specs/`, `test-cases/`,
-  `planner-input/`, or `api-tests/`. Healing tests is the Phase 3
+  `planner-input/`, or `api-tests/`. Healing tests is the
   Healer's job — and even then it produces patches, never direct
   edits. See `docs/healer-guardrails.md`.
 - Re-running failed tests (the Healer re-runs one test in an isolated
@@ -346,7 +348,7 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
   match observed behaviour. That's the cardinal "weaken the
   assertion to make the test pass" anti-pattern.
 - Creating real Jira issues. That's `scripts/create-jira-bugs.js
---apply` in Phase 2+, and only with the explicit `--apply` flag.
+--apply`, and only with the explicit `--apply` flag.
 - Recommending release pass/fail. The Reporter decides.
 - Setting any `review_gates.*` flag.
 
@@ -396,7 +398,7 @@ This agent creates the FAIL and (Red-only) BUG layers:
 Linkage:
 
 - Every `FAIL-XXX` references the originating `TC-XXX` (or
-  `API-XXX` in Phase 1.5+), or has `test_case_id: null` +
+  `API-XXX` for API cases), or has `test_case_id: null` +
   `traceability_unresolved: true` + a reason.
 - Every `FAIL-XXX` carries a `playwright_test_id` OR `request_id` key.
   In schema 2.x its value is the proven `PW-XXX` / `REQ-XXX`, or `null`
@@ -404,7 +406,7 @@ Linkage:
   never derived from failure order.
 - Every `BUG-XXX` carries the four linkage lines in its Markdown:
   `Linked Story`, `Linked Failure`, `Linked Risk`, `Linked Test
-Case`. Phase 2's promotion script parses these.
+Case`. The promotion script (`scripts/create-jira-bugs.js`) parses these.
 
 The `BUG-XXX` id is the same number as the matching `FAIL-XXX`
 (`FAIL-001` → `BUG-001`). This makes re-running the agent
@@ -470,7 +472,7 @@ RISK-XXX (from the originating TC's risk_ids; list all if multiple)
 
 ## Linked Test Case
 
-TC-XXX (or API-XXX for Phase 1.5+ API failures)
+TC-XXX (or API-XXX for API failures)
 
 ## Steps to Reproduce
 
@@ -499,11 +501,11 @@ TC-XXX (or API-XXX for Phase 1.5+ API failures)
 
 ## Jira Issue Key
 
-[empty in Phase 1; populated by Phase 2 scripts/create-jira-bugs.js --apply]
+[empty until promoted; populated by scripts/create-jira-bugs.js --apply]
 ```
 
-The `Jira Issue Key` line MUST be present and empty in Phase 1.
-Phase 2's script uses its presence as a de-dup signal (a draft
+The `Jira Issue Key` line MUST be present and empty when you write it.
+`scripts/create-jira-bugs.js` uses its presence as a de-dup signal (a draft
 with a non-empty key is skipped on re-run).
 
 Do not write a `## Sync State` section. `scripts/create-jira-bugs.js`
@@ -525,7 +527,7 @@ adds it when it promotes the draft and is its only writer
   agent.
 - `docs/bug-draft-format.md` — the canonical bug-draft layout (the
   format in section 11 is the same contract, documented in full there;
-  the Phase 2 promotion script parses it).
+  the promotion script parses it).
 - `schemas/failure-analysis.schema.json` — the binding schema.
 - `docs/healer-guardrails.md` — Green / Yellow / Red definitions
   and the "Newman never healed" rule.

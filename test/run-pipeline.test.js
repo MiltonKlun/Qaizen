@@ -294,7 +294,7 @@ test('agent step guidance — gate passed leads to the next agent instruction', 
       reviewed_at: '2026-06-10T10:07:00Z',
       opened_at: '2026-06-10T10:00:00Z',
       notes: null,
-      // Bound to what exists, as the runner records it at the decision (4.3);
+      // Bound to what exists, as the runner records it at the decision;
       // an unbound approval is a legacy one that must be re-reviewed.
       ...bindingFor('requirements_reviewed', ctx, dir),
     };
@@ -377,7 +377,7 @@ test('runner ALLOWS track:lite for a benign story (reaches the qa_scope gate)', 
       join(dir, 'test-cases', 'STORY-001.json'),
       JSON.stringify({
         ...validTestCases('STORY-001', 'test-run'),
-        // Per-case decisions are made BEFORE the scope approval (4.3).
+        // Per-case decisions are made BEFORE the scope approval.
         test_cases: validTestCases('STORY-001', 'test-run').test_cases.map(
           (c) => ({ ...c, status: 'approved' })
         ),

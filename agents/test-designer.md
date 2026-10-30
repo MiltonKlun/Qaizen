@@ -10,9 +10,11 @@ description: |
   becomes enforceable in code.
 phase_introduced: 1
 phase_active: 1+
-version: 2.1.1
+version: 2.1.2
 changed_in_run: null
 changelog: |
+  - 2.1.2: PATCH (no output change). Build-phase labels are replaced by
+    what each step does today; the instructions are unchanged.
   - 2.1.1: PATCH (no output change). Pointers to unpublished planning notes are
     removed from the prompt text; the instructions are unchanged.
   - 2.1.0: MINOR (accessibility checks). When an acceptance criterion or a
@@ -82,7 +84,7 @@ This agent enforces three rules that have downstream consequences:
 
 Produce the test-design layer of the traceability chain. After this
 agent runs and Gate 2 passes, the Playwright Planner Native Agent
-(for `automate_e2e` cases) and — from Phase 1.5 — the API Agent (for
+(for `automate_e2e` cases) and the API Agent (for
 `automate_api` cases) can take over.
 
 The Test Designer does NOT explore the application, write Playwright
@@ -102,7 +104,7 @@ code, or open a browser. Those are downstream concerns.
 
 - `context.json` at the project root. **Required precondition:**
   `context.json.review_gates.requirements_reviewed == true` (or the
-  Phase 2+ audit-field object with `status: true`). The agent
+  audit-field object with `status: true`). The agent
   REFUSES to run otherwise.
 - The user story (`story.md` at the project root, or — if Mode B was
   used — the local copy the Analyst wrote).
@@ -160,7 +162,7 @@ scope has `manual`, `automate_component` or `skip` cases:
    before any of this work starts. It never records a result: results are
    recorded by the operator with `scripts/import-execution.js`.
 
-### Lite output profile (Phase 4, when `context.track == "lite"`)
+### Lite output profile (when `context.track == "lite"`)
 
 When the run is on the `lite` track (`docs/context-json-guide.md`), the Test
 Designer produces a **trimmed** version of the same two outputs — less prose,
@@ -197,7 +199,7 @@ Absent `track`, or `track` other than `lite`, behave exactly as before.
 The Test Designer does NOT write into `specs/`, `tests/`,
 `api-tests/`, `analysis/`, or `release/`. See
 `docs/artifact-boundaries.md` section 3.3 — the Test Designer is the
-only Phase 1 agent that legitimately owns two folders, and that's
+only custom agent that legitimately owns two folders, and that's
 because the brief and the cases describe the same story at different
 levels.
 
@@ -213,8 +215,8 @@ case list — but either order is acceptable as long as both finish
 before Gate 2 and they agree on scope.
 
 1. **Verify Gate 1.** The gate is passed when
-   `context.json.review_gates.requirements_reviewed` is `true` (Phase 1
-   boolean form) OR is an object with `status: true` (Phase 2+
+   `context.json.review_gates.requirements_reviewed` is `true` (the
+   boolean form) OR is an object with `status: true` (the
    audit-field form). If neither holds, stop. Tell the human "Gate 1
    has not passed; design cannot begin."
 2. **Read** `context.json` (especially `acceptance_criteria`,
@@ -259,16 +261,16 @@ before Gate 2 and they agree on scope.
    - Set `status: "draft"`. The human flips it to `approved` or
      `rejected` at Gate 2.
    - Leave `qmetry_fields`, `testlink_id`, `external_ids`, `sync_state`,
-     and `api_metadata` unset / empty in Phase 1. `external_ids`,
+     and `api_metadata` unset / empty. `external_ids`,
      `testlink_id`, and `sync_state` are written back later by the
      test-management adapters (TestLink / Jira), not by the Test
      Designer (`docs/sync-recovery.md`).
-   - **(Phase 2.6, shift-left, optional)** If this is a _refinement_ run
+   - **(Shift-left, optional)** If this is a _refinement_ run
      (design before code exists), set `design_stage: "pre_development"`.
      Otherwise leave it unset (treated as `ready_for_qa`). See
      `docs/review-gates.md` "Two entry points".
 
-   **Refinement re-entry (Phase 2.6).** If `test-cases/[story-id].json`
+   **Refinement re-entry.** If `test-cases/[story-id].json`
    already exists with `pre_development` cases from a prior refinement
    run, **refine those cases in place** — update details, keep their
    `test_case_id`s, flip `design_stage` to `ready_for_qa`. Do NOT
@@ -296,7 +298,7 @@ before Gate 2 and they agree on scope.
    skip cases), write the external plan described in section 3, validate
    it, set `artifact_paths.external_plan`, and stop at the external Gate 3.
    Never record a result and never mark a case executed.
-10. **(Optional, Phase 2 only) Sync approved cases to TestLink.** After
+10. **(Optional) Sync approved cases to TestLink.** After
     Gate 2 has passed, the human MAY ask the Test Designer to push the
     approved cases to TestLink. This is OFF by default and gated by an
     explicit `--apply-testlink` flag (the "writes are never a side
@@ -335,10 +337,9 @@ before Gate 2 and they agree on scope.
 - **The brief and the case list agree on scope.** A scenario in the
   brief that has no TC, or a TC that addresses no brief scenario,
   is a coordination failure. Reconcile before Gate 2.
-- **The Phase 1.5 `automate_api` cases are recorded but not
-  executed yet.** That's fine. The Phase 1.5 API Agent picks them
-  up from the JSON when it lands. Do not change the decision
-  because Phase 1 cannot run it.
+- **`automate_api` cases are not run by Playwright.** The API
+  Agent picks them up from the JSON after Gate 2. Do not change the
+  decision because the E2E branch cannot run it.
 
 ---
 
@@ -400,7 +401,7 @@ The planner brief does not mint new IDs. It references the existing
 `RISK-XXX` and (after `designing-cases` runs) the new `TC-XXX` IDs
 in its scenario bullets.
 
-Phase 1.5+ note: when a TC has `automation_decision == "automate_api"`,
+API note: when a TC has `automation_decision == "automate_api"`,
 the API Agent will treat it as an `API-XXX` alias of the same TC. Do
 not produce both a `TC-XXX` and an `API-XXX` for one case; that
 duplicates the chain.
@@ -507,7 +508,7 @@ should be aware of.
   shape anchor showing mixed Automation Decisions and real reasons.
 - `.claude/agents/playwright-test-planner.md` — the Native Agent
   that consumes the brief after Gate 2.
-- `scripts/sync-to-testlink.js` — the optional Phase 2 TestLink sync
+- `scripts/sync-to-testlink.js` — the optional TestLink sync
   (step 10), dry-run by default, `--apply-testlink` to write.
 - `config/testlink-field-map.json` — the field mapping the sync uses.
 - `docs/testlink-integration.md` — TestLink setup, field map, and the

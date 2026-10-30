@@ -165,7 +165,7 @@
           "pattern": "^FAIL-[0-9]+$"
         },
         "test_case_id": {
-          "description": "The originating TC-XXX (or API-XXX for Phase 1.5+ API failures), or null if the failure cannot be linked to a TC (e.g. the seed test). When null, traceability_unresolved MUST be true.",
+          "description": "The originating TC-XXX (or API-XXX for API failures), or null if the failure cannot be linked to a TC (e.g. the seed test). When null, traceability_unresolved MUST be true.",
           "oneOf": [
             {
               "type": "string",
@@ -202,7 +202,7 @@
         },
         "source": {
           "type": "string",
-          "description": "Phase 1.5+ extension. 'playwright' is the Phase 1 implicit default; the value becomes load-bearing when both branches feed the same analysis. 'external': an imported manual or component result; its classification is a human decision.",
+          "description": "'playwright' is the implicit default; the value becomes load-bearing when both branches feed the same analysis. 'external': an imported manual or component result; its classification is a human decision.",
           "enum": ["playwright", "newman", "external"]
         },
         "request_id": {
@@ -220,7 +220,7 @@
         "api_metadata": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Phase 1.5+ extension. Populated for Newman failures.",
+          "description": "Populated for Newman failures.",
           "properties": {
             "status_code": {
               "type": "integer",
@@ -249,7 +249,7 @@
         },
         "severity": {
           "type": "string",
-          "description": "Healer guardrails axis. Green = auto-fix-as-patch eligible (Phase 3+). Yellow = suggestion only. Red = bug draft only.",
+          "description": "Healer guardrails axis. Green = auto-fix-as-patch eligible. Yellow = suggestion only. Red = bug draft only.",
           "enum": ["green", "yellow", "red"]
         },
         "error_message": {

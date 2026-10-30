@@ -13,7 +13,7 @@ phase plan.
 
 The Healer's job is to repair failing Playwright tests **as reviewable
 patches**. Not direct commits. Not merges. Patches that a human reviews
-and applies. Phase 1.5+ confirms the Healer applies only to Playwright
+and applies. The Healer applies only to Playwright
 tests — it never touches Newman / API tests.
 
 ---
@@ -131,13 +131,13 @@ A clean result means **eligible under static checks; human review still
 required**. Equal structure does not prove that a new selector targets the
 same business element.
 
-### Phase 1 action
+### Classifier action
 
 Document the Green classification in `analysis/failure-analysis.json`.
 Take no further action. The human may manually apply a fix; that's a
 Gate-4 re-run, not Healer work.
 
-### Phase 3 action
+### Healer action
 
 `scripts/run-healer.js` does not write fixes. It **processes** a
 candidate that a person or an agent proposes:
@@ -202,12 +202,12 @@ alone whether the new behavior is intended.
   now returns 10 results instead of 25; this may be a deliberate
   product change (new pagination default) or a regression.
 
-### Phase 1 action
+### Classifier action
 
 Document in `analysis/failure-analysis.json` with `severity: yellow`.
 No fix attempt.
 
-### Phase 3 action
+### Healer action
 
 The Healer writes a **suggestion** — e.g. a patch file plus a
 `.suggestion.md` explaining "this is what I would change". It does
@@ -243,25 +243,24 @@ in a category where touching the test would compromise safety.
   require changing what business behavior is asserted, the failure
   is Red. The test was right; the app is wrong.
 
-### Phase 1 action
+### Classifier action
 
 The Failure Classifier (running `skills/analyzing-logs`) writes
 `release/bug-drafts/BUG-XXX.md` for each Red failure. The bug draft
 follows the format documented in `skills/analyzing-logs/SKILL.md`
-(stable from Phase 1; Phase 2 parses it with
-`scripts/create-jira-bugs.js`).
+(stable; `scripts/create-jira-bugs.js` parses it).
 
 The Reporter Agent then incorporates the bug draft into
 `release/release-report.md`, and if any Red bug drafts exist,
 recommends `fail` or `conditional_pass` in the report's
 `release_recommendation`.
 
-### Phase 3 action
+### Healer action
 
-Identical to Phase 1. The Healer **never** runs on a Red failure. It
+None. The Healer **never** runs on a Red failure. It
 does not even attempt a patch in an isolated workspace.
 
-### Phase 2 promotion
+### Promotion to Jira
 
 `scripts/create-jira-bugs.js --apply` promotes Red bug drafts to real
 Jira issues. The `--apply` flag is mandatory; the script's default
@@ -289,7 +288,7 @@ again.
   which is owned by the Test Designer and approved at Gate 2.
 - **Never delete a test.** Removing a test that fails is the cardinal
   bypass move. The Healer's tools physically refuse to delete a
-  `.spec.ts` file (Phase 3 enforces this in code).
+  `.spec.ts` file (enforced in code).
 - **Never add `.skip` or equivalent.** Same reason. A skipped test is
   a deleted test that left a corpse.
 - **Never update snapshots without explicit human approval.**
@@ -299,9 +298,8 @@ again.
 - **Every change is a reviewable patch.** The Healer writes
   `release/healer-patches/FAIL-XXX.patch`. It does not modify files
   in the main working tree. It does not commit. It does not push. It
-  does not open a PR that auto-merges. It does open a PR draft in
-  Phase 3 if so configured, but the PR is for human review, not for
-  auto-merge.
+  does not open a PR. A human reviews the patch and decides whether
+  to apply it.
 - **If confidence is low, mark `unknown_needs_human_review`.** When
   the signals don't point cleanly to one severity, default to the
   cautious side — Yellow at worst, never Green by default. The
@@ -313,10 +311,10 @@ again.
 The Healer applies to **Playwright tests only**. This is a hard,
 phase-independent rule:
 
-- **Phase 1.5:** Newman / API tests are never auto-fixed, not even for
+- Newman / API tests are never auto-fixed, not even for
   the equivalents of Green signals (a sporadic retry-able timeout on an
   API request is documented, never patched).
-- **Phase 3:** the Healer is wired up for Playwright Green failures.
+- The Healer is wired up for Playwright Green failures.
   It still does **not** touch API tests. Extending the Healer to API
   collections would require a separate, explicit project-owner approval
   and its own guardrail design — it is out of scope for the Healer as
@@ -355,7 +353,7 @@ Signals:
 Classification: locator_or_selector
 Severity: green
 
-Healer action (Phase 3): write a patch replacing
+Healer action: write a patch replacing
   page.locator("[data-test='login-btn']")
 with
   page.getByRole("button", { name: /Log in/i })
@@ -376,7 +374,7 @@ Signals:
 Classification: ui_structural_change
 Severity: yellow
 
-Healer action (Phase 3): write a suggestion explaining the new
+Healer action: write a suggestion explaining the new
 intermediate step. Do not apply. Human decides whether the new
 flow is correct (then the test gets updated) or whether the Review
 step was introduced by mistake (then the app gets a bug filed).
@@ -401,7 +399,7 @@ Severity: red
 Healer action: NONE. Bug draft is created at
   release/bug-drafts/BUG-001.md
 with links to FAIL-001, TC-XXX, RISK-XXX, evidence paths
-(traces/screenshots), and an empty Jira Issue Key field for Phase 2
+(traces/screenshots), and an empty Jira Issue Key field for later
 promotion.
 ```
 
@@ -425,7 +423,7 @@ records both the classification and the severity:
 }
 ```
 
-The `severity` field is what the Phase 3 Healer reads to decide
+The `severity` field is what the Healer reads to decide
 whether to act, suggest, or stay away.
 
 ---

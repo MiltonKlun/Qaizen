@@ -41,7 +41,7 @@ TC-ID=KEY|none`) before the next `--apply` (`docs/sync-recovery.md`).
 - Links each created issue to the story when `context.story.jira_issue_key`
   exists (link type from the field map).
 - Writes the created key back into `test-cases/<story-id>.json` under
-  `external_ids.jira` (the generic linkage slot, schema Phase 2.6).
+  `external_ids.jira` (the generic linkage slot in the test-cases schema).
 - Dry-run by default; a real write needs the human-typed `--apply` — the
   same discipline as `scripts/create-jira-bugs.js`.
 

@@ -11,7 +11,7 @@
 // absent (partial archives are fine; they just contribute what they have).
 //
 // Metrics guide improvement; they NEVER rewrite prompts or contracts
-// automatically (Phase 3 non-negotiable rule).
+// automatically (a non-negotiable rule).
 //
 // Usage:
 //   node scripts/pipeline-metrics.js                 # write metrics/pipeline-metrics.{md,json}

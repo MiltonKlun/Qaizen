@@ -28,11 +28,11 @@ strictest contract in the system. When in doubt, validate.
 | The carrier of story metadata, ACs, risks, ambiguities.  | A storage for HTML reports, traces, screenshots, or raw logs.          |
 | The carrier of `artifact_paths` pointing at other files. | A storage for the contents of those files inlined.                     |
 | The carrier of `review_gates` — the four boolean flags.  | A workflow engine — there is no orchestrator listening on these flags. |
-| The carrier of `run_id` and `status`.                    | A database. Multi-run history lives in `runs/` (Phase 3+), not here.   |
+| The carrier of `run_id` and `status`.                    | A database. Multi-run history lives in `runs/`, not here.              |
 
 **Single most important rule:** `context.json` carries **paths to**
-large artifacts, never their contents. The Reporter agent in
-Phase 3 is required to consume `evidence_paths` from
+large artifacts, never their contents. The Reporter agent
+is required to consume `evidence_paths` from
 `failure-analysis.json` rather than pasting screenshots into prompts;
 that token-efficient pattern starts here, with `context.json` as a
 manifest.
@@ -189,14 +189,14 @@ is canonical for reference but the schema is the source of truth.
 ### `schema_version`
 
 The version of `schemas/context.schema.json` the file conforms to.
-Phase 1 uses `"1.0"`. When the schema changes incompatibly, this
+Contexts currently use `"1.0"`. When the schema changes incompatibly, this
 field bumps and a migration script is required (Architecture
 Stability Rule). Backward-compatible changes (adding optional
 fields) do not bump the major.
 
 ### `run_id`
 
-A unique-per-run identifier. Phase 1 uses an ISO-8601-ish timestamp
+A unique-per-run identifier, e.g. an ISO-8601-ish timestamp
 plus a short hash: `2026-05-28T14-32-01Z-a1b2c3d`. The exact format
 is not strict; what matters is uniqueness.
 
@@ -275,8 +275,8 @@ that file. Empty string when not yet produced.
 > **`execution_ledger` (optional).** Points at
 > `analysis/execution-ledger.json`, the canonical cross-runner counting model
 > (`schemas/execution-ledger.schema.json`). It is **additive and not required**:
-> every context written before 2.2a stays valid, and nothing writes the ledger
-> yet — the execution adapters that produce it arrive in Phase 3. The existing
+> every context written before it existed stays valid.
+> `scripts/normalize-results.js` writes the ledger from a run's reports. The existing
 > report-path fields (`execution_results`, `html_report`, …) remain for
 > compatibility; they are **paths, not substitutes for a valid ledger**.
 
@@ -288,8 +288,8 @@ Conventions:
   (e.g. `test-cases/JIRA-1234.json`).
 - Shared / global outputs (`reports/results.json`,
   `analysis/failure-analysis.json`) use stable names without a story
-  id; in Phase 3 these move under `runs/[story-id]/[run-id]/...` to
-  avoid collisions across runs.
+  id; completed runs are archived under `runs/[story-id]/[run-id]/...`
+  to avoid collisions across runs.
 
 The full key list and ownership:
 
@@ -313,7 +313,7 @@ The full key list and ownership:
 
 The four-gate state. See `docs/review-gates.md` for criteria.
 
-Phase 1 form:
+Boolean form:
 
 ```json
 "review_gates": {
@@ -324,7 +324,7 @@ Phase 1 form:
 }
 ```
 
-Phase 2 extended form, backward-compatible via `oneOf`:
+Audit-field form, backward-compatible via `oneOf`:
 
 ```json
 "review_gates": {
@@ -341,7 +341,7 @@ Phase 2 extended form, backward-compatible via `oneOf`:
 }
 ```
 
-The schema accepts either form per field. Phase 1 uses booleans only.
+The schema accepts either form per field.
 
 **Gate telemetry (`opened_at`, optional — continuous improvement).** The
 audit object and each `gate_decisions[]` event (see below) accept an
@@ -367,11 +367,11 @@ One of `"draft"` / `"in_progress"` / `"completed"` / `"blocked"`.
   `blocking: true`. The agent that detected the blocker sets this
   and stops.
 
-### `track` and `track_floor` (optional — Phase 4, lite track)
+### `track` and `track_floor` (optional — lite track)
 
 `track` declares how much ceremony a story needs: `"lite"`, `"standard"`,
 or `"full"`. **Absent ⇒ `"standard"`** — the historical four-gate default,
-so every pre-Phase-4 file behaves exactly as before (the default is
+so every file written before tracks existed behaves exactly as before (the default is
 documented here, not baked into the schema).
 
 - **`lite`** — routine, low-risk work. Thins **artifacts, never decisions**:
@@ -527,8 +527,8 @@ per-schema scripts, by deliberate design.
   approves, then either edits the file directly or instructs the
   agent to set it.
 - **Faking `run_id`** — two different runs MUST have different
-  `run_id`s. Re-running a story without changing `run_id` will
-  overwrite the previous run's history in Phase 3.
+  `run_id`s. Re-running a story without changing `run_id` would
+  overwrite the previous run's archived history.
 - **Lying about `status`** — `"completed"` implies everything in the
   DoD list is satisfied. Setting it as a shortcut breaks the chain.
 

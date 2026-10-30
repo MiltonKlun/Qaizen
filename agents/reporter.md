@@ -11,9 +11,11 @@ description: |
   run completed: the runner does, after validating every artifact.
 phase_introduced: 1
 phase_active: 1+
-version: 4.0.3
+version: 4.0.4
 changed_in_run: null
 changelog: |
+  - 4.0.4: PATCH (no output change). Build-phase labels are replaced by
+    what each step does today; the instructions are unchanged.
   - 4.0.3: PATCH (no output change). Review-finding labels that only made
     sense next to unpublished notes are removed; the instructions are unchanged.
   - 4.0.2: PATCH (no output change). Pointers to unpublished planning notes are
@@ -101,13 +103,13 @@ Produce a release report covering the full run:
 - `coverage_by_risk` — one entry per `RISK-XXX`, derived from the
   traceability chain (`risks` → `test_cases.risk_ids` →
   `failures.test_case_id`).
-- `execution_summary` — totals for the Phase 1 flat form; grouped
-  by `{e2e, api, combined}` from Phase 1.5 onward.
+- `execution_summary` — totals in the flat form, or grouped
+  by `{e2e, api, combined}` when the API branch ran.
 - `release_recommendation` — `pass` / `fail` / `conditional_pass` /
   `blocked`, with mandatory written reasoning.
 - `bug_drafts` — references to every `BUG-XXX` written by the
   Failure Classifier, with optional `jira_key_if_exists` populated
-  only after Phase 2 promotion.
+  only after promotion to Jira.
 - Evidence paths and open questions.
 
 The Reporter does **not** set `context.json.status`. The runner marks the
@@ -277,12 +279,12 @@ outcome_breakdown }` when only Playwright ran, and the grouped form
        - `uncovered` — no TC references the risk.
        - `accepted_without_test` — no TC references it, AND the
          risk's description explicitly notes acceptance (or a Gate 2
-         note in Phase 2+ audit fields says so).
+         note in the audit fields says so).
        - `covered_passing` — every TC for this risk passed.
        - `covered_failing` — at least one TC for this risk failed.
        - `covered_partial` — some TCs ran but others were
-         `skipped` or did not execute (e.g. P1.5 API TCs in a
-         Phase-1-only run).
+         `skipped` or did not execute (e.g. API TCs in a
+         run where the API branch did not run).
      - A `manual` or `automate_component` TC counts by its **recorded and
        reviewed** result (the ledger's case outcome): passed with evidence
        counts as passing, a planned case with no recorded result as not
@@ -294,8 +296,8 @@ outcome_breakdown }` when only Playwright ran, and the grouped form
    - `blocking_failures` — every `FAIL-XXX` with `severity: "red"`.
    - `non_blocking_failures` — every `FAIL-XXX` with `severity:
 "yellow"` or `"green"`.
-     5.5. **Compute the explicit uncovered-risk fields** (Phase 2.6,
-     Improvement 3) — deterministically, no LLM:
+     5.5. **Compute the explicit uncovered-risk fields** —
+     deterministically, no LLM:
    - `uncovered_risks` — every `risk_id` whose `coverage_by_risk` entry
      has `status: "uncovered"` (zero covering test cases). Do NOT include
      `accepted_without_test` risks — those are a deliberate decision, not
@@ -352,9 +354,9 @@ outcome_breakdown }` when only Playwright ran, and the grouped form
    - `bug_id`, `severity` (from the file's "## Severity" line),
      `path`.
    - `jira_key_if_exists` — read from the draft's "## Jira Issue
-     Key" line. Empty in Phase 1; populated in Phase 2+ after
+     Key" line. Empty until
      `scripts/create-jira-bugs.js --apply` has run.
-     8.5. **Build the Phase 3 enhanced-report fields** — all
+     8.5. **Build the enhanced-report fields** — all
      OPTIONAL in the schema, all derived deterministically (no LLM), all
      additive. Emit them so the report reads as a release decision, not a
      raw dump:
@@ -407,7 +409,7 @@ outcome_breakdown }` when only Playwright ran, and the grouped form
     artifact validates and belongs to this run, the failure analysis is
     finalized, and every Red failure has its bug draft.
 14. **Re-validate** `context.json`.
-15. **(Optional, Phase 2 only) Sync execution results to TestLink.**
+15. **(Optional) Sync execution results to TestLink.**
     After the release report is written, the human MAY ask the Reporter
     to push each case's run outcome to TestLink. OFF by default; gated
     by an explicit `--apply-testlink-execution` flag (the "writes are
@@ -471,7 +473,7 @@ outcome_breakdown }` when only Playwright ran, and the grouped form
 ## 7. Forbidden actions
 
 - Creating Jira issues. That's `scripts/create-jira-bugs.js
---apply` in Phase 2, never as a side effect of reporting.
+--apply`, never as a side effect of reporting.
 - Creating new `BUG-XXX.md` files. Failure Classifier owns
   creation.
 - Modifying any test, spec, test case, planner brief, or
@@ -582,9 +584,9 @@ Required top-level fields (see the schema for the full list):
     },
   ],
   "execution_summary": {
-    /* flat in P1; grouped in P1.5+ */
+    /* flat, or grouped when the API branch ran */
   },
-  "uncovered_risks": [], // RISK-XXX with zero covering TCs (Phase 2.6)
+  "uncovered_risks": [], // RISK-XXX with zero covering TCs
   "uncovered_high_severity_count": 0, // how many of those are high severity
   "blocking_failures": ["FAIL-001"],
   "non_blocking_failures": [],

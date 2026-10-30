@@ -22,6 +22,19 @@ const FORBIDDEN = [
   { what: 'a local plan task group', re: /\b[Tt]ask[ -][Gg]roups? \d/ },
   { what: 'a local plan task id', re: /\b(?:TG ?\d|IP-\d|PFI-\d|T\d\.\d)/ },
   { what: 'a local review finding id', re: /\bfindings? [A-Z]\d+\b/ },
+  {
+    what: 'a local plan phase',
+    re: /\bPhase[- ]\d/,
+    // CLAUDE.md states binding rules in terms of the build phases; archived
+    // runs and example data are recorded as they were; the Phase 2 runbook is
+    // a historical record of that slice.
+    except: [
+      /^CLAUDE\.md$/,
+      /^runs\//,
+      /^examples\//,
+      /^docs\/phase2-vertical-slice-runbook\.md$/,
+    ],
+  },
 ];
 
 const SELF = 'test/public-hygiene.test.js';
@@ -72,10 +85,15 @@ function exemptLines(path, lines) {
 }
 
 /**
- * The first forbidden pattern a piece of text matches.
+ * The first forbidden pattern a piece of text in `path` matches.
  * @param {string} text
+ * @param {string} path
  */
-const firstMatch = (text) => FORBIDDEN.find(({ re }) => re.test(text));
+const firstMatch = (text, path) =>
+  FORBIDDEN.find(
+    ({ re, except }) =>
+      re.test(text) && !except?.some((allowed) => allowed.test(path))
+  );
 
 /**
  * Every forbidden reference in one file's text. A reference split across two
@@ -92,11 +110,12 @@ export function planReferences(path, text) {
   const found = [];
   lines.forEach((line, i) => {
     if (skip.has(i + 1)) return;
-    let hit = firstMatch(line);
+    let hit = firstMatch(line, path);
     const next = lines[i + 1];
     if (!hit && next !== undefined && !skip.has(i + 2)) {
       const rest = next.replace(LEAD, '');
-      if (!firstMatch(rest)) hit = firstMatch(`${line.trimEnd()} ${rest}`);
+      if (!firstMatch(rest, path))
+        hit = firstMatch(`${line.trimEnd()} ${rest}`, path);
     }
     if (hit) found.push(`${path}:${i + 1} cites ${hit.what}: ${line.trim()}`);
   });
@@ -116,9 +135,23 @@ test('a file naming a local plan or its numbering is reported', () => {
     'read STRATEGY.md first',
     '// split across lines (task group\n// 4.2), still a pointer',
     '> the protocol (version 2.0, task group\n> 9.2). The protocol',
+    'The Healer is enforced by code from Phase 3.',
+    'API branch (Phase 1.5+)',
   ];
   for (const text of cases) {
     assert.equal(planReferences('docs/x.md', text).length, 1, text);
+  }
+  // The build phases stay where they are binding rules or recorded history.
+  for (const path of [
+    'CLAUDE.md',
+    'runs/STORY-001/x/specs/STORY-001.md',
+    'examples/stories/login-success.md',
+  ]) {
+    assert.deepEqual(
+      planReferences(path, 'In Phase 3 it is enforced.'),
+      [],
+      path
+    );
   }
   assert.deepEqual(
     planReferences('.gitignore', '# Healer workspace (Phase 3 TG2).\n.x/'),
@@ -130,7 +163,7 @@ test('a file naming a local plan or its numbering is reported', () => {
 
 test('ordinary text, .gitignore patterns and changelog entries are not reported', () => {
   const fine = [
-    'The Healer is enforced by code from Phase 3.',
+    'The Healer is enforced by code.',
     'An implementation plan for your team is out of scope.',
     'TLS 1.3 and HTTP/2 are required.',
     'Task Group X of Phase Y',

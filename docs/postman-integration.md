@@ -1,6 +1,6 @@
-# Postman + Newman Integration (Phase 1.5)
+# Postman + Newman Integration
 
-> **Status:** Phase 1.5. The API branch runs in parallel with the E2E
+> The API branch runs in parallel with the E2E
 > branch. The Test Designer marks some test cases `automate_api`; those feed
 > the API Agent (`agents/api-agent.md`), which produces Postman collections;
 > Newman executes them; the same Failure Classifier and Reporter cover both
@@ -31,8 +31,8 @@ the Postman cloud workspace is optional/secondary storage.
 
 - **Deterministic.** Newman runs the same collection the same way every time,
   with no LLM in the loop. Test execution must be reproducible.
-- **CI-friendly.** Newman is a CLI with structured JSON output. Phase 2 wires
-  it into GitHub Actions trivially; an MCP server in CI would be awkward.
+- **CI-friendly.** Newman is a CLI with structured JSON output. CI runs
+  it in GitHub Actions trivially; an MCP server in CI would be awkward.
 - **No API key needed at run time.** Newman reads the collection from disk and
   runs it. It does not need `POSTMAN_API_KEY` — only the MCP (authoring) does.
 - **Separation of concerns.** Authoring (creative, agent-driven) and execution
@@ -50,7 +50,7 @@ from Postman). It runs in two modes:
   its default minimal mode, configured in `.mcp.json`. Needs
   `POSTMAN_API_KEY`. This is what this project uses.
 - **Remote (hosted):** `https://mcp.postman.com` with OAuth. Not used here —
-  we keep everything local for Phase 1.5.
+  we keep everything local.
 
 > **Note on the package name:** the original plan text referred
 > to `@postman/mcp-server` / `postmanlabs/postman-mcp-server`. The actual
@@ -144,7 +144,7 @@ story (if any) and **updates** it rather than creating a duplicate.
   base URL live here, never in the collection. This is a hard rule
   (`agents/api-agent.md` Forbidden actions).
 
-For Phase 1.5 the API base URL is `https://reqres.in/api` (per
+The reference API base URL is `https://reqres.in/api` (per
 `docs/design-decisions.md` D3 — Saucedemo has no backend, so the API branch targets
 reqres.in). The environment file sets `base_url` to that value.
 
@@ -229,7 +229,7 @@ without one.
 ```
 test-cases/[story-id].json
    │
-   ├── automate_e2e cases → Playwright branch (Phase 1)
+   ├── automate_e2e cases → Playwright branch
    │
    └── automate_api cases → API Agent (authors via Postman MCP)
                               │

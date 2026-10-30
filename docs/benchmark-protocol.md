@@ -53,7 +53,7 @@ history, not opinion. Selection criteria:
 - **Mixed sizes** (a one-AC tweak through a multi-flow feature).
 - **≥1 red-domain story** (business logic / permissions / security / pricing /
   payment / compliance / data integrity — `docs/healer-guardrails.md` §4).
-- **≥1 story suitable for `lite`** (routine, low-risk — exercises Phase 4).
+- **≥1 story suitable for `lite`** (routine, low-risk — exercises the lite track).
 
 > **Fill this table before the run series begins.** It is the registration of
 > what's being measured; do not add or drop stories mid-series without noting
@@ -195,7 +195,7 @@ Over the selected stories, aggregating per metric:
 
 **Mixed result is allowed and expected.** The honest outcome may be "pipeline
 wins on important features, raw wins on trivial ones" — which is exactly the
-case the lite track (Phase 4) and the when-to-use guide (Phase 7) are built to
+case the lite track and the when-to-use guide are built to
 exploit. `docs/evidence.md` reports the split, per story class.
 
 ---
@@ -204,7 +204,7 @@ exploit. `docs/evidence.md` reports the split, per story class.
 
 - `evidence/benchmark.jsonl` — the raw records.
 - `docs/evidence.md` — the write-up: results per metric, **where raw prompting
-  won**, the measured **median minutes-per-gate** from the Phase-1 telemetry
+  won**, the measured **median minutes-per-gate** from the gate telemetry
   (`opened_at`/`decided_at`), and the verdict against §5. Linked from
   `README.md`.
 - `npm run metrics` after the series — whether any prompt-version cohort now

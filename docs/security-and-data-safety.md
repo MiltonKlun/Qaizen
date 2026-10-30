@@ -1,6 +1,6 @@
 # Security & Data Safety
 
-> **Status:** Phase 3. This document is the single reference for the
+> This document is the single reference for the
 > pipeline's data-safety posture: what data may enter an LLM prompt, how test
 > data is sourced, how traces and screenshots are kept clean of sensitive
 > values, and the result of the credential-logging audit. For credential
