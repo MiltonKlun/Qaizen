@@ -13,8 +13,8 @@
 //   - a unit from an errored/interrupted/not-started execution cannot be
 //     `passed` — missing provenance is unverified evidence, never a pass.
 //
-// Read-only by design: scripts/lib/build-ledger.js (through
-// scripts/normalize-results.js) writes ledgers; this module only reads them.
+// Read-only by design: scripts/lib/build-ledger.js assembles ledgers and
+// scripts/normalize-results.js writes them; this module only reads them.
 
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
@@ -271,7 +271,7 @@ export function ledgerInvariants(ledger) {
 
 /**
  * The legacy flat projection, for reports that still carry flat fields.
- * Defined by the plan so the projection is stated once rather than re-derived
+ * Defined here so the projection is stated once rather than re-derived
  * (and mis-derived) per consumer.
  * @param {Totals} totals
  */

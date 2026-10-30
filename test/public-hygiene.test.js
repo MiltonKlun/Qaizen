@@ -3,13 +3,15 @@
 // cites its numbering ("task group 4.3", "IP-2.1"), points readers at a
 // document they cannot open. This test lists every such reference.
 //
-// Exempt: .gitignore (it names local files in order to ignore them), the
-// changelog block of an agent or skill (docs/prompt-versioning.md: changelog
-// entries are never rewritten, only prepended), and this file.
+// Exempt: the patterns in .gitignore (they name local files in order to
+// ignore them; its comments are checked), the changelog block of an agent or
+// skill (docs/prompt-versioning.md: changelog entries are never rewritten,
+// only prepended), and this file.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { join, posix } from 'node:path';
 
 /** References to a local document or to a local plan's numbering. */
 const FORBIDDEN = [
@@ -19,11 +21,13 @@ const FORBIDDEN = [
   },
   { what: 'a local plan task group', re: /\b[Tt]ask[ -][Gg]roups? \d/ },
   { what: 'a local plan task id', re: /\b(?:TG ?\d|IP-\d|PFI-\d|T\d\.\d)/ },
-  { what: 'a local review finding id', re: /\bfindings? [A-Z]{1,3}-?\d+\b/ },
+  { what: 'a local review finding id', re: /\bfindings? [A-Z]\d+\b/ },
 ];
 
-/** Paths that are exempt as a whole. */
-const EXEMPT = new Set(['.gitignore', 'test/public-hygiene.test.js']);
+const SELF = 'test/public-hygiene.test.js';
+
+/** The comment or quote marker a wrapped line starts with. */
+const LEAD = /^\s*(?:\/\/|\/?\*+|#|>|-)?\s*/;
 
 /**
  * Line numbers (1-based) of the `changelog:` block in a Markdown file's
@@ -50,25 +54,51 @@ export function changelogLines(lines) {
 }
 
 /**
- * Every forbidden reference in one file's text.
+ * Line numbers (1-based) a file is allowed to keep as they are.
+ * @param {string} path
+ * @param {string[]} lines
+ * @returns {Set<number>}
+ */
+function exemptLines(path, lines) {
+  if (path === '.gitignore') {
+    // Patterns name local files; comments must not cite them.
+    const skip = new Set();
+    lines.forEach((line, i) => {
+      if (!line.trimStart().startsWith('#')) skip.add(i + 1);
+    });
+    return skip;
+  }
+  return path.endsWith('.md') ? changelogLines(lines) : new Set();
+}
+
+/**
+ * The first forbidden pattern a piece of text matches.
+ * @param {string} text
+ */
+const firstMatch = (text) => FORBIDDEN.find(({ re }) => re.test(text));
+
+/**
+ * Every forbidden reference in one file's text. A reference split across two
+ * lines ("task group" / "4.3") is reported on the line where it starts.
  * @param {string} path
  * @param {string} text
  * @returns {string[]}
  */
 export function planReferences(path, text) {
-  if (EXEMPT.has(path)) return [];
+  if (path === SELF) return [];
   const lines = text.replace(/\r\n/g, '\n').split('\n');
-  const skip = path.endsWith('.md') ? changelogLines(lines) : new Set();
+  const skip = exemptLines(path, lines);
   /** @type {string[]} */
   const found = [];
   lines.forEach((line, i) => {
     if (skip.has(i + 1)) return;
-    for (const { what, re } of FORBIDDEN) {
-      if (re.test(line)) {
-        found.push(`${path}:${i + 1} cites ${what}: ${line.trim()}`);
-        break;
-      }
+    let hit = firstMatch(line);
+    const next = lines[i + 1];
+    if (!hit && next !== undefined && !skip.has(i + 2)) {
+      const rest = next.replace(LEAD, '');
+      if (!firstMatch(rest)) hit = firstMatch(`${line.trimEnd()} ${rest}`);
     }
+    if (hit) found.push(`${path}:${i + 1} cites ${hit.what}: ${line.trim()}`);
   });
   return found;
 }
@@ -84,21 +114,31 @@ test('a file naming a local plan or its numbering is reported', () => {
     'run-scoped loader (review finding I6).',
     'a stale report (finding I4).',
     'read STRATEGY.md first',
+    '// split across lines (task group\n// 4.2), still a pointer',
+    '> the protocol (version 2.0, task group\n> 9.2). The protocol',
   ];
-  for (const line of cases) {
-    assert.equal(planReferences('docs/x.md', line).length, 1, line);
+  for (const text of cases) {
+    assert.equal(planReferences('docs/x.md', text).length, 1, text);
   }
+  assert.deepEqual(
+    planReferences('.gitignore', '# Healer workspace (Phase 3 TG2).\n.x/'),
+    [
+      '.gitignore:1 cites a local plan task id: # Healer workspace (Phase 3 TG2).',
+    ]
+  );
 });
 
-test('ordinary text, .gitignore and changelog entries are not reported', () => {
+test('ordinary text, .gitignore patterns and changelog entries are not reported', () => {
   const fine = [
     'The Healer is enforced by code from Phase 3.',
     'An implementation plan for your team is out of scope.',
     'TLS 1.3 and HTTP/2 are required.',
     'Task Group X of Phase Y',
+    'a finding CVE-2026-1234 in a dependency',
+    'every task group\nof reviewers signs off',
   ];
-  for (const line of fine) {
-    assert.deepEqual(planReferences('docs/x.md', line), [], line);
+  for (const text of fine) {
+    assert.deepEqual(planReferences('docs/x.md', text), [], text);
   }
   assert.deepEqual(planReferences('.gitignore', '/IMPROVEMENT-PLAN*.md'), []);
   const agent = [
@@ -117,17 +157,30 @@ test('ordinary text, .gitignore and changelog entries are not reported', () => {
   ]);
 });
 
-/** Every tracked text file, as [path, text]. */
+const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+  encoding: 'utf8',
+}).trim();
+
+/** Every tracked file path, relative to the repository root. */
+const TRACKED = execFileSync('git', ['-C', ROOT, 'ls-files', '-z'], {
+  encoding: 'utf8',
+})
+  .split('\0')
+  .filter(Boolean);
+
+/**
+ * Every tracked text file to check, as [path, text]. Schema descriptions are
+ * cleaned in their own change (a schema edit is a contract change, CLAUDE.md
+ * §3.10); until then schemas/ is skipped.
+ */
 function trackedTexts() {
-  const files = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' })
-    .split('\0')
-    .filter(Boolean);
   /** @type {Array<[string, string]>} */
   const out = [];
-  for (const file of files) {
+  for (const file of TRACKED) {
+    if (file.startsWith('schemas/')) continue;
     let text;
     try {
-      text = readFileSync(file, 'utf8');
+      text = readFileSync(join(ROOT, file), 'utf8');
     } catch {
       continue; // listed by git but absent from the working tree
     }
@@ -140,9 +193,6 @@ test('no tracked file cites a local plan, review or notes file', () => {
   /** @type {string[]} */
   const found = [];
   for (const [file, text] of trackedTexts()) {
-    // Schema descriptions are cleaned in their own change (a schema edit is
-    // a contract change, CLAUDE.md §3.10); until then they are skipped.
-    if (file.startsWith('schemas/')) continue;
     found.push(...planReferences(file, text));
   }
   assert.deepEqual(found, []);
@@ -162,32 +212,37 @@ const RUN_FILES = [
 ];
 
 test('no tracked file names a Markdown file that git ignores', () => {
-  const texts = trackedTexts().filter(
-    ([file]) => !EXEMPT.has(file) && !file.startsWith('schemas/')
-  );
-  const tracked = new Set(texts.map(([file]) => file));
+  const tracked = new Set(TRACKED);
   /** @type {Map<string, string[]>} */
   const where = new Map();
   const MD = /(?<![\w./-])((?:[\w.-]+\/)*[\w.-]+\.md)\b/g;
-  for (const [file, text] of texts) {
+  for (const [file, text] of trackedTexts()) {
+    if (file === SELF) continue;
     const lines = text.replace(/\r\n/g, '\n').split('\n');
-    const skip = file.endsWith('.md') ? changelogLines(lines) : new Set();
+    const skip = exemptLines(file, lines);
+    const dir = posix.dirname(file);
     lines.forEach((line, i) => {
       if (skip.has(i + 1)) return;
       for (const [, name] of line.matchAll(MD)) {
-        if (name.includes('..') || tracked.has(name)) continue;
+        if (name.includes('..')) continue;
+        // A name may be written from the repo root or from the file's folder.
+        const candidates = [name, posix.join(dir, name)];
+        if (candidates.some((c) => tracked.has(c))) continue;
         if (RUN_FILES.some((re) => re.test(name))) continue;
-        const at = where.get(name) ?? [];
-        at.push(`${file}:${i + 1}`);
-        where.set(name, at);
+        for (const c of new Set(candidates)) {
+          const at = where.get(c) ?? [];
+          at.push(`${file}:${i + 1}`);
+          where.set(c, at);
+        }
       }
     });
   }
   // git check-ignore exits 1 when none of the names is ignored.
-  const result = spawnSync('git', ['check-ignore', '--no-index', '--stdin'], {
-    input: [...where.keys()].join('\n'),
-    encoding: 'utf8',
-  });
+  const result = spawnSync(
+    'git',
+    ['-C', ROOT, 'check-ignore', '--no-index', '--stdin'],
+    { input: [...where.keys()].join('\n'), encoding: 'utf8' }
+  );
   assert.ok(result.status === 0 || result.status === 1, result.stderr);
   const ignored = result.stdout.split('\n').filter(Boolean);
   assert.deepEqual(

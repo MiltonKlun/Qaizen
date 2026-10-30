@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Newman runner for the API branch (Phase 1.5+; report layout from task
-// group 3.2).
+// Newman runner for the API branch (Phase 1.5+).
 //
 // Reports go to a PER-EXECUTION path:
 //
@@ -279,7 +278,7 @@ newman.run(runOptions, (err, summary) => {
     exit(1);
   }
 
-  // ---- publication --------------------------------------
+  // ---- publication -------------------------------------------------------
   // Published summaries are grouped per execution too, so a CI upload cannot
   // pick up an unrelated run's file.
   const published = publishedPaths(executionId, storyId, collectionId);

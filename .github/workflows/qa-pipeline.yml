@@ -2,7 +2,7 @@ name: QA Pipeline
 
 # CI for the AI-QA pipeline repo.
 #
-# Job blocking model (the plan's "no contradictions" rule):
+# Job blocking model (no job contradicts another):
 #   quality-checks  — REQUIRED / blocking. Fails the run if typecheck,
 #                     lint, format, any committed JSON artifact is invalid,
 #                     or the pipeline's own unit + smoke tests fail. This is

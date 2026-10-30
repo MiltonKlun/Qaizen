@@ -18,8 +18,7 @@
 //   → [EXT] external-results → gate4-ext (external_evidence_reviewed)
 //   → classify → finalize → report → done
 //
-// A branch runs only when the approved scope has cases for it (task group
-// 7.1): an API-only story never meets the E2E steps, and every applicable
+// A branch runs only when the approved scope has cases for it: an API-only story never meets the E2E steps, and every applicable
 // branch is fully reviewed before either suite executes. Manual, component
 // and skip cases form the external branch: its plan is
 // reviewed with the other plans, its evidence after it exists, and a
@@ -99,8 +98,8 @@ export const GATE_KEYS = {
  *                               has not started (no context.json yet).
  * @param {StepHints} [hints]   Optional CLI-gathered facts (all optional):
  *   - branches:               { e2e, api, external, externalRuns } from the
- *                             APPROVED cases' automation decisions (task
- *                             groups 7.1, 7.2). Preferred. `external`: any
+ *                             APPROVED cases' automation decisions.
+ *                             Preferred. `external`: any
  *                             manual/component/skip case; `externalRuns`: any
  *                             manual/component case (skip is never executed).
  *   - hasApiCases:            legacy: true if test-cases has automate_api cases

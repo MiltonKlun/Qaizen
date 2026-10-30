@@ -44,9 +44,9 @@ test.describe('Seed: Environment Setup', () => {
 });
 ```
 
-The currently-on-disk seed (auto-scaffolded by `init-agents`)
-may be a stub with no assertion; replace it with the version above. A stub
-causes a benign lint warning (`playwright/expect-expect`).
+`init-agents` scaffolds a stub seed with no assertion, which triggers a benign
+lint warning (`playwright/expect-expect`); `tests/seed.spec.ts` replaces it
+with the version above.
 
 ---
 
@@ -203,8 +203,7 @@ Reasons that are NOT legitimate:
   worked example of the test-tagging convention.
 - `docs/test-tagging.md` — the `@smoke` / `@regression` tagging convention
   for generated product tests, and the smoke-gating graduation path.
-- `tests/fixtures/README.md` — the placeholder note for fixtures
-  (created).
+- `tests/fixtures/README.md` — the placeholder note for fixtures.
 - `.claude/agents/playwright-test-planner.md` — the Native Agent that
   consumes the seed.
 - `docs/mcp-setup.md` — the `playwright-test` MCP that backs the

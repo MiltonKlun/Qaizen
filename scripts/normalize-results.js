@@ -225,7 +225,7 @@ function externalInputs(flags, { storyId, runId, testCases, scopeDigest }) {
 
 /**
  * Flags that may be given more than once; every other flag is single-valued.
- * Once, all flags were single-valued and a repeated `--newman`
+ * Originally, all flags were single-valued and a repeated `--newman`
  * silently kept only the LAST report, dropping the other collections.
  */
 const REPEATABLE = new Set(['newman']);

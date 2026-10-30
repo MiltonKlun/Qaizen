@@ -168,7 +168,8 @@ empty ledger, because an empty ledger is indistinguishable from a clean run.
 It also exits `2` when the same report is supplied twice, or when two reports
 claim the same collection: either would count those units twice. Every other
 flag is single-valued and refuses to be repeated.
-Manual and external results are imported with `scripts/import-execution.js`.
+
+Manual and component results are recorded with `scripts/import-execution.js`.
 
 `--test-cases <test-cases/story.json>` names the approved scope. The
 ledger then lists every approved case in `case_outcomes` and records

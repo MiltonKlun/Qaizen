@@ -177,7 +177,7 @@ defaults to a dry run, and writes only with `--apply-testlink`.
 - The `testlink` entry was removed from `.mcp.json`. The block is preserved in
   `docs/testlink-integration.md` §2 so it can be restored if a working bridge
   image appears.
-- The sync was live-verified on 2026-06-04 (before the sync was rebuilt to
+- The sync was live-verified on 2026-06-04 (before it was rebuilt to
   recover from partial failures; re-acceptance is tracked in `docs/sync-recovery.md` §7): it
   created test cases in TestLink, reused the
   story suite, and wrote each `testlink_id` back into the test-case file,

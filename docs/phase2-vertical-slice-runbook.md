@@ -13,8 +13,6 @@
 
 ## 0. One-time setup (do this once, before story 1)
 
-Do these once, before the first story.
-
 ### 0.1 Git: first commit + remote
 
 The repo has **no commits and no remote yet**. CI can't run until code is

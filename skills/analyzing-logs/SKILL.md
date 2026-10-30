@@ -69,8 +69,7 @@ node scripts/validate-json.js schemas/failure-analysis.schema.json analysis/fail
 
 ## Input sources
 
-- `analysis/execution-ledger.json` — **the counting model** (task group
-  3.1). Every runner unit with exactly one outcome, attempts, nested Newman
+- `analysis/execution-ledger.json` — **the counting model**. Every runner unit with exactly one outcome, attempts, nested Newman
   assertions and source-level errors. Totals come from here and are never
   recomputed from raw reports.
 - `analysis/failure-analysis.json` — the pre-classifier's v2 **draft**

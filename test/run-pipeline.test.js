@@ -311,7 +311,7 @@ test('agent step guidance — gate passed leads to the next agent instruction', 
   }
 });
 
-// --- track floor enforcement -----------
+// --- track floor enforcement -----------------------------------------------
 
 test('runner REFUSES track:lite when the floor is higher (red domain)', () => {
   const dir = makeMiniRepo();

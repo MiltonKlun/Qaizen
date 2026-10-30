@@ -5,7 +5,7 @@
 // (same story id and run id), the execution report is newer than the code it
 // ran, the failure analysis is finalized with a bug draft per Red failure, and
 // the release report is valid. Fixtures once used `{}` files with
-// `status: "completed"` -- which is exactly the false completion this refuses.
+// `status: "completed"` -- which is exactly the false completion the runner now refuses.
 // This builds the real thing from the repo's gold examples.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';

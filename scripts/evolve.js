@@ -17,8 +17,8 @@
 //     are an agent-fed source, declared as a gap rather than silently ignored.
 //
 // Detection (confidence is deterministic, from occurrence counts / thresholds):
-//   - Friction points: a theme recurring 3+ times => high confidence (the plan's
-//     "3+ occurrences = high-confidence insight").
+//   - Friction points: a theme recurring 3+ times => high confidence
+//     ("3+ occurrences = high-confidence insight").
 //   - Workflow gaps: signals that a human repeatedly does something by hand.
 //   - Knowledge decay: docs referencing things the code no longer has, or
 //     metrics flags (e.g. untested high-risk items, prompt-stability not met).
@@ -108,13 +108,13 @@ sources.session_summaries = summaries.length;
 const findings = [];
 const add = (/** @type {Finding} */ f) => findings.push(f);
 
-// Confidence from occurrence count, per the plan's 3+ rule.
+// Confidence from occurrence count: 3+ is high.
 /** @type {(n: number) => Finding['confidence']} */
 const confFromCount = (n) => (n >= 3 ? 'high' : n === 2 ? 'medium' : 'low');
 
 // Human-reported friction (session summaries) — highest signal. Group bullets
 // by a coarse theme keyword so a recurring pain (3+ mentions) reads as high
-// confidence, per the plan's 3+ rule.
+// confidence (3+ is high).
 if (summaryBullets.length > 0) {
   const THEMES = [
     {

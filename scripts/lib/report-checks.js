@@ -1,6 +1,6 @@
 // @ts-check
-// Structural checks of a release report against the run it reports on (task
-// group 2.2b): the Reporter stage of scripts/evaluate-agents.js.
+// Structural checks of a release report against the run it reports on:
+// the Reporter stage of scripts/evaluate-agents.js.
 //
 // Each check restates a rule agents/reporter.md gives the Reporter, using only
 // the run's own artifacts: the context's risks, the approved test cases, the

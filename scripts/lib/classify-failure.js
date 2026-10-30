@@ -19,7 +19,7 @@
 //
 // This module reads what Playwright says actually FAILED -- the operation on
 // the message's first line and its structured `Expected:` / `Received:` lines
-// -- and applies evidence in the order the plan fixes:
+// -- and applies evidence in this fixed order:
 //
 //   1. established business assertion mismatch      -> red    / product_bug
 //   2. explicit infrastructure failure               -> yellow / environment_issue

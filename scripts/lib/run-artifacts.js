@@ -320,8 +320,8 @@ export function ledgerHasApiExecution(ledger) {
 }
 
 /**
- * Newman evidence that can stand for THIS run's approved API branch (task
- * group 7.1): the newest execution for the story, with at least one executed
+ * Newman evidence that can stand for THIS run's approved API branch:
+ * the newest execution for the story, with at least one executed
  * request, written after the collection last changed and after the Gate 4'
  * approval. An older execution is evidence of other assertions.
  * @param {Context} context

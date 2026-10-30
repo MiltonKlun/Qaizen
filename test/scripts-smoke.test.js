@@ -230,7 +230,7 @@ test('session-summary — joins multi-word values and rejects placeholders', () 
   }
 });
 
-// --- thin gated runner: CI safety net ------------
+// --- thin gated runner: CI safety net --------------------------------------
 // Proves BY CONSTRUCTION that no CI job can ever pass a gate: (a) the runner
 // refuses gate decisions when stdin is not a TTY (and every CI stdin is a
 // pipe), (b) it refuses gate-deciding flags outright, and (c) no workflow
@@ -304,7 +304,7 @@ test('no CI workflow invokes the pipeline runner', () => {
   }
 });
 
-// --- demo pipeline -----------------------------
+// --- demo pipeline ---------------------------------------------------------
 
 test('demo:pipeline --dry-run lists stages and touches no network', () => {
   const r = run(['scripts/demo-pipeline.js', '--dry-run']);
@@ -349,7 +349,7 @@ test('metrics skips DEMO_RUN-sentinel runs', () => {
   }
 });
 
-// --- benchmark evidence tooling -----------------
+// --- benchmark evidence tooling --------------------------------------------
 
 // The provenance every new record carries (schema 1.1).
 const PROVENANCE = [

@@ -35,7 +35,7 @@ reports — consistent with the token-efficient / data-safety rules
 
 ## 2. How it scores
 
-Confidence is deterministic, from occurrence counts — the plan's rule:
+Confidence is deterministic, from occurrence counts:
 **3+ occurrences of a theme = high confidence.** 2 = medium, 1 = low.
 
 - Session-summary bullets are grouped into coarse themes (stacked PRs, artifact
@@ -70,7 +70,7 @@ evaluation dataset — `docs/prompt-versioning.md`).
 
 ## 4. When to run it
 
-Per the plan: **every 90 days or every 10 runs, whichever comes first.** Also a
+Cadence: **every 90 days or every 10 runs, whichever comes first.** Also a
 good idea right after a phase retrospective, when friction is fresh.
 
 The single highest-leverage habit is to capture a session note while the

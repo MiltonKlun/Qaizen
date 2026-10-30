@@ -153,7 +153,7 @@ reqres.in). The environment file sets `base_url` to that value.
 ## 5. Running collections with Newman
 
 The `test:api` npm script wraps Newman through `scripts/run-newman.js` (a
-cross-platform wrapper — the phase plan's literal `$STORY_ID` shell expansion
+cross-platform wrapper — a literal `$STORY_ID` shell expansion
 does not work when npm runs scripts through `cmd` on Windows):
 
 ```bash

@@ -1339,8 +1339,7 @@ function stagedRunLine() {
 
 /**
  * Has the current run finished? Only by the validated definition: a
- * `status: "completed"` set by hand or by an agent is not proof (task group
- * 4.2), because the old Reporter set it on file existence alone.
+ * `status: "completed"` set by hand or by an agent is not proof, because the old Reporter set it on file existence alone.
  * @param {Context | null} context
  */
 function runIsComplete(context) {

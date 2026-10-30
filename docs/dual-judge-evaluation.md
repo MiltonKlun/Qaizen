@@ -39,9 +39,9 @@ if **3+ of these criteria** justify it.
 | 3   | Does YAML-driven testing justify its complexity vs native Playwright? | Not at this scale. The project deliberately uses Playwright Native Agents + Newman (CLAUDE.md §3.9 "reuse before building"); migrating to a YAML test DSL is a large change that competes with, rather than extends, that choice.        | **No**              |
 | 4   | Is the team willing to migrate tests to YAML?                         | No signal that it is, and no need expressed. The /evolve loop surfaced PR/workflow friction, not assertion-quality friction.                                                                                                             | **No**              |
 
-**0 of 4 criteria** currently justify adoption (the plan's bar is 3+).
+**0 of 4 criteria** currently justify adoption (adoption needs 3+).
 
-Additionally, the **precondition is not met**: the plan requires 10+ complete
+Additionally, the **precondition is not met**: evaluation requires 10+ complete
 Phase-3 runs before evaluating; the project has **5** archived runs
 (`npm run list-runs`). Evaluating the framework's worth on half the required
 sample would be premature on its own terms.
@@ -73,7 +73,7 @@ evidence or scale, and the system has a cheaper approximation of it today.
 
 Re-open this evaluation when **any** of the following becomes true:
 
-- **10+ complete Phase-3 runs** exist (the plan's precondition) AND
+- **10+ complete Phase-3 runs** exist (the precondition) AND
 - metrics or `/evolve` surface **false negatives** — tests that passed but
   should have failed — as a recurring theme (3+ occurrences), OR
 - the Gate-4 reviewer repeatedly catches "technically passed but wrong"

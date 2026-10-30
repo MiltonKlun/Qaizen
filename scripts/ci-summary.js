@@ -45,8 +45,7 @@ const FAIL_ON_TEST_FAILURE = argv.includes('--fail-on-test-failure');
 
 const PW_PATH = 'reports/results.json';
 const LEDGER_PATH = env.QAIZEN_LEDGER || 'analysis/execution-ledger.json';
-// Sanitized Newman summaries live under ONE execution directory (task group
-// 3.2). CI uploads only this subtree; the raw reporter output is
+// Sanitized Newman summaries live under ONE execution directory. CI uploads only this subtree; the raw reporter output is
 // secret-bearing and stays on the runner.
 const REPORTS_ROOT = 'reports';
 // Legacy flat locations. Kept as EXPLICIT compatibility reads for local runs
