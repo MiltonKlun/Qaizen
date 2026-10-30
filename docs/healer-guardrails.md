@@ -8,8 +8,7 @@
 > Green/Yellow/Red decides what may be proposed at all.
 
 This document is the binding rule for what the Healer may and may not do.
-It is referenced by `CLAUDE.md` section 3.6 and is invoked by every
-phase plan.
+It is referenced by `CLAUDE.md` section 3.6.
 
 The Healer's job is to repair failing Playwright tests **as reviewable
 patches**. Not direct commits. Not merges. Patches that a human reviews

@@ -24,7 +24,7 @@ approved blocks the next stage; the orchestrator does not advance.
 | #   | Name                        | Approved after                          | Blocks                                               |
 | --- | --------------------------- | --------------------------------------- | ---------------------------------------------------- |
 | 1   | Requirement Interpretation  | Analyst writes `context.json`           | Test Designer (`planning-tests` + `designing-cases`) |
-| 2   | Test Scope Approval         | Test Designer writes test cases + brief | Playwright Planner Native Agent + API Agent (P1.5)   |
+| 2   | Test Scope Approval         | Test Designer writes test cases + brief | Playwright Planner Native Agent + API Agent          |
 | 3   | Specs Review                | Playwright Planner writes the spec      | Playwright Generator Native Agent                    |
 | 3'  | (API) Collection Review     | API Agent writes the Postman collection | Newman execution                                     |
 | 4   | Code Review **(PERMANENT)** | Playwright Generator writes the test    | Test execution                                       |

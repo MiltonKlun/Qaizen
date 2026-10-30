@@ -318,5 +318,5 @@ in `docs/sync-recovery.md` §7). See `docs/testlink-integration.md` and
 `testlink`** and no write-enabled Atlassian entry.
 
 The read-only `github` MCP (above) was added for code-change
-awareness. Hardening, prompt versioning, and metrics are
-application-level.
+awareness. The other later additions (hardening, prompt versioning,
+metrics) are application-level and need no MCP.

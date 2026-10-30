@@ -501,7 +501,7 @@
     "review_gates": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Each gate is a boolean or an optional audit-field object (oneOf); both forms remain valid. The OPTIONAL qa_scope_approved gate that consolidates Gates 1 and 2 — see docs/review-gates.md. The four per-gate fields stay required for backward compatibility; qa_scope_approved is additive and never replaces code_reviewed (Gate 4 never consolidates).",
+      "description": "Each gate is a boolean or an optional audit-field object (oneOf); both forms remain valid. The OPTIONAL qa_scope_approved gate consolidates Gates 1 and 2 — see docs/review-gates.md. The four per-gate fields stay required for backward compatibility; qa_scope_approved is additive and never replaces code_reviewed (Gate 4 never consolidates).",
       "required": [
         "requirements_reviewed",
         "test_scope_reviewed",

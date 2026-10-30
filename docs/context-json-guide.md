@@ -528,7 +528,9 @@ per-schema scripts, by deliberate design.
   agent to set it.
 - **Faking `run_id`** — two different runs MUST have different
   `run_id`s. Re-running a story without changing `run_id` would
-  overwrite the previous run's archived history.
+  make two runs look like one in `npm run metrics`, which identifies runs
+  by story and `run_id`. The archive folder gets its own timestamp, so
+  nothing is overwritten.
 - **Lying about `status`** — `"completed"` implies everything in the
   DoD list is satisfied. Setting it as a shortcut breaks the chain.
 

@@ -83,8 +83,9 @@ test case includes:
 - `testlink_id` — optional, populated by the TestLink sync.
 
 The schema also has an optional `api_metadata` object for
-`automation_decision == "automate_api"` (method, endpoint, expected status
-codes, etc.). This skill does not populate it — leave the field out entirely.
+`automation_decision == "automate_api"` cases (method, endpoint, expected
+status codes, etc.). Fill it on those cases only; leave it out entirely on
+every other case.
 
 ## The Automation Decision Model (mandatory)
 

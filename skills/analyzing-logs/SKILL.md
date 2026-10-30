@@ -154,8 +154,7 @@ severity per `docs/healer-guardrails.md`:
 | **Yellow** | UI structural change, new modal, layout reorganization. Behavior may still be valid; needs a human to decide.                    | Document. No fix.                                                         | Healer writes a suggestion only; human must approve.               |
 | **Red**    | Business assertion, permission/role, security, pricing, payment, compliance, data integrity, or any change in assertion meaning. | Document AND create `release/bug-drafts/BUG-XXX.md`. Never propose a fix. | None — bug draft only.                                             |
 
-**Newman/API failures are never touched by the Healer** in any phase
-(plan-wide rule). Treat all API failures as bug-draft-or-document only.
+**Newman/API failures are never touched by the Healer.** Treat all API failures as bug-draft-or-document only.
 
 ## Required `failure-analysis.json` shape (schema-bound)
 
@@ -251,7 +250,7 @@ TC-XXX (or API-XXX for API failures)
 (empty — populated by `scripts/create-jira-bugs.js --apply`)
 ```
 
-The `Jira Issue Key` line MUST be present and empty when you write it.
+The `Jira Issue Key` line MUST be present and empty when you create the draft.
 `scripts/create-jira-bugs.js` parses it; an entry that already has a key is skipped (de-dup safety).
 
 ## Steps

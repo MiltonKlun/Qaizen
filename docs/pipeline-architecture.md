@@ -653,8 +653,9 @@ MCP layer, and Jira writes go through scripts a human runs with `--apply`.
 
 From `CLAUDE.md` section 7:
 
-1. Read `CLAUDE.md` and the phase plan for the current phase.
-2. State the Task Group you are about to execute.
+1. Read `CLAUDE.md`, `README.md`, and the doc under `docs/` that covers
+   the work.
+2. State what you are about to do, in small steps.
 3. If the work would change a schema: hold all the Architecture
    Stability Rule files together. If you can't, propose the change
    first; don't start.

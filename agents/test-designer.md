@@ -260,8 +260,10 @@ before Gate 2 and they agree on scope.
      `expected_results`.
    - Set `status: "draft"`. The human flips it to `approved` or
      `rejected` at Gate 2.
-   - Leave `qmetry_fields`, `testlink_id`, `external_ids`, `sync_state`,
-     and `api_metadata` unset / empty. `external_ids`,
+   - Leave `qmetry_fields`, `testlink_id`, `external_ids` and
+     `sync_state` unset / empty. Fill `api_metadata` (method, endpoint,
+     expected status codes) only on `automate_api` cases; leave it out on
+     every other case. `external_ids`,
      `testlink_id`, and `sync_state` are written back later by the
      test-management adapters (TestLink / Jira), not by the Test
      Designer (`docs/sync-recovery.md`).

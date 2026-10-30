@@ -191,7 +191,7 @@ disk wins.
      so traceability survives even if the name is edited.
 6. **Author the environment.** Create
    `api-tests/environments/[story-id].postman_environment.json` with at
-   least `base_url` (e.g. `https://reqres.in/api` for the reference API) and any
+   least `base_url` (the API under test; `https://reqres.in/api` for the reference API, D3) and any
    credential variables the requests reference. Credentials come from
    the environment, sourced from `.env` at run time — never written as
    literal values into a committed file.

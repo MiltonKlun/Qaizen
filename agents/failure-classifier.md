@@ -328,7 +328,7 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
   draft with a missing section is unusable to it; the format
   is binding.
 - **The `Jira Issue Key` line is always present and always empty
-  when you write it.** It's not optional formatting; it's the slot
+  when you create the draft.** It's not optional formatting; it's the slot
   `scripts/create-jira-bugs.js --apply` fills.
 
 ---
@@ -504,7 +504,7 @@ TC-XXX (or API-XXX for API failures)
 [empty until promoted; populated by scripts/create-jira-bugs.js --apply]
 ```
 
-The `Jira Issue Key` line MUST be present and empty when you write it.
+The `Jira Issue Key` line MUST be present and empty when you create the draft.
 `scripts/create-jira-bugs.js` uses its presence as a de-dup signal (a draft
 with a non-empty key is skipped on re-run).
 

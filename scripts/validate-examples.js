@@ -95,7 +95,7 @@ if (!existsSync(EXAMPLES_DIR)) {
 
 // Compilation + caching live in scripts/lib/artifact-io.js.
 // This wrapper keeps its OWN policy for an absent schema: a missing schema
-// (e.g. a schema added after the example) is a skip with
+// (e.g. an example that lands before its schema) is a skip with
 // a warning, not a failure — deliberately different from validate-all.js,
 // which treats the same condition as fatal. The shared module reports absence;
 // each wrapper decides what absence means.

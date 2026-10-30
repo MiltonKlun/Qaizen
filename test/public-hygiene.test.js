@@ -24,14 +24,14 @@ const FORBIDDEN = [
   { what: 'a local review finding id', re: /\bfindings? [A-Z]\d+\b/ },
   {
     what: 'a local plan phase',
-    re: /\bPhase[- ]\d/,
+    re: /\bPhase[- ]\d|\bP1\.5\b/,
     // CLAUDE.md states binding rules in terms of the build phases; archived
     // runs and example data are recorded as they were; the Phase 2 runbook is
     // a historical record of that slice.
     except: [
       /^CLAUDE\.md$/,
       /^runs\//,
-      /^examples\//,
+      /^examples\/(?:stories|expected|invalid|evaluation)\//,
       /^docs\/phase2-vertical-slice-runbook\.md$/,
     ],
   },
