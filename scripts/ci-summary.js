@@ -59,7 +59,7 @@ const LEGACY_NEWMAN_PATH = 'reports/newman-results.json';
  * An explicit execution id wins. Otherwise the most recent execution
  * directory is used -- and, crucially, only ONE of them: globbing every
  * reports/published/*.json let a stale file from an unrelated story
- * contribute passing assertions to the current run's totals (I4).
+ * contribute passing assertions to the current run's totals.
  */
 function resolvePublishedDir() {
   const explicit = env.QAIZEN_EXECUTION_ID;

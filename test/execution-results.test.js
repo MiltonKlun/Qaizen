@@ -6,9 +6,9 @@
 // runners emit, and the belief was wrong in two places --
 //
 //   * Playwright reports `timedOut` only on an ATTEMPT; the test status is
-//     `unexpected`. Code matching attempt statuses drops the timeout (B2).
+//     `unexpected`. Code matching attempt statuses drops the timeout.
 //   * Newman's `failures[]` had 4 entries for 3 failed assertions, because a
-//     transport error adds a failure with no assertion of its own (B5).
+//     transport error adds a failure with no assertion of its own.
 //
 // Both would have passed a test suite built on invented fixtures.
 
@@ -69,7 +69,7 @@ test('every Playwright outcome is represented exactly once per project', () => {
   });
 });
 
-test('a timed-out test is a failure, not a silent disappearance (B2)', () => {
+test('a timed-out test is a failure, not a silent disappearance', () => {
   const { units } = pwUnits();
   const timedOut = units.filter((u) =>
     (u.attempts || []).some((a) => a.status === 'timed_out')
@@ -215,7 +215,7 @@ test('unit identity is stable across projects and independent of outcome', () =>
   );
 });
 
-// --- Newman: transport vs business, and the B5 arithmetic ------------------
+// --- Newman: transport vs business, and the pass-count arithmetic ----------
 
 test('newman units are one per request, with assertions nested', () => {
   const { units } = nmUnits();
@@ -266,7 +266,7 @@ test('a transport error is blocked, not a business failure', () => {
   assert.match(dead.attempts[0].error_message, /ECONNREFUSED/);
 });
 
-test('transport errors are never subtracted from assertion totals (B5)', () => {
+test('transport errors are never subtracted from assertion totals', () => {
   const report = nmReport();
   // The raw report's own numbers disagree: 3 failed assertions, 4 failures.
   assert.equal(report.run.stats.assertions.failed, 3);
@@ -354,7 +354,7 @@ test('no secret survives into adapter output or the assembled ledger', () => {
   assert.equal(blob.includes('SYNTHETIC-FIXTURE-SECRET'), false);
 });
 
-// --- domain links are proven, never invented (B6) --------------------------
+// --- domain links are proven, never invented -------------------------------
 
 test('unmapped units keep null links WITH a reason', () => {
   const { units } = pwUnits();

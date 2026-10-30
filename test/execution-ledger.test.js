@@ -1,9 +1,9 @@
 // Regression tests for the execution ledger.
 //
 // The ledger exists because raw runner reports cannot be trusted as a counting
-// model: they disagree about what a "test" is, they drop timed-out results
-// (B2), they let transport errors produce negative counts (B5), and they let
-// IDs be invented from failure ordering (B6). AJV proves the SHAPE; these tests
+// model: they disagree about what a "test" is, they drop timed-out results,
+// they let transport errors produce negative counts, and they let IDs be
+// invented from failure ordering. AJV proves the SHAPE; these tests
 // prove the invariants a JSON Schema cannot express.
 
 import { test } from 'node:test';
@@ -157,7 +157,7 @@ test('duplicate unit and execution identities are rejected', () => {
   );
 });
 
-// --- IDs are never invented (B6) ------------------------------------------
+// --- IDs are never invented ------------------------------------------------
 
 test('a null domain link without an unresolved_reason is rejected', () => {
   const l = gold();
@@ -253,7 +253,7 @@ test('legacy projection folds blocked and flaky into failed, not into passed', (
   });
 });
 
-test('legacy projection never reports a negative count (guards B5)', () => {
+test('legacy projection never reports a negative count', () => {
   const totals = {
     passed: 0,
     failed: 0,

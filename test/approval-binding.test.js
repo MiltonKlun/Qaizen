@@ -5,7 +5,7 @@
 // Gate 1, bump a dependency after Gate 4 -- the approval still read as current,
 // and every downstream step and adapter trusted it.
 //
-// Acceptance (the plan): changing a test, an expected value, the story, or a
+// Acceptance: changing a test, an expected value, the story, or a
 // relevant execution dependency makes the right approval stale; adding a Jira
 // id does not; status inspection never mutates state; gate history is intact.
 

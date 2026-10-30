@@ -9,7 +9,7 @@
 // not of the AJV configuration behind it, which could drift. This module is the
 // single implementation all of them now consume.
 //
-// It also closes the write half of I6: the runner validated context AFTER
+// It also makes writes safe: the runner validated context AFTER
 // overwriting the file, so a schema-invalid write destroyed the previous valid
 // artifact. `writeJsonAtomic` validates in memory FIRST, writes a sibling temp
 // file, then renames — so a rejected value never touches the destination.
@@ -471,7 +471,7 @@ export function artifactIdentity(data) {
 /**
  * Load an artifact and confirm it belongs to the run the caller is working on.
  *
- * I6 in one sentence: "existing file" is not the same as "valid artifact for
+ * In one sentence: "existing file" is not the same as "valid artifact for
  * THIS run". A stale artifact from a previous story satisfied progress checks
  * because only its existence was tested.
  *

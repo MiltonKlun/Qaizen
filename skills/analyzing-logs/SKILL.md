@@ -129,7 +129,7 @@ hints, which silently defeated the old keyword rules. Apply in this order:
 
 1. **Established business assertion mismatch** — a real value was observed
    and it is wrong → Red / `product_bug`. `expect(locator).toHaveText('$100.00')`
-   against `$1.00` is Red, even though the message says "locator" (B1).
+   against `$1.00` is Red, even though the message says "locator".
 2. **Explicit infrastructure failure** (`net::ERR_*`, `ECONNREFUSED`, DNS,
    TLS) → Yellow / `environment_issue`.
 3. **Retry-flaky outcome** → Yellow / `flaky`, unless any attempt meets 1.
@@ -175,7 +175,7 @@ Defined in `schemas/failure-analysis.schema.json`. Top-level required:
     `traceability_unresolved: true` if it cannot be linked).
   - `playwright_test_id` — `PW-XXX` for Playwright failures when proven
     from metadata; in 2.x `null` + `id_unresolved_reason` otherwise.
-    Never derived from the order failures appear (B6).
+    Never derived from the order failures appear.
   - `source` — `"playwright"` or `"newman"` (Phase 1.5+ adds the
     `"newman"` value via schema extension).
   - `request_id` — `REQ-XXX` for Newman failures; same rule as
@@ -274,7 +274,7 @@ parses it; an entry that already has a key is skipped (de-dup safety).
    - For Red failures: write `release/bug-drafts/BUG-XXX.md` and put
      the path in `bug_draft_path`.
 4. **Do not recompute totals.** They are the ledger's; recomputing them is
-   how timed-out tests vanished (B2) and pass counts went negative (B5).
+   how timed-out tests vanished and pass counts went negative.
 5. **Finalize** `analysis/failure-analysis.json` (`status: "finalized"`)
    once every Red has its bug draft and every unresolved link is resolved
    or acknowledged. Validate.

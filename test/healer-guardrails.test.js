@@ -153,14 +153,14 @@ function rejects(after, pattern, before = spec(BODY)) {
   );
 }
 
-test('S1: negating a matcher is rejected', () => {
+test('negating a matcher is rejected', () => {
   rejects(
     spec(BODY.replace('.toBe(100)', '.not.toBe(100)')),
     /changes an assertion/
   );
 });
 
-test('S1: removing an assertion is rejected', () => {
+test('removing an assertion is rejected', () => {
   rejects(
     spec(
       BODY.replace(
@@ -172,11 +172,11 @@ test('S1: removing an assertion is rejected', () => {
   );
 });
 
-test('S1: changing a snapshot target is rejected', () => {
+test('changing a snapshot target is rejected', () => {
   rejects(spec(BODY.replace("'approved.png'", "'other.png'")), /snapshot/);
 });
 
-test('S2: adding .skip is rejected even when the file already skips something', () => {
+test('adding .skip is rejected even when the file already skips something', () => {
   const before = spec(BODY).replace(
     "test('other test'",
     "test.skip('other test'"
@@ -188,7 +188,7 @@ test('S2: adding .skip is rejected even when the file already skips something', 
   rejects(after, /adds test suppression \(\.skip\)/, before);
 });
 
-test('S2: commenting out a whole test is rejected', () => {
+test('commenting out a whole test is rejected', () => {
   const before = spec(BODY);
   const after = before.replace(/test\('other test'[\s\S]*?\n\}\);\n/, (m) =>
     m

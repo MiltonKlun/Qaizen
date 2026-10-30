@@ -70,7 +70,7 @@ test('the fixture keeps real colour codes and all nine cases', () => {
 
 // --- B1 and the evidence order ---------------------------------------------
 
-test('B1: a wrong business value is Red, not a locator problem', () => {
+test('a wrong business value is Red, not a locator problem', () => {
   const u = units()['shows the order total'];
   const c = classifyUnit(u);
   assert.equal(c.severity, 'red');
@@ -201,7 +201,7 @@ test('Newman: transport, zero assertions, failed assertions; nothing is Green', 
   for (const c of Object.values(byName)) assert.notEqual(c.severity, 'green');
 });
 
-// --- ids come from exact metadata (B6) --------------------------------------
+// --- ids come from exact metadata ------------------------------------------
 
 test('ids are read from the documented title and request-name conventions', () => {
   assert.deepEqual(
@@ -375,7 +375,7 @@ test('the runner tells the human what must happen before the Reporter step', () 
   assert.match(r.out, /set status to "finalized"/);
 });
 
-test('a proven PW id survives a reversed report order, with identical FAIL ids (B6)', () => {
+test('a proven PW id survives a reversed report order, with identical FAIL ids', () => {
   const mapping = {
     units: {
       'pw:chromium:classify.spec.ts > shows the order total': {

@@ -16,7 +16,7 @@ entry point still refuses non-interactive input (`test/run-pipeline.test.js`).
 A failed unit is kept, classified Red, never eligible for the Healer, and still
 blocks the release.
 
-- `test/failure-classifier.test.js`: "B1: a wrong business value is Red, not a locator problem"
+- `test/failure-classifier.test.js`: "a wrong business value is Red, not a locator problem"
 - `test/failure-classifier.test.js`: "... unless a failed attempt showed a wrong business value (stronger Red cause)"
 - `test/run-healer.test.js`: "refused before anything runs: changed original, wrong failure, Yellow, API, or the live file as candidate"
 - `test/evaluate-agents.test.js`: "the reporter stage scores a release report against its own run"
@@ -26,11 +26,11 @@ blocks the release.
 The failure or the run-level error is kept; nothing reads as a pass; the
 runner does not loop on the executor.
 
-- `test/execution-results.test.js`: "a timed-out test is a failure, not a silent disappearance (B2)"
+- `test/execution-results.test.js`: "a timed-out test is a failure, not a silent disappearance"
 - `test/execution-results.test.js`: "report-level errors survive even when no tests ran"
 - `test/execution-paths.test.js`: "run-level errors dominate the verdict"
 - `test/execution-paths.test.js`: "reports with zero counted units warn instead of reporting success"
-- `test/run-transitions.test.js`: "B4: a runner that produces no report stops after ONE launch"
+- `test/run-transitions.test.js`: "a runner that produces no report stops after ONE launch"
 
 ## 3. Newman connection failure before assertions
 
@@ -38,7 +38,7 @@ The request is blocked, counters stay nonnegative, the analysis is valid, and
 no business coverage passes.
 
 - `test/execution-results.test.js`: "a transport error is blocked, not a business failure"
-- `test/execution-results.test.js`: "transport errors are never subtracted from assertion totals (B5)"
+- `test/execution-results.test.js`: "transport errors are never subtracted from assertion totals"
 - `test/execution-results.test.js`: "newmanOutcome checks transport before assertions"
 - `test/failure-classifier.test.js`: "Newman: transport, zero assertions, failed assertions; nothing is Green"
 - `test/execution-results.test.js`: "a case passes only when every linked unit strictly passed"
@@ -63,7 +63,7 @@ Raw local output may keep it; every published file omits it.
 The old run is archived and preserved; the new run has a new identity, starts
 at the Analyst, and inherits no approval.
 
-- `test/run-lifecycle.test.js`: "B3: a new story after a COMPLETED run archives it and reaches the Analyst"
+- `test/run-lifecycle.test.js`: "a new story after a COMPLETED run archives it and reaches the Analyst"
 - `test/run-lifecycle.test.js`: "a new story never replaces an INCOMPLETE run, and nothing is written"
 - `test/run-lifecycle.test.js`: "archived artifacts are NOT reformatted: the bytes match the source"
 
@@ -124,8 +124,8 @@ Rejected, the live file unchanged, and the attempt's evidence kept.
 
 - `test/run-healer.test.js`: "a statically rejected candidate is recorded without running anything"
 - `test/run-healer.test.js`: "a candidate that still fails, skips, or runs no single test is validation_failed"
-- `test/healer-guardrails.test.js`: "S1: negating a matcher is rejected"
-- `test/healer-guardrails.test.js`: "S2: adding .skip is rejected even when the file already skips something"
+- `test/healer-guardrails.test.js`: "negating a matcher is rejected"
+- `test/healer-guardrails.test.js`: "adding .skip is rejected even when the file already skips something"
 
 ## 14. An eligible Healer candidate
 

@@ -12,7 +12,7 @@
 //   B1  A wrong business value ($100.00 expected, $1.00 shown) was classified
 //       green/locator_or_selector -- eligible for auto-healing -- because the
 //       error text contains "locator". Causes now come from what Playwright
-//       says FAILED (scripts/lib/classify-failure.js), in the plan's order.
+//       says FAILED (scripts/lib/classify-failure.js), in a fixed order.
 //   B2  A timed-out test disappeared: only 'unexpected'/'failed' attempt
 //       statuses were read. The ledger normalizes every terminal outcome.
 //   B5  Newman passes were `assertions.total - failures.length` (could go

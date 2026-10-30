@@ -156,7 +156,7 @@ newman run ... --env-var "api_key=$REQRES_API_KEY"
 so `api-tests/environments/*.postman_environment.json` keeps `api_key`
 empty in git.
 
-**Caveat learned in Phase 1.5 (A5):** run-time injection keeps secrets
+**Caveat learned in Phase 1.5:** run-time injection keeps secrets
 out of _committed_ files, but tools may still record them in their
 **output**. Newman writes the live `x-api-key` request header into
 `reports/newman-results.json`, and the resolved `api_key` into that

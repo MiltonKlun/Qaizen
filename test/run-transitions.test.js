@@ -115,7 +115,7 @@ function readyToExecute(dir) {
 
 // ------------------------------------------------------------------- I6 ---
 
-test('I6: `{}` artifacts are never "produced", so the run is not complete', () => {
+test('`{}` artifacts are never "produced", so the run is not complete', () => {
   const dir = repo();
   try {
     writeCompletedRun(
@@ -223,7 +223,7 @@ test('a gate does not prompt when an input it reviews is invalid', () => {
 
 // -------------------------------------------------------------- execute (B4)
 
-test('B4: a runner that produces no report stops after ONE launch', () => {
+test('a runner that produces no report stops after ONE launch', () => {
   const dir = repo();
   try {
     readyToExecute(dir);
