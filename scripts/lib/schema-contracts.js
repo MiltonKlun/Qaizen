@@ -1,5 +1,5 @@
 // @ts-check
-// The contract behind every JSON Schema, declared once (task group 10.2).
+// The contract behind every JSON Schema, declared once.
 //
 // CLAUDE.md §3.10 (the Architecture Stability Rule) says a schema change moves
 // with the agent prompts that produce or consume the artifact, its docs, its
@@ -255,7 +255,7 @@ export const SCHEMA_CONTRACTS = {
     ],
     discovery: 'validate:all; validate:examples',
     migration:
-      '2.0 (task group 2.2b) is written for a 2.x failure analysis, with ledger-derived counts; 1.x reports keep their meaning and are never reinterpreted. scripts/migrate-release-report-tg12.js adds the optional rollups to older 1.x reports.',
+      '2.0 is written for a 2.x failure analysis, with ledger-derived counts; 1.x reports keep their meaning and are never reinterpreted. scripts/migrate-release-report-tg12.js adds the optional rollups to older 1.x reports.',
   },
   'schemas/spec-review.schema.json': {
     artifact: 'analysis/spec-reviews/[story].spec-review.json',
@@ -274,7 +274,7 @@ export const SCHEMA_CONTRACTS = {
     ],
     discovery: 'validate:all; validate:examples',
     migration:
-      'Single version (1.0); the auto_approval_eligible rule (task group 10.2) was already in the prompt, and every archived review satisfies it.',
+      'Single version (1.0); the auto_approval_eligible rule was already in the prompt, and every archived review satisfies it.',
   },
   'schemas/test-cases.schema.json': {
     artifact: 'test-cases/[story].json',

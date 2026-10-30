@@ -6,7 +6,7 @@
     "title": "Login — Successful sign-in (prompt-versioned run)",
     "source": "manual",
     "path": "story.md",
-    "description": "Same login slice as login-success, showing the Phase 3 (TG8) prompt_versions map. Each agent that ran is pinned to the version of its agents/<name>.md prompt, so a later metrics/regression delta can be attributed to a specific prompt change. The field is optional and open (additionalProperties) — older runs omit it and still validate."
+    "description": "Same login slice as login-success, showing the Phase 3 prompt_versions map. Each agent that ran is pinned to the version of its agents/<name>.md prompt, so a later metrics/regression delta can be attributed to a specific prompt change. The field is optional and open (additionalProperties) — older runs omit it and still validate."
   },
   "acceptance_criteria": [
     "Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",

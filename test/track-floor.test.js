@@ -1,4 +1,4 @@
-// Unit tests for the lite-track floor (IMPROVEMENT-PLAN IP-4.2). Table-driven.
+// Unit tests for the lite-track floor. Table-driven.
 // The load-bearing property: a story touching a Red-taxonomy domain (or a
 // high-severity risk, or too large to be "routine") can NEVER be lite — the
 // floor raises it to standard with a written reason. A genuinely small, benign

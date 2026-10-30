@@ -1,5 +1,5 @@
 // @ts-check
-// Locators as the test source writes them (task group 9.1, review finding I7).
+// Locators as the test source writes them.
 //
 // The selector-survival script used to pull locators out with regexes: it
 // kept a getByRole's role but dropped its accessible name, turned every other

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Every runtime script stays under the JSDoc type check (task group 10.1).
+// Every runtime script stays under the JSDoc type check.
 //
 // tsconfig.scripts.json checks every scripts/**/*.js under `strict`
 // (`checkJs: true`), so a new script is covered without opting in. The one

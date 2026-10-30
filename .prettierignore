@@ -16,10 +16,9 @@ package-lock.json
 # Authoritative planning and instruction docs — owned by the team, not auto-formatted
 CLAUDE.md
 README.md
-IMPROVEMENT-PLAN-2.md
 
 # Archived runs are evidence: byte-identical to what each run produced, never
-# reformatted (scripts/lib/run-lifecycle.js, task group 4.1).
+# reformatted (scripts/lib/run-lifecycle.js).
 runs/
 # Transient runner state (the new-story transition record and staging).
 .qaizen/

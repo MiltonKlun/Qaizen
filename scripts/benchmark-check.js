@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Benchmark tooling check (task group 9.2). Serves the Bench Shop baseline (v1)
+// Benchmark tooling check. Serves the Bench Shop baseline (v1)
 // and its drifted v2, runs the reviewed login-surface probes with
 // scripts/selector-survival.js --probe, and compares the outcome with the
 // ground truth in examples/benchmark-app/README.md (drift table): the

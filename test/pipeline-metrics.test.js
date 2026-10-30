@@ -1,5 +1,5 @@
 // Prompt stability: eligible runs, per-cohort verdicts, and one result that
-// the JSON, the Markdown and /evolve all read (task group 8.2, finding B7).
+// the JSON, the Markdown and /evolve all read.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -391,7 +391,7 @@ test('/evolve reports a failing cohort, and too little evidence as exactly that'
 });
 
 // ---------------------------------------------------------------------------
-// Task group 8.3: metric identities and healer denominators.
+// Metric identities and healer denominators.
 
 const pwFailure = (
   tc,

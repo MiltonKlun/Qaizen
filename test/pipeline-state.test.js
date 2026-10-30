@@ -1,4 +1,4 @@
-// Unit tests for the pure pipeline state machine (IMPROVEMENT-PLAN IP-2.4).
+// Unit tests for the pure pipeline state machine.
 // Table-driven: each case is a context shape -> expected next step. The
 // critical property under test is GATE-BLOCK: if a gate is not passed, the
 // machine returns the gate, never the step behind it — regardless of how
@@ -338,7 +338,7 @@ test('GATE_KEYS maps the runner gates to review_gates keys (incl. lite qa_scope)
 });
 
 // ---------------------------------------------------------------------------
-// Task group 7.1: branches come from the approved scope, and each branch has
+// Branches come from the approved scope, and each branch has
 // its own human reviews before anything executes.
 
 const G = { status: true, reviewer: 'h' };
@@ -461,7 +461,7 @@ test('branches: no approved case has nothing to execute', () => {
   );
 });
 
-// Task group 7.2: manual, component and skip cases form the external branch.
+// Manual, component and skip cases form the external branch.
 // Its plan is reviewed before any execution and its evidence after it exists;
 // neither review is ever skipped as "not applicable".
 

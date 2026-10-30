@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-check
-// Validate every committed pipeline artifact against its schema (Phase 2
-// TG8, the CI "validate all JSON" step). Like validate-examples.js, this
+// Validate every committed pipeline artifact against its schema (the CI
+// "validate all JSON" step). Like validate-examples.js, this
 // is NOT a second validator and NOT a per-schema validator — it is one
 // discovery wrapper that maps artifact globs to schemas and runs the same
 // AJV config. The actual rules live in the schemas; this only finds the
@@ -18,11 +18,11 @@
 //   planner-input/*.external-plan.json    schemas/external-execution.schema.json
 //   external-evidence/*.results.json      schemas/external-execution.schema.json
 //   examples/evaluation/manifest.json     schemas/evaluation-manifest.schema.json
-//                                         (repo root only; task group 8.1)
+//                                         (repo root only)
 //
 // Examples under examples/expected/ are covered by validate-examples.js;
 // this script covers the live, committed run artifacts AT THE ROOT and every
-// archived run under runs/<story-id>/<run-id>/ (IMPROVEMENT-PLAN-2 T3.2) — the
+// archived run under runs/<story-id>/<run-id>/ — the
 // archives are what actually ship in the repo, so they are what CI must guard.
 //
 // Exit codes: 0 all present artifacts valid (or none present) · 1 a
@@ -78,7 +78,7 @@ function targetsFor(base = '.') {
       suffix: '.json',
       schema: 'schemas/postman-collection.schema.json',
     },
-    // The external branch (task group 7.2): the reviewed plan and the
+    // The external branch: the reviewed plan and the
     // imported results. Evidence files themselves are not JSON artifacts.
     {
       dir: at('planner-input'),
@@ -126,7 +126,7 @@ const TARGETS = [
   },
 ];
 
-// Compilation + caching live in scripts/lib/artifact-io.js (task group 2.1).
+// Compilation + caching live in scripts/lib/artifact-io.js.
 // This wrapper's policy for an absent schema is FATAL: these are committed
 // artifacts that CI must guard, so a schema we cannot load is a broken setup,
 // not something to skip. (validate-examples.js deliberately treats the same

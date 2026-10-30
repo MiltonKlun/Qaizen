@@ -1,6 +1,6 @@
 # The Thin Gated Runner — `npm run pipeline`
 
-> **Status:** continuous improvement (IMPROVEMENT-PLAN Phase 2 / PFI-2). The
+> **Status:** continuous improvement. The
 > single entry point for driving a story through the pipeline. It removes the
 > clerical "now run the next thing" friction — **not** the human judgment. It
 > halts at every gate, renders a one-screen brief, records your decision as a
@@ -77,7 +77,7 @@ meets the planner, generator or Gate 4, and needs no Playwright report. A
 mixed story collects every review before either suite runs; then Playwright
 runs, then Newman, and both outcomes are classified even if one suite fails.
 
-Manual, component and skip cases (task group 7.2) are never executed by the
+Manual, component and skip cases are never executed by the
 runner. Their plan is reviewed with the other plans, before anything runs;
 the operator records results afterwards, one case at a time or from the
 normalized JSON (`--from`):
@@ -100,7 +100,7 @@ When the run completes the runner reminds you of the two post-run habits:
 archiving (automatic when the next story starts, or `npm run new-run -- <story-id>`
 by hand) and `npm run session-summary` (feed `/evolve`).
 
-### Starting a new story, and resuming (task group 4.1)
+### Starting a new story, and resuming
 
 `--story` **starts a new run**; `--resume` (or no flag) **continues the current
 one**; `--status` only reads. Combining `--story` with `--resume`, or `--status`
@@ -195,17 +195,16 @@ Playwright failures at the execute step are **data for the classifier**, not
 a runner error — a failing suite with a valid report continues to
 `classify`. A test runner that **could not start, or wrote no valid report of
 this code**, is a runner error: the runner stops after that one launch instead
-of relaunching (finding B4 — the old runner ignored the launch result and
-looped).
+of relaunching (an earlier runner ignored the launch result and looped).
 
-### What "produced" and "complete" mean (task group 4.2)
+### What "produced" and "complete" mean
 
 An artifact counts as produced only when it **exists, validates against its
 schema, and belongs to this run** (same `story_id` and `run_id`). Text
 artifacts must be non-empty; the Playwright report must be a real report
 written after the generated test last changed and after Gate 4 approved it.
 File existence alone used to be enough, so four `{}` files could make
-`--resume` print "Run complete" (finding I6). Anything not accepted is listed
+`--resume` print "Run complete". Anything not accepted is listed
 with its reason, and the step that produces it comes next. `context.json`
 itself must validate before any step is derived, and it is validated in memory
 **before** each write, so a rejected update never reaches the disk.
@@ -262,7 +261,7 @@ review — and by binding: every approval records a digest of exactly what was
 reviewed (next section), so a change made after it is visible and returns the
 gate to pending rather than passing silently.
 
-### Approvals are bound to what was reviewed (task group 4.3)
+### Approvals are bound to what was reviewed
 
 At a human approval the runner records `input_digest` (and the per-input
 digests) on the gate:
@@ -315,7 +314,7 @@ At each gate the runner prints a one-screen brief:
    exists).
 
 At **Gate 4** the brief also embeds the pre-Gate-4 **static scan**
-(`scripts/gate4-scan.js`, IMPROVEMENT-PLAN Phase 6): the mechanical findings
+(`scripts/gate4-scan.js`): the mechanical findings
 on the generated test (hard waits, `.skip`/`.only`, fragile locators, weak
 assertions, and each test's own PW/TC/SPEC ids, checked against the run's
 approved test cases and spec) plus the same judgment questions, printed
@@ -419,7 +418,7 @@ while a new-story transition is pending.
 
 ## 7. The ten-minute offline demo (`npm run demo:pipeline`)
 
-`scripts/demo-pipeline.js` (IMPROVEMENT-PLAN Phase 3) drives this same runner
+`scripts/demo-pipeline.js` drives this same runner
 through a complete story so a skeptic can experience all four gates end to
 end in under ten minutes — **fully offline** (no Jira, no MCPs, no network).
 
@@ -480,10 +479,10 @@ demo fails CI.
 
 ## 8. References
 
-- `scripts/pipeline-state.js` — the pure state machine (IP-2.1).
-- `scripts/gate-briefs.js` — checklist data + brief renderer (IP-2.2).
-- `scripts/run-pipeline.js` — the CLI (IP-2.3).
-- `scripts/demo-pipeline.js` + `examples/demo-run/` — the offline demo (IP-3).
+- `scripts/pipeline-state.js` — the pure state machine.
+- `scripts/gate-briefs.js` — checklist data + brief renderer.
+- `scripts/run-pipeline.js` — the CLI.
+- `scripts/demo-pipeline.js` + `examples/demo-run/` — the offline demo.
 - `docs/review-gates.md` — gate criteria, telemetry, rejection flow.
 - `docs/phase2-vertical-slice-runbook.md` — the manual sequence the runner
   automates the clerical parts of.

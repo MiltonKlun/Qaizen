@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// context.json migration v1 -> v2: review-gate audit fields (Phase 2 TG6).
+// context.json migration v1 -> v2: review-gate audit fields.
 //
 // v1 (Phase 1): each review_gates.<gate> is a bare boolean.
 // v2 (Phase 2): each gate MAY be the richer object

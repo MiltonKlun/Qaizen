@@ -14,7 +14,7 @@
 //
 // Source of truth is test-cases/*.json; TestLink is a downstream target.
 //
-// Recoverable by design (task group 5.1): the intent of each create is saved
+// Recoverable by design: the intent of each create is saved
 // (sync_state.testlink, state "pending") before the request, and the new id
 // the moment TestLink returns it. A create whose outcome is unknown stays
 // pending and blocks further creates until --reconcile finds it (by name in

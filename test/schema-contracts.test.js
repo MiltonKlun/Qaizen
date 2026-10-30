@@ -1,6 +1,6 @@
 // Every schema's declared contract (scripts/lib/schema-contracts.js) holds
 // against the repository, and the Architecture Stability check counts only a
-// schema's own companions (task group 10.2).
+// schema's own companions.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';

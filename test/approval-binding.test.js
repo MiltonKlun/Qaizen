@@ -1,4 +1,4 @@
-// Regression tests for approvals bound to their reviewed inputs (task group 4.3).
+// Regression tests for approvals bound to their reviewed inputs.
 //
 // A gate used to be a flag: once approved it stayed approved, whatever changed
 // afterwards. Edit an expected value after Gate 2, rewrite the story after

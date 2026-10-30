@@ -1,5 +1,5 @@
 {
-  "_comment": "Severity -> Jira priority mapping for scripts/create-jira-bugs.js. Bug-draft '## Severity' is red or yellow (green failures never get a draft). Human-editable; the script MUST NOT hardcode any of this. Priority names must match the names configured in your Jira instance (default scheme: Highest/High/Medium/Low/Lowest). See docs/bug-draft-format.md and phase2-integrations.md TG5.",
+  "_comment": "Severity -> Jira priority mapping for scripts/create-jira-bugs.js. Bug-draft '## Severity' is red or yellow (green failures never get a draft). Human-editable; the script MUST NOT hardcode any of this. Priority names must match the names configured in your Jira instance (default scheme: Highest/High/Medium/Low/Lowest). See docs/bug-draft-format.md.",
   "severity_to_priority": {
     "red": "Highest",
     "yellow": "Medium"

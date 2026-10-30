@@ -1,5 +1,5 @@
 // Shared command-line handling: the documented .env subset and strict
-// argument parsing (task group 10.1).
+// argument parsing.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

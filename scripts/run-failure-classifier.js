@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Rule-based failure pre-classifier (Phase 3 TG1; rebuilt on the execution
-// ledger in task group 3.3).
+// Rule-based failure pre-classifier, built on the execution ledger.
 //
 // Reads the normalized execution ledger (analysis/execution-ledger.json, from
 // `npm run normalize`) and writes a schema-valid DRAFT
@@ -30,7 +29,7 @@
 // final approval of every branch in the ledger is current — code_reviewed for
 // Playwright evidence, collection_reviewed + api_assertions_reviewed for Newman,
 // external_plan_reviewed + external_evidence_reviewed for manual/component/skip
-// work (task group 7.2; a skip-only scope has no unit but is still reviewed).
+// work (a skip-only scope has no unit but is still reviewed).
 //
 // An imported manual/component failure is never auto-classified: whether it
 // is a product bug is the human's call (unknown_needs_human_review, Yellow).
@@ -156,8 +155,8 @@ const ledger = loaded.data;
 
 // The final human approval of every branch this evidence came from (same rule
 // as the Failure Classifier Agent): Playwright evidence needs Gate 4, Newman
-// evidence needs Gate 3' and Gate 4' (task group 7.1). An approval counts only
-// while it still matches what was reviewed (task group 4.3), and one branch's
+// evidence needs Gate 3' and Gate 4'. An approval counts only
+// while it still matches what was reviewed, and one branch's
 // approval never stands in for another's.
 const runners = new Set(ledger.source_executions.map((e) => e.runner));
 const decisions = approvedDecisions();

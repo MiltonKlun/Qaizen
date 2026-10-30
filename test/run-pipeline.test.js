@@ -1,4 +1,4 @@
-// Tests for the thin gated runner (IMPROVEMENT-PLAN IP-2.4). Two layers:
+// Tests for the thin gated runner. Two layers:
 //
 // 1. Unit: applyGateDecision — the decision recorder the interactive CLI
 //    calls after a human answers on a real TTY. Testing it by import does
@@ -92,7 +92,7 @@ function makeMiniRepo() {
   });
   cpSync('schemas', join(dir, 'schemas'), { recursive: true });
   // Gate 1 reviews the story itself, and a gate no longer prompts when an
-  // input it reviews is missing (task group 4.2).
+  // input it reviews is missing.
   writeFileSync(join(dir, 'story.md'), '# STORY-001\nThe story.\n');
   return dir;
 }
@@ -311,7 +311,7 @@ test('agent step guidance — gate passed leads to the next agent instruction', 
   }
 });
 
-// --- track floor enforcement (IMPROVEMENT-PLAN Phase 4, IP-4.6) -----------
+// --- track floor enforcement -----------------------------------------------
 
 test('runner REFUSES track:lite when the floor is higher (red domain)', () => {
   const dir = makeMiniRepo();
@@ -369,7 +369,7 @@ test('runner ALLOWS track:lite for a benign story (reaches the qa_scope gate)', 
     });
     writeFileSync(join(dir, 'context.json'), JSON.stringify(ctx, null, 2));
     // The test cases must be VALID and belong to this run to count as
-    // produced (task group 4.2): a `{ test_cases: [] }` stub used to pass
+    // produced: a `{ test_cases: [] }` stub used to pass
     // because the runner only checked that the file existed and parsed. The
     // consolidated gate also reviews the planner brief and the story itself.
     mkdirSync(join(dir, 'test-cases'), { recursive: true });

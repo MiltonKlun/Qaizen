@@ -1,4 +1,4 @@
-// Regression tests for the "misleading success" paths (task group 1.2).
+// Regression tests for the "misleading success" paths.
 //
 // Three real defects, each of which made missing or unverified work look like a
 // pass:
@@ -49,7 +49,7 @@ const VALID_CONTEXT = {
   schema_version: '1.0',
   run_id: '2026-01-01T00-00-00Z-test',
   // A fixed evaluation story (examples/stories/footer-social-links.md):
-  // candidates are only evaluated against the fixed stories (task group 8.1).
+  // candidates are only evaluated against the fixed stories.
   story: {
     id: 'STORY-021',
     title: 'Footer shows social links and a copyright line',
@@ -66,7 +66,7 @@ const VALID_CONTEXT = {
       related_acs: [0],
     },
   ],
-  // Schema-valid: the evaluator now counts context validity (task group 8.1).
+  // Schema-valid: the evaluator now counts context validity.
   artifact_paths: runContext().artifact_paths,
   review_gates: runContext({ gates: false }).review_gates,
   status: 'draft',
@@ -178,7 +178,7 @@ test('evaluate-agents: dataset mode still scores the committed expected outputs'
 });
 
 // --- I1 / 3.3: execution results are reported only from evidence --------
-// Covered by test/execution-sync.test.js (task group 5.3): the ledger-based
+// Covered by test/execution-sync.test.js: the ledger-based
 // outcome rules, the draft-analysis refusal, and the status-map guard.
 
 // --- S3: the healer must not claim enforcement it cannot perform -----------

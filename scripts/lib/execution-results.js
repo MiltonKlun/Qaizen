@@ -1,5 +1,5 @@
 // @ts-check
-// Runner-report adapters (task group 3.1).
+// Runner-report adapters.
 //
 // Pure functions: JSON report in, ledger units out. No file I/O, no clock, no
 // process state -- so every rule below is testable against a REAL captured
@@ -61,7 +61,7 @@ function excerpt(text, secrets) {
   if (!text) return undefined;
   // Terminal colour codes are stripped BEFORE truncation: real Playwright
   // messages carry dozens of them, which both pollute durable evidence and eat
-  // into the excerpt budget ahead of the `Received:` line (task group 3.3).
+  // into the excerpt budget ahead of the `Received:` line.
   const clean = redactText(String(text).replace(ANSI, ''), secrets);
   return clean.length > ERROR_EXCERPT_LIMIT
     ? clean.slice(0, ERROR_EXCERPT_LIMIT)

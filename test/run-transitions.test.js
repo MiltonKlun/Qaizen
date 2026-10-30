@@ -1,4 +1,4 @@
-// Regression tests for validated transitions (task group 4.2, findings I6/B4).
+// Regression tests for validated transitions.
 //
 // I6, reproduced with the committed runner: a valid, approved context whose
 // test cases, execution results, failure analysis and release report were all
@@ -398,7 +398,7 @@ test('an API story is not complete until its Newman branch ran', () => {
       { status: 'in_progress' },
       { 'test-cases/OLD-1.json': JSON.stringify(tc) }
     );
-    // A valid collection that both API gates approved (task group 7.1): only
+    // A valid collection that both API gates approved: only
     // the Newman execution is missing, so that is the next step.
     write(
       dir,

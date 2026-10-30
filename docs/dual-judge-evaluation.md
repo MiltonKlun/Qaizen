@@ -1,6 +1,6 @@
 # Dual-Judge Framework — Evaluation & Decision
 
-> **Status:** Phase 3 (TG13). This document evaluates whether to adopt the
+> **Status:** Phase 3. This document evaluates whether to adopt the
 > dual-judge testing model from `dogkeeper886/test-framework-template` as an
 > **additional** layer, and records the decision. **Decision: DEFER** — with an
 > explicit re-evaluation trigger. The current Failure Classifier (rule-based +
@@ -27,7 +27,7 @@ the framework's **YAML** form, and every run pays for an extra LLM judgment.
 
 ---
 
-## 2. The decision criteria (from the Phase 3 plan, TG13)
+## 2. The decision criteria
 
 The plan says: **only evaluate after 10+ complete Phase-3 runs**, and adopt only
 if **3+ of these criteria** justify it.
@@ -37,11 +37,11 @@ if **3+ of these criteria** justify it.
 | 1   | Does the current Failure Classifier catch enough cases?               | Yes, so far. The classifier assigns severity on two axes and escalates anything ambiguous to `unknown_needs_human_review` rather than guessing — that escalation IS a semantic-doubt signal, routed to a human at Gate 4.                | **No** (covered)    |
 | 2   | Are there false positives (tests that pass but should fail)?          | None observed across the 5 archived runs. The suites are small, business-assertion-focused (web-first Playwright assertions, Newman status+body checks), and human-reviewed at Gate 4 — the exact place a semantic miss would be caught. | **No** (none seen)  |
 | 3   | Does YAML-driven testing justify its complexity vs native Playwright? | Not at this scale. The project deliberately uses Playwright Native Agents + Newman (CLAUDE.md §3.9 "reuse before building"); migrating to a YAML test DSL is a large change that competes with, rather than extends, that choice.        | **No**              |
-| 4   | Is the team willing to migrate tests to YAML?                         | No signal that it is, and no need expressed. The /evolve loop (TG10) surfaced PR/workflow friction, not assertion-quality friction.                                                                                                      | **No**              |
+| 4   | Is the team willing to migrate tests to YAML?                         | No signal that it is, and no need expressed. The /evolve loop surfaced PR/workflow friction, not assertion-quality friction.                                                                                                             | **No**              |
 
-**0 of 4 criteria** currently justify adoption (the plan's bar is 3+).
+**0 of 4 criteria** currently justify adoption (adoption needs 3+).
 
-Additionally, the **precondition is not met**: the plan requires 10+ complete
+Additionally, the **precondition is not met**: evaluation requires 10+ complete
 Phase-3 runs before evaluating; the project has **5** archived runs
 (`npm run list-runs`). Evaluating the framework's worth on half the required
 sample would be premature on its own terms.
@@ -73,7 +73,7 @@ evidence or scale, and the system has a cheaper approximation of it today.
 
 Re-open this evaluation when **any** of the following becomes true:
 
-- **10+ complete Phase-3 runs** exist (the plan's precondition) AND
+- **10+ complete Phase-3 runs** exist (the precondition) AND
 - metrics or `/evolve` surface **false negatives** — tests that passed but
   should have failed — as a recurring theme (3+ occurrences), OR
 - the Gate-4 reviewer repeatedly catches "technically passed but wrong"
@@ -85,7 +85,7 @@ Re-open this evaluation when **any** of the following becomes true:
 If re-opened and **3+ criteria** then justify it, adopt the dual-judge **as an
 additional reporting/validation layer only** — a second opinion feeding the
 Failure Classifier — **never replacing** Playwright/Newman execution or the
-`failure-analysis.json` contract (Phase 3 §2; TG13 DoD). It would be an
+`failure-analysis.json` contract. It would be an
 adapter behind the existing classification, not a new core.
 
 ---

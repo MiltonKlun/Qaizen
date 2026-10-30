@@ -3,10 +3,9 @@
 How raw Playwright and Newman reports become one execution ledger, and why the
 raw reports are never counted directly.
 
-Contract: `schemas/execution-ledger.schema.json` (task group 2.2a).
+Contract: `schemas/execution-ledger.schema.json`.
 Adapters: `scripts/lib/execution-results.js`, assembly in
-`scripts/lib/build-ledger.js`, CLI in `scripts/normalize-results.js`
-(task group 3.1).
+`scripts/lib/build-ledger.js`, CLI in `scripts/normalize-results.js`.
 
 ---
 
@@ -75,7 +74,7 @@ subtracted from assertion totals.
 
 The adapters resolve **no** domain IDs. Every unit leaves the adapter with null
 links and a stated reason. `resolveDomainLinks()` then fills them from two
-exact sources (task group 3.3):
+exact sources:
 
 1. **The report itself** (`idsFromMetadata()`): the documented conventions put
    ids where the runner report carries them — the Playwright test title
@@ -149,7 +148,7 @@ npm run normalize -- --story QA-1042 \
 # API-only: no fabricated Playwright report is required
 npm run normalize -- --story QA-1042 --newman reports/newman-results.json
 
-# Every Newman report for this story in one execution (task group 3.2 layout)
+# Every Newman report for this story in one execution
 npm run normalize -- --story QA-1042 --execution <execution-id>
 
 # --newman is repeatable; each collection must contribute exactly once
@@ -169,13 +168,14 @@ empty ledger, because an empty ledger is indistinguishable from a clean run.
 It also exits `2` when the same report is supplied twice, or when two reports
 claim the same collection: either would count those units twice. Every other
 flag is single-valued and refuses to be repeated.
-Manual/external result import is task group 7.x.
+
+Manual and component results are recorded with `scripts/import-execution.js`.
 
 `--test-cases <test-cases/story.json>` names the approved scope. The
 ledger then lists every approved case in `case_outcomes` and records
 `approved_scope_digest`, a SHA-256 of the approved cases without their
 sync linkage. The TestLink result sync refuses a ledger whose digest does
-not match the current approved cases (task group 5.3). The pipeline
+not match the current approved cases. The pipeline
 passes this flag; a mapping file's `approved_case_ids`, if also given,
 must agree with it.
 
@@ -226,7 +226,7 @@ assertion count. A suite built on invented fixtures would have passed while the
 adapters were wrong. Machine-identifying paths are stripped; the report
 structure is otherwise untouched.
 
-## Report layout (task group 3.2)
+## Report layout
 
 Raw reporter output is scoped to one execution:
 
@@ -240,7 +240,7 @@ Before this, every Newman run wrote to one constant path,
 `reports/newman-results.json`, regardless of story, collection or run. CI loops
 collections calling `npm run test:api` per collection, so every collection's raw
 evidence but the last was destroyed — and a leftover file from an unrelated
-story counted as current evidence in the CI summary (finding I4).
+story counted as current evidence in the CI summary.
 
 The execution id comes from `--execution-id`, or `QAIZEN_EXECUTION_ID` when the
 pipeline supplies one, otherwise the runner mints its own. Story and collection

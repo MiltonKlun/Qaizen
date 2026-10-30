@@ -1,4 +1,4 @@
-// Healer candidate processing (task group 6.3, review finding S3).
+// Healer candidate processing.
 //
 // The real run-healer.js runs in a throwaway project. The Playwright CLI is
 // replaced by test/fixtures/fake-playwright-cli.js (QAIZEN_PLAYWRIGHT_CLI) so
@@ -6,7 +6,7 @@
 // the real Playwright against the offline demo app when a browser is
 // installed.
 //
-// Acceptance (IMPLEMENTATION_PLAN 6.3): a real supplied candidate produces a
+// Acceptance: a real supplied candidate produces a
 // usable patch and evidence; every rejected/failed candidate leaves live tests
 // unchanged; no result is labelled a human-approved fix.
 

@@ -1,8 +1,7 @@
 # Benchmark series checklist — pipeline vs. raw prompting
 
 > A ready-to-run checklist for the human-led series that
-> `docs/benchmark-protocol.md` pre-registers (protocol version 2.0, task group
-> 9.2). The protocol holds the definitions, the story-selection criteria and
+> `docs/benchmark-protocol.md` pre-registers (protocol version 2.0). The protocol holds the definitions, the story-selection criteria and
 > the §5 thresholds; nothing here changes them. **The results tables stay
 > blank until actual runs happen.** A value that was not measured is `null`,
 > with the reason — never an estimate.

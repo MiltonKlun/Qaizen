@@ -1,5 +1,5 @@
 // @ts-check
-// Red-taxonomy domains as data (IMPROVEMENT-PLAN Phase 4, IP-4.1).
+// Red-taxonomy domains as data.
 //
 // The Healer's Red severity (docs/healer-guardrails.md §4) names the kinds of
 // behavior that are too consequential to ever auto-fix: business-logic

@@ -1,5 +1,5 @@
 // @ts-check
-// Pipeline state machine (IMPROVEMENT-PLAN Phase 2, IP-2.1). PURE module:
+// Pipeline state machine. PURE module:
 // no I/O, no side effects — `nextStep(context)` derives the next pipeline
 // step from the run manifest alone (context.json IS the state source of
 // truth; there is no separate state file, no DB, no queue).
@@ -18,10 +18,9 @@
 //   → [EXT] external-results → gate4-ext (external_evidence_reviewed)
 //   → classify → finalize → report → done
 //
-// A branch runs only when the approved scope has cases for it (task group
-// 7.1): an API-only story never meets the E2E steps, and every applicable
+// A branch runs only when the approved scope has cases for it: an API-only story never meets the E2E steps, and every applicable
 // branch is fully reviewed before either suite executes. Manual, component
-// and skip cases form the external branch (task group 7.2): its plan is
+// and skip cases form the external branch: its plan is
 // reviewed with the other plans, its evidence after it exists, and a
 // skip-only scope still passes both external reviews — nothing is executed,
 // and nothing is approved by default.
@@ -84,10 +83,10 @@ export const GATE_KEYS = {
   qa_scope: 'qa_scope_approved', // lite track: consolidates Gates 1+2
   gate3: 'specs_reviewed',
   gate4: 'code_reviewed',
-  // The API branch's own reviews (task group 7.1); never an E2E approval.
+  // The API branch's own reviews; never an E2E approval.
   'gate3-api': 'collection_reviewed',
   'gate4-api': 'api_assertions_reviewed',
-  // The external branch's reviews (task group 7.2): plan, then evidence.
+  // The external branch's reviews: plan, then evidence.
   'gate3-ext': 'external_plan_reviewed',
   'gate4-ext': 'external_evidence_reviewed',
 };
@@ -99,8 +98,8 @@ export const GATE_KEYS = {
  *                               has not started (no context.json yet).
  * @param {StepHints} [hints]   Optional CLI-gathered facts (all optional):
  *   - branches:               { e2e, api, external, externalRuns } from the
- *                             APPROVED cases' automation decisions (task
- *                             groups 7.1, 7.2). Preferred. `external`: any
+ *                             APPROVED cases' automation decisions.
+ *                             Preferred. `external`: any
  *                             manual/component/skip case; `externalRuns`: any
  *                             manual/component case (skip is never executed).
  *   - hasApiCases:            legacy: true if test-cases has automate_api cases
@@ -145,7 +144,7 @@ export function nextStep(context, hints = {}) {
   /** @type {(p: unknown, exists: boolean | undefined) => boolean} */
   const produced = (p, exists) => filled(p) && exists !== false;
 
-  // qa_scope_approved consolidates Gates 1+2 when passed (Phase 2 TG7);
+  // qa_scope_approved consolidates Gates 1+2 when passed;
   // it NEVER consolidates Gate 3 or Gate 4 (docs/review-gates.md).
   const consolidated = gatePassed(gates.qa_scope_approved);
   const g1 = consolidated || gatePassed(gates.requirements_reviewed);
@@ -174,7 +173,7 @@ export function nextStep(context, hints = {}) {
       return 'test-designer';
     if (!g2) return 'gate2';
   }
-  // Which branches the APPROVED scope activates (task group 7.1). The CLI
+  // Which branches the APPROVED scope activates. The CLI
   // derives them from approved automation decisions; draft and rejected cases
   // activate nothing. Without the hint, E2E is assumed and API follows the
   // older hasApiCases hint, so callers that predate branches behave as before.
@@ -207,7 +206,7 @@ export function nextStep(context, hints = {}) {
 
   // Deterministic order: Playwright, then Newman. A run is not executed until
   // every applicable branch has evidence (an API story never completes on the
-  // E2E half alone, task group 4.2).
+  // E2E half alone).
   if (e2e && !produced(paths.execution_results, hints.executionResultsExist))
     return 'execute';
   if (api && hints.apiExecuted !== true) return 'execute-api';

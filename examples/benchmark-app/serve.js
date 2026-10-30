@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Bench Shop server (IMPROVEMENT-PLAN-2 Phase 5). Serves a local, MUTABLE shop
+// Bench Shop server. Serves a local, MUTABLE shop
 // app so the benchmark can measure the two metrics public SauceDemo cannot:
 // known_bug_catch_rate (inject a bug, a test catches it iff it goes red) and
 // selector_survival_rate (serve the v1 baseline vs a drifted v2). Zero

@@ -60,8 +60,8 @@ If validation fails, fix and re-validate before requesting Gate 2.
 
 ## Test case shape (schema-bound)
 
-The full shape is defined by `schemas/test-cases.schema.json` (Phase 1
-TG7). Every test case includes:
+The full shape is defined by `schemas/test-cases.schema.json`. Every
+test case includes:
 
 - `test_case_id` — `TC-001`, `TC-002`, ... unique within this file.
 - `title`, `description`.
@@ -241,13 +241,10 @@ After Gate 2 passes:
 
 ## References
 
-- `schemas/test-cases.schema.json` — the binding schema (created in
-  Phase 1 TG7).
+- `schemas/test-cases.schema.json` — the binding schema.
 - `docs/automation-decision-model.md` — the five decisions and when to
-  use each (created in Phase 1 TG6).
-- `docs/review-gates.md` — Gate 1 precondition and Gate 2 criteria
-  (created in Phase 1 TG6).
-- `docs/traceability.md` — full chain; this skill creates the TC layer
-  (created in Phase 1 TG6).
+  use each.
+- `docs/review-gates.md` — Gate 1 precondition and Gate 2 criteria.
+- `docs/traceability.md` — full chain; this skill creates the TC layer.
 - `agents/test-designer.md` — the agent prompt that orchestrates this
-  skill and `planning-tests` (created in Phase 1 TG10).
+  skill and `planning-tests`.

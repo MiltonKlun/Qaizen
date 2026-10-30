@@ -156,12 +156,12 @@ accepts the requests. Live acceptance is a human step, run with real
 credentials and `--apply`, and is recorded here. `docs/live-acceptance.md`
 has the steps and what each should show.
 
-| Path                                                   | Status                                                                                                                                                                             |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sync-to-testlink.js` (create cases)                   | **Pending re-acceptance.** Live-verified on 2026-06-04 against a self-hosted TestLink (4 cases created, ids written back), before task group 5.1 rebuilt it as a recoverable sync. |
-| `sync-testlink-execution.js` (execution results)       | **Pending human acceptance.** Fake-service tests only.                                                                                                                             |
-| `create-jira-testcases.js` (test cases as Jira issues) | **Pending human acceptance.** Fake-service tests only.                                                                                                                             |
-| `create-jira-bugs.js` (bug drafts as Jira issues)      | **Pending human acceptance.** Fake-service tests only.                                                                                                                             |
+| Path                                                   | Status                                                                                                                                                                  |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sync-to-testlink.js` (create cases)                   | **Pending re-acceptance.** Live-verified on 2026-06-04 against a self-hosted TestLink (4 cases created, ids written back), before it was rebuilt as a recoverable sync. |
+| `sync-testlink-execution.js` (execution results)       | **Pending human acceptance.** Fake-service tests only.                                                                                                                  |
+| `create-jira-testcases.js` (test cases as Jira issues) | **Pending human acceptance.** Fake-service tests only.                                                                                                                  |
+| `create-jira-bugs.js` (bug drafts as Jira issues)      | **Pending human acceptance.** Fake-service tests only.                                                                                                                  |
 
 A path moves to **Accepted** only when the run is recorded here with its date,
 the instance it ran against (no credentials), and what was created.

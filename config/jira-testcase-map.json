@@ -1,5 +1,5 @@
 {
-  "_comment": "Field mapping for the Jira test-case adapter (skills/syncing-jira, scripts/create-jira-testcases.js, Phase 2.6 TG2.6-3). Maps our test-cases/*.json fields to a plain Jira issue. Human-editable; the adapter MUST NOT hardcode any of this. This creates ORDINARY Jira issues (no Xray app required), so it works on any Jira project. See agents/test-management-adapter.md and phase2.6-enhancements.md TG2.6-3.",
+  "_comment": "Field mapping for the Jira test-case adapter (skills/syncing-jira, scripts/create-jira-testcases.js). Maps our test-cases/*.json fields to a plain Jira issue. Human-editable; the adapter MUST NOT hardcode any of this. This creates ORDINARY Jira issues (no Xray app required), so it works on any Jira project. See agents/test-management-adapter.md.",
   "issue_type_env": "JIRA_TESTCASE_ISSUETYPE",
   "default_issue_type": "Test",
   "_issue_type_comment": "Many Jira sites have a 'Test' issue type; if yours does not, set JIRA_TESTCASE_ISSUETYPE=Task (or another existing type). The adapter retries without an unknown type's extras rather than failing the batch.",

@@ -46,8 +46,8 @@ have shipped.
 If `context.json.review_gates.code_reviewed` is not passed (`true` or
 `{ status: true }`), **stop**. Do not classify failures of code that has not
 been through Gate 4. The approval must also be current: `npm run pipeline --
---status` must not report it stale. Approvals are bound to what they reviewed
-(task group 4.3), so code changed after Gate 4 is code that has not been
+--status` must not report it stale. Approvals are bound to what they reviewed,
+so code changed after Gate 4 is code that has not been
 reviewed.
 
 ## What this skill produces
@@ -69,8 +69,7 @@ node scripts/validate-json.js schemas/failure-analysis.schema.json analysis/fail
 
 ## Input sources
 
-- `analysis/execution-ledger.json` — **the counting model** (task group
-  3.1). Every runner unit with exactly one outcome, attempts, nested Newman
+- `analysis/execution-ledger.json` — **the counting model**. Every runner unit with exactly one outcome, attempts, nested Newman
   assertions and source-level errors. Totals come from here and are never
   recomputed from raw reports.
 - `analysis/failure-analysis.json` — the pre-classifier's v2 **draft**
@@ -121,7 +120,7 @@ For Newman/API failures (Phase 1.5+), additional rules of thumb:
 - `post-response test script threw but response was 2xx and matches
 the AC` → `test_bug`.
 
-## Evidence order (task group 3.3)
+## Evidence order
 
 Read what the error says actually FAILED — the operation on its first line
 and its `Expected:` / `Received:` lines — never keywords anywhere in the
@@ -324,16 +323,13 @@ classification later, re-run this skill, not the Reporter.
 
 ## References
 
-- `schemas/failure-analysis.schema.json` — the binding schema (created
-  in Phase 1 TG7).
-- `docs/healer-guardrails.md` — Green/Yellow/Red definitions (created
-  in Phase 1 TG6).
-- `docs/review-gates.md` — Gate 4 precondition (created in Phase 1 TG6).
+- `schemas/failure-analysis.schema.json` — the binding schema.
+- `docs/healer-guardrails.md` — Green/Yellow/Red definitions.
+- `docs/review-gates.md` — Gate 4 precondition.
 - `docs/traceability.md` — full chain; this skill creates the FAIL
-  layer and seeds the BUG layer (created in Phase 1 TG6).
+  layer and seeds the BUG layer.
 - `docs/bug-draft-format.md` — bug draft template parsed by Phase 2
-  (created in Phase 2 TG5; the format is stable from Phase 1).
+  (the format is stable).
 - `agents/failure-classifier.md` — the agent prompt that calls this
-  skill (created in Phase 1 TG10).
-- `agents/reporter.md` — the downstream consumer (created in
-  Phase 1 TG10).
+  skill.
+- `agents/reporter.md` — the downstream consumer.

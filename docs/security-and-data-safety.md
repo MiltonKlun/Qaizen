@@ -1,6 +1,6 @@
 # Security & Data Safety
 
-> **Status:** Phase 3 (TG9). This document is the single reference for the
+> **Status:** Phase 3. This document is the single reference for the
 > pipeline's data-safety posture: what data may enter an LLM prompt, how test
 > data is sourced, how traces and screenshots are kept clean of sensitive
 > values, and the result of the credential-logging audit. For credential
@@ -136,7 +136,7 @@ also a data-safety rule — what is never inlined cannot leak through a prompt.
 - Never paste a full report, a trace, a large log, or a database dump into a
   prompt. If a failure excerpt is needed, include the **minimal** relevant lines
   — and confirm they carry no secret or production value first.
-- Phase 3 TG7 (token-efficient context handling) formalizes the per-agent
+- Token-efficient context handling formalizes the per-agent
   "loads only these files" declaration; the data-safety motivation is here.
 
 ### The project permission policy (`.claude/settings.json`)
@@ -176,7 +176,7 @@ making any content trustworthy. Personal preferences belong in
 
 ---
 
-## 6. Credential-logging audit (Phase 3 TG9)
+## 6. Credential-logging audit
 
 Audited every `agents/*.md` and every `scripts/*.js` for credential exposure.
 Method: searched for credential identifiers (`*_TOKEN`, `*_API_KEY`,

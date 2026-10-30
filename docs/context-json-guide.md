@@ -37,7 +37,7 @@ Phase 3 is required to consume `evidence_paths` from
 that token-efficient pattern starts here, with `context.json` as a
 manifest.
 
-See §5.1 (Token-efficient context handling, Phase 3 TG7) for the per-agent
+See §5.1 (Token-efficient context handling) for the per-agent
 "loads only" discipline and the no-raw-artifacts-in-prompts rules, and
 `docs/security-and-data-safety.md` §5 for the data-safety motivation.
 
@@ -200,7 +200,7 @@ A unique-per-run identifier. Phase 1 uses an ISO-8601-ish timestamp
 plus a short hash: `2026-05-28T14-32-01Z-a1b2c3d`. The exact format
 is not strict; what matters is uniqueness.
 
-Since task group 4.1, `npm run pipeline -- --story ...` stages each new
+`npm run pipeline -- --story ...` stages each new
 run with a unique id (recorded in `.qaizen/transition.json` and printed in
 the Analyst instruction). The Analyst writes **that** id into
 `context.json`, and the runner refuses a context whose `run_id` does not
@@ -272,7 +272,7 @@ This is the **manifest** part. Each key points at a file the
 downstream agent will produce; the value is the **relative path** to
 that file. Empty string when not yet produced.
 
-> **`execution_ledger` (optional, added in task group 2.2a).** Points at
+> **`execution_ledger` (optional).** Points at
 > `analysis/execution-ledger.json`, the canonical cross-runner counting model
 > (`schemas/execution-ledger.schema.json`). It is **additive and not required**:
 > every context written before 2.2a stays valid, and nothing writes the ledger
@@ -324,7 +324,7 @@ Phase 1 form:
 }
 ```
 
-Phase 2 (TG6) extended form, backward-compatible via `oneOf`:
+Phase 2 extended form, backward-compatible via `oneOf`:
 
 ```json
 "review_gates": {
@@ -401,7 +401,7 @@ safe failure mode is the default. A `lite` story carries
 See `examples/expected/lite-track.expected-context.json` for a complete lite
 run (consolidated `qa_scope_approved`, the floor at lite).
 
-### `prompt_versions` (required from Analyst v1.3.0 — Phase 4, T4.1)
+### `prompt_versions` (required from Analyst v1.3.0)
 
 A `{ "<agent-name>": "<semver>" }` map pinning the run to the exact agent
 prompt revisions that produced it. Keys are agent `name:` values, values are
@@ -452,11 +452,11 @@ When a downstream agent needs one of these, it reads
 `context.artifact_paths.<key>` and opens the file. The Reporter, in
 particular, must not paste raw report content into LLM prompts — it
 references `evidence_paths` from `failure-analysis.json` instead.
-This is the token-efficient pattern formalized in Phase 3 TG7.
+This is the token-efficient pattern.
 
 ---
 
-## 5.1 Token-efficient context handling (Phase 3 TG7)
+## 5.1 Token-efficient context handling
 
 `context.json` is the manifest, not the payload. The point of a manifest is
 that an agent loads **only the files its step needs**, by path — not the whole
@@ -506,10 +506,10 @@ node scripts/validate-json.js schemas/context.schema.json context.json
 
 A failed validation must be fixed before the next agent runs. The
 generic validator is the only schema validator — there are no
-per-schema scripts, by deliberate design (Phase 1 TG8).
+per-schema scripts, by deliberate design.
 
 `npm run validate:context` is a convenience for the same command (from
-`package.json` in Phase 1 TG2).
+`package.json`).
 
 ---
 

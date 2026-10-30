@@ -1,5 +1,4 @@
-// ---- Bench Shop behavior, shared by every served version (task group
-// 9.2). What differs between versions (hook names, two class names, the
+// ---- Bench Shop behavior, shared by every served version. What differs between versions (hook names, two class names, the
 // overview markup) lives in versions.js; everything here is identical
 // across versions, so a bug added here reaches all of them.
 const VERSION = window.__BENCH__.version;

@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint';
 
 // Globals are declared here, not pulled from a package: the runtime code is
 // plain Node ESM (scripts, tests, example servers, benchmark probes), and the
-// two example apps run in a browser (task group 10.1).
+// two example apps run in a browser.
 const readonly = (names) =>
   Object.fromEntries(names.map((name) => [name, 'readonly']));
 const NODE_GLOBALS = readonly([

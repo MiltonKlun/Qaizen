@@ -1,6 +1,6 @@
 # Standalone: the test designer (Automation Decision Model)
 
-> One à-la-carte piece (IMPROVEMENT-PLAN Phase 7 / PFI-6). Unlike the other
+> One à-la-carte piece. Unlike the other
 > two, this one is **a prompt + a decision model, not a CLI script**. You adopt
 > it by pointing your AI at the agent prompt and the model — turning a story
 > into a prioritized, justified set of test cases, each with an explicit

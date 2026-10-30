@@ -1,6 +1,6 @@
 # When to use this pipeline (and when to just prompt an AI)
 
-> **Status:** IMPROVEMENT-PLAN Phase 7 (PFI-6). An honest fit guide. The whole
+> An honest fit guide. The whole
 > point of the project is to be worth its ceremony — which means being equally
 > clear about **when it isn't**. Misapplying it (forcing a throwaway script
 > through four gates) is how a useful tool becomes resented. This page tells

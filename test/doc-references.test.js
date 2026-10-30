@@ -1,5 +1,5 @@
-// The tracked docs, agent prompts and skills point only at things that exist
-// (task group 10.2): npm scripts, repository files, the options each script
+// The tracked docs, agent prompts and skills point only at things that exist:
+// npm scripts, repository files, the options each script
 // accepts, and no numbered README sections (the README has none). Archived
 // runs under runs/ are history and are not checked.
 import { test } from 'node:test';

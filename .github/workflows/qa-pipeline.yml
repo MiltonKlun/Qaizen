@@ -1,8 +1,8 @@
 name: QA Pipeline
 
-# Phase 2 TG8. CI for the AI-QA pipeline repo.
+# CI for the AI-QA pipeline repo.
 #
-# Job blocking model (the plan's "no contradictions" rule):
+# Job blocking model (no job contradicts another):
 #   quality-checks  — REQUIRED / blocking. Fails the run if typecheck,
 #                     lint, format, any committed JSON artifact is invalid,
 #                     or the pipeline's own unit + smoke tests fail. This is
@@ -88,7 +88,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        # The supported floor and the current LTS (task group 10.1),
+        # The supported floor and the current LTS,
         # verified against nodejs.org/dist/index.json and the Node release
         # schedule on 2026-09-30.
         node: ['22.13.0', '24.21.0']
@@ -100,7 +100,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       # The healer and selector-survival acceptance tests drive a real
-      # browser; without one they skip (task group 11.1).
+      # browser; without one they skip.
       - name: Install Chromium for the browser-backed tests
         run: npx playwright install --with-deps chromium
       - name: Pipeline tests (all discovered test/*.test.js)
@@ -158,7 +158,7 @@ jobs:
             echo "agents_changed=false" >> "$GITHUB_OUTPUT"
             echo "No agents/ changes in this PR; fixture validation not run."
           fi
-      # The validator checks schemas with AJV (task group 8.1), so it needs the
+      # The validator checks schemas with AJV, so it needs the
       # project's dependencies.
       - name: Install dependencies
         if: steps.detect.outputs.agents_changed == 'true'
@@ -170,7 +170,7 @@ jobs:
   gate4-scan:
     name: Gate-4 static scan (informational)
     runs-on: ubuntu-24.04
-    # Only on PRs that touch tests/. IMPROVEMENT-PLAN Phase 6 / PFI-5: run the
+    # Only on PRs that touch tests/. Run the
     # pre-Gate-4 mechanical scanner over the changed test files and post a
     # findings summary so the human reviewer opens Gate 4 with the mechanical
     # checks pre-answered. INFORMATIONAL (continue-on-error) — it NEVER blocks
@@ -250,8 +250,8 @@ jobs:
       - name: Run Playwright tests
         run: npm test
       # The benchmark tooling check needs a browser, which this job has: the
-      # Bench Shop v1 -> v2 survival probes must match the README drift table
-      # (task group 9.2). Runs even when the suite above is red.
+      # Bench Shop v1 -> v2 survival probes must match the README drift table.
+      # Runs even when the suite above is red.
       - name: Check the benchmark tooling (selector-survival probes)
         if: always()
         run: npm run benchmark:check
@@ -296,7 +296,7 @@ jobs:
         env:
           # One execution id for the whole job, passed explicitly so every
           # collection's reports land in ONE execution directory and a later
-          # run can never be read as this one (task group 3.2, finding I4).
+          # run can never be read as this one.
           QAIZEN_EXECUTION_ID: repo-ci-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set +e

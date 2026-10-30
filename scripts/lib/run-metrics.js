@@ -1,6 +1,5 @@
 // @ts-check
-// Metric identities and evidence rules for scripts/pipeline-metrics.js (task
-// group 8.3).
+// Metric identities and evidence rules for scripts/pipeline-metrics.js.
 //
 // Two faults this fixes:
 //

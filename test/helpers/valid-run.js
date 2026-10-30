@@ -1,12 +1,12 @@
-// A genuinely COMPLETED run, for tests that need one (task groups 4.1-4.2).
+// A genuinely COMPLETED run, for tests that need one.
 //
 // "Completed" is no longer a label: the runner accepts a run as done only when
 // every artifact exists, validates against its schema, and belongs to the run
 // (same story id and run id), the execution report is newer than the code it
 // ran, the failure analysis is finalized with a bug draft per Red failure, and
-// the release report is valid. The first 4.1 fixtures used `{}` files with
-// `status: "completed"` -- which is exactly the false completion 4.2 removes
-// (finding I6). This builds the real thing from the repo's gold examples.
+// the release report is valid. Fixtures once used `{}` files with
+// `status: "completed"` -- which is exactly the false completion the runner now refuses.
+// This builds the real thing from the repo's gold examples.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -115,7 +115,7 @@ export function writeCompletedRun(dir, opts = {}, overrides = {}) {
     'analysis/failure-analysis.json': JSON.stringify(analysis),
     'release/release-report.json': JSON.stringify({
       // A 2.0 report: the analysis is 2.x, and its execution_summary is the
-      // one derived from this same ledger (task group 2.2b). Its failures
+      // one derived from this same ledger. Its failures
       // are this run's: the analysis has none, so nothing blocks and no bug
       // draft is listed (the release rules, scripts/lib/report-checks.js).
       ...own(gold('examples/expected/mixed-run.expected-release-report.json')),
@@ -135,7 +135,7 @@ export function writeCompletedRun(dir, opts = {}, overrides = {}) {
   for (const [p, c] of Object.entries(files)) {
     if (c !== null) write(p, typeof c === 'string' ? c : JSON.stringify(c));
   }
-  // Every approved gate is BOUND to what now exists (task group 4.3), exactly
+  // Every approved gate is BOUND to what now exists, exactly
   // as the runner records it at a human decision. An unbound approval is a
   // legacy one the runner returns to pending. Computed after the overrides are
   // written, so an approved run reflects its final inputs; a test that wants
@@ -178,8 +178,8 @@ export function validTestCases(storyId, runId) {
   const tc = scopeCases(storyId, runId);
   return {
     ...tc,
-    // E2E only: an approved manual/skip case would open the external branch
-    // (task group 7.2), whose reviews a plain completed E2E run never had.
+    // E2E only: an approved manual/skip case would open the external branch,
+    // whose reviews a plain completed E2E run never had.
     test_cases: tc.test_cases.filter(
       (c) => c.automation_decision === 'automate_e2e'
     ),
@@ -188,7 +188,7 @@ export function validTestCases(storyId, runId) {
 
 /**
  * Three approved gold cases (TC-001, TC-002, TC-004) for tests that set each
- * case's automation decision and status themselves (task groups 7.1, 7.2).
+ * case's automation decision and status themselves.
  */
 export function scopeCases(storyId, runId) {
   const tc = gold('examples/expected/login-success.expected-test-cases.json');

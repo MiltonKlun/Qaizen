@@ -4,8 +4,8 @@ description: |
   Manage phase. The TestLink adapter behind the TestManagementAdapter
   port (agents/test-management-adapter.md). Syncs the approved test
   cases from test-cases/[story-id].json into TestLink (suites + cases +
-  plan assignment), writes the TestLink id back as testlink_id, and —
-  in Phase 2 TG10 — reports execution results against the test plan.
+  plan assignment), writes the TestLink id back as testlink_id, and
+  reports execution results against the test plan.
   Source of truth is test-cases/*.json; TestLink is a downstream target.
 disable-model-invocation: true
 adapted_from: dogkeeper886/agent-workflows @ v3.0 (989343d; the repository was formerly dogkeeper886/ai-qa-workflow)
@@ -38,7 +38,7 @@ tools:
 `pushTestCases`, `pushExecutionResults`.
 **Owned by:** the Test Designer Agent invokes the `pushTestCases` path
 after Gate 2; the Reporter Agent invokes the `pushExecutionResults`
-path after the run (Phase 2 TG10).
+path after the run.
 **Source of truth:** `test-cases/[story-id].json`. TestLink is a
 downstream sync target — never authoritative.
 
@@ -67,7 +67,7 @@ If a precondition fails, stop and report. Do not partial-sync.
 ## verifyConnection — Step 0 (always first, read-only)
 
 Use `testlink-mcp:list_projects`. Confirm the target project
-(`TESTLINK_PROJECT_KEY`, e.g. `AIQA`) is present. This is the TG3
+(`TESTLINK_PROJECT_KEY`, e.g. `AIQA`) is present. This is the
 connection test and is safe to run any time. Report which project +
 plan you're pointed at so the human can confirm it's the right target.
 
@@ -169,7 +169,7 @@ finished with `--reconcile`, never by creating again
 
 ---
 
-## pushExecutionResults — report results (Phase 2 TG10)
+## pushExecutionResults — report results
 
 After a run completes (through Gate 4) and the Reporter has produced
 `release/release-report.json` + `analysis/failure-analysis.json`. A schema
@@ -193,7 +193,7 @@ as the result.
   `TESTLINK_TEST_PLAN_ID`.
 - Default dry-run; real write requires `--apply-testlink-execution`.
 
-This path is wired by `agents/reporter.md` in TG10; the mapping and the
+This path is wired by `agents/reporter.md`; the mapping and the
 flag are defined here for completeness.
 
 ---
@@ -238,11 +238,10 @@ flag are defined here for completeness.
   setup.
 - `config/testlink-field-map.json` — the field mapping (this skill never
   hardcodes it).
-- `config/testlink-status-map.json` — the execution-status mapping
-  (TG10).
+- `config/testlink-status-map.json` — the execution-status mapping.
 - `scripts/sync-to-testlink.js` — the CI-friendly equivalent.
 - `schemas/test-cases.schema.json` — defines `testlink_id`, the
   write-back field.
 - `docs/review-gates.md` — Gate 2 / Gate 4 preconditions.
-- `agents/test-designer.md` (TG10) — invokes `pushTestCases`.
-- `agents/reporter.md` (TG10) — invokes `pushExecutionResults`.
+- `agents/test-designer.md` — invokes `pushTestCases`.
+- `agents/reporter.md` — invokes `pushExecutionResults`.

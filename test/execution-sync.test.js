@@ -1,11 +1,11 @@
-// Evidence-supported TestLink execution results (task group 5.3, finding I1).
+// Evidence-supported TestLink execution results.
 //
 // The real sync script runs in a throwaway workspace against a fake TestLink.
 // Every ledger here is assembled by the real buildLedger and checked by the
 // real readLedger, so no fixture can hold evidence the pipeline could not
 // produce. No real service is contacted.
 //
-// Acceptance (IMPLEMENTATION_PLAN 5.3): a Pass always has complete positive
+// Acceptance: a Pass always has complete positive
 // execution evidence; array order cannot change the result; source artifacts
 // remain unchanged by result reporting.
 
@@ -79,7 +79,7 @@ function workspace() {
     join(dir, 'test-cases', `${STORY}.json`),
     JSON.stringify(doc, null, 2)
   );
-  // The manual and skip cases have their own reviewed plan (task group 7.2);
+  // The manual and skip cases have their own reviewed plan;
   // TC-004's result was never recorded, so it stays Not Run.
   mkdirSync(join(dir, 'planner-input'));
   writeFileSync(

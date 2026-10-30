@@ -3,8 +3,8 @@ node_modules/
 .env.local
 *.local
 reports/
-# Newman outputs (already covered by reports/ above; listed explicitly per
-# Phase 1.5 TG2 — results go to CI artifacts, never versioned).
+# Newman outputs (already covered by reports/ above; listed explicitly:
+# results go to CI artifacts, never versioned).
 reports/newman-html/
 reports/newman-results.json
 traces/
@@ -65,12 +65,12 @@ runs/DEMO-1/
 # scripts/run-healer.js, never versioned.
 .healer-candidates/
 
-# Healer isolated workspace (Phase 3 TG2). The Healer validates candidate
+# Healer isolated workspace. The Healer validates candidate
 # patches in a throwaway copy; the reviewable output is release/healer-patches/
 # + analysis/healer-validation/, which ARE versioned. The workspace is not.
 .healer-workspace/
 
-# Phase 3 TG6 metrics outputs are regenerable from runs/ — keep the dir
+# Metrics outputs are regenerable from runs/ — keep the dir
 # (metrics/.gitkeep), not the generated files.
 metrics/pipeline-metrics.json
 metrics/pipeline-metrics.md
@@ -94,5 +94,5 @@ scratchpad/
 /story.md
 
 # Transient runner state: the new-story transition record and its staging
-# directory (scripts/lib/run-lifecycle.js, task group 4.1). Local only.
+# directory (scripts/lib/run-lifecycle.js). Local only.
 .qaizen/

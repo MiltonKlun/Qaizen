@@ -1,4 +1,4 @@
-// Regression tests for the execution ledger (task group 2.2a).
+// Regression tests for the execution ledger.
 //
 // The ledger exists because raw runner reports cannot be trusted as a counting
 // model: they disagree about what a "test" is, they drop timed-out results

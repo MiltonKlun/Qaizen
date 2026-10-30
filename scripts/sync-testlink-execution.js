@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // @ts-check
-// TestLink execution-result sync (Phase 2 TG10, rebuilt in task group 5.3).
+// TestLink execution-result sync.
 // For each approved test case already in TestLink, derive ONE outcome from the
 // current run's execution ledger and report it against the TestLink test plan
 // (tl.reportTCResult). Dry-run by default; --apply-testlink-execution writes.
 //
-// Evidence, not absence (review finding I1). A case is reported:
+// Evidence, not absence. A case is reported:
 //   Pass    only when every unit linked to it in the ledger explicitly passed;
 //   Fail    only for a failure the FINALIZED failure analysis confirms as a
 //           product bug on one of its units;
@@ -15,7 +15,7 @@
 //   Not Run when it is intentionally skipped, or nothing ran (or was recorded)
 //           for it.
 // Manual and component cases follow the same precedence over their imported
-// external results (task group 7.2); a skip is Not Run, never Pass.
+// external results; a skip is Not Run, never Pass.
 // The rules live in scripts/lib/execution-ledger.js (testCaseOutcome). The
 // outcome -> TestLink status mapping lives in config/testlink-status-map.json.
 //
@@ -229,9 +229,9 @@ async function main() {
     return 1;
   }
   // The final review of every branch whose results are reported: Gate 4 for
-  // E2E, the external plan and evidence reviews for manual/component/skip
-  // (task group 7.2). An approval counts only while it still matches what
-  // was reviewed (task group 4.3); one branch's never stands in for another's.
+  // E2E, the external plan and evidence reviews for manual/component/skip.
+  // An approval counts only while it still matches what
+  // was reviewed; one branch's never stands in for another's.
   const decisions = new Set(
     doc.test_cases
       .filter((/** @type {TestCase} */ tc) => tc.status === 'approved')
@@ -267,7 +267,7 @@ async function main() {
     const version = String(fa.data.schema_version ?? '');
     if (/^2\./.test(version)) {
       // A draft is the pre-classifier's first pass: publishing it would
-      // report a guess as the verdict (task group 3.3).
+      // report a guess as the verdict.
       if (fa.data.status !== 'finalized') {
         console.error(
           `${ANALYSIS_PATH} is a ${fa.data.status || 'status-less'} ${version} analysis; refusing to sync ` +

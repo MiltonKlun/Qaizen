@@ -13,8 +13,6 @@
 
 ## 0. One-time setup (do this once, before story 1)
 
-These are the TG13 blockers that aren't done yet. Knock them out first.
-
 ### 0.1 Git: first commit + remote
 
 The repo has **no commits and no remote yet**. CI can't run until code is

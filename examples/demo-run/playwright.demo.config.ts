@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 /**
- * Demo-only Playwright config (examples/demo-run/, IMPROVEMENT-PLAN Phase 3).
+ * Demo-only Playwright config (examples/demo-run/).
  *
  * The demo driver references this config IN PLACE (it is never copied into the
  * root). `testDir` is pinned to this file's own ./tests, so the demo specs

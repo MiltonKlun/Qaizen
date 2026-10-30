@@ -10,9 +10,11 @@ description: |
   to another tool's adapter (Open/Closed Principle).
 phase_introduced: 2
 phase_active: 2+
-version: 1.4.1
+version: 1.4.2
 changed_in_run: null
 changelog: |
+  - 1.4.2: PATCH (no output change). Pointers to unpublished planning notes are
+    removed from the prompt text; the instructions are unchanged.
   - 1.4.1: PATCH (task group 10.2). Selection is described as it works: there is no
     dispatcher script; each adapter checks TEST_MANAGEMENT_TOOL itself.
     TestLink syncs over XML-RPC (D7). No behavior change.
@@ -105,7 +107,7 @@ each adapter realizes them via its tool's MCP or REST API.
 - Confirms the tool is reachable and the credentials work.
 - Returns the configured project (and plan, if the tool has one) so the
   human can confirm they're pointing at the right place.
-- Read-only. Safe to run any time. This is the TG3 "test connection"
+- Read-only. Safe to run any time. This is the "test connection"
   check.
 
 ### `pushTestCases(approvedCases) -> [{ test_case_id, external_id }]`
@@ -146,7 +148,7 @@ each adapter realizes them via its tool's MCP or REST API.
   analysis says so; a `draft` analysis is refused, never pushed. The
   absence of a failure is never a pass.
 - Maps each outcome to the tool's status vocabulary via the adapter's
-  status map (e.g. `config/testlink-status-map.json` in Phase 2 TG10).
+  status map (e.g. `config/testlink-status-map.json`).
 - Only acts on cases that have an `external_id` (i.e. were pushed
   first).
 
@@ -235,7 +237,7 @@ suit the project.
 
 ## 6. References
 
-- `skills/syncing-testlink/SKILL.md` — the first adapter (Phase 2 TG4).
+- `skills/syncing-testlink/SKILL.md` — the first adapter.
 - `docs/testlink-integration.md` — TestLink specifics: MCP config, field
   map, setup.
 - `docs/secrets-management.md` — credential handling for all adapters.

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// test-cases migration: testlink_id -> external_ids.testlink (Phase 2.6
-// TG2.6-3). The schema now has a generic external_ids { tool: id } object;
+// test-cases migration: testlink_id -> external_ids.testlink. The schema now has a generic external_ids { tool: id } object;
 // the legacy testlink_id field stays valid. This OPTIONAL migration copies an
 // existing testlink_id into external_ids.testlink so all linkages live in one
 // place going forward. It is NON-DESTRUCTIVE (keeps testlink_id too) and

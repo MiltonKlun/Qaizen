@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Newman runner for the API branch (Phase 1.5+; report layout from task
-// group 3.2).
+// Newman runner for the API branch (Phase 1.5+).
 //
 // Reports go to a PER-EXECUTION path:
 //
@@ -10,7 +9,7 @@
 // The previous constant path (reports/newman-results.json) was independent of
 // story, collection and run, so CI's per-collection loop destroyed every
 // collection's raw evidence but the last, and a stale file from an unrelated
-// story read as current evidence (finding I4).
+// story read as current evidence.
 //
 // Newman is invoked through its Node API rather than `spawnSync('npx', ...,
 // {shell: true})`: secrets are passed as values, never interpolated into a
@@ -98,7 +97,7 @@ if (!storyCheck.ok) {
   exit(2);
 }
 
-// Two kinds of execution (task group 7.1):
+// Two kinds of execution:
 //
 // * Live-run evidence: the story is the active run's story. Its API
 //   approvals (Gate 3' collection_reviewed, Gate 4' api_assertions_reviewed)
@@ -279,7 +278,7 @@ newman.run(runOptions, (err, summary) => {
     exit(1);
   }
 
-  // ---- publication (task group 1.1, I3) ---------------------------------
+  // ---- publication -------------------------------------------------------
   // Published summaries are grouped per execution too, so a CI upload cannot
   // pick up an unrelated run's file.
   const published = publishedPaths(executionId, storyId, collectionId);

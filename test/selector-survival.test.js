@@ -1,5 +1,4 @@
-// Selector survival: real locator semantics, not rebuilt text (task group
-// 9.1, review finding I7).
+// Selector survival: real locator semantics, not rebuilt text.
 //
 // Synthetic app versions are served in-process; the CLI runs real probe
 // functions in Chromium against them. Source inspection is tested on parsed

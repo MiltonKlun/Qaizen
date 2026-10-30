@@ -11,16 +11,16 @@ Confluence; Jira writes go through deterministic scripts that a human runs with
 
 | Server            | Purpose                                                                                    | Phase introduced |
 | ----------------- | ------------------------------------------------------------------------------------------ | ---------------- |
-| `playwright-test` | Playwright Native Agents (planner/generator/healer) drive a real browser through this MCP. | 1 (TG3)          |
-| `atlassian`       | `sooperset/mcp-atlassian` — Jira + Confluence access. **Read-only.**                       | 1 (TG4)          |
+| `playwright-test` | Playwright Native Agents (planner/generator/healer) drive a real browser through this MCP. | 1                |
+| `atlassian`       | `sooperset/mcp-atlassian` — Jira + Confluence access. **Read-only.**                       | 1                |
 | `postman`         | `@postman/postman-mcp-server` — collections for the API branch.                            | 1.5              |
-| `github`          | `github/github-mcp-server` — a linked PR's diff as secondary context.                      | 3 (TG15)         |
+| `github`          | `github/github-mcp-server` — a linked PR's diff as secondary context.                      | 3                |
 
 ---
 
 ## `playwright-test`
 
-Created by `npx playwright init-agents --loop=claude` (Phase 1, TG3). It runs
+Created by `npx playwright init-agents --loop=claude`. It runs
 `npx playwright run-test-mcp-server`, the test-runner-aware MCP that the
 Native Agents call via `mcp__playwright-test__*` tools.
 
@@ -202,7 +202,7 @@ flag, stop and ask — the same "stop before guessing" rule as everywhere else.
 
 ---
 
-## `github` — read-only PR/diff access (Phase 3 TG15)
+## `github` — read-only PR/diff access
 
 Phase 3 adds a **read-only** GitHub MCP so the Analyst (Mode B) can fetch a
 linked PR's diff as **secondary context** for risk/regression prioritization.
@@ -309,7 +309,7 @@ is changed in `.mcp.json` and copied, never edited in one place only. See
 ## Future state
 
 Phase 1.5 — adds the Postman MCP for the API branch. Documented in
-`docs/postman-integration.md` (created in P1.5 TG1).
+`docs/postman-integration.md`.
 
 Phase 2 — added a writes-enabled `atlassian-write` entry, since removed
 (see "Jira writes" above). It was **intended** to also add a `testlink` MCP, but that bridge
@@ -322,6 +322,6 @@ in `docs/sync-recovery.md` §7). See `docs/testlink-integration.md` and
 `playwright-test`, `atlassian` (read-only), `postman` and `github` — **no
 `testlink`** and no write-enabled Atlassian entry.
 
-Phase 3 — adds the read-only `github` MCP (TG15, above) for code-change
+Phase 3 — adds the read-only `github` MCP (above) for code-change
 awareness. Otherwise hardening, prompt versioning, and metrics are
 application-level.

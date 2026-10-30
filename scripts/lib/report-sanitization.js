@@ -1,5 +1,5 @@
 // @ts-check
-// Report sanitization for publication (IMPLEMENTATION_PLAN task group 1.1, I3).
+// Report sanitization for publication.
 //
 // WHY: Newman records the LIVE request into its JSON/HTML reports — including
 // the `x-api-key` header that scripts/run-newman.js injects at run time, and

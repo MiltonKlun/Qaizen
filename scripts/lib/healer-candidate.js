@@ -1,5 +1,5 @@
 // @ts-check
-// Candidate processing for the Healer (task group 6.3, review finding S3).
+// Candidate processing for the Healer.
 //
 // The Healer does not write fixes; a person or an agent proposes a candidate
 // file. This module is the explicit boundary that processes it:

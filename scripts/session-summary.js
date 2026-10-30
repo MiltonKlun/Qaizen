@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-check
 // session-summary — capture a short "what rubbed today" note after a run
-// (Phase 3 TG10, optional helper). These notes are the highest-signal source
+// (optional helper). These notes are the highest-signal source
 // /evolve reads, because they are friction in the human's own words. Stored as
 // session-summaries/[date].md: local maintainer notes, gitignored.
 //

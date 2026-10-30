@@ -10,9 +10,11 @@ description: |
   does not own that path.
 phase_introduced: 1
 phase_active: 1+
-version: 2.3.1
+version: 2.3.2
 changed_in_run: null
 changelog: |
+  - 2.3.2: PATCH (no output change). Pointers to unpublished planning notes are
+    removed from the prompt text; the instructions are unchanged.
   - 2.3.1: PATCH (task group 10.2). The Inputs section lists what the instructions already
     use: the pre-classifier's draft and the execution ledger; raw reports are
     evidence to read, not a source of counts. No behavior change.
@@ -122,7 +124,7 @@ This agent does NOT:
   originating `TC-XXX` (or `API-XXX` for Phase 1.5+).
 - _(Phase 1.5+)_ `api-tests/collections/[story-id].postman_collection.json`
   — to map Newman requests back to `REQ-XXX` and `COL-XXX`.
-- _(Task group 7.2)_ `external-evidence/[story-id].results.json` — the
+- `external-evidence/[story-id].results.json` — the
   manual/component results the operator recorded, with evidence paths. Each
   is one ledger unit (`identity.kind: "external"`) linked to its `TC-XXX`.
 
@@ -189,7 +191,7 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
    evidence reviews for manual/component/skip scope. If any is not passed,
    stop. The approval must also be **current**: `npm run pipeline -- --status` must
    not report it as a stale approval. An approval is bound to a digest of
-   what it reviewed (task group 4.3); once those inputs change it no longer
+   what it reviewed; once those inputs change it no longer
    counts, even though `status` may still read `true` until the next
    `--resume` returns it to pending.
    (`scripts/run-failure-classifier.js` enforces this itself.)
@@ -221,8 +223,7 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
    - Set `playwright_test_id` (`PW-XXX`) or `request_id` (`REQ-XXX`) only
      when metadata proves it. Otherwise leave it `null` with
      `id_unresolved_reason`, and keep `runner_identity` so the failure
-     stays traceable. **Never mint an id from the order failures appear**
-     (finding B6).
+     stays traceable. **Never mint an id from the order failures appear**.
    - **Classify.** Use the closed taxonomy in
      `schemas/failure-analysis.schema.json`. See the signals table
      in `skills/analyzing-logs/SKILL.md` and the worked examples in
@@ -240,7 +241,7 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
      5. anything else -> Yellow / `unknown_needs_human_review`.
         A message containing "locator", "getBy" or "timeout" is **not**
         evidence of Green: `expect(locator).toHaveText('$100.00')` against
-        `$1.00` is Red (finding B1). A missing element during an assertion is
+        `$1.00` is Red. A missing element during an assertion is
         ambiguous. When signals contradict each other or are insufficient,
         default to Yellow -- never guess Green or Red.
    - Confirm or correct the recorded `classification_reason`; a reviewer

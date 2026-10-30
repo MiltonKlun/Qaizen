@@ -1,5 +1,5 @@
 // docs/acceptance-matrix.md names the regression tests behind each
-// acceptance scenario (task group 11.1). Every name must be a test the suite
+// acceptance scenario. Every name must be a test the suite
 // actually declares, in a file `npm run test:pipeline` discovers, so the
 // matrix cannot point at a renamed or deleted test.
 import { test } from 'node:test';

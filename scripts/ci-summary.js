@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// CI summary (Phase 2 TG8; execution scoping + honest zero from task group
-// 3.2). Reads, in order of preference:
+// CI summary. Reads, in order of preference:
 //
 //   1. a normalized execution ledger (analysis/execution-ledger.json), which
 //      already separates flaky/blocked/expected_failure from passes;
@@ -13,9 +12,9 @@
 // summary to stdout AND to $GITHUB_STEP_SUMMARY when that env var points at a
 // file (it does inside GitHub Actions).
 //
-// Two things this must never do (task group 3.2):
+// Two things this must never do:
 //   * count a report from an unrelated execution as current evidence, which
-//     the old flat reports/published/ glob did (finding I4);
+//     the old flat reports/published/ glob did;
 //   * report zero verified units as success. A published summary of all zeros
 //     used to render as ":white_check_mark: No test failures".
 //
@@ -23,7 +22,7 @@
 // Failure Classifier Agent's classified, severity-bearing output. This is
 // a mechanical pass/fail tally for the PR surface; it makes no judgment.
 //
-// Blocking semantics (TG8): by default this script exits 0 even when tests
+// Blocking semantics: by default this script exits 0 even when tests
 // failed — the per-job pass/fail in the workflow decides blocking. The
 // Playwright/Newman jobs are informational (continue-on-error) until the
 // suite is stable, so a red test must not fail the summary step and block
@@ -46,8 +45,7 @@ const FAIL_ON_TEST_FAILURE = argv.includes('--fail-on-test-failure');
 
 const PW_PATH = 'reports/results.json';
 const LEDGER_PATH = env.QAIZEN_LEDGER || 'analysis/execution-ledger.json';
-// Sanitized Newman summaries live under ONE execution directory (task group
-// 3.2). CI uploads only this subtree; the raw reporter output is
+// Sanitized Newman summaries live under ONE execution directory. CI uploads only this subtree; the raw reporter output is
 // secret-bearing and stays on the runner.
 const REPORTS_ROOT = 'reports';
 // Legacy flat locations. Kept as EXPLICIT compatibility reads for local runs

@@ -1,6 +1,6 @@
 # Standalone: the failure classifier
 
-> One à-la-carte piece of the pipeline (IMPROVEMENT-PLAN Phase 7 / PFI-6).
+> One à-la-carte piece of the pipeline.
 > Adopt this without buying the whole flow. It turns a Playwright (and
 > optional Newman) result file into a **classified** failure analysis — each
 > failure tagged with a cause and a Green/Yellow/Red severity — so triage

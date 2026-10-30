@@ -1,4 +1,4 @@
-// Regression tests for shared artifact I/O (task group 2.1, review finding I6).
+// Regression tests for shared artifact I/O.
 //
 // The defect this guards: the runner validated context AFTER overwriting the
 // file, so a schema-invalid write destroyed the previous valid artifact — and

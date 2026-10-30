@@ -1,4 +1,4 @@
-// Unit tests for the pre-Gate-4 static scanner (IMPROVEMENT-PLAN IP-6.3).
+// Unit tests for the pre-Gate-4 static scanner.
 // Table-driven over crafted sources so each rule is exercised in isolation,
 // plus one real known-clean file. The scanner is INFORMATIONAL — these tests
 // assert it DETECTS the mechanical patterns, not that it judges or blocks.
@@ -137,7 +137,7 @@ test('reuses the guardrail weak-matcher definition (no drift)', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Task group 6.2: per-test traceability (finding S4)
+// Per-test traceability
 
 const header = "import { test, expect } from '@playwright/test';\n";
 

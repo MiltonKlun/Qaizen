@@ -203,8 +203,7 @@ pipeline's orchestration is human-driven). See `docs/review-gates.md`
 
 ### 4.2 Orchestration convenience — the thin gated runner (continuous improvement)
 
-`npm run pipeline` (`scripts/run-pipeline.js`, IMPROVEMENT-PLAN Phase 2 /
-PFI-2) is the single entry point that sequences the chain above. It is
+`npm run pipeline` (`scripts/run-pipeline.js`) is the single entry point that sequences the chain above. It is
 **thin by design** — a pure state machine (`scripts/pipeline-state.js`)
 deriving the next step from `context.json`, a one-screen gate-brief
 renderer (`scripts/gate-briefs.js`), and an interactive decision recorder:
@@ -231,7 +230,7 @@ It never commits, merges, or performs Jira/TestLink writes. Orchestration
 stays human-driven; the runner only removes the clerical "what do I run
 next" lookup. Full doc: `docs/pipeline-runner.md`.
 
-### 4.3 Track-aware ceremony — lite / standard / full (Phase 4, PFI-1)
+### 4.3 Track-aware ceremony — lite / standard / full
 
 `context.track` lets a story declare how much ceremony it needs, so a routine
 change isn't forced through the full machinery (`docs/context-json-guide.md`).
@@ -319,16 +318,16 @@ Steps 15–20 (shared)  Failure Classifier reads BOTH reports → one
 | Classification          | Failure Classifier (shared, reads both reports)   | Failure Classifier (shared)          |
 | Reporting               | Reporter (shared, grouped summary)                | Reporter (shared)                    |
 
-The Failure Classifier and Reporter are **extended, not duplicated**
-(Phase 1.5 TG5 + TG6). The schemas are **extended, not duplicated**
-(Phase 1.5 TG3). The Healer never touches the API branch in any phase
+The Failure Classifier and Reporter are **extended, not duplicated**.
+The schemas are **extended, not duplicated**.
+The Healer never touches the API branch in any phase
 (`docs/healer-guardrails.md`).
 
 ### Gate tracking for the API branch
 
 The API-branch gates are `context.json.review_gates.collection_reviewed`
 (Gate 3') and `api_assertions_reviewed` (Gate 4'), recorded by the runner
-like every other gate and bound to their own inputs (task group 7.1). The
+like every other gate and bound to their own inputs. The
 approved test cases decide which branches a run has: E2E-only, API-only, or
 both. Every applicable branch is fully reviewed before any suite runs; then
 the runner executes Playwright, then Newman, and classifies both. The
@@ -339,7 +338,7 @@ criteria and `docs/pipeline-runner.md` for the sequence.
 ### The external branch: manual, component and skip cases
 
 Approved `manual`, `automate_component` and `skip` cases are not executed
-by the pipeline (task group 7.2). The Test Designer writes an external plan
+by the pipeline. The Test Designer writes an external plan
 (`planner-input/[story-id].external-plan.json`), reviewed at
 `external_plan_reviewed` alongside the other plans and before any execution.
 After execution, the operator records results with
@@ -374,11 +373,11 @@ Phase 2 keeps the local flow intact and adds:
   issues — only when invoked with the `--apply` flag.
 - Review audit fields (`reviewer`, `reviewed_at`, `notes`) added to
   `context.json.review_gates` as a backward-compatible `oneOf`, plus the
-  optional `qa_scope_approved` consolidation gate (TG6 / TG7).
+  optional `qa_scope_approved` consolidation gate.
 - GitHub Actions runs quality checks (required, blocking) plus
   Playwright / Newman jobs (informational until the suite is stable).
 
-### 6.1 GitHub Actions CI (TG8)
+### 6.1 GitHub Actions CI
 
 The workflow is `.github/workflows/qa-pipeline.yml`. It triggers on PRs
 to `main` / `develop` and on manual dispatch. Its jobs:
@@ -484,7 +483,7 @@ Every folder has one writer. The binding table, with each artifact's readers,
 schema, sensitivity, archival and compatibility, is
 `docs/artifact-boundaries.md` (`CLAUDE.md` §3.2).
 
-### 8.1 Run history — the `runs/` layout (Phase 3 TG5)
+### 8.1 Run history — the `runs/` layout
 
 The repo **root** holds the artifacts of the **current run** —
 `context.json`, `test-cases/`, `specs/`, `tests/`, `analysis/`,
@@ -507,7 +506,7 @@ runs/latest.json                      # per-story pointer to the newest run
   `run-manifest.json` (run id, label, source `context.run_id`, status at
   archive, and a SHA-256 per archived file), and updates `runs/latest.json`.
   `--dry-run` previews.
-- It archives **only the run's own artifacts** (task group 4.1):
+- It archives **only the run's own artifacts**:
   `context.json`, `story.md`, the files its `artifact_paths` name, files
   named for the story, and the run-scoped singletons. Never the reusable
   seed test, fixtures or `.gitkeep` files, never another story's files. A
@@ -528,7 +527,7 @@ runs/latest.json                      # per-story pointer to the newest run
 This is the foundation for multi-run history and (later) metrics; it does
 not change any agent's behavior — agents still read/write the root.
 
-### 8.2 Metrics and monitoring (Phase 3 TG6)
+### 8.2 Metrics and monitoring
 
 `scripts/pipeline-metrics.js` (`npm run metrics`) walks the archived runs
 under `runs/` and writes `metrics/pipeline-metrics.{md,json}`. Recommended
@@ -549,7 +548,7 @@ rule).
 Every metric reports the sample it was computed over (`samples` in the JSON:
 runs with a release report, a failure analysis, risk coverage, healer
 evidence), and a metric with no sample is shown as unknown, never as zero or
-success (task group 8.3). The same run archived twice counts once. The healer
+success. The same run archived twice counts once. The healer
 rate counts only schema-valid `analysis/healer-validation/*.attempt-N.json`
 records, each unique submission once; Yellow suggestion notes, exhaustion
 notices and invalid records are listed apart, and older Markdown-only notes
@@ -563,7 +562,7 @@ are shown as unverified legacy evidence without being counted.
   Generator prompt needs work.
 - **Prompts are "stable"** when the relevant gate rejection rate is **< 10%
   over 10 consecutive runs**. Below that bar, treat the prompt as trusted; a
-  spike above it is the cue to revisit the prompt (and, in Phase 3 TG10, to
+  spike above it is the cue to revisit the prompt (and to
   run `/evolve`).
 
 Gate rejection counts are recorded per-run in the optional
@@ -573,8 +572,8 @@ events for the Gate 3 and Gate 4 equivalents of every branch (E2E, API,
 external) over the runs that have a log, and notes that `0` means
 "unrecorded", not "never happened".
 
-Prompt stability (`prompt_stability` in `metrics/pipeline-metrics.json`,
-task group 8.2) is judged per **identical prompt-version vector**, never
+Prompt stability (`prompt_stability` in `metrics/pipeline-metrics.json`)
+is judged per **identical prompt-version vector**, never
 across versions. An eligible run is a completed, non-demo run with a Gate 3/4
 decision record and a known `prompt_versions` entry for every agent that ran;
 every other run is excluded and counted with its reason. Each cohort takes its
@@ -603,7 +602,7 @@ When a schema changes, the **Architecture Stability Rule** applies
 examples and, if old artifacts must stay valid, a migration script all change
 in the same PR. Schemas are migrations, not edits.
 
-### 9.1 The rule, formalized in CI (Phase 2 TG12)
+### 9.1 The rule, formalized in CI
 
 The Architecture Stability Rule is also checked mechanically in CI by
 `scripts/check-contract-changes.js` (`npm run check:contracts`), run as the
@@ -637,10 +636,10 @@ companion file entirely — cheaply and early.
 
 | MCP server        | Provides                                                                                                  | Phase introduced |
 | ----------------- | --------------------------------------------------------------------------------------------------------- | ---------------- |
-| `playwright-test` | The browser + test-runner MCP that the Playwright Native Agents call via `mcp__playwright-test__*` tools. | 1 (TG3)          |
-| `atlassian`       | `sooperset/mcp-atlassian` — Jira + Confluence. **Read-only in every phase.**                              | 1 (TG4)          |
+| `playwright-test` | The browser + test-runner MCP that the Playwright Native Agents call via `mcp__playwright-test__*` tools. | 1                |
+| `atlassian`       | `sooperset/mcp-atlassian` — Jira + Confluence. **Read-only in every phase.**                              | 1                |
 | `postman`         | `@postman/postman-mcp-server` — collections + environments (minimal mode).                                | **1.5**          |
-| `github`          | `github/github-mcp-server` — a linked PR's diff, three read tools only.                                   | 3 (TG15)         |
+| `github`          | `github/github-mcp-server` — a linked PR's diff, three read tools only.                                   | 3                |
 
 There is no TestLink MCP server: its bridge never completed a handshake, so
 TestLink is reached through `scripts/sync-to-testlink.js` (XML-RPC) instead.

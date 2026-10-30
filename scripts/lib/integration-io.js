@@ -1,5 +1,5 @@
 // @ts-check
-// Recoverable external synchronization (task group 5.1, review finding I2).
+// Recoverable external synchronization.
 //
 // The Jira and TestLink adapters used to create every remote item, keep the
 // new ids in memory, and write them to disk only after the whole batch

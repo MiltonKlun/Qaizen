@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // @ts-check
-// List run history (Phase 3 TG11, multi-feature support). Walks runs/ and
+// List run history (multi-feature support). Walks runs/ and
 // prints one row per archived run: story_id, run_id, status, timestamp, label.
 // It is the read-only companion to scripts/new-run.js (which WRITES runs/) —
-// a "simple dashboard without a web UI", as the plan puts it.
+// a simple dashboard without a web UI.
 //
-// Multiple stories coexist in runs/<story-id>/<run-id>/ by construction (TG5),
+// Multiple stories coexist in runs/<story-id>/<run-id>/ by construction,
 // so this is also the proof that multi-feature support holds: many story IDs,
 // no artifact collision, traceability local to each run. This script never
 // writes anything.

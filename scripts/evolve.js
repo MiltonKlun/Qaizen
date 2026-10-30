@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// /evolve — self-improvement loop (Phase 3 TG10), adapted from the
+// /evolve — self-improvement loop, adapted from the
 // ai-qa-workflow /evolve concept. It READS signals about how the pipeline is
 // actually being used and PROPOSES grouped improvements. It never applies a
 // change — the human (or an agent, with human confirmation) decides. This is
@@ -9,7 +9,7 @@
 //
 // Sources (each optional — a missing source is skipped, never fatal):
 //   - Git commits + merges in a recent window (default 90 days).
-//   - metrics/pipeline-metrics.json (Phase 3 TG6), if present. Regenerate with
+//   - metrics/pipeline-metrics.json, if present. Regenerate with
 //     `npm run metrics` first to feed evolve fresh numbers.
 //   - session-summaries/*.md, if the team wrote any (scripts/session-summary.js).
 //   - GitHub issues: NOT fetched here. A plain Node script has no GitHub token
@@ -17,8 +17,8 @@
 //     are an agent-fed source, declared as a gap rather than silently ignored.
 //
 // Detection (confidence is deterministic, from occurrence counts / thresholds):
-//   - Friction points: a theme recurring 3+ times => high confidence (the plan's
-//     "3+ occurrences = high-confidence insight").
+//   - Friction points: a theme recurring 3+ times => high confidence
+//     ("3+ occurrences = high-confidence insight").
 //   - Workflow gaps: signals that a human repeatedly does something by hand.
 //   - Knowledge decay: docs referencing things the code no longer has, or
 //     metrics flags (e.g. untested high-risk items, prompt-stability not met).
@@ -108,13 +108,13 @@ sources.session_summaries = summaries.length;
 const findings = [];
 const add = (/** @type {Finding} */ f) => findings.push(f);
 
-// Confidence from occurrence count, per the plan's 3+ rule.
+// Confidence from occurrence count: 3+ is high.
 /** @type {(n: number) => Finding['confidence']} */
 const confFromCount = (n) => (n >= 3 ? 'high' : n === 2 ? 'medium' : 'low');
 
 // Human-reported friction (session summaries) — highest signal. Group bullets
 // by a coarse theme keyword so a recurring pain (3+ mentions) reads as high
-// confidence, per the plan's 3+ rule.
+// confidence (3+ is high).
 if (summaryBullets.length > 0) {
   const THEMES = [
     {
@@ -181,7 +181,7 @@ if (frictionCommits.length > 0) {
 
 // Knowledge decay / coverage gaps from metrics.
 if (metrics) {
-  // The key the metrics actually write (task group 8.3): this used to read
+  // The key the metrics actually write: this used to read
   // `untested_high_risk`, which never existed, so the finding never fired.
   const untested = metrics.untested_high_risk_items;
   if (Array.isArray(untested) && untested.length > 0) {
@@ -202,7 +202,7 @@ if (metrics) {
       targets: ['test-cases/', 'agents/test-designer.md'],
     });
   }
-  // Prompt stability is reported per prompt-version cohort (task group 8.2):
+  // Prompt stability is reported per prompt-version cohort:
   // each failing cohort is its own finding, and too little evidence is said
   // plainly rather than read as stability.
   const stability = metrics.prompt_stability;

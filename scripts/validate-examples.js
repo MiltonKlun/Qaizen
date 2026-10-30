@@ -3,7 +3,7 @@
 // Iterate over every examples/expected/*.json and validate each against
 // the schema implied by its filename suffix.
 //
-// Per Phase 1 TG8: this is NOT a second validator. The filename-pattern
+// This is NOT a second validator. The filename-pattern
 // map below is the only thing it adds on top of scripts/validate-json.js.
 // The actual validation logic uses the same AJV configuration so they
 // cannot drift apart.
@@ -94,7 +94,7 @@ if (!existsSync(EXAMPLES_DIR)) {
   exit(2);
 }
 
-// Compilation + caching live in scripts/lib/artifact-io.js (task group 2.1).
+// Compilation + caching live in scripts/lib/artifact-io.js.
 // This wrapper keeps its OWN policy for an absent schema: a missing schema
 // (e.g. the Phase 1.5 postman-collection schema during Phase 1) is a skip with
 // a warning, not a failure — deliberately different from validate-all.js,
@@ -182,7 +182,7 @@ console.log(
   `\n${pass} passed, ${fail} failed, ${skipped} skipped (schema not present), ${unknown} with no matching pattern`
 );
 
-// Unknown patterns are a warning, not a failure — TG8 says examples
+// Unknown patterns are a warning, not a failure — examples
 // must declare implicitly or explicitly, and the warning surfaces the
 // declaration gap without breaking the build.
 exit(fail > 0 ? 1 : 0);

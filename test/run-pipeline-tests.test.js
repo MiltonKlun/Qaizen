@@ -1,4 +1,4 @@
-// Regression tests for the test-discovery wrapper (task group 0.2).
+// Regression tests for the test-discovery wrapper.
 //
 // The wrapper is the thing that decides WHAT runs in CI, so its own failure
 // modes matter: if it silently skipped a file, or reported success while a
@@ -66,7 +66,7 @@ test('wrapper: an all-passing suite exits 0 and runs every file', () => {
     assert.equal(r.code, 0, r.out);
     assert.match(r.out, /Discovered 2 test file\(s\)/);
     // Node 22 prints TAP (`# pass 2`) when output is not a terminal; Node 23+
-    // prints the spec reporter (`ℹ pass 2`). Both are supported (task group 10.1).
+    // prints the spec reporter (`ℹ pass 2`). Both are supported.
     assert.match(r.out, /(?:#|ℹ) pass 2/);
   } finally {
     rmSync(dir, { recursive: true, force: true });

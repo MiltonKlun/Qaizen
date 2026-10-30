@@ -71,7 +71,7 @@ business behavior.
 { name: /Save/i })` is Green if both target the same logical
   control.
 
-### How Green is granted automatically (task group 3.3)
+### How Green is granted automatically
 
 The rule-based pre-classifier (`scripts/lib/classify-failure.js`) grants
 Green in exactly one case: a locator that could not be found during an
@@ -85,7 +85,7 @@ or a human establishes it.
 
 It reads what the error says **failed**, never keywords. The review found
 `expect(locator).toHaveText('$100.00')` against an element showing `$1.00`
-classified Green because the message contains "locator" (finding B1). That
+classified Green because the message contains "locator". That
 is an assertion that observed a wrong business value, so it is **Red**.
 
 ### What does NOT qualify as Green, even if it looks similar
@@ -98,7 +98,7 @@ is an assertion that observed a wrong business value, so it is **Red**.
 - "Healing" a Green failure by removing the assertion that made it
   fail. That's never a fix. See section 5 — Never Touched List.
 
-### What the static check accepts automatically (task group 6.1)
+### What the static check accepts automatically
 
 Green describes what a human may fix. What `scripts/healer-guardrails.js`
 accepts **without** a human deciding the change is much narrower. It parses
@@ -140,7 +140,7 @@ Gate-4 re-run, not Healer work.
 ### Phase 3 action
 
 `scripts/run-healer.js` does not write fixes. It **processes** a
-candidate that a person or an agent proposes (task group 6.3):
+candidate that a person or an agent proposes:
 
 ```bash
 node scripts/run-healer.js --failure FAIL-001 --candidate path/to/fixed.spec.ts          # static check only
@@ -409,7 +409,7 @@ promotion.
 
 ## 7. What `failure-analysis.json` carries
 
-Per `schemas/failure-analysis.schema.json` (Phase 1 TG7), each failure
+Per `schemas/failure-analysis.schema.json`, each failure
 records both the classification and the severity:
 
 ```jsonc

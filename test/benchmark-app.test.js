@@ -1,5 +1,5 @@
-// The Bench Shop and the static server it shares with the demo app (task
-// group 9.2). No browser needed: these run in CI's quality job. The rendered
+// The Bench Shop and the static server it shares with the demo app.
+// No browser needed: these run in CI's quality job. The rendered
 // behavior (clean and injected bugs, v1 -> v2 survival) is checked with a
 // browser by `npm run benchmark:check`.
 

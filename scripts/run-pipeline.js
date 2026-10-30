@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Thin gated pipeline runner (IMPROVEMENT-PLAN Phase 2, IP-2.3 / PFI-2).
+// Thin gated pipeline runner.
 // The single entry point: it sequences the pipeline, HALTS AT EVERY GATE,
 // renders a one-screen gate brief, records the human decision as a full
 // audit object (+ gate_decisions[] telemetry), and resumes.
@@ -121,7 +121,7 @@ import {
 
 // Sibling scripts / schemas resolve against THIS file's location, not the
 // CWD — so the runner works when driven from an isolated run workspace
-// (the demo, IMPROVEMENT-PLAN Phase 3) as well as from the repo root. The
+// (the demo) as well as from the repo root. The
 // run's mutable state (context.json, artifacts) is CWD-relative as before.
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_DIR = dirname(SCRIPT_DIR);
@@ -182,7 +182,7 @@ const STORY_ARG =
 // `--story` STARTS a new run; `--resume` (or no flag) CONTINUES the current
 // one; `--status` only reads. These are checked before any fetch or write:
 // the old runner staged story.md first and loaded the old context second, so a
-// new story could inherit a completed run's gates (finding B3, task group 4.1).
+// new story could inherit a completed run's gates.
 if (storyIdx !== -1 && !STORY_ARG) {
   console.error('--story needs a value: a story file path or a Jira key.');
   exit(2);
@@ -252,7 +252,7 @@ function writeContext(context) {
   // Validate the candidate IN MEMORY and write atomically, through the shared
   // implementation behind scripts/validate-json.js (CLAUDE.md §3.3). The old
   // path overwrote context.json first and validated second, so a rejected
-  // update was already on disk (finding I6).
+  // update was already on disk.
   const r = writeJsonAtomic(CONTEXT_PATH, context, {
     schemaPath: CONTEXT_SCHEMA,
   });
@@ -279,12 +279,12 @@ function validateJson(schemaPath, dataPath) {
   return r.status === 0;
 }
 
-// Facts the pure state machine cannot know without I/O (IP-2.1 hints).
+// Facts the pure state machine cannot know without I/O.
 //
 // "Produced" means the artifact exists, is well-formed, validates against its
 // schema, and belongs to THIS run (same story id and run id) -- not merely
 // that a file exists. Four `{}` files used to satisfy the whole back half of
-// the pipeline and print "Run complete" (finding I6, task group 4.2). Every
+// the pipeline and print "Run complete". Every
 // artifact that fails is listed in hints.problems so the runner can say WHY a
 // step is being asked for again. The Analyst pre-fills conventional paths
 // before the files exist; an unset path keeps its plain "not produced" meaning.
@@ -310,7 +310,7 @@ function gatherHints(context) {
     const tc = check('test_cases');
     hints.testCasesExist = tc.ok;
     if (tc.ok) {
-      // Branches come from APPROVED cases only (task group 7.1): a draft or
+      // Branches come from APPROVED cases only: a draft or
       // rejected case activates no execution.
       /** @type {TestCase[]} */
       const approved = (tc.data.test_cases || []).filter(
@@ -321,7 +321,7 @@ function gatherHints(context) {
       hints.branches = {
         e2e: has('automate_e2e'),
         api: has('automate_api'),
-        // Manual, component and skip cases (task group 7.2); only the first
+        // Manual, component and skip cases; only the first
         // two have results to record.
         external: approved.some(
           (c) => externalSource(c.automation_decision) !== null
@@ -406,7 +406,7 @@ function gatherHints(context) {
 }
 
 /**
- * The external plan and results as they stand (task group 7.2). A plan or
+ * The external plan and results as they stand. A plan or
  * results file that does not validate, belongs to another run, or was recorded
  * against a different approved scope is not produced.
  * @param {Context} context
@@ -499,7 +499,7 @@ export function applyGateDecision(
   const approved = decision === 'approved';
   // `bindings` is computed by the I/O code at the moment of the human
   // decision (scripts/lib/approval-binding.js): the digest of exactly what
-  // was reviewed. Recorded on approval only (task group 4.3).
+  // was reviewed. Recorded on approval only.
   context.review_gates[gateKey] = {
     status: approved,
     reviewer: reviewer || null,
@@ -703,7 +703,7 @@ async function runGateInteractive(step, context) {
       : false;
 
   // Broken machine-readable inputs are not a judgment call: the gate does not
-  // even prompt until they exist and validate (task group 4.2). The old
+  // even prompt until they exist and validate. The old
   // runner printed "ATTENTION: failing validation" and asked for approval
   // anyway, so human judgment could wave through a broken contract.
   const broken = gateInputProblems(step, context);
@@ -777,7 +777,7 @@ async function runGateInteractive(step, context) {
   // Gate 4: run the static pre-Gate-4 scan on the generated test and surface
   // its mechanical findings as the "auto-checks" half of the review, so the
   // human opens the gate with the mechanical questions pre-answered and can
-  // spend their attention on business correctness (IP-6.4). Informational —
+  // spend their attention on business correctness. Informational —
   // it never decides the gate.
   /** @type {string | null} */
   let scanText = null;
@@ -786,7 +786,7 @@ async function runGateInteractive(step, context) {
     if (testPath && existsSync(testPath)) {
       console.log('');
       // With the run's context, TC/SPEC ids are checked against the
-      // approved test cases and the spec (task group 6.2).
+      // approved test cases and the spec.
       const scan = gate4Findings(readFileSync(testPath, 'utf8'), {
         fileName: testPath,
         artifacts: loadGate4Artifacts(CONTEXT_PATH) ?? undefined,
@@ -1001,7 +1001,7 @@ function gateInputProblems(step, context) {
       );
       if (!r.ok) problems.push(`${req} ${r.reason}`);
       // The per-case decisions are part of the scope being approved, so they
-      // are made BEFORE the approval (task group 4.3). Flipping them after
+      // are made BEFORE the approval. Flipping them after
       // it would change the reviewed test cases and make the approval stale.
       if (
         req === 'test_cases' &&
@@ -1063,7 +1063,7 @@ function execStep(step, context) {
     );
     console.log('classifier, not a runner error)\n');
     // Playwright's own CLI under this Node, with no shell and no npx lookup:
-    // every argument reaches it literally (task group 10.1).
+    // every argument reaches it literally.
     const run = spawnSync(process.execPath, [playwrightCli(env), ...pwArgs], {
       cwd,
       stdio: 'inherit',
@@ -1072,7 +1072,7 @@ function execStep(step, context) {
     // A failing SUITE is data for the classifier. A runner that could not
     // start, or that produced no valid report of THIS code, is not: the old
     // runner ignored this result and looped, relaunching the executor while
-    // the report stayed absent (finding B4; nine launches in 1.6 s).
+    // the report stayed absent (nine launches in 1.6 s).
     if (run.error) {
       console.error(
         `Could not launch the test runner (${run.error.message}). No report was produced; stopping.`
@@ -1151,8 +1151,8 @@ function execStep(step, context) {
     return true;
   }
   if (step === 'classify') {
-    // The classifier reads the normalized execution ledger, never raw reports
-    // (task group 3.3), so the run's reports are normalized first. The run id
+    // The classifier reads the normalized execution ledger, never raw reports,
+    // so the run's reports are normalized first. The run id
     // is passed through so the classifier can refuse a ledger from another run.
     const ledgerPath = 'analysis/execution-ledger.json';
     const branches = gatherHints(context).branches ?? {
@@ -1167,7 +1167,7 @@ function execStep(step, context) {
       '--out',
       ledgerPath,
     ];
-    // API-only work has no Playwright report and needs none (task group 7.1).
+    // API-only work has no Playwright report and needs none.
     if (branches.e2e) {
       normalizeArgs.push(
         '--playwright',
@@ -1176,7 +1176,7 @@ function execStep(step, context) {
     }
     if (context.run_id) normalizeArgs.push('--run-id', context.run_id);
     // The approved scope: recorded in the ledger so its results can only be
-    // reported against the cases that were approved (task group 5.3).
+    // reported against the cases that were approved.
     if (
       context.artifact_paths.test_cases &&
       existsSync(context.artifact_paths.test_cases)
@@ -1194,7 +1194,7 @@ function execStep(step, context) {
       normalizeArgs.push('--execution', apiExecution);
     }
     // The reviewed external plan and, when there is work to record, its
-    // results (task group 7.2). A skip-only plan yields no unit at all.
+    // results. A skip-only plan yields no unit at all.
     const ext = externalPaths(context);
     if (branches.external) {
       normalizeArgs.push('--external-plan', ext.plan);
@@ -1309,7 +1309,7 @@ function printStatus(context, hints) {
  * Progress guard for one invocation: true when the same step is about to run
  * again on unchanged validated state (the same hints and the same context).
  * An exec step that "succeeds" without changing what the state machine sees
- * would otherwise repeat forever (finding B4, task group 4.2).
+ * would otherwise repeat forever.
  * @returns {(step: string, hints: unknown, context: unknown) => boolean}
  */
 export function progressGuard() {
@@ -1339,13 +1339,12 @@ function stagedRunLine() {
 
 /**
  * Has the current run finished? Only by the validated definition: a
- * `status: "completed"` set by hand or by an agent is not proof (task group
- * 4.2), because the old Reporter set it on file existence alone.
+ * `status: "completed"` set by hand or by an agent is not proof, because the old Reporter set it on file existence alone.
  * @param {Context | null} context
  */
 function runIsComplete(context) {
   if (!context || !checkContext(context).ok) return false;
-  // A stale approval means the run is not complete (task group 4.3).
+  // A stale approval means the run is not complete.
   const { view } = currentView(context);
   return nextStep(view, gatherHints(view)) === 'done';
 }
@@ -1572,7 +1571,7 @@ async function main() {
   // standard (scripts/track-floor.js, docs/healer-guardrails.md §4). The floor
   // is computed live and is read-only here — the runner never rewrites
   // context.json just to advance, preserving the "a refusal writes nothing"
-  // guarantee. The analyst records track_floor in the manifest (IP-4.5).
+  // guarantee. The analyst records track_floor in the manifest.
   if (context && context.track === 'lite') {
     const { allowed, minimum, reasons } = trackAllowed(context, 'lite');
     if (!allowed) {
@@ -1592,7 +1591,7 @@ async function main() {
   // Advance: exec steps run and continue; gates are decided interactively
   // and continue; agent (guide) steps print the instruction and stop.
   // Everything below reads context.json as the run's truth, so it must be
-  // valid before any step is derived from it (task group 4.2).
+  // valid before any step is derived from it.
   if (context) {
     const valid = checkContext(context);
     if (!valid.ok) {
@@ -1601,7 +1600,7 @@ async function main() {
     }
   }
 
-  // Approvals are bound to what they reviewed (task group 4.3). One that no
+  // Approvals are bound to what they reviewed. One that no
   // longer matches -- or that predates binding -- returns to pending here,
   // with a separate invalidation event; the human's decision history in
   // gate_decisions[] is never rewritten, and no rejection is invented.

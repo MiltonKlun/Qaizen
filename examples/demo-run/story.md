@@ -1,6 +1,6 @@
 # DEMO-1 — User can log in and see the product inventory
 
-> **Demo fixture** (`examples/demo-run/`, IMPROVEMENT-PLAN Phase 3). This is
+> **Demo fixture** (`examples/demo-run/`). This is
 > the story the 10-minute demo replays. It is intentionally small, and the
 > demo app contains ONE planted bug against AC-2 so the full
 > FAIL → classify → BUG-draft → release-report chain can be experienced.
