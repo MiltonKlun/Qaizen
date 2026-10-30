@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://qaizen/schemas/benchmark-record.schema.json",
   "title": "Benchmark Measurement Record",
-  "description": "One measurement of ONE story under ONE arm of the pipeline-vs-raw-prompting benchmark (IMPROVEMENT-PLAN Phase 5, docs/benchmark-protocol.md). Records are appended as JSONL to evidence/benchmark.jsonl by scripts/benchmark-capture.js; each LINE validates against this schema. Arm A = raw prompting; Arm B = the pipeline via the runner. Metrics are defined in the protocol doc; absent metrics are recorded as null (not omitted) so a gap is explicit, never silently a zero. Schema 1.1 (task group 9.2) adds the provenance and the separate timings a quantitative series needs, and requires them; 1.0 records stay valid as they were.",
+  "description": "One measurement of ONE story under ONE arm of the pipeline-vs-raw-prompting benchmark (docs/benchmark-protocol.md). Records are appended as JSONL to evidence/benchmark.jsonl by scripts/benchmark-capture.js; each LINE validates against this schema. Arm A = raw prompting; Arm B = the pipeline via the runner. Metrics are defined in the protocol doc; absent metrics are recorded as null (not omitted) so a gap is explicit, never silently a zero. Schema 1.1 adds the provenance and the separate timings a quantitative series needs, and requires them; 1.0 records stay valid as they were.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "story_id", "arm", "recorded_at", "metrics"],
@@ -99,7 +99,7 @@
         },
         "selector_survival_rate": {
           "type": ["number", "null"],
-          "description": "Fraction (0..1) of reviewed probes that still find exactly one usable target on every later app version, over the probes valid on the named baseline (scripts/selector-survival.js --probe, task group 9.1). Higher is better. Null when it cannot be measured — record the reason in docs/evidence.md, do not fake a number.",
+          "description": "Fraction (0..1) of reviewed probes that still find exactly one usable target on every later app version, over the probes valid on the named baseline (scripts/selector-survival.js --probe). Higher is better. Null when it cannot be measured — record the reason in docs/evidence.md, do not fake a number.",
           "minimum": 0,
           "maximum": 1
         },
@@ -191,7 +191,7 @@
             "selector_survival_method": {
               "type": "string",
               "minLength": 1,
-              "description": "How selector survival was measured (e.g. 'probe-baseline-v1': reviewed probes on a named baseline, task group 9.1)."
+              "description": "How selector survival was measured (e.g. 'probe-baseline-v1': reviewed probes on a named baseline)."
             }
           }
         }

@@ -135,7 +135,7 @@
         },
         "design_stage": {
           "type": "string",
-          "description": "OPTIONAL (Phase 2.6 TG2.6-4, shift-left). The lifecycle stage at which this case was designed. 'pre_development' = produced during refinement, before code exists (acts as a shared acceptance contract); 'ready_for_qa' = revisited/validated once the implementation exists. Absent => treated as ready_for_qa (the single-entry-point default). Orthogonal to 'status' (the Gate-2 approval state).",
+          "description": "OPTIONAL (shift-left). The lifecycle stage at which this case was designed. 'pre_development' = produced during refinement, before code exists (acts as a shared acceptance contract); 'ready_for_qa' = revisited/validated once the implementation exists. Absent => treated as ready_for_qa (the single-entry-point default). Orthogonal to 'status' (the Gate-2 approval state).",
           "enum": ["pre_development", "ready_for_qa"]
         },
         "qmetry_fields": {
@@ -148,7 +148,7 @@
         },
         "external_ids": {
           "type": "object",
-          "description": "Phase 2.6 (TG2.6-3). Generic tool -> external id linkage written back by a TestManagementAdapter after a push (e.g. {\"jira\": \"SK-50\", \"qase\": \"123\"}). Open/Closed: a new adapter records its id here without adding a new per-tool field. testlink_id remains the TestLink adapter's dedicated field for compatibility; new adapters use this object. Keys are tool names; values are the tool's issue/case id.",
+          "description": "Generic tool -> external id linkage written back by a TestManagementAdapter after a push (e.g. {\"jira\": \"SK-50\", \"qase\": \"123\"}). Open/Closed: a new adapter records its id here without adding a new per-tool field. testlink_id remains the TestLink adapter's dedicated field for compatibility; new adapters use this object. Keys are tool names; values are the tool's issue/case id.",
           "additionalProperties": { "type": "string" }
         },
         "sync_state": { "$ref": "#/definitions/syncState" },
@@ -183,7 +183,7 @@
     },
     "syncState": {
       "type": "object",
-      "description": "Optional. Per-target record of external synchronization (task group 5.1), keyed by target tool (e.g. \"jira\", \"testlink\"). Written by the adapters in scripts/ so a create survives a later failure: the intent is saved before the request and the remote id immediately after it. Never holds credentials. Like testlink_id and external_ids, it records WHERE a case was pushed, not WHAT it says, so it never invalidates an approval. The same shape is used in bug drafts (docs/bug-draft-format.md, \"## Sync State\").",
+      "description": "Optional. Per-target record of external synchronization, keyed by target tool (e.g. \"jira\", \"testlink\"). Written by the adapters in scripts/ so a create survives a later failure: the intent is saved before the request and the remote id immediately after it. Never holds credentials. Like testlink_id and external_ids, it records WHERE a case was pushed, not WHAT it says, so it never invalidates an approval. The same shape is used in bug drafts (docs/bug-draft-format.md, \"## Sync State\").",
       "propertyNames": {
         "pattern": "^[a-z][a-z0-9_-]*$"
       },
@@ -218,7 +218,7 @@
         "source_digest": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$",
-          "description": "SHA-256 of the local item's content (without its sync linkage) when it was pushed. A later difference means the local item changed after the push; adapters report it and never update the remote copy (task group 5.2)."
+          "description": "SHA-256 of the local item's content (without its sync linkage) when it was pushed. A later difference means the local item changed after the push; adapters report it and never update the remote copy."
         },
         "state": {
           "enum": ["pending", "created", "failed", "not_found"],

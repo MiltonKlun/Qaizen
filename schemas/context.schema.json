@@ -336,7 +336,7 @@
     "code_change_context": {
       "type": "object",
       "additionalProperties": false,
-      "description": "OPTIONAL (Phase 3 TG15, Improvement 1). SECONDARY context only: the diff of a linked PR, used to sharpen regression scope and risk prioritization. It NEVER defines expected behavior — acceptance_criteria remain the source of truth (CLAUDE.md §3.8). Populated by the Analyst (Mode B) only when the Jira story has a linked PR; absent otherwise (the pipeline runs identically with no diff). Filled via the read-only GitHub MCP; no custom diff engine, no deploy/ECR infra.",
+      "description": "OPTIONAL. SECONDARY context only: the diff of a linked PR, used to sharpen regression scope and risk prioritization. It NEVER defines expected behavior — acceptance_criteria remain the source of truth (CLAUDE.md §3.8). Populated by the Analyst (Mode B) only when the Jira story has a linked PR; absent otherwise (the pipeline runs identically with no diff). Filled via the read-only GitHub MCP; no custom diff engine, no deploy/ECR infra.",
       "required": ["linked_pr", "base_sha", "head_sha", "changed_files"],
       "properties": {
         "linked_pr": {
@@ -389,7 +389,7 @@
     },
     "prompt_versions": {
       "type": "object",
-      "description": "OPTIONAL (Phase 3 TG8, prompt versioning). Records which agent prompt VERSION drove this run, keyed by agent name (the frontmatter `name:` of agents/*.md), value = that file's `version:` (semver). This pins a run to the exact prompts that produced it, so a metrics/regression delta can be attributed to a specific prompt change. Absent on older runs (the pipeline runs identically without it). Keys are agent names; this object is NOT a closed enum so new agents can register without a schema change.",
+      "description": "OPTIONAL (prompt versioning). Records which agent prompt VERSION drove this run, keyed by agent name (the frontmatter `name:` of agents/*.md), value = that file's `version:` (semver). This pins a run to the exact prompts that produced it, so a metrics/regression delta can be attributed to a specific prompt change. Absent on older runs (the pipeline runs identically without it). Keys are agent names; this object is NOT a closed enum so new agents can register without a schema change.",
       "additionalProperties": {
         "type": "string",
         "description": "Semantic version of the agent prompt used (matches agents/<name>.md frontmatter `version:`).",
@@ -398,7 +398,7 @@
     },
     "track": {
       "type": "string",
-      "description": "OPTIONAL (IMPROVEMENT-PLAN Phase 4, lite track / PFI-1). How much ceremony this story needs. ABSENT => 'standard' (the four gates; the historical default — documented here, NOT schema-defaulted, so existing files behave unchanged). 'lite' thins ARTIFACTS, never decisions: schema validation, traceability, the automation-decision requirement, and auditable gate records all survive; Gates 1+2 consolidate via review_gates.qa_scope_approved while Gates 3 and 4 stay two distinct recorded decisions. 'full' is everything (highest-risk features). A story may NOT declare 'lite' below its track_floor.minimum (scripts/track-floor.js); see docs/review-gates.md and docs/pipeline-architecture.md.",
+      "description": "OPTIONAL (lite track). How much ceremony this story needs. ABSENT => 'standard' (the four gates; the historical default — documented here, NOT schema-defaulted, so existing files behave unchanged). 'lite' thins ARTIFACTS, never decisions: schema validation, traceability, the automation-decision requirement, and auditable gate records all survive; Gates 1+2 consolidate via review_gates.qa_scope_approved while Gates 3 and 4 stay two distinct recorded decisions. 'full' is everything (highest-risk features). A story may NOT declare 'lite' below its track_floor.minimum (scripts/track-floor.js); see docs/review-gates.md and docs/pipeline-architecture.md.",
       "enum": ["lite", "standard", "full"]
     },
     "track_floor": {
@@ -477,23 +477,23 @@
           "type": "string"
         },
         "api_collection": {
-          "description": "OPTIONAL (task group 7.1). Path to the story's Postman collection (api-tests/collections/[story-id].postman_collection.json), written by the API Agent for approved automate_api cases. Absent = the conventional path. Reviewed at collection_reviewed (requests) and api_assertions_reviewed (assertions).",
+          "description": "OPTIONAL. Path to the story's Postman collection (api-tests/collections/[story-id].postman_collection.json), written by the API Agent for approved automate_api cases. Absent = the conventional path. Reviewed at collection_reviewed (requests) and api_assertions_reviewed (assertions).",
           "type": "string"
         },
         "api_environment": {
-          "description": "OPTIONAL (task group 7.1). Path to the story's Postman environment (api-tests/environments/[story-id].postman_environment.json). Values are read at run time from .env; approvals bind to its keys only, never to secret values.",
+          "description": "OPTIONAL. Path to the story's Postman environment (api-tests/environments/[story-id].postman_environment.json). Values are read at run time from .env; approvals bind to its keys only, never to secret values.",
           "type": "string"
         },
         "external_plan": {
-          "description": "OPTIONAL (task group 7.2). Path to the external execution plan (planner-input/[story-id].external-plan.json, schemas/external-execution.schema.json) for approved manual, component and skip cases. Reviewed at external_plan_reviewed before any external work.",
+          "description": "OPTIONAL. Path to the external execution plan (planner-input/[story-id].external-plan.json, schemas/external-execution.schema.json) for approved manual, component and skip cases. Reviewed at external_plan_reviewed before any external work.",
           "type": "string"
         },
         "external_results": {
-          "description": "OPTIONAL (task group 7.2). Path to the imported external results (external-evidence/[story-id].results.json), written only by scripts/import-execution.js. Reviewed at external_evidence_reviewed before classification and reporting.",
+          "description": "OPTIONAL. Path to the imported external results (external-evidence/[story-id].results.json), written only by scripts/import-execution.js. Reviewed at external_evidence_reviewed before classification and reporting.",
           "type": "string"
         },
         "execution_ledger": {
-          "description": "OPTIONAL (task group 2.2a). Path to analysis/execution-ledger.json, the canonical cross-runner counting model for this run (schemas/execution-ledger.schema.json). ADDITIVE and not required: every pre-2.2a context stays valid, and nothing writes this yet — the execution adapters that populate it arrive in Phase 3. The existing report-path fields remain for compatibility; they are PATHS, not substitutes for a valid ledger.",
+          "description": "OPTIONAL. Path to analysis/execution-ledger.json, the canonical cross-runner counting model for this run (schemas/execution-ledger.schema.json). ADDITIVE and not required: every pre-2.2a context stays valid, and nothing writes this yet — the execution adapters that populate it arrive in Phase 3. The existing report-path fields remain for compatibility; they are PATHS, not substitutes for a valid ledger.",
           "type": "string"
         }
       }
@@ -501,7 +501,7 @@
     "review_gates": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Phase 1 form uses booleans. Phase 2 (TG6) introduces an optional audit-field object alongside the boolean via oneOf; both forms remain valid. Phase 2 (TG7) adds the OPTIONAL qa_scope_approved gate that consolidates Gates 1 and 2 — see docs/review-gates.md. The four per-gate fields stay required for backward compatibility; qa_scope_approved is additive and never replaces code_reviewed (Gate 4 never consolidates).",
+      "description": "Phase 1 form uses booleans. Phase 2 introduces an optional audit-field object alongside the boolean via oneOf; both forms remain valid. Phase 2 adds the OPTIONAL qa_scope_approved gate that consolidates Gates 1 and 2 — see docs/review-gates.md. The four per-gate fields stay required for backward compatibility; qa_scope_approved is additive and never replaces code_reviewed (Gate 4 never consolidates).",
       "required": [
         "requirements_reviewed",
         "test_scope_reviewed",
@@ -523,23 +523,23 @@
         },
         "qa_scope_approved": {
           "$ref": "#/definitions/gateValue",
-          "description": "OPTIONAL (Phase 2 TG7). When present and passed, consolidates Gate 1 (requirements_reviewed) and Gate 2 (test_scope_reviewed) into a single approval. The two underlying gates remain present and valid (deprecated, not removed). Same boolean | audit-object shape as the other gates. Gate 4 (code_reviewed) is NEVER consolidated into this."
+          "description": "OPTIONAL. When present and passed, consolidates Gate 1 (requirements_reviewed) and Gate 2 (test_scope_reviewed) into a single approval. The two underlying gates remain present and valid (deprecated, not removed). Same boolean | audit-object shape as the other gates. Gate 4 (code_reviewed) is NEVER consolidated into this."
         },
         "collection_reviewed": {
           "$ref": "#/definitions/gateValue",
-          "description": "OPTIONAL (task group 7.1). API Gate 3 (Gate 3'): the human reviewed the collection's requests, variables and endpoint contract for the approved automate_api cases. Required only when the approved scope has API cases. Independent of specs_reviewed; an E2E approval never stands in for it."
+          "description": "OPTIONAL. API Gate 3 (Gate 3'): the human reviewed the collection's requests, variables and endpoint contract for the approved automate_api cases. Required only when the approved scope has API cases. Independent of specs_reviewed; an E2E approval never stands in for it."
         },
         "external_plan_reviewed": {
           "$ref": "#/definitions/gateValue",
-          "description": "OPTIONAL (task group 7.2). External Gate 3: the human reviewed the plan for approved manual/component/skip cases — procedures or commands, expected outcomes, evidence required, and the exclusion reasons of skipped cases — before any external work. Required only when the approved scope has such cases."
+          "description": "OPTIONAL. External Gate 3: the human reviewed the plan for approved manual/component/skip cases — procedures or commands, expected outcomes, evidence required, and the exclusion reasons of skipped cases — before any external work. Required only when the approved scope has such cases."
         },
         "external_evidence_reviewed": {
           "$ref": "#/definitions/gateValue",
-          "description": "OPTIONAL (task group 7.2). External Gate 4, always human: the reviewer checked the imported results and their evidence (or, for a skip-only scope, the unexecuted disposition) before classification and reporting. Importing results never sets it; code_reviewed is never set for code that does not exist."
+          "description": "OPTIONAL. External Gate 4, always human: the reviewer checked the imported results and their evidence (or, for a skip-only scope, the unexecuted disposition) before classification and reporting. Importing results never sets it; code_reviewed is never set for code that does not exist."
         },
         "api_assertions_reviewed": {
           "$ref": "#/definitions/gateValue",
-          "description": "OPTIONAL (task group 7.1). API Gate 4 (Gate 4'): the human reviewed the collection's assertion scripts. Always a human decision, like code_reviewed, and independent of it. Newman runs for the story only while both API approvals are current."
+          "description": "OPTIONAL. API Gate 4 (Gate 4'): the human reviewed the collection's assertion scripts. Always a human decision, like code_reviewed, and independent of it. Newman runs for the story only while both API approvals are current."
         }
       }
     },
@@ -594,7 +594,7 @@
     },
     "gate_invalidations": {
       "type": "array",
-      "description": "OPTIONAL (task group 4.3). Approvals the runner returned to pending because what they reviewed changed (or because they predate input binding). Separate from gate_decisions[], which records only HUMAN decisions: an invalidation is not a rejection and never invents one. The prior approval is preserved here and in gate_decisions[].",
+      "description": "OPTIONAL. Approvals the runner returned to pending because what they reviewed changed (or because they predate input binding). Separate from gate_decisions[], which records only HUMAN decisions: an invalidation is not a rejection and never invents one. The prior approval is preserved here and in gate_decisions[].",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -691,11 +691,11 @@
             "input_digest": {
               "type": "string",
               "pattern": "^[a-f0-9]{64}$",
-              "description": "OPTIONAL (task group 4.3). SHA-256 over the inputs this gate reviewed, taken at the moment of human approval (scripts/lib/approval-binding.js): Gate 1 = story + interpreted ACs/risks/ambiguities/track; Gate 2 = Gate-1 digest + semantic test cases + planner brief; Gate 3 = Gate-2 digest + spec + planner/generator prompt versions; Gate 4 = Gate-3 digest + generated test + fixtures + Playwright config + dependency lock; qa_scope_approved = Gate-1 + Gate-2 inputs; collection_reviewed (Gate 3') = Gate-2 digest + collection requests/variables (no assertion scripts) + environment variable names (never values) + endpoint contract; api_assertions_reviewed (Gate 4') = Gate-3' digest + assertion scripts + Newman runner + dependency lock; external_plan_reviewed = Gate-2 digest + external plan; external_evidence_reviewed = external-plan digest + imported results (with evidence digests). When today's inputs no longer match, the approval is stale and the runner returns the gate to pending. An approved gate WITHOUT this field is a legacy approval and needs re-review before the run advances. Written only by the runner at a human decision; never by an agent."
+              "description": "OPTIONAL. SHA-256 over the inputs this gate reviewed, taken at the moment of human approval (scripts/lib/approval-binding.js): Gate 1 = story + interpreted ACs/risks/ambiguities/track; Gate 2 = Gate-1 digest + semantic test cases + planner brief; Gate 3 = Gate-2 digest + spec + planner/generator prompt versions; Gate 4 = Gate-3 digest + generated test + fixtures + Playwright config + dependency lock; qa_scope_approved = Gate-1 + Gate-2 inputs; collection_reviewed (Gate 3') = Gate-2 digest + collection requests/variables (no assertion scripts) + environment variable names (never values) + endpoint contract; api_assertions_reviewed (Gate 4') = Gate-3' digest + assertion scripts + Newman runner + dependency lock; external_plan_reviewed = Gate-2 digest + external plan; external_evidence_reviewed = external-plan digest + imported results (with evidence digests). When today's inputs no longer match, the approval is stale and the runner returns the gate to pending. An approved gate WITHOUT this field is a legacy approval and needs re-review before the run advances. Written only by the runner at a human decision; never by an agent."
             },
             "inputs": {
               "type": "object",
-              "description": "OPTIONAL (task group 4.3). The per-input digests behind input_digest (null = the input did not exist), so a stale approval can name exactly which input changed.",
+              "description": "OPTIONAL. The per-input digests behind input_digest (null = the input did not exist), so a stale approval can name exactly which input changed.",
               "additionalProperties": {
                 "oneOf": [
                   {

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://qaizen/schemas/failure-analysis.schema.json",
   "title": "Failure Analysis for a Pipeline Run",
-  "description": "analysis/failure-analysis.json. Produced by the Failure Classifier (skills/analyzing-logs). Classification taxonomy is closed (the enum below is canonical). Severity is the Healer guardrails axis (docs/healer-guardrails.md). VERSIONED (task group 3.3): schema_version 1.x keeps its original rules unchanged so archived artifacts stay valid; 2.x is derived from an execution ledger, may leave a PW/REQ id null WITH a reason instead of inventing one (finding B6), keeps the execution outcome separate from the cause, and requires a bug draft for Red only once the analysis is finalized.",
+  "description": "analysis/failure-analysis.json. Produced by the Failure Classifier (skills/analyzing-logs). Classification taxonomy is closed (the enum below is canonical). Severity is the Healer guardrails axis (docs/healer-guardrails.md). VERSIONED: schema_version 1.x keeps its original rules unchanged so archived artifacts stay valid; 2.x is derived from an execution ledger, may leave a PW/REQ id null WITH a reason instead of inventing one, keeps the execution outcome separate from the cause, and requires a bug draft for Red only once the analysis is finalized.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -189,7 +189,7 @@
           "description": "Required free-text when traceability_unresolved is true. Example: 'seed test — no TC'."
         },
         "playwright_test_id": {
-          "description": "PW-XXX for Playwright failures. The KEY is required when source == playwright. In 1.x it must be a PW id; in 2.x it may be null when no id is proven from test metadata, with id_unresolved_reason stated. An id is NEVER derived from failure ordering (finding B6).",
+          "description": "PW-XXX for Playwright failures. The KEY is required when source == playwright. In 1.x it must be a PW id; in 2.x it may be null when no id is proven from test metadata, with id_unresolved_reason stated. An id is NEVER derived from failure ordering.",
           "oneOf": [
             {
               "type": "string",
@@ -202,7 +202,7 @@
         },
         "source": {
           "type": "string",
-          "description": "Phase 1.5+ extension. 'playwright' is the Phase 1 implicit default; the value becomes load-bearing when both branches feed the same analysis. 'external' (task group 7.2): an imported manual or component result; its classification is a human decision.",
+          "description": "Phase 1.5+ extension. 'playwright' is the Phase 1 implicit default; the value becomes load-bearing when both branches feed the same analysis. 'external': an imported manual or component result; its classification is a human decision.",
           "enum": ["playwright", "newman", "external"]
         },
         "request_id": {
@@ -313,7 +313,7 @@
               "minimum": 0
             },
             "occurrence": {
-              "description": "External (task group 7.2): which recorded result of the test case, as in the ledger.",
+              "description": "External: which recorded result of the test case, as in the ledger.",
               "type": "integer",
               "minimum": 0
             }

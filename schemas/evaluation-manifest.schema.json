@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://qaizen/schemas/evaluation-manifest.schema.json",
   "title": "Evaluation expectation manifest",
-  "description": "Declares, for every fixed story in examples/stories/, which gold outputs the evaluation dataset holds (task group 8.1). scripts/evaluate-agents.js requires every story to be listed and every declared output to exist: missing work is reported as missing, never dropped from the denominator. An Analyst-only story is scored and labelled as such; it never counts as a tested Test Designer output.",
+  "description": "Declares, for every fixed story in examples/stories/, which gold outputs the evaluation dataset holds. scripts/evaluate-agents.js requires every story to be listed and every declared output to exist: missing work is reported as missing, never dropped from the denominator. An Analyst-only story is scored and labelled as such; it never counts as a tested Test Designer output.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "stories"],
