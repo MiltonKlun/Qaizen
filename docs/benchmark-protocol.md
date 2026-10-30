@@ -9,7 +9,7 @@
 > recorded afterward into `evidence/benchmark.jsonl` and written up in
 > `docs/evidence.md`.
 >
-> **Protocol version 2.0** (task group 9.2). New records are schema 1.1: each
+> **Protocol version 2.0**. New records are schema 1.1: each
 > carries its provenance (operator, app version, prompt versions, tools,
 > runtime, measurement method) and keeps three timings apart (§3). The story
 > criteria (§2) and the thresholds (§5) are unchanged. Records captured under
@@ -42,7 +42,7 @@ One story produces **two records** (one per arm), appended to
 
 ---
 
-## 2. Story selection (IP-5.1 — human-supplied)
+## 2. Story selection (human-supplied)
 
 5–10 **already-shipped** stories with **ground truth** — so "did the tests
 catch the real bug?" and "did the locators survive?" are answerable from
@@ -92,7 +92,7 @@ registration, not mine.**
 > versions; if not, record `selector_survival_rate: null` per story and explain.
 >
 > **Preferred target for NEW benchmark stories: the local Bench Shop app**
-> (`examples/benchmark-app/`, IMPROVEMENT-PLAN-2 Phase 5). Public SauceDemo has
+> (`examples/benchmark-app/`). Public SauceDemo has
 > two ceilings it cannot lift: (1) it is in every model's **training data**, so
 > a raw agent can reproduce it from memory (inflating raw's scores — see
 > `docs/evidence.md` §5b); and (2) it has **no bugs to catch and one version**,
@@ -126,7 +126,7 @@ time that was not recorded is `null`; none is estimated, and no provider token
 or compute figure is invented. `time_to_first_green_test_min` stays the §5
 metric.
 
-**Baseline and later versions** (selector survival, task group 9.1): the
+**Baseline and later versions** (selector survival): the
 _baseline_ is the named app version an arm's tests were written against, on
 which every reviewed probe must resolve its one intended target; a _later
 version_ is a subsequent release measured for drift. Earlier text called both
@@ -147,7 +147,7 @@ same reviewer, ideally without knowing which arm produced the file.
    (`docs/pipeline-runner.md`). Archive with `npm run new-run <id>` (so the
    run **also** counts toward the 10-run prompt-stability sample of its
    prompt-version cohort (when it records `prompt_versions`) —
-   IP-5.7, one effort closing two gaps). Score the metrics.
+   one effort closing two gaps). Score the metrics.
    `npm run benchmark:capture -- --story <id> --arm pipeline --track <t> ...`.
 3. After each pipeline run:
    `npm run session-summary -- --friction "<what rubbed>"`.

@@ -14,7 +14,7 @@ benchmark can measure the two metrics **public SauceDemo cannot**:
 No new dependencies: vanilla HTML/JS, served by the zero-dependency static
 server the demo app also uses (`examples/shared/static-server.js`).
 
-**One app, two versions** (task group 9.2). `app/shop.js` holds all of the
+**One app, two versions**. `app/shop.js` holds all of the
 behavior — router, cart, bug switches, money math — so a change there reaches
 every version. `app/versions.js` holds only what differs between versions
 (hook names, two class names, the overview markup): the drift below, and
@@ -84,7 +84,7 @@ change is listed here so scoring is against a known truth, not a guess.
 | Page headings  | `class="title"`                      | `class="page-title"`           | renamed class    |
 | Overview totals| `<div class="summary_info">` + `.summary_row` rows | `<ul class="summary-list">` + `.summary-line` items | restructured container |
 
-**Overview labels (fixed in task group 9.2, both versions):** each total is
+**Overview labels (both versions):** each total is
 one element whose text carries its label (`Item total: $…`). v1 used to also
 render a separate `Item total:` / `Tax:` / `Total:` label beside it, so a text
 locator such as `getByText('Item total:')` matched two elements and failed
@@ -114,7 +114,7 @@ node examples/benchmark-app/serve.js --version v2 --port 4174
 npm run benchmark:survival -- --probe examples/benchmark-app/probes/login-surface.probe.mjs --baseline v1=http://127.0.0.1:4173/ --version v2=http://127.0.0.1:4174/
 ```
 
-Measured (task group 9.1): **2/5 = 40% survival** — `login-button` and the
+Measured: **2/5 = 40% survival** — `login-button` and the
 `title` test-id each still find one usable target; `username`, `password`, and
 the `.title` class find none (they were drifted in v2). That maps 1:1 to the
 table above. Every probe resolves its unique target on v1 first; if one did

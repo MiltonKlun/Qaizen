@@ -1,4 +1,4 @@
-// Regression tests for evidence-based failure classification (task group 3.3).
+// Regression tests for evidence-based failure classification.
 //
 // Every case below runs against REAL Playwright output captured from a
 // Chromium run (test/fixtures/playwright-classification.json), with its
@@ -273,7 +273,7 @@ test('report metadata and a mapping that disagree leave the link unresolved', ()
 /**
  * A throwaway run workspace whose context approves both branches the fixtures
  * hold: Gate 4 for the Playwright evidence, Gate 3' and 4' for the Newman
- * evidence (task group 7.1: one branch's approval never stands in for another).
+ * evidence (one branch's approval never stands in for another).
  */
 function workspace({ gate4 = true, runId = 'run-t' } = {}) {
   const w = mkdtempSync(join(tmpdir(), 'qz-classify-'));
@@ -288,7 +288,7 @@ function workspace({ gate4 = true, runId = 'run-t' } = {}) {
   copyFileSync(PW_FIXTURE, join(w, 'results.json'));
   copyFileSync(NM_FIXTURE, join(w, 'newman.json'));
   if (gate4) {
-    // Bound to what exists, as the runner records it (task group 4.3); a bare
+    // Bound to what exists, as the runner records it; a bare
     // `true` is a legacy approval the classifier now refuses.
     const p = join(w, 'context.json');
     let ctx = JSON.parse(readFileSync(p, 'utf8'));

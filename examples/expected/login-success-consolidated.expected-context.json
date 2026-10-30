@@ -6,7 +6,7 @@
     "title": "Login — Successful sign-in (consolidated G1+G2)",
     "source": "manual",
     "path": "story.md",
-    "description": "Same login slice as login-success, showing the OPTIONAL Phase 2 (TG7) gate consolidation. qa_scope_approved consolidates Gate 1 and Gate 2 into one approval; the two underlying gates (requirements_reviewed, test_scope_reviewed) are kept for backward compatibility. Gate 4 (code_reviewed) is NEVER consolidated and stays on its own."
+    "description": "Same login slice as login-success, showing the OPTIONAL Phase 2 gate consolidation. qa_scope_approved consolidates Gate 1 and Gate 2 into one approval; the two underlying gates (requirements_reviewed, test_scope_reviewed) are kept for backward compatibility. Gate 4 (code_reviewed) is NEVER consolidated and stays on its own."
   },
   "acceptance_criteria": [
     "Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",

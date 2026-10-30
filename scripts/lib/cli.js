@@ -1,5 +1,5 @@
 // @ts-check
-// Shared command-line handling (task group 10.1): the `.env` subset the repo
+// Shared command-line handling: the `.env` subset the repo
 // documents, and strict argument parsing.
 //
 // Before this, each adapter parsed its own arguments with `argv.includes` and

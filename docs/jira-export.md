@@ -1,10 +1,10 @@
-# Jira export helper (TG2.6-2, TG14 Option A)
+# Jira export helper
 
 > **Status:** Phase 2.6. A one-way export of local test cases into Jira-ready
 > output. The human pastes/imports it — **the script never writes to Jira**,
 > so there is zero risk to a shared board. For automated, config-selected
-> creation behind the `TestManagementAdapter` port, see TG2.6-3
-> (`scripts/create-jira-testcases.js`) and
+> creation behind the `TestManagementAdapter` port, see
+> `scripts/create-jira-testcases.js` and
 > `agents/test-management-adapter.md`.
 
 Source of truth stays `test-cases/<story-id>.json`. This is an export
@@ -62,6 +62,6 @@ schemes — consistent with the project's generic/reusable goal.
 
 - `scripts/export-to-jira.js` — the helper.
 - `agents/test-management-adapter.md` — the port; the automated Jira adapter
-  (TG2.6-3) lives behind it.
+  lives behind it.
 - `scripts/create-jira-bugs.js` — the related (write-capable, `--apply`-gated)
   bug-promotion path whose parser shape this reuses.

@@ -1,11 +1,11 @@
-// API-only and mixed scopes (task group 7.1).
+// API-only and mixed scopes.
 //
 // The real runner drives each run; Newman runs for real against an offline
 // stand-in API (test/fixtures/fake-api-server.js). Gates are recorded with the
 // same binding the runner uses at a human decision (test/helpers), never
 // through the runner: agents and CI never approve a gate.
 //
-// Acceptance (IMPLEMENTATION_PLAN 7.1): API-only runs traverse their own human
+// Acceptance: API-only runs traverse their own human
 // reviews and complete with real Newman evidence, without E2E artifacts or
 // borrowed approvals.
 

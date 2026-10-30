@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Structural evaluation of the Analyst, Test Designer and Reporter outputs
-// (Phase 2 TG11; reworked in task group 8.1, review finding I5; Reporter stage
-// in task group 2.2b).
+// Structural evaluation of the Analyst, Test Designer and Reporter outputs.
 //
 // Two modes, and they answer different questions:
 //
@@ -633,7 +631,7 @@ if (!candidateDir) {
   }
 } else {
   // A requested candidate that does not exist is an ERROR, never an empty
-  // cohort that quietly scores 100% (review finding I5).
+  // cohort that quietly scores 100%.
   if (!existsSync(candidateDir))
     fail(`Candidate directory not found: ${candidateDir}`);
   const ctxPath = join(candidateDir, 'context.json');
@@ -854,8 +852,7 @@ console.log(
   '  Structural only: a 100% is not a verdict on the business interpretation.'
 );
 
-// Missing declared work, or an empty cohort, is a failure, never a pass
-// (review finding I5).
+// Missing declared work, or an empty cohort, is a failure, never a pass.
 if (missing.length) {
   console.error(
     `${missing.length} declared gold output(s) are missing (listed above).`

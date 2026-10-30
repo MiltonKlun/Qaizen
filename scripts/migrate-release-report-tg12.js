@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // @ts-check
-// release-report migration for Phase 3 TG12 (enhanced reporting).
+// release-report migration for the enhanced-reporting fields.
 //
-// TG12 added OPTIONAL fields to schemas/release-report.schema.json:
+// These are OPTIONAL fields in schemas/release-report.schema.json:
 //   summary_by_risk_level, untested_high_risk_items, flaky_tests,
 //   open_bugs_summary, conditional_pass_criteria, external_links.
-// Because they are optional, EVERY pre-TG12 release-report.json is still
+// Because they are optional, EVERY older release-report.json is still
 // valid — no migration is required for validity. This script is therefore a
 // safe, idempotent BACKFILL: it derives the deterministically-computable
 // fields and adds them if absent, so an old report gains the richer rollups
@@ -128,7 +128,7 @@ if (ctx && Array.isArray(report.coverage_by_risk) && Array.isArray(ctx.risks)) {
 
 if (changes.length === 0) {
   console.log(
-    `Nothing to backfill in ${reportPath} (already has the TG12 fields, or ` +
+    `Nothing to backfill in ${reportPath} (already has the enhanced-reporting fields, or ` +
       'nothing derivable). The report is valid either way.'
   );
   exit(0);

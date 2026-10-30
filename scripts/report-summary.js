@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-check
 // Print a release report's execution_summary, derived from the execution
-// ledger (task group 2.2b).
+// ledger.
 //
 // The Reporter used to compute the counts itself from the ledger, by hand. A
 // release report 2.0 carries them as numbers the code derives: the legacy

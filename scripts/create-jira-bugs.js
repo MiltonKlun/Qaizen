@@ -9,7 +9,7 @@
 // --apply (the "writes are never a side effect" rule, docs/mcp-setup.md).
 // No agent creates issues on its own.
 //
-// Recoverable by design (task group 5.1): each draft carries a machine-
+// Recoverable by design: each draft carries a machine-
 // readable "## Sync State" section (docs/bug-draft-format.md). The intent is
 // saved there before the create, and the key (in "## Jira Issue Key" and the
 // sync state) the moment Jira returns it, before linking or the next draft. A

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Record manual or component results against the reviewed external plan
-// (task group 7.2).
+// Record manual or component results against the reviewed external plan.
 //
 // Manual and component cases are not executed by this pipeline. A person (or
 // a component suite run outside it) does the work; this script records what

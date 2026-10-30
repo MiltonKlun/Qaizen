@@ -1,7 +1,7 @@
 // @ts-check
-// Track floor (IMPROVEMENT-PLAN Phase 4, IP-4.2).
+// Track floor.
 //
-// The lite track (PFI-1) lets a routine story skip ceremony it does not need.
+// The lite track lets a routine story skip ceremony it does not need.
 // But "lite" must be a principled choice, not a vibe: some stories are too
 // consequential to ever run with reduced ceremony. `minimumTrack(context)`
 // computes the LOWEST track a given story is allowed to use, with written

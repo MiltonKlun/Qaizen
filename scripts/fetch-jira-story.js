@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Mode-B story fetch helper (Phase 2 TG9/TG13). Fetches a Jira issue
+// Mode-B story fetch helper. Fetches a Jira issue
 // READ-ONLY and writes a local story.md the Analyst then reads. This is the
 // reproducible "write a local copy of the issue text" step the Analyst's
 // Mode B describes (agents/analyst.md §2) — pulled into a script so the

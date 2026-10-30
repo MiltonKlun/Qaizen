@@ -2,13 +2,13 @@
 // @ts-check
 // Generic JSON Schema validator. ONE script for the whole pipeline.
 //
-// Per Phase 1 TG8 and CLAUDE.md section 3.3: there is exactly one
+// Per CLAUDE.md section 3.3: there is exactly one
 // validator. Do not create per-schema scripts.
 //
 // The AJV configuration, schema cache and diagnostics now live in
 // scripts/lib/artifact-io.js so this CLI and the two discovery wrappers
-// (validate-all.js, validate-examples.js) cannot drift apart
-// (IMPLEMENTATION_PLAN task group 2.1). This file is the CLI surface; the
+// (validate-all.js, validate-examples.js) cannot drift apart.
+// This file is the CLI surface; the
 // behaviour it prints and the codes it exits with are unchanged.
 //
 // Usage:

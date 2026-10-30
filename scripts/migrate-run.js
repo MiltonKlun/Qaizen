@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-check
 // Migrate the ACTIVE run's artifacts to the current contracts, in one
-// explicit, idempotent command (task group 2.2b).
+// explicit, idempotent command.
 //
 // Each contract change shipped its own migration script; this runs the ones
 // that apply to the run at the repository root, in order, on the files its

@@ -1,5 +1,5 @@
-// Bench Shop versions: the ONLY differences between the served versions
-// (task group 9.2). Everything else — the router, the cart, the bug switches,
+// Bench Shop versions: the ONLY differences between the served versions.
+// Everything else — the router, the cart, the bug switches,
 // the money math — is shared in shop.js, so the versions cannot drift apart
 // by accident. v2 is v1 with realistic DOM drift; README.md lists every change
 // as the ground truth for selector_survival_rate.
@@ -18,7 +18,7 @@ globalThis.BENCH_VERSIONS = {
       add: 'add-to-cart',
     },
     overview: (lines) => `<div id="overview">${lines}</div>`,
-    // One element per figure. Before task group 9.2 each row also carried a
+    // One element per figure. Each row once also carried a
     // separate visible label ("Item total:", "Tax:", "Total:") repeating the
     // figure's own text, so getByText('Item total:') matched two elements and
     // a text-based locator failed strictness for a reason no real app had.

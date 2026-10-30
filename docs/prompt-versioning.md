@@ -1,10 +1,10 @@
 # Prompt Versioning
 
-> **Status:** Phase 3 (TG8). Every custom agent prompt (`agents/*.md`)
+> **Status:** Phase 3. Every custom agent prompt (`agents/*.md`)
 > carries a semantic `version` in its frontmatter. A run records which
 > version of each agent it used in `context.json.prompt_versions`. A major
 > prompt change is evaluated on a candidate the agent generated from the fixed
-> stories before adoption (§3; task group 8.1). This is
+> stories before adoption (§3). This is
 > additive and backward-compatible — older runs without `prompt_versions`
 > still validate.
 
@@ -29,7 +29,7 @@ name: analyst
 version: 1.0.0
 changed_in_run: null
 changelog: |
-  - 1.0.0: Initial versioned baseline (Phase 3 TG8). ...
+  - 1.0.0: Initial versioned baseline. ...
 ---
 ```
 
@@ -51,7 +51,7 @@ This mirrors semver, applied to _behavior the downstream contract depends on_:
   change to the artifact's shape, the IDs it mints, or the decisions it makes.
 - **MINOR** (`1.0.0 → 1.1.0`) — new optional capability that does not change
   existing outputs. E.g. the Analyst gaining the optional `code_change_context`
-  step (TG15) was a MINOR-class change: present-when-applicable, absent otherwise.
+  step was a MINOR-class change: present-when-applicable, absent otherwise.
 - **MAJOR** (`1.0.0 → 2.0.0`) — changes the shape, the IDs, the linkage, or the
   decision logic of an output. E.g. changing how the Test Designer assigns
   automation decisions, or restructuring `context.json` population. **A MAJOR
@@ -66,7 +66,7 @@ Bump the affected agents' `version` in that same PR.
 
 ## 2. Pinning a run to its prompts
 
-`context.json` has an optional `prompt_versions` object (Phase 3 TG8):
+`context.json` has an optional `prompt_versions` object:
 
 ```json
 "prompt_versions": {
@@ -89,7 +89,7 @@ rate moves between run N and run N+1, the `prompt_versions` diff tells you
 whether a prompt change is a candidate cause. Without it, a regression and a
 prompt change are two facts with no link between them.
 
-The same pin decides prompt stability (task group 8.2): `npm run metrics`
+The same pin decides prompt stability: `npm run metrics`
 groups completed runs by their exact `prompt_versions` vector and judges each
 group on its latest 10 runs; a run that lacks the version of any agent that ran
 is excluded, not guessed. See `docs/pipeline-architecture.md` §8.2.
@@ -97,7 +97,7 @@ is excluded, not guessed. See `docs/pipeline-architecture.md` §8.2.
 When you archive a run with `scripts/new-run.js`, the run-local `context.json`
 carries its `prompt_versions` with it — so `runs/` becomes an honest record of
 _which prompts produced which results_, which is exactly what the pipeline
-metrics (TG6) and `/evolve` (TG10) read back.
+metrics and `/evolve` read back.
 
 > **Honest scope:** populating `prompt_versions` is a manual/agent step today
 > (read each agent's `version:` and record it when the run starts). It is not

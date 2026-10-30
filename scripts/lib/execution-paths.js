@@ -1,5 +1,5 @@
 // @ts-check
-// Per-execution report layout (task group 3.2).
+// Per-execution report layout.
 //
 // Raw reporter outputs used to go to ONE constant path:
 //
@@ -7,7 +7,7 @@
 //
 // independent of story, collection and run. CI loops collections calling
 // `npm run test:api` per collection, so every collection but the last had its
-// raw evidence destroyed (finding I4). A stale file from an unrelated story
+// raw evidence destroyed. A stale file from an unrelated story
 // also read as current evidence, because nothing tied a report to an execution.
 //
 // The layout is now:

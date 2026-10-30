@@ -162,10 +162,10 @@ out of _committed_ files, but tools may still record them in their
 `reports/newman-results.json`, and the resolved `api_key` into that
 report's `environment.values`. The HTML report retains them too.
 
-**How this is handled now (review finding I3).** CI no longer uploads the
-raw reporter output at all. Since task group 3.2 every report is scoped to
+**How this is handled now.** CI no longer uploads the
+raw reporter output at all. Every report is scoped to
 one execution, so a stale report can never be re-uploaded as current
-evidence (finding I4):
+evidence:
 
 | Path                                                                | Contains secrets? | Published? |
 | ------------------------------------------------------------------- | ----------------- | ---------- |

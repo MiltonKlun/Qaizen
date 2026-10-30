@@ -1,5 +1,5 @@
 // @ts-check
-// Gate briefs (IMPROVEMENT-PLAN Phase 2, IP-2.2). Pure data + renderer for
+// Gate briefs. Pure data + renderer for
 // the one-screen brief the runner shows when it halts at a gate. The
 // checklist items are taken from docs/review-gates.md (the binding criteria);
 // this module only HELPS the reviewer get oriented faster — it never decides
@@ -29,7 +29,7 @@ export const GATE_BRIEFS = {
   gate1: {
     name: 'Gate 1 — Requirement Interpretation',
     // Mechanical inputs that must exist AND validate for this run before the
-    // gate may even prompt (task group 4.2). '@context' / '@story' are the
+    // gate may even prompt. '@context' / '@story' are the
     // run's context.json and story file; the rest are artifact_paths keys.
     requires: ['@context', '@story'],
     artifacts: (ctx) => ['context.json', ctx?.story?.path || 'story.md'],
@@ -47,7 +47,7 @@ export const GATE_BRIEFS = {
   gate2: {
     name: 'Gate 2 — Test Scope Approval',
     // Mechanical inputs that must exist AND validate for this run before the
-    // gate may even prompt (task group 4.2). '@context' / '@story' are the
+    // gate may even prompt. '@context' / '@story' are the
     // run's context.json and story file; the rest are artifact_paths keys.
     requires: ['test_cases', 'planner_brief', '@context'],
     artifacts: (ctx) => [
@@ -71,7 +71,7 @@ export const GATE_BRIEFS = {
   qa_scope: {
     name: 'QA Scope — Gates 1+2 consolidated (lite track)',
     // Mechanical inputs that must exist AND validate for this run before the
-    // gate may even prompt (task group 4.2). '@context' / '@story' are the
+    // gate may even prompt. '@context' / '@story' are the
     // run's context.json and story file; the rest are artifact_paths keys.
     requires: ['@context', '@story', 'test_cases', 'planner_brief'],
     artifacts: (ctx) => [
@@ -93,7 +93,7 @@ export const GATE_BRIEFS = {
   gate3: {
     name: 'Gate 3 — Specs Review',
     // Mechanical inputs that must exist AND validate for this run before the
-    // gate may even prompt (task group 4.2). '@context' / '@story' are the
+    // gate may even prompt. '@context' / '@story' are the
     // run's context.json and story file; the rest are artifact_paths keys.
     requires: ['playwright_spec', 'planner_brief', 'test_cases'],
     artifacts: (ctx) => [
@@ -116,7 +116,7 @@ export const GATE_BRIEFS = {
   gate4: {
     name: 'Gate 4 — Code Review (human sign-off, always)',
     // Mechanical inputs that must exist AND validate for this run before the
-    // gate may even prompt (task group 4.2). '@context' / '@story' are the
+    // gate may even prompt. '@context' / '@story' are the
     // run's context.json and story file; the rest are artifact_paths keys.
     requires: ['generated_test', 'playwright_spec', 'test_cases'],
     artifacts: (ctx) => [
@@ -134,8 +134,8 @@ export const GATE_BRIEFS = {
     ],
     judgment: GATE4_JUDGMENT_QUESTIONS(),
   },
-  // The API branch's own reviews (task group 7.1, docs/review-gates.md
-  // Gate 3' and Gate 4'). Independent of the E2E gates: an approval of the
+  // The API branch's own reviews (docs/review-gates.md Gate 3' and
+  // Gate 4'). Independent of the E2E gates: an approval of the
   // Playwright spec or code never stands in for these.
   'gate3-api': {
     name: "Gate 3' — API Collection Review",
@@ -176,7 +176,7 @@ export const GATE_BRIEFS = {
       'Does any assertion quietly test less than the TC expected_results?',
     ],
   },
-  // The external branch's reviews (task group 7.2): manual, component and
+  // The external branch's reviews: manual, component and
   // skip cases. No code exists for them, so code_reviewed is never asked for;
   // these two reviews stand in its place and are never approved by default.
   'gate3-ext': {

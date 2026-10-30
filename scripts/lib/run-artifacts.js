@@ -1,11 +1,11 @@
 // @ts-check
-// Run-artifact checks at transition boundaries (task group 4.2, findings I6/B4).
+// Run-artifact checks at transition boundaries.
 //
 // The state machine (scripts/pipeline-state.js) decides the next step from
 // "has this artifact been produced?". That used to mean "does the file
 // exist?", so a valid, approved context pointing at `{}` for its test cases,
 // execution results, failure analysis and release report made `--resume`
-// print "Run complete" (finding I6). Here "produced" means: the file exists,
+// print "Run complete". Here "produced" means: the file exists,
 // is well-formed, validates against its schema, and belongs to THIS run (same
 // story id, same run id). Every real archived run already satisfies that
 // exactly, so the stricter rule rejects only broken or foreign files.
@@ -57,7 +57,7 @@ const RULES = {
     kind: 'collection',
     schema: 'postman-collection.schema.json',
   },
-  // One schema, two documents (task group 7.2): each path must hold its own.
+  // One schema, two documents: each path must hold its own.
   external_plan: {
     kind: 'json',
     schema: 'external-execution.schema.json',
@@ -223,8 +223,8 @@ export function checkArtifact(key, context, root = '.') {
 
 /**
  * A release report written for a 2.x failure analysis is a 2.x report whose
- * execution_summary is exactly the one derived from that analysis's ledger
- * (task group 2.2b). A 1.x analysis keeps 1.x reports and their meaning.
+ * execution_summary is exactly the one derived from that analysis's ledger.
+ * A 1.x analysis keeps 1.x reports and their meaning.
  * @param {any} report
  * @param {Context} context
  * @param {string} root
@@ -373,7 +373,7 @@ export function newmanEvidence(context, collectionPath, root = '.') {
 
 /**
  * The newest execution directory holding Newman reports for this story
- * (reports/<execution-id>/newman/<story>/*.json, task group 3.2 layout), or
+ * (reports/<execution-id>/newman/<story>/*.json), or
  * null. Only ONE execution is ever used; older ones are never mixed in.
  * @param {string | undefined} storyId
  * @param {string} [root]

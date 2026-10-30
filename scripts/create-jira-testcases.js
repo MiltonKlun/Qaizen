@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Jira test-case adapter (Phase 2.6 TG2.6-3, TG14 Option B). Creates a
+// Jira test-case adapter. Creates a
 // story's APPROVED test cases as ordinary Jira issues (no Xray app needed),
 // links each to the story issue, and writes the new key back into
 // test-cases/<story-id>.json under external_ids.jira. Dry-run by default;
@@ -12,7 +12,7 @@
 // the sibling of scripts/sync-to-testlink.js (TestLink adapter) and is gated
 // exactly like scripts/create-jira-bugs.js.
 //
-// Recoverable by design (task group 5.1): before each create the intent is
+// Recoverable by design: before each create the intent is
 // saved (sync_state.jira, state "pending"); the returned key is saved the
 // moment Jira acknowledges it, before linking or the next case. A create
 // whose outcome is unknown (timeout, dropped connection, unreadable reply)

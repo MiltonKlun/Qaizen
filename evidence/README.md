@@ -1,6 +1,6 @@
 # `evidence/` — benchmark measurement data
 
-> **Owner:** Human / team (IMPROVEMENT-PLAN Phase 5). This folder holds the
+> **Owner:** Human / team. This folder holds the
 > raw measurements behind `docs/evidence.md` — the pipeline-vs-raw-prompting
 > benchmark (`docs/benchmark-protocol.md`).
 

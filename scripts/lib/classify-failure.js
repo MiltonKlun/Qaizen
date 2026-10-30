@@ -1,5 +1,5 @@
 // @ts-check
-// Evidence-based failure classification (task group 3.3).
+// Evidence-based failure classification.
 //
 // Pure functions: a normalized ledger unit in, a cause + severity + stated
 // reason out. No I/O.

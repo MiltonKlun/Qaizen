@@ -1,5 +1,5 @@
 // Reviewed selector-survival probes for the Bench Shop login surface
-// (scripts/selector-survival.js --probe; task groups 9.1, 9.2). A benchmark
+// (scripts/selector-survival.js --probe). A benchmark
 // probe, not a test: it is typechecked (tsconfig.json) and run by
 // `npm run benchmark:check`, never by the Playwright suite.
 //

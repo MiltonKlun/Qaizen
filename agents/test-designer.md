@@ -10,9 +10,11 @@ description: |
   becomes enforceable in code.
 phase_introduced: 1
 phase_active: 1+
-version: 2.1.0
+version: 2.1.1
 changed_in_run: null
 changelog: |
+  - 2.1.1: PATCH (no output change). Pointers to unpublished planning notes are
+    removed from the prompt text; the instructions are unchanged.
   - 2.1.0: MINOR (accessibility checks). When an acceptance criterion or a
     risk concerns accessibility, the Test Designer adds a [Checklist] case
     per page or state the story changes (WCAG 2.1 A and AA, automate_e2e),
@@ -90,7 +92,7 @@ code, or open a browser. Those are downstream concerns.
 
 ## 2. Inputs
 
-> **Loads only (Phase 3 TG7, token-efficient context).** The Test Designer
+> **Loads only (token-efficient context).** The Test Designer
 > loads **only**: `context.json` and `story.md` (the local copy). It reads
 > `context.json.code_change_context` if present (already a summary, not a raw
 > diff) and `docs/automation-decision-model.md` for the ruleset. It does
@@ -113,7 +115,7 @@ Optional inputs the agent may read for context but does not write:
   anchors.
 - `examples/stories/*.md` — examples of stories that have already
   been designed against.
-- _(Phase 3 TG15)_ `context.json.code_change_context` — when the Analyst
+- `context.json.code_change_context` — when the Analyst
   fetched a linked PR's diff. **Secondary context only:** use the
   `changed_files[]` to weight regression scope (give extra attention to
   test cases covering touched modules) and to populate a changed-file →
@@ -139,7 +141,7 @@ After both files exist and the JSON validates, the agent updates
 then re-validates `context.json`.
 
 A third output comes later, only after Gate 2 and only when the approved
-scope has `manual`, `automate_component` or `skip` cases (task group 7.2):
+scope has `manual`, `automate_component` or `skip` cases:
 
 3. `planner-input/[story-id].external-plan.json` — the external plan,
    schema-validated against `schemas/external-execution.schema.json`

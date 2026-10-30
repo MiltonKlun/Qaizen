@@ -1,11 +1,11 @@
 // @ts-check
-// Execution-ledger reader + semantic invariants (task group 2.2a).
+// Execution-ledger reader + semantic invariants.
 //
 // The ledger is the canonical cross-runner counting model for a run. AJV proves
 // its SHAPE; this module proves the things a JSON Schema cannot express:
 //
 //   - counts equal the sum of mutually exclusive unit outcomes,
-//   - a null domain link carries a reason (IDs are never invented — B6),
+//   - a null domain link carries a reason (IDs are never invented),
 //   - unit_pass_rate is null for zero units, never 0 or 1,
 //   - flaky / expected_failure are never counted as passing coverage,
 //   - case coverage comes only from POSITIVELY linked units,
@@ -13,9 +13,8 @@
 //   - a unit from an errored/interrupted/not-started execution cannot be
 //     `passed` — missing provenance is unverified evidence, never a pass.
 //
-// Read-only by design. Phase 3 (task groups 3.1-3.3) adds the adapters that
-// WRITE ledgers; nothing writes one yet, which is why this ships with readers
-// and fixtures rather than a writer (the plan's sequencing note).
+// Read-only by design: scripts/lib/build-ledger.js (through
+// scripts/normalize-results.js) writes ledgers; this module only reads them.
 
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
@@ -26,7 +25,7 @@ import { readValidatedJson } from './artifact-io.js';
 
 // Resolved from THIS module's location, not the working directory, so the
 // normalizer and classifier work when the pipeline runner drives them from an
-// isolated run workspace (scripts/run-pipeline.js, the demo) -- task group 3.3.
+// isolated run workspace (scripts/run-pipeline.js, the demo).
 export const LEDGER_SCHEMA = join(
   dirname(fileURLToPath(import.meta.url)),
   '..',
@@ -291,7 +290,7 @@ export function legacySummaryProjection(totals) {
 /**
  * One block of release-report 2.0 counts: the legacy projection, the strict
  * pass rate (null for zero units, never 0), and the per-outcome breakdown that
- * explains the projection (task group 2.2b).
+ * explains the projection.
  * @typedef {{ total: number, passed: number, failed: number, skipped: number,
  *   pass_rate: number | null,
  *   outcome_breakdown: Record<string, number> }} ReleaseCounts
@@ -421,8 +420,8 @@ export function readLedger(path, expect = {}) {
 // ---------------------------------------------------------------- scope
 
 /**
- * Digest of the approved test-case scope a ledger was built against
- * (task group 5.3). Only approved cases count, without the linkage fields
+ * Digest of the approved test-case scope a ledger was built against.
+ * Only approved cases count, without the linkage fields
  * adapters write back, so syncing a case never changes the scope.
  * @param {TestCasesDoc} testCasesDoc
  */
@@ -451,7 +450,7 @@ export const CASE_REPORT_OUTCOMES = [
 const NOT_EXECUTED = new Set(['skipped', 'not_run']);
 
 /**
- * The external branch (task group 7.2): approved automation decisions the
+ * The external branch: approved automation decisions the
  * pipeline does not execute, and the `source` each has in the external plan
  * and results (schemas/external-execution.schema.json). Component tests run
  * outside the pipeline (docs/automation-decision-model.md section 5).
@@ -485,7 +484,7 @@ const unattributed = (/** @type {Unit} */ unit) => {
 /**
  * One reportable outcome for one test case, from ALL of its linked units.
  *
- * Precedence (task groups 5.3, 7.2):
+ * Precedence:
  *   intentionally skipped / no linked unit                     -> not_run
  *   a failed unit the finalized analysis confirms as product_bug -> product_failure
  *   any other failure, block, flake, expected failure, an

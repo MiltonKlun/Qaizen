@@ -11,7 +11,7 @@ description: |
 disable-model-invocation: true
 ---
 
-# syncing-jira — the plain-Jira test-case adapter (Phase 2.6 TG2.6-3)
+# syncing-jira — the plain-Jira test-case adapter
 
 The Jira implementation of the `TestManagementAdapter` port. It creates
 **ordinary Jira issues** for approved test cases, so it works on any Jira

@@ -7,7 +7,7 @@
     "source": "jira",
     "path": "story.md",
     "jira_issue_key": "QA-2050",
-    "description": "Demonstrates the Phase 3 TG15 code-change awareness: a Jira-mode story whose linked PR diff was fetched (read-only) and recorded as SECONDARY context. The acceptance criteria still come only from the story; the diff sharpens regression scope and maps changed files to risks."
+    "description": "Demonstrates code-change awareness: a Jira-mode story whose linked PR diff was fetched (read-only) and recorded as SECONDARY context. The acceptance criteria still come only from the story; the diff sharpens regression scope and maps changed files to risks."
   },
   "acceptance_criteria": [
     "Given a card whose expiry month is in the past, when the customer submits payment, then the payment is rejected before any processor call.",

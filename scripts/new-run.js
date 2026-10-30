@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-check
 // Run history — archive the current root run into runs/<story-id>/<run-id>/
-// (Phase 3 TG5; rebuilt on scripts/lib/run-lifecycle.js in task group 4.1).
+// (rebuilt on scripts/lib/run-lifecycle.js).
 //
 // Model: the repo ROOT is always the *current* run; runs/ is the immutable
 // history. The runner archives a COMPLETED run automatically when the next

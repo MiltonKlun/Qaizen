@@ -46,7 +46,7 @@ test('validate:examples — every gold example validates (exit 0)', () => {
 
 test('evaluate — agent dataset scores 100% (exit 0)', () => {
   // Write results to a temp path via --out so the run never dirties the
-  // committed examples/evaluation/latest-results.json (IMPROVEMENT-PLAN-2 T3.3).
+  // committed examples/evaluation/latest-results.json.
   const dir = mkdtempSync(join(tmpdir(), 'aiqa-evaluate-'));
   try {
     const out = join(dir, 'results.json');
@@ -184,7 +184,7 @@ test('session-summary — refuses with no content (exit 2)', () => {
   assert.match(r.out, /Nothing to record/);
 });
 
-// Multi-word flag capture (IMPROVEMENT-PLAN-2 T1.1/T1.3). Run in a temp cwd so
+// Multi-word flag capture. Run in a temp cwd so
 // the written summary lands in a throwaway dir, not the repo tree.
 test('session-summary — joins multi-word values and rejects placeholders', () => {
   const dir = mkdtempSync(join(tmpdir(), 'aiqa-summary-'));
@@ -230,7 +230,7 @@ test('session-summary — joins multi-word values and rejects placeholders', () 
   }
 });
 
-// --- thin gated runner: CI safety net (IMPROVEMENT-PLAN IP-2.6) ------------
+// --- thin gated runner: CI safety net ------------
 // Proves BY CONSTRUCTION that no CI job can ever pass a gate: (a) the runner
 // refuses gate decisions when stdin is not a TTY (and every CI stdin is a
 // pipe), (b) it refuses gate-deciding flags outright, and (c) no workflow
@@ -304,7 +304,7 @@ test('no CI workflow invokes the pipeline runner', () => {
   }
 });
 
-// --- demo pipeline (IMPROVEMENT-PLAN Phase 3) -----------------------------
+// --- demo pipeline -----------------------------
 
 test('demo:pipeline --dry-run lists stages and touches no network', () => {
   const r = run(['scripts/demo-pipeline.js', '--dry-run']);
@@ -317,7 +317,7 @@ test('demo:pipeline --dry-run lists stages and touches no network', () => {
   assert.match(r.out, /no workspace created, no server started, no network/i);
 });
 
-test('metrics skips DEMO_RUN-sentinel runs (IP-3.3)', () => {
+test('metrics skips DEMO_RUN-sentinel runs', () => {
   const dir = mkdtempSync(join(tmpdir(), 'aiqa-demo-metrics-'));
   try {
     // One real archived run + one demo run under the same story.
@@ -349,9 +349,9 @@ test('metrics skips DEMO_RUN-sentinel runs (IP-3.3)', () => {
   }
 });
 
-// --- benchmark evidence tooling (IMPROVEMENT-PLAN Phase 5) -----------------
+// --- benchmark evidence tooling -----------------
 
-// The provenance every new record carries (schema 1.1, task group 9.2).
+// The provenance every new record carries (schema 1.1).
 const PROVENANCE = [
   '--operator',
   'A. Tester',
@@ -382,7 +382,7 @@ test('benchmark:capture --dry-run builds a valid record; null for omitted metric
   assert.equal(json.metrics.fictional_test_rate, null);
 });
 
-test('benchmark:capture --note joins multi-word values (T1.2)', () => {
+test('benchmark:capture --note joins multi-word values', () => {
   const r = run([
     'scripts/benchmark-capture.js',
     '--story',
@@ -528,7 +528,7 @@ test('selector-survival lists locators incl. inner quotes; source inspection giv
     '--tests',
     'examples/demo-run/tests/demo-login.spec.ts',
   ]);
-  // Exit 3 = no rate: --tests is source inspection only (task group 9.1); a
+  // Exit 3 = no rate: --tests is source inspection only; a
   // rate comes from reviewed probes (--probe). An honest gap, not a failure.
   assert.equal(r.code, 3, r.out);
   assert.match(r.out, /\[data-test="username"\]/);

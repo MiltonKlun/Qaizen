@@ -1,5 +1,5 @@
 // @ts-check
-// Prompt stability, computed once (task group 8.2, review finding B7).
+// Prompt stability, computed once.
 //
 // The question: does a given set of agent prompts produce work that humans
 // rarely send back at Gate 3/4? The old metric divided ALL rejection events by

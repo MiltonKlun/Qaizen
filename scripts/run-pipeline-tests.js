@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Pipeline test discovery wrapper (IMPLEMENTATION_PLAN task group 0.2).
+// Pipeline test discovery wrapper.
 //
 // WHY THIS EXISTS: `test:pipeline` used to hardcode a list of six filenames.
 // Adding a regression test meant remembering to edit that list, and forgetting

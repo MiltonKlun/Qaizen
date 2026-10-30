@@ -1,5 +1,5 @@
 // @ts-check
-// Selector survival from reviewed probes (task group 9.1, finding I7).
+// Selector survival from reviewed probes.
 //
 // A probe is reviewed benchmark code: `locate(page)` returns the exact
 // Playwright locator a test relies on, `cardinality` is 1 (one intended

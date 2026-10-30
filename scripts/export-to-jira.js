@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // @ts-check
-// Jira export helper (Phase 2.6 TG2.6-2, TG14 Option A). Turns a story's
+// Jira export helper. Turns a story's
 // local test cases into Jira-ready output — either a CSV for Jira's bulk
 // importer, or Markdown/wiki text to paste into a Jira description. The
 // human pastes/imports; this script NEVER writes to Jira (zero write-risk
 // to the shared board). For automated creation behind the
-// TestManagementAdapter port, see scripts/create-jira-testcases.js (TG2.6-3).
+// TestManagementAdapter port, see scripts/create-jira-testcases.js.
 //
 // Source of truth stays test-cases/<story-id>.json; this is a one-way export.
 //

@@ -1,6 +1,6 @@
 // @ts-check
 // Run lifecycle: ownership, verified archiving, and the recoverable
-// new-story transition (task group 4.1, finding B3).
+// new-story transition.
 //
 // The repo ROOT holds the current run; runs/<story>/<archive-id>/ is history.
 // Starting a new story used to overwrite story.md and then load the OLD
@@ -81,7 +81,7 @@ export const RUN_DIRS = [
   'api-tests',
   'analysis',
   'release',
-  // Imported manual/component results and their evidence (task group 7.2).
+  // Imported manual/component results and their evidence.
   'external-evidence',
   // The record of every gate decision and a copy of what it reviewed.
   'gates',

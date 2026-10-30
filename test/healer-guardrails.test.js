@@ -117,7 +117,7 @@ test('a fix that does several forbidden things reports each', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Task group 6.1: parsed comparison (review findings S1, S2). Every
+// Parsed comparison. Every
 // reproduced bypass must be rejected; only the narrow locator repair passes.
 
 const spec = (

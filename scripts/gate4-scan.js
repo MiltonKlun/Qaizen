@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Pre-Gate-4 static scan (IMPROVEMENT-PLAN Phase 6, IP-6.2 / PFI-5). Surfaces
+// Pre-Gate-4 static scan. Surfaces
 // the MECHANICAL Gate-4 findings so the human reviewer spends judgment, not
 // archaeology. It INFORMS and NEVER fixes: it does not edit files, does not
 // decide the gate, and changes nothing about the approval bar. Gate 4 is
@@ -19,7 +19,7 @@
 //   - test suppression: .skip / .fixme / .only / .fail, from the parsed test
 //     registrations (aliases resolved, comments ignored)
 //   - weak assertions: toBeTruthy / toBeDefined / toBeFalsy / .not.toThrow
-//   - traceability, PER TEST (task group 6.2, finding S4): every generated
+//   - traceability, PER TEST: every generated
 //     test needs its own PW, TC and SPEC id (docs/traceability.md). A file
 //     header does not cover the tests below it. Missing, conflicting,
 //     duplicate and unverifiable ids are reported with test and line.

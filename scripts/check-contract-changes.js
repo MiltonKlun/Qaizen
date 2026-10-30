@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Architecture Stability Rule CI check (Phase 2 TG12; companions made exact
-// in task group 10.2). Detects when a PR changes a contract (schemas/) without
+// Architecture Stability Rule CI check. Detects when a PR changes a contract (schemas/) without
 // changing the files that must move WITH it in the same PR (CLAUDE.md §3.10).
 //
 // Which files count is declared per schema in scripts/lib/schema-contracts.js:

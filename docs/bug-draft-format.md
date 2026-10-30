@@ -139,7 +139,7 @@ for the states and how an interrupted promotion is finished.
 
 ## 3. How the promotion script uses it
 
-`scripts/create-jira-bugs.js` (Phase 2 TG5):
+`scripts/create-jira-bugs.js`:
 
 1. Reads every `release/bug-drafts/BUG-*.md`.
 2. Parses the level-2 sections above and validates `## Sync State`.

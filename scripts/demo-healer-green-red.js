@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// TG14 vertical-slice demonstration of the Healer guardrails (Phase 3).
+// Demonstration of the Healer guardrails.
 // Exercises the SAME guardrail logic the harness uses (scripts/healer-
 // guardrails.js) against two realistic candidate patches:
 //
@@ -13,10 +13,10 @@
 //            EXPECTED value to make a failing test pass. Expect a violation
 //            => REJECTED, never auto-fixed; this is the bug-draft path.
 //
-// This is the deterministic, browser-free proof of the Green/Red boundary the
-// TG14 plan asks for. (A full browser story with a live broken locator needs
-// Playwright MCP + the human gates; the guardrail BEHAVIOR is what TG14
-// verifies, and it is proven here without driving the app.)
+// This is the deterministic, browser-free proof of the Green/Red boundary.
+// (A full browser story with a live broken locator needs Playwright MCP +
+// the human gates; the guardrail BEHAVIOR is what matters, and it is proven
+// here without driving the app.)
 //
 // Usage:  node scripts/demo-healer-green-red.js
 // Exit:   0 if both cases behave as expected · 1 if either does not.
@@ -74,7 +74,7 @@ function check(label, before, after, expectEligible) {
   console.log(`  ${pass ? 'OK' : 'XX MISMATCH'}`);
 }
 
-console.log('Healer Green/Red guardrail demonstration (Phase 3 TG14)');
+console.log('Healer Green/Red guardrail demonstration');
 check(
   'GREEN — broken-locator fix (selector changes, assertion unchanged)',
   greenBefore,

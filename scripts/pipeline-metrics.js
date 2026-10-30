@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-check
-// Pipeline metrics (Phase 3 TG6). Walks the archived runs under runs/ (the
-// TG5 history) and computes aggregate metrics so the team can tell whether the
+// Pipeline metrics. Walks the archived runs under runs/ (the
+// run history) and computes aggregate metrics so the team can tell whether the
 // pipeline is improving QA or creating noise. Outputs metrics/pipeline-metrics.
 // {md,json}. Recommended cadence: after every ~5 completed runs.
 //
@@ -68,7 +68,7 @@ const readJson = (p) => {
 // Discover archived runs: runs/<story>/<run-id>/.
 const runs = [];
 // Demo runs are kept apart: they count toward nothing, but the prompt-stability
-// result lists them as excluded so the sample is accounted for (task group 8.2).
+// result lists them as excluded so the sample is accounted for.
 const demoRuns = [];
 for (const story of readdirSync(RUNS).sort()) {
   if (story === 'latest.json') continue;
@@ -88,7 +88,7 @@ for (const story of readdirSync(RUNS).sort()) {
       continue;
     // Skip demo runs (scripts/demo-pipeline.js). A DEMO_RUN sentinel file in
     // the run folder marks a replayed demo — it must never count toward
-    // pass rate, gate-cost, or the prompt_stability threshold (IP-3.3).
+    // pass rate, gate-cost, or the prompt_stability threshold.
     if (existsSync(join(base, 'DEMO_RUN'))) {
       demoRuns.push({ story, runId: dirName, base });
       continue;
@@ -99,7 +99,7 @@ for (const story of readdirSync(RUNS).sort()) {
 
 // ---- accumulate metrics --------------------------------------------------
 // A run is identified by its story and the run id it records; the same run
-// archived twice is one run (task group 8.3). A run that records no id falls
+// archived twice is one run. A run that records no id falls
 // back to its archive folder name.
 const seen = new Set();
 let duplicateArchives = 0;
@@ -124,7 +124,7 @@ let productBugsFound = 0;
 let gate3Rejections = 0;
 let gate4Rejections = 0;
 let runsWithGateLog = 0;
-// How many runs carry a non-empty prompt_versions map (T4.2).
+// How many runs carry a non-empty prompt_versions map.
 let runsWithPromptVersions = 0;
 /** @type {{ story: string, run_id: string, risk_id: string }[]} */
 const untestedHighRisk = []; // {story, run_id, risk_id}
@@ -214,7 +214,7 @@ for (const run of runs) {
     for (const d of ctx.gate_decisions) {
       if (d.decision !== 'rejected') continue;
       // Gate 3 and Gate 4 of every branch: E2E, the API's 3' and 4', and the
-      // external plan and evidence reviews (task group 7.2).
+      // external plan and evidence reviews.
       if (GATE3_KEYS.has(d.gate)) gate3Rejections += 1;
       if (GATE4_KEYS.has(d.gate)) gate4Rejections += 1;
     }
@@ -251,7 +251,7 @@ const metrics = {
   total_runs: totalRuns,
   duplicate_run_archives: duplicateArchives,
   // How many runs each metric could actually read. A metric over zero
-  // samples is unknown, not zero (task group 8.3).
+  // samples is unknown, not zero.
   samples,
   pass_rate_by_story: passRateSummary,
   ...failureStats,
@@ -273,7 +273,7 @@ const metrics = {
   untested_high_risk_items: untestedHighRisk,
 };
 
-// Prompt stability (Phase 3 §6, rebuilt in task group 8.2): one result, per
+// Prompt stability: one result, per
 // prompt-version cohort, that the JSON, the Markdown and /evolve all read.
 metrics.prompt_stability = promptStability(stabilityRuns);
 metrics.runs_with_prompt_versions = runsWithPromptVersions;

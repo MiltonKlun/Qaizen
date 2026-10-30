@@ -1,4 +1,4 @@
-// Release report 2.0 (task group 2.2b): counts derived from the execution
+// Release report 2.0: counts derived from the execution
 // ledger, explained by an outcome breakdown, with a null pass rate when nothing
 // ran; 1.x reports keep their meaning; the runner accepts a report only when
 // its counts are the ledger's.

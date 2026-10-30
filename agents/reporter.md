@@ -11,9 +11,11 @@ description: |
   run completed: the runner does, after validating every artifact.
 phase_introduced: 1
 phase_active: 1+
-version: 4.0.1
+version: 4.0.2
 changed_in_run: null
 changelog: |
+  - 4.0.2: PATCH (no output change). Pointers to unpublished planning notes are
+    removed from the prompt text; the instructions are unchanged.
   - 4.0.1: PATCH. States that the runner now enforces the core release rules
     on every 2.x report a live run accepts, not only in the Reporter
     evaluation. No change to what the Reporter is asked to do.
@@ -115,7 +117,7 @@ recommendation stays whatever this report says.
 
 ## 2. Inputs
 
-> **Loads only (Phase 3 TG7, token-efficient context).** The Reporter loads
+> **Loads only (token-efficient context).** The Reporter loads
 > **only**: `context.json`, `test-cases/[story-id].json`,
 > `analysis/failure-analysis.json` (required), and `release/bug-drafts/*.md`. It
 > consumes the **summarized** `failure-analysis.json` + its `evidence_paths` —
@@ -137,7 +139,7 @@ recommendation stays whatever this report says.
 - `analysis/failure-analysis.json` — the Failure Classifier's
   output. **Required**, and `finalized` when it is schema 2.x.
 - `release/bug-drafts/BUG-XXX.md` — every existing draft.
-- _(Task group 7.2)_ `planner-input/[story-id].external-plan.json` — the
+- `planner-input/[story-id].external-plan.json` — the
   reviewed plan for manual, component and skip cases (skip exclusion
   reasons live here).
 
@@ -153,8 +155,8 @@ The Reporter follows the Failure Classifier; both require the same
 approvals.
 
 Throughout this agent, **"a gate is `true`" means the boolean `true`
-OR the audit-field object form `{ status: true, ... }`** (Phase 2 TG6,
-`schemas/context.schema.json` `gateValue`). Read `status` when the
+OR the audit-field object form `{ status: true, ... }`**
+(`schemas/context.schema.json` `gateValue`). Read `status` when the
 value is an object.
 
 ---
@@ -212,7 +214,7 @@ The Reporter does NOT write into `tests/`, `specs/`, `test-cases/`,
    (`api_assertions_reviewed`) for Newman results. If any is not passed
    (neither `true` nor `{ status: true }`), stop. The approval must also be **current**: `npm run pipeline -- --status` must
    not report it as a stale approval. An approval is bound to a digest of
-   what it reviewed (task group 4.3); once those inputs change it no longer
+   what it reviewed; once those inputs change it no longer
    counts, even though `status` may still read `true` until the next
    `--resume` returns it to pending.
 2. **Verify `analysis/failure-analysis.json` exists** and validates.
@@ -243,7 +245,7 @@ outcome_breakdown }` when only Playwright ran, and the grouped form
    the command's output (`scripts/lib/run-artifacts.js`), so a hand-edited
    number is caught, not shipped.
    - **External units** (`identity.kind: "external"`, imported manual and
-     component results, task group 7.2) are not automated executions and
+     component results) are not automated executions and
      stay out of `execution_summary` (the command leaves them out). Report
      them per case (step 4) and in the Markdown "Execution summary" as their
      own line: recorded N (passed, failed, blocked, not run), planned but not
@@ -350,7 +352,7 @@ outcome_breakdown }` when only Playwright ran, and the grouped form
    - `jira_key_if_exists` — read from the draft's "## Jira Issue
      Key" line. Empty in Phase 1; populated in Phase 2+ after
      `scripts/create-jira-bugs.js --apply` has run.
-     8.5. **Build the Phase 3 (TG12) enhanced-report fields** — all
+     8.5. **Build the Phase 3 enhanced-report fields** — all
      OPTIONAL in the schema, all derived deterministically (no LLM), all
      additive. Emit them so the report reads as a release decision, not a
      raw dump:
@@ -442,10 +444,10 @@ outcome_breakdown }` when only Playwright ran, and the grouped form
   don't know". List the conditions: which TCs were skipped, which
   manual checks are pending, which environment caveats apply. A
   reviewer should be able to read the conditions and decide. When you
-  emit `conditional_pass_criteria` (Phase 3 TG12), it must say the same
+  emit `conditional_pass_criteria`, it must say the same
   thing as `release_recommendation_reasoning` — the structured list and
   the prose cannot disagree.
-- **No hidden untested risks (Phase 3 TG12).** `untested_high_risk_items`
+- **No hidden untested risks.** `untested_high_risk_items`
   and `summary_by_risk_level` must reflect reality. Never omit, downplay,
   or zero-out a real coverage gap to make a report look cleaner. A
   high-severity uncovered risk is surfaced even when everything that ran

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// /evolve — self-improvement loop (Phase 3 TG10), adapted from the
+// /evolve — self-improvement loop, adapted from the
 // ai-qa-workflow /evolve concept. It READS signals about how the pipeline is
 // actually being used and PROPOSES grouped improvements. It never applies a
 // change — the human (or an agent, with human confirmation) decides. This is
@@ -9,7 +9,7 @@
 //
 // Sources (each optional — a missing source is skipped, never fatal):
 //   - Git commits + merges in a recent window (default 90 days).
-//   - metrics/pipeline-metrics.json (Phase 3 TG6), if present. Regenerate with
+//   - metrics/pipeline-metrics.json, if present. Regenerate with
 //     `npm run metrics` first to feed evolve fresh numbers.
 //   - session-summaries/*.md, if the team wrote any (scripts/session-summary.js).
 //   - GitHub issues: NOT fetched here. A plain Node script has no GitHub token
@@ -181,7 +181,7 @@ if (frictionCommits.length > 0) {
 
 // Knowledge decay / coverage gaps from metrics.
 if (metrics) {
-  // The key the metrics actually write (task group 8.3): this used to read
+  // The key the metrics actually write: this used to read
   // `untested_high_risk`, which never existed, so the finding never fired.
   const untested = metrics.untested_high_risk_items;
   if (Array.isArray(untested) && untested.length > 0) {
@@ -202,7 +202,7 @@ if (metrics) {
       targets: ['test-cases/', 'agents/test-designer.md'],
     });
   }
-  // Prompt stability is reported per prompt-version cohort (task group 8.2):
+  // Prompt stability is reported per prompt-version cohort:
   // each failing cohort is its own finding, and too little evidence is said
   // plainly rather than read as stability.
   const stability = metrics.prompt_stability;

@@ -1,4 +1,4 @@
-// Regression tests for published-report sanitization (task group 1.1, I3).
+// Regression tests for published-report sanitization.
 //
 // The leak these guard against is real: Newman writes the live x-api-key header
 // and resolved environment values into its reports, and CI uploaded those raw.

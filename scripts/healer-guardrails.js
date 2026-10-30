@@ -3,7 +3,7 @@
 // Shared by the harness (scripts/run-healer.js) and the demo
 // (scripts/demo-healer-green-red.js). Pure: no I/O, no side effects.
 //
-// Rebuilt in task group 6.1 (review findings S1, S2). The regex version
+// An earlier regex version
 // accepted negated matchers, removed assertions, changed snapshot targets,
 // added `.skip` when another skip already existed, and "kept" tests that had
 // been commented out. The comparison now parses both files and compares their

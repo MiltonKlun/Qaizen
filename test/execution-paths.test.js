@@ -1,11 +1,11 @@
 // Regression tests for the per-execution report layout and the CI summary's
-// honesty rules (task group 3.2).
+// honesty rules.
 //
 // The layout exists because raw reports went to ONE constant path
 // (reports/newman-results.json) regardless of story, collection or run. CI
 // loops collections calling `npm run test:api` per collection, so every
 // collection's raw evidence but the last was destroyed, and a stale file from
-// an unrelated story read as current evidence (finding I4).
+// an unrelated story read as current evidence.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

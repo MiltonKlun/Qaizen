@@ -1,11 +1,11 @@
-// Recoverable external synchronization (task group 5.1, review finding I2).
+// Recoverable external synchronization.
 //
 // Every scenario runs the real adapter scripts against in-process fake Jira
 // and TestLink servers in a throwaway workspace. No real service is ever
 // contacted: each run gets explicit localhost endpoints and blank inherited
 // credentials.
 //
-// Acceptance (IMPLEMENTATION_PLAN 5.1): no acknowledged remote identity
+// Acceptance: no acknowledged remote identity
 // disappears after a later failure; uncertain operations cannot duplicate
 // silently; dry-run makes no remote writes or local progress mutations.
 

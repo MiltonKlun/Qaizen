@@ -202,7 +202,7 @@ fails), the failure carries `test_case_id: null` AND
 `traceability_unresolved: true` with a human-readable reason. See
 section 5.
 
-**IDs are proven, never minted (failure-analysis 2.x, task group 3.3).** A
+**IDs are proven, never minted (failure-analysis 2.x).** A
 `PW-XXX` / `REQ-XXX` / `TC-XXX` on a failure comes only from exact metadata
 the runner report carries: the test title (`… [TC-002]`), the Newman item
 name (`REQ-001 … (TC-001)`), or a declared mapping. When no id can be proven
@@ -211,7 +211,7 @@ the retained `runner_identity`, so the failure stays traceable to the exact
 test. Two sources that disagree leave the link unresolved rather than picking
 one. An id is **never** derived from the order failures appear: the old
 pre-classifier numbered `PW-001`, `PW-002`, … by failure order, so an id
-depended on which tests happened to fail (review finding B6). 1.x artifacts
+depended on which tests happened to fail. 1.x artifacts
 keep their original rule (the id must be present and non-null).
 
 ### 3.9 Every Red failure produces a bug draft
@@ -261,8 +261,7 @@ For each `RISK-XXX` in `context.json.risks[]`:
 - What was their last execution status (pass / fail / skipped)?
 
 The Reporter emits this view as `release_report.json.coverage_by_risk[]`.
-The schema for that field is in `schemas/release-report.schema.json`
-(Phase 1 TG7).
+The schema for that field is in `schemas/release-report.schema.json`.
 
 **Explicit coverage gaps (Phase 2.6, Improvement 3).** The Reporter also
 emits two derived fields so a zero-coverage risk is impossible to miss:
@@ -281,7 +280,7 @@ For each AC (by index in `context.json.acceptance_criteria`):
 - Are they all `approved`?
 
 AC coverage is checked at Gate 2 by the human reviewer; the Reporter
-does not emit a separate matrix for it in Phase 1. Phase 3 (TG12)
+does not emit a separate matrix for it in Phase 1. Phase 3
 may add it to the release report.
 
 ---
@@ -322,11 +321,11 @@ directory on each run. So `TC-001` for run A and `TC-001` for run B
 on the same story are the same TC unless the Test Designer changed
 it between runs.
 
-Phase 3 (TG5) introduces `runs/[story-id]/[run-id]/...`. After that:
+Phase 3 introduces `runs/[story-id]/[run-id]/...`. After that:
 
 - A TC's global identity is `<story.id>::<run-id>::TC-XXX`.
 - A FAIL's global identity is `<story.id>::<run-id>::FAIL-XXX`.
-- The pipeline metrics script (Phase 3 TG6) walks completed runs and
+- The pipeline metrics script walks completed runs and
   aggregates by `story.id` (collapsing run dimension) for trend
   analyses.
 
@@ -338,15 +337,12 @@ unambiguous.
 ## 7. References
 
 - `CLAUDE.md` section 3.4 — traceability as an operating principle.
-- `schemas/context.schema.json` — anchors `story.id` and `risks[]`
-  (Phase 1 TG7).
-- `schemas/test-cases.schema.json` — requires `risk_ids` on every TC
-  (Phase 1 TG7).
+- `schemas/context.schema.json` — anchors `story.id` and `risks[]`.
+- `schemas/test-cases.schema.json` — requires `risk_ids` on every TC.
 - `schemas/failure-analysis.schema.json` — requires
   `test_case_id` + `playwright_test_id` (or `request_id`) on every
-  failure (Phase 1 TG7).
-- `schemas/release-report.schema.json` — derives `coverage_by_risk`
-  (Phase 1 TG7).
+  failure.
+- `schemas/release-report.schema.json` — derives `coverage_by_risk`.
 - `skills/receiving-tickets/SKILL.md` — creates STORY/JIRA and
   RISK IDs.
 - `skills/designing-cases/SKILL.md` — creates TC IDs.

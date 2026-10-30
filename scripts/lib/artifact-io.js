@@ -1,6 +1,6 @@
 // @ts-check
 // Shared artifact I/O: one AJV configuration, validated atomic writes, and a
-// run-scoped loader (IMPLEMENTATION_PLAN task group 2.1, review finding I6).
+// run-scoped loader.
 //
 // WHY: three scripts each built their own `new Ajv({allErrors:true,
 // strict:false})` and two separately reimplemented a compiled-schema cache

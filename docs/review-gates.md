@@ -36,7 +36,7 @@ parallel with the E2E-branch gates when the story has both
 
 ---
 
-## Two entry points: refinement vs ready-for-QA (Phase 2.6 TG2.6-4, shift-left)
+## Two entry points: refinement vs ready-for-QA (shift-left)
 
 The pipeline splits into two halves that already exist:
 
@@ -89,7 +89,7 @@ The pipeline orchestrator (the human operator, or the thin gated runner —
 `docs/pipeline-runner.md`) checks the relevant flag before invoking the
 next agent.
 
-**Phase 2 enhancement (TG6):** any gate's value may also be an object
+**Phase 2 enhancement:** any gate's value may also be an object
 `{ status: boolean, reviewer: string, reviewed_at: ISO_DATE, notes: string }`,
 plus an optional `opened_at: ISO_DATE | null` (gate telemetry — when the
 review _started_; see "Gate telemetry" below).
@@ -135,7 +135,7 @@ against the schema.
 
 ---
 
-## Optional consolidation of Gates 1 and 2 (Phase 2 TG7)
+## Optional consolidation of Gates 1 and 2
 
 > **Optional, opt-in, and reversible.** Most teams keep the four gates
 > separate. Consolidation is an efficiency lever, not a default — turn
@@ -226,8 +226,7 @@ agent or script written against the four-gate model breaks. See
 
 ## Gate 1 — Requirement Interpretation
 
-**When it runs:** After the Analyst Agent produces `context.json` (Phase
-1 TG13 step 4).
+**When it runs:** After the Analyst Agent produces `context.json`.
 
 **Inputs the reviewer reads:**
 
@@ -301,7 +300,7 @@ when domain detail is in question.
 
 **When it runs:** After the Test Designer produces
 `test-cases/[story-id].json` _and_
-`planner-input/[story-id].planner-brief.md` (Phase 1 TG13 step 7).
+`planner-input/[story-id].planner-brief.md`.
 
 **Inputs the reviewer reads:**
 
@@ -358,7 +357,7 @@ product owner co-approves.
    `test-cases/[story-id].json`. Without a terminal it does not open Gate 2
    while any case is still `draft`. The per-case decisions are part of the
    scope being approved, so changing them afterwards makes the approval
-   stale (task group 4.3).
+   stale.
 2. Set `review_gates.test_scope_reviewed = true` — through the runner,
    which binds the approval to a digest of the test cases and planner
    brief it covered (`docs/pipeline-runner.md` §4).
@@ -382,7 +381,7 @@ product owner co-approves.
 ## Gate 3 — Specs Review (E2E)
 
 **When it runs:** After the Playwright Planner Native Agent produces
-`specs/[story-id].md` (Phase 1 TG13 step 10).
+`specs/[story-id].md`.
 
 **Inputs the reviewer reads:**
 
@@ -443,7 +442,7 @@ a story has `automate_api` cases.
 
 **When it runs:** After the API Agent produces
 `api-tests/collections/[story-id].postman_collection.json` and the
-matching environment (Phase 1.5 TG9, steps 9'–10').
+matching environment (steps 9'–10').
 
 **Inputs the reviewer reads:**
 
@@ -496,7 +495,7 @@ the API branch — the two branches are reviewed independently.
 
 ## Gate 4 — Code Review **(human sign-off, always)**
 
-> **Pre-Gate-4 static scan (assist, IMPROVEMENT-PLAN Phase 6 / PFI-5).**
+> **Pre-Gate-4 static scan (assist).**
 > `scripts/gate4-scan.js` (`npm run scan:gate4 -- <file>`) does the
 > _mechanical_ half of this checklist for the reviewer: it flags hard waits,
 > `.skip`/`.fixme`/`.only`/`.fail`, fragile locators (nth-child / `.nth()` /
@@ -514,7 +513,7 @@ the API branch — the two branches are reviewed independently.
 > environmental `test.skip` with a written reason) — the reviewer decides.
 
 **When it runs:** After the Playwright Generator Native Agent
-produces `tests/[story-id].spec.ts` (Phase 1 TG13 step 13).
+produces `tests/[story-id].spec.ts`.
 
 **Inputs the reviewer reads:**
 
@@ -573,7 +572,7 @@ human — it is the assertion-level review that decides whether the API
 tests check the right business behaviour.
 
 **When it runs:** After Gate 3' passes and the collection validates
-against the schema (Phase 1.5 TG9, step 13').
+against the schema (step 13').
 
 **Inputs the reviewer reads:**
 
@@ -622,7 +621,7 @@ story without them (the informational CI check runs with
 
 Approved `manual`, `automate_component` and `skip` cases are not executed
 by the pipeline (docs/automation-decision-model.md). They form the external
-branch (task group 7.2) and keep two reviews of their own. There is no
+branch and keep two reviews of their own. There is no
 generated code for them, so `code_reviewed` is never set on their behalf,
 and neither review is skipped as "not applicable".
 

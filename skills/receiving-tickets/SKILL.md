@@ -184,11 +184,9 @@ skill to produce `test-cases/[story-id].json`.
 ## References
 
 - `schemas/context.schema.json` — the binding schema for the artifact
-  this skill produces (created in Phase 1 TG7).
-- `docs/review-gates.md` — Gate 1 criteria (created in Phase 1 TG6).
+  this skill produces.
+- `docs/review-gates.md` — Gate 1 criteria.
 - `docs/traceability.md` — the full traceability chain and the rules
-  this skill anchors (created in Phase 1 TG6).
-- `docs/mcp-setup.md` — Atlassian MCP setup and the read-only allowlist
-  (created in Phase 1 TG4).
-- `agents/analyst.md` — the agent prompt that calls this skill
-  (created in Phase 1 TG10).
+  this skill anchors.
+- `docs/mcp-setup.md` — Atlassian MCP setup and the read-only allowlist.
+- `agents/analyst.md` — the agent prompt that calls this skill.

@@ -171,15 +171,14 @@ Run the `designing-cases` skill to produce `test-cases/[story-id].json`.
 ## References
 
 - `schemas/context.schema.json` — the schema for `context.json` this
-  skill reads (created in Phase 1 TG7).
-- `docs/review-gates.md` — Gate 1 precondition and Gate 2 criteria
-  (created in Phase 1 TG6).
-- `docs/traceability.md` — full traceability chain (created in Phase 1 TG6).
+  skill reads.
+- `docs/review-gates.md` — Gate 1 precondition and Gate 2 criteria.
+- `docs/traceability.md` — full traceability chain.
 - `docs/seed-test-guidelines.md` — how the brief and the seed test
-  together drive the Playwright Planner (created in Phase 1 TG6).
+  together drive the Playwright Planner.
 - `docs/automation-decision-model.md` — referenced by `designing-cases`,
   not this skill, but listed here so the reader knows where it lives.
 - `agents/test-designer.md` — the agent prompt that orchestrates both
-  this skill and `designing-cases` (created in Phase 1 TG10).
+  this skill and `designing-cases`.
 - `.claude/agents/playwright-test-planner.md` — the Native Agent that
-  consumes the brief (scaffolded in Phase 1 TG3).
+  consumes the brief.

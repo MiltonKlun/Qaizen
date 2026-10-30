@@ -184,7 +184,7 @@ newman run api-tests/collections/<STORY_ID>.postman_collection.json \
   --reporter-htmlextra-export reports/<execution-id>/newman/<story>/<collection>.html
 ```
 
-Since task group 3.2 it calls Newman through its **Node API** (not a shell), so
+It calls Newman through its **Node API** (not a shell), so
 injected secrets are passed as values and never interpolated into a command
 line.
 
@@ -201,7 +201,7 @@ Outputs, scoped to one execution:
 The execution id comes from `--execution-id` or `QAIZEN_EXECUTION_ID` when the
 pipeline supplies one, otherwise the runner mints its own. This is what stops a
 story's second collection from overwriting the first's evidence, and stops a
-stale report from reading as current (finding I4).
+stale report from reading as current.
 
 Exit codes from the wrapper: `0` requests executed and all assertions passed,
 `1` at least one assertion/request failed **or the run executed zero requests**,
@@ -250,16 +250,16 @@ test-cases/[story-id].json
 ```
 
 The Failure Classifier and Reporter are **extended**, not duplicated, to cover
-the API branch (Phase 1.5 TG5 + TG6). The Healer never touches API tests in any
+the API branch. The Healer never touches API tests in any
 phase (`docs/healer-guardrails.md`).
 
 ---
 
 ## 7. References
 
-- `agents/api-agent.md` — the agent that authors collections (Phase 1.5 TG4).
+- `agents/api-agent.md` — the agent that authors collections.
 - `schemas/postman-collection.schema.json` — minimal schema the collections
-  validate against (Phase 1.5 TG3).
+  validate against.
 - `scripts/run-newman.js` — the cross-platform Newman wrapper.
 - `docs/design-decisions.md` D3 (API target = reqres.in) and D4 (MCP package name).
 - `docs/mcp-setup.md` — the other MCP servers (playwright-test, atlassian).

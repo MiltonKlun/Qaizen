@@ -3,7 +3,7 @@
   "run_id": "2026-06-06T12-00-00Z-enhrep",
   "story_id": "STORY-006",
   "report_date": "2026-06-06T12:30:00Z",
-  "summary": "Demonstrates the Phase 3 (TG12) enhanced release report: per-risk-level rollup, explicit untested-high-risk items, an open-bug rollup, flaky-test summary, structured conditional-pass criteria, and external (Jira/TestLink) links. Three risks (2 high, 1 medium): RISK-001 covered passing, RISK-002 (high) covered failing with a Red bug, RISK-003 (medium) uncovered. Recommendation is conditional_pass with explicit, checkable conditions.",
+  "summary": "Demonstrates the Phase 3 enhanced release report: per-risk-level rollup, explicit untested-high-risk items, an open-bug rollup, flaky-test summary, structured conditional-pass criteria, and external (Jira/TestLink) links. Three risks (2 high, 1 medium): RISK-001 covered passing, RISK-002 (high) covered failing with a Red bug, RISK-003 (medium) uncovered. Recommendation is conditional_pass with explicit, checkable conditions.",
   "coverage_by_risk": [
     {
       "risk_id": "RISK-001",

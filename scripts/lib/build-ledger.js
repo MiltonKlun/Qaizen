@@ -1,5 +1,5 @@
 // @ts-check
-// Ledger assembly (task group 3.1).
+// Ledger assembly.
 //
 // Turns adapter output into a complete, schema-valid execution ledger:
 // derives every total from the units (never asserts a count), maps approved
@@ -50,7 +50,7 @@ const ID_PATTERN = {
 };
 
 /**
- * Domain ids the RUNNER REPORT itself proves for a unit (task group 3.3).
+ * Domain ids the RUNNER REPORT itself proves for a unit.
  *
  * The documented conventions put ids where the report carries them:
  *   - Playwright: the test title, e.g. `valid login shows the inventory [TC-001]`;
@@ -87,7 +87,7 @@ export function idsFromMetadata(unit) {
  * Two sources, both exact: ids the report itself carries (idsFromMetadata) and
  * an optional caller-supplied mapping. When they DISAGREE the link stays null
  * and the conflict is recorded -- never an arbitrary selection. Nothing is
- * ever inferred from position or failure ordering (finding B6).
+ * ever inferred from position or failure ordering.
  *
  * @param {Unit[]} units
  * @param {Mapping} [mapping]  { [unit_id]: {test_case_id?, ...} | Array (ambiguous) }

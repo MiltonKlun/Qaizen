@@ -153,7 +153,7 @@ release at all**, three need a **major** version their parent does not allow.
 
 Newman only runs at dev time and in CI, against our own collections and our own
 endpoints; nothing it touches is shipped, and the HTML report is local-only and
-never published (task group 1.1). That narrows the blast radius of every row
+never published. That narrows the blast radius of every row
 above; it does not clear any of them.
 
 **All rows are OPEN.** They become accepted only when the maintainer records

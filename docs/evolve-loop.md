@@ -1,6 +1,6 @@
 # The `/evolve` loop
 
-> **Status:** Phase 3 (TG10). `/evolve` reads signals about how the pipeline is
+> **Status:** Phase 3. `/evolve` reads signals about how the pipeline is
 > actually used and **proposes** grouped, scored improvements. It never applies
 > a change — a human reviews and confirms each one. This is the same
 > "script gathers + scores deterministically, human judges" pattern as the
@@ -115,7 +115,7 @@ real systemic pain of building Phase 2–3:
   hardened into the "one PR off main at a time" discipline.
 - **artifact clobber / single-occupancy** (3 mentions) — a shared single-
   occupancy artifact got overwritten between stories. Accepted → addressed by
-  the `runs/` archival model (TG5).
+  the `runs/` archival model.
 
 This is the loop working as intended: real friction in, scored proposal out,
 human decides — no self-rewrite.

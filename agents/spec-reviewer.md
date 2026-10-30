@@ -10,9 +10,11 @@ description: |
   stays human.
 phase_introduced: 3
 phase_active: 3+
-version: 1.4.1
+version: 1.4.2
 changed_in_run: null
 changelog: |
+  - 1.4.2: PATCH (no output change). Pointers to unpublished planning notes are
+    removed from the prompt text; the instructions are unchanged.
   - 1.4.1: PATCH (task group 10.2). schemas/spec-review.schema.json now rejects
     auto_approval_eligible: true while a high-severity risk is uncovered, the
     rule step 6 already required. No behavior change.
@@ -72,7 +74,7 @@ Produce one `analysis/spec-reviews/[story-id].spec-review.json` (+ a
 
 ## 2. Inputs
 
-> **Loads only (Phase 3 TG7, token-efficient context).** The Spec Reviewer loads
+> **Loads only (token-efficient context).** The Spec Reviewer loads
 > **only**: `context.json`, `test-cases/[story-id].json`,
 > `planner-input/[story-id].planner-brief.md`, and `specs/[story-id].md`. It
 > runs before any test executes, so there are no reports/traces to load — and it
@@ -137,7 +139,7 @@ The Spec Reviewer does NOT write into `specs/`, `tests/`,
    is not passed (`true` or `{ status: true }`), stop — there is no
    approved scope to review a spec against. The approval must also be **current**: `npm run pipeline -- --status` must
    not report it as a stale approval. An approval is bound to a digest of
-   what it reviewed (task group 4.3); once those inputs change it no longer
+   what it reviewed; once those inputs change it no longer
    counts, even though `status` may still read `true` until the next
    `--resume` returns it to pending.
 2. **Compute `risk_coverage` deterministically — no LLM.** For each

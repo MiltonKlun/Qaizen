@@ -1,4 +1,4 @@
-// The static-file server both offline example apps share (task group 9.2):
+// The static-file server both offline example apps share:
 // examples/demo-run/serve.js and examples/benchmark-app/serve.js each carried
 // a near-verbatim copy of this. Zero dependencies (node:http), localhost only,
 // no network egress.

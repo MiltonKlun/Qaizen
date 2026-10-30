@@ -1,6 +1,5 @@
 // The structural evaluator: declared coverage, exact arithmetic, and the
-// candidate side of the prompt-change workflow (task group 8.1, finding I5;
-// the reporter stage, task group 2.2b).
+// candidate side of the prompt-change workflow, through the reporter stage.
 //
 // Each test builds a throwaway dataset (stories, gold outputs, manifest,
 // agent prompts) and runs scripts/evaluate-agents.js in it, so no committed

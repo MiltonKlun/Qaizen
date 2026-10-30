@@ -1,11 +1,11 @@
-// Manual, component and skip scopes: the external branch (task group 7.2).
+// Manual, component and skip scopes: the external branch.
 //
 // The real runner and import script drive each run on synthetic fixtures.
 // Gates are recorded with the same binding the runner uses at a human
 // decision (test/helpers), never through the runner or the import: importing
 // results records claims, and only a human review approves them.
 //
-// Acceptance (IMPLEMENTATION_PLAN 7.2): an approved non-E2E scope has an
+// Acceptance: an approved non-E2E scope has an
 // honest completion path with its own reviews, and no "not applicable" gate is
 // silently turned into an approval.
 

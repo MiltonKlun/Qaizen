@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Benchmark capture (IMPROVEMENT-PLAN Phase 5, IP-5.3). Appends ONE
+// Benchmark capture. Appends ONE
 // measurement record (one story x one arm) to evidence/benchmark.jsonl after
 // validating it against schemas/benchmark-record.schema.json via the single
 // generic validator — a malformed measurement never lands in the file
@@ -12,7 +12,7 @@
 // numbers the operator supplies. Unset metrics are stored as null (an explicit
 // gap), never coerced to 0.
 //
-// Records are schema 1.1 (task group 9.2): every new record carries its
+// Records are schema 1.1: every new record carries its
 // provenance and keeps three timings apart. The app, operator and tools are
 // supplied by the operator; the pipeline arm's prompt versions are READ from
 // its run's context.json; the runtime is read from this machine; the

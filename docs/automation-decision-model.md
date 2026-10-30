@@ -325,8 +325,7 @@ Gate 2 conversation, not a freelance schema change.
 
 ## 11. References
 
-- `schemas/test-cases.schema.json` — the enum is defined here
-  (Phase 1 TG7).
+- `schemas/test-cases.schema.json` — the enum is defined here.
 - `skills/designing-cases/SKILL.md` — instructs the Test Designer
   to apply the model.
 - `docs/review-gates.md` Gate 2 — checks the distribution and the

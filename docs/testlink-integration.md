@@ -23,7 +23,7 @@ proved fragile (see §6).
 
 ## 2. The `testlink` MCP entry — REMOVED; use the script instead
 
-> **Status (TG3/TG4, A7):** the `testlink` MCP entry below was **removed
+> **Status:** the `testlink` MCP entry below was **removed
 > from `.mcp.json`** because `dogkeeper886/testlink-mcp` would not complete
 > its MCP handshake in the MCP client (`-32000 Connection closed`, no
 > diagnostics) — even though TestLink itself works. **The supported
@@ -108,7 +108,7 @@ TESTLINK_PROJECT_KEY=AIQA                      # the project PREFIX
 TESTLINK_TEST_PLAN_ID=2                         # the numeric test plan id
 ```
 
-> **Verified during TG3 live setup:** from inside a Docker container,
+> **Verified during the live setup:** from inside a Docker container,
 > `http://host.docker.internal:8080/testlink/lib/api/xmlrpc/v1/xmlrpc.php`
 > returns HTTP 500 to a plain GET — which is the _correct_ response (the
 > XML-RPC endpoint only accepts POST bodies); it proves reachability. The
@@ -141,8 +141,7 @@ Regression`, id `2`). Execution results report against the plan.
 
 ## 6. Field mapping (our `test-cases.json` → TestLink)
 
-The adapter maps fields via `config/testlink-field-map.json` (created in
-TG4) — never hardcoded. The canonical mapping:
+The adapter maps fields via `config/testlink-field-map.json` — never hardcoded. The canonical mapping:
 
 | Our field (`test-cases/*.json`)  | TestLink field                    | Notes                                                                         |
 | -------------------------------- | --------------------------------- | ----------------------------------------------------------------------------- |
@@ -177,7 +176,7 @@ this story, this run and this approved scope: its
 `approved_scope_digest` must match the current approved test cases (the
 normalizer records it from `--test-cases`, which the pipeline passes).
 Manual and component cases follow the same precedence over their own
-recorded results (task group 7.2, `scripts/import-execution.js`): a pass
+recorded results (`scripts/import-execution.js`): a pass
 needs reviewed evidence, and an automated unit never stands in for them.
 Gate 2 must be current, and so must the final review of each reported
 branch: Gate 4 for E2E cases, the external plan and evidence reviews for
@@ -189,7 +188,7 @@ the repository.
 
 ---
 
-## 7. Verifying the connection (TG3 DoD)
+## 7. Verifying the connection
 
 With `.env` populated and the MCP client restarted so the `testlink` MCP
 loads, ask the agent:
@@ -201,7 +200,7 @@ Expected: at least the `Qaizen` (`QAIZEN`) project comes back.
 Because the MCP needs the live instance + key, **the human runs this
 check** — the agent can't reach your local TestLink container from a
 fresh restart on your behalf without the loaded MCP. If it returns the
-project, the connection works and TG3 is verified.
+project, the connection works.
 
 If it fails: re-check the §2 URL gotchas (XML-RPC path + Docker
 networking) first — those are the usual culprits.
@@ -259,13 +258,13 @@ the XML-RPC API is identical across 1.9.x.
 ## 9. References
 
 - `agents/test-management-adapter.md` — the port TestLink implements.
-- `skills/syncing-testlink/SKILL.md` — the adapter (TG4).
-- `scripts/sync-to-testlink.js` — the test-case sync script (TG4),
+- `skills/syncing-testlink/SKILL.md` — the adapter.
+- `scripts/sync-to-testlink.js` — the test-case sync script,
   invoked optionally by the Test Designer with `--apply-testlink`.
   Requires `TEST_MANAGEMENT_TOOL=testlink` (or `both`). An interrupted
   sync is finished with `--reconcile` (`docs/sync-recovery.md`).
-- `scripts/sync-testlink-execution.js` — the execution-result sync
-  (TG10), invoked optionally by the Reporter with
+- `scripts/sync-testlink-execution.js` — the execution-result sync,
+  invoked optionally by the Reporter with
   `--apply-testlink-execution`.
 - `config/testlink-field-map.json` / `config/testlink-status-map.json`
   — the (human-editable) mappings.

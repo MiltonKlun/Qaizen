@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Ten-minute offline demo of the whole pipeline (IMPROVEMENT-PLAN Phase 3).
+// Ten-minute offline demo of the whole pipeline.
 //
 // A skeptical coworker experiences all four human gates end-to-end in under
 // 10 minutes, FULLY OFFLINE (no Jira, no MCPs, no network), deterministic —
@@ -13,7 +13,7 @@
 //
 // What it does:
 //   1. Creates an isolated workspace runs/DEMO-1/<run-id>/ with a DEMO
-//      sentinel file (so metrics never counts it — IP-3.3).
+//      sentinel file (so metrics never counts it).
 //   2. Serves examples/demo-run/app/ with node:http on an ephemeral port.
 //   3. Drives the REAL runner (scripts/run-pipeline.js) inside the
 //      workspace: before each agent (guide) step it replays that agent's

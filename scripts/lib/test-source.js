@@ -1,5 +1,5 @@
 // @ts-check
-// Parsed view of a Playwright test file (task group 6.1; reused by 6.2).
+// Parsed view of a Playwright test file (also used by the Gate-4 scan).
 //
 // The Healer guardrails used regexes over raw text, which counted `test(`
 // inside comments, missed negated matchers, and ignored suppression that was

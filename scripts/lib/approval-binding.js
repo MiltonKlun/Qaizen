@@ -1,5 +1,5 @@
 // @ts-check
-// Bind each human approval to the exact inputs it reviewed (task group 4.3).
+// Bind each human approval to the exact inputs it reviewed.
 //
 // A gate used to be a boolean (or an audit object with `status: true`). Once
 // approved, it stayed approved no matter what changed afterwards: edit an
@@ -87,7 +87,7 @@ export const DOWNSTREAM = {
   // The API branch is reviewed on its own track: requests, then assertions.
   collection_reviewed: ['api_assertions_reviewed'],
   api_assertions_reviewed: [],
-  // Manual, component and skip cases (task group 7.2): plan, then evidence.
+  // Manual, component and skip cases: plan, then evidence.
   external_plan_reviewed: ['external_evidence_reviewed'],
   external_evidence_reviewed: [],
 };

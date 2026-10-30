@@ -22,7 +22,7 @@ That's it. The seed test is not a business test. It does not log in,
 exercise features, or check any acceptance criterion.
 
 ```ts
-// tests/seed.spec.ts (Phase 1 TG11 target content)
+// tests/seed.spec.ts
 import { test, expect } from '@playwright/test';
 
 /**
@@ -44,9 +44,9 @@ test.describe('Seed: Environment Setup', () => {
 });
 ```
 
-The currently-on-disk seed (auto-scaffolded by `init-agents` in TG3)
-is a stub with no assertion. TG11 replaces it with the version above.
-Until then there is a benign lint warning (`playwright/expect-expect`).
+The currently-on-disk seed (auto-scaffolded by `init-agents`)
+may be a stub with no assertion; replace it with the version above. A stub
+causes a benign lint warning (`playwright/expect-expect`).
 
 ---
 
@@ -78,8 +78,8 @@ reasons, which defeats its purpose.
 ## 3. How the Planner uses the seed
 
 When the Playwright Planner Native Agent
-(`.claude/agents/playwright-test-planner.md`) runs at Phase 1 TG13
-step 9, it is given:
+(`.claude/agents/playwright-test-planner.md`) runs (step 9 in
+`docs/pipeline-architecture.md`), it is given:
 
 - `planner-input/[story-id].planner-brief.md` — what to explore and
   what to leave alone.
@@ -146,8 +146,8 @@ problem — because the seed has no business assertions.
 
 ## 6. Why fixtures are deferred
 
-`tests/fixtures/` is created in Phase 1 TG1 as a placeholder. Its
-`README.md` (Phase 1 TG11) documents that fixtures arrive when the
+`tests/fixtures/` started as a placeholder. Its
+`README.md` documents that fixtures arrive when the
 application actually needs them.
 
 The reasoning:
@@ -204,7 +204,7 @@ Reasons that are NOT legitimate:
 - `docs/test-tagging.md` — the `@smoke` / `@regression` tagging convention
   for generated product tests, and the smoke-gating graduation path.
 - `tests/fixtures/README.md` — the placeholder note for fixtures
-  (created in Phase 1 TG11).
+  (created).
 - `.claude/agents/playwright-test-planner.md` — the Native Agent that
   consumes the seed.
 - `docs/mcp-setup.md` — the `playwright-test` MCP that backs the

@@ -6,7 +6,7 @@
     "title": "Login — Successful sign-in (audited gates)",
     "source": "manual",
     "path": "story.md",
-    "description": "Same login slice as login-success, but showing the Phase 2 (TG6) review-gate audit-field form. Demonstrates that the object gate form and the legacy boolean form validate side by side under the same schema (gateValue oneOf)."
+    "description": "Same login slice as login-success, but showing the Phase 2 review-gate audit-field form. Demonstrates that the object gate form and the legacy boolean form validate side by side under the same schema (gateValue oneOf)."
   },
   "acceptance_criteria": [
     "Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",

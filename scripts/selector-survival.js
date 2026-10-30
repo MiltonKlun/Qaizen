@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Selector survival (IMPROVEMENT-PLAN Phase 5, IP-5.5; rebuilt in task group
-// 9.1, review finding I7). Measures whether the locators a test relies on
+// Selector survival. Measures whether the locators a test relies on
 // still identify their intended element after the app moved on — the "did
 // these tests rot?" signal that separates tests written against a running app
 // from tests guessed from text.

@@ -13,7 +13,7 @@
 
 ## 0. One-time setup (do this once, before story 1)
 
-These are the TG13 blockers that aren't done yet. Knock them out first.
+Do these once, before the first story.
 
 ### 0.1 Git: first commit + remote
 

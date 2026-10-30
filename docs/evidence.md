@@ -265,21 +265,21 @@ credentials change.
 Recorded measurements above are unchanged; these notes explain what changed
 around them.
 
-- **2026-09-30 — selector survival method (task group 9.1).** Survival is now
+- **2026-09-30 — selector survival method.** Survival is now
   measured only with reviewed probes on a named baseline and later versions
   (`scripts/selector-survival.js --probe`). The `null` survival rows above were
   never measured (one SauceDemo version) and stay `null`; nothing is upgraded
   from qualitative to quantitative. The Bench Shop v1→v2 login-surface figure
   published in `examples/benchmark-app/README.md` was re-measured under the
   probe method: 2/5 (40%), the same value.
-- **2026-09-30 — Bench Shop duplicate labels (task group 9.2).** The v1
+- **2026-09-30 — Bench Shop duplicate labels.** The v1
   checkout overview repeated each total's label ("Item total:", "Tax:",
   "Total:") beside the figure that already contains it, so a text locator
   matched two elements. That was removed before any new measurement. No
   record in `evidence/benchmark.jsonl` was measured on the Bench Shop (three
   predate it; the fourth, recorded the day it was added, names live SauceDemo
   in its note), so no recorded result is affected.
-- **2026-09-30 — record provenance (task group 9.2).** New records are schema
+- **2026-09-30 — record provenance.** New records are schema
   1.1 with provenance and separate timings. The four existing 1.0 records keep
   what was captured then; their missing provenance is not reconstructed.
 

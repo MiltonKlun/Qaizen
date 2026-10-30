@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Healer harness (Phase 3 TG2; candidate processing since task group 6.3).
+// Healer harness.
 //
 // Two modes:
 //
@@ -104,7 +104,7 @@ exit(triage());
 function triage() {
   if (!existsSync(FA)) {
     console.error(
-      `No ${FA}. Run scripts/run-failure-classifier.js (TG1) or the Failure ` +
+      `No ${FA}. Run scripts/run-failure-classifier.js or the Failure ` +
         `Classifier Agent first.`
     );
     return 2;

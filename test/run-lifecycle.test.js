@@ -1,4 +1,4 @@
-// Regression tests for the run lifecycle (task group 4.1, finding B3).
+// Regression tests for the run lifecycle.
 //
 // B3: `--story` staged story.md FIRST and loaded the existing context.json
 // SECOND. Reproduced on a completed run: `--story new-story.md` printed

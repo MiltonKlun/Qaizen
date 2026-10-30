@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Normalize runner reports into an execution ledger (task group 3.1).
+// Normalize runner reports into an execution ledger.
 //
 // A thin CLI: it resolves inputs, calls the pure adapters, assembles the
 // ledger, and writes it through the shared validated atomic writer. All the
@@ -11,7 +11,7 @@
 // fabricated Playwright report, and vice versa. With neither, this exits 2
 // rather than writing an empty ledger that would read as "nothing failed".
 //
-// External work (task group 7.2) comes from the reviewed external plan and
+// External work comes from the reviewed external plan and
 // the results recorded by scripts/import-execution.js: one unit per recorded
 // manual/component result, linked to its case. A skip-only plan is an input
 // too: it yields a ledger with zero units whose approved cases are all
@@ -21,12 +21,12 @@
 //   node scripts/normalize-results.js --story QA-1042 \
 //     [--playwright reports/results.json] \
 //     [--execution <execution-id>]   every Newman report for this story in
-//                                    that execution (task group 3.2 layout)
+//                                    that execution
 //     [--newman <report.json> ...]   repeatable; explicit reports
 //     [--out analysis/execution-ledger.json] [--run-id <id>] [--mapping <file>]
 //     [--test-cases test-cases/<story>.json]   the approved scope: records the
 //                                    approved case ids and the scope digest the
-//                                    TestLink result sync checks (task group 5.3)
+//                                    TestLink result sync checks
 //     [--external-plan planner-input/<story>.external-plan.json]
 //     [--external-results external-evidence/<story>.results.json]
 //                                    (results need the plan and --test-cases)
@@ -225,7 +225,7 @@ function externalInputs(flags, { storyId, runId, testCases, scopeDigest }) {
 
 /**
  * Flags that may be given more than once; every other flag is single-valued.
- * Before task group 3.3 all flags were single-valued and a repeated `--newman`
+ * Once, all flags were single-valued and a repeated `--newman`
  * silently kept only the LAST report, dropping the other collections.
  */
 const REPEATABLE = new Set(['newman']);
@@ -334,7 +334,7 @@ export function main(args = argv.slice(2)) {
   const pwPath = flags.playwright;
 
   // Newman inputs: every report for THIS story in one execution, plus any
-  // explicit paths. Nothing is globbed across executions (finding I4).
+  // explicit paths. Nothing is globbed across executions.
   const nmPaths = [...(flags.newman || [])];
   if (flags.execution) {
     const dir = newmanStoryDir(flags.execution, storyId);
@@ -472,7 +472,7 @@ export function main(args = argv.slice(2)) {
 
   // The approved scope, when given, is the authority on which cases count and
   // is recorded as a digest, so a ledger cannot later be reported against a
-  // different scope (task group 5.3).
+  // different scope.
   /** @type {string | null} */
   let scopeDigest = null;
   /** @type {import('./lib/execution-ledger.js').TestCasesDoc | null} */

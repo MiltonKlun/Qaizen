@@ -1,4 +1,4 @@
-// Regression tests for the runner adapters and ledger assembly (task group 3.1).
+// Regression tests for the runner adapters and ledger assembly.
 //
 // These run against REAL captured runner reports in test/fixtures/, produced by
 // actually executing failing Playwright tests and a Newman collection against a

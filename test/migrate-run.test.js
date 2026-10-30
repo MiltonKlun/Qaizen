@@ -1,4 +1,4 @@
-// The active-run migration command (task group 2.2b): explicit, dry by
+// The active-run migration command: explicit, dry by
 // default, idempotent, never binds an approval, never touches runs/.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
