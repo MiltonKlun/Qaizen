@@ -1,6 +1,6 @@
 # Jira export helper
 
-> **Status:** Phase 2.6. A one-way export of local test cases into Jira-ready
+> A one-way export of local test cases into Jira-ready
 > output. The human pastes/imports it — **the script never writes to Jira**,
 > so there is zero risk to a shared board. For automated, config-selected
 > creation behind the `TestManagementAdapter` port, see

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // @ts-check
-// Newman runner for the API branch (Phase 1.5+).
+// Newman runner for the API branch.
 //
 // Reports go to a PER-EXECUTION path:
 //

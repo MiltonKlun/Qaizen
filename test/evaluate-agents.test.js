@@ -347,7 +347,7 @@ test('a candidate is compared with its baseline: regressions are named, a drop o
   }
 });
 
-// ------------------------------------------------- the reporter stage (2.2b)
+// ------------------------------------------------------- the reporter stage
 
 const INPUTS = join(REPO, 'examples/evaluation/reporter-inputs/login-success');
 

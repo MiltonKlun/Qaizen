@@ -120,7 +120,7 @@ alongside the existing seed.
 - **No reliance on fixtures.** The seed runs before fixtures exist.
   If the application needs auth to load even the landing page,
   document that and capture an auth strategy — but the seed itself
-  stays auth-free in Phase 1. See section 6.
+  stays auth-free. See section 6.
 - **No other tests in its group.** The seed carries no TC/PW/SPEC ids;
   it is the one documented exception to per-test traceability. The
   exception covers only a test inside `test.describe('Seed: ...')` in
@@ -131,14 +131,14 @@ alongside the existing seed.
 
 ## 5. Running the seed
 
-Phase 1 runs the seed locally:
+Run the seed locally:
 
 ```bash
 BASE_URL=https://your-app.com npm run test -- tests/seed.spec.ts
 ```
 
-In Phase 2 the seed runs as part of the GitHub Actions `playwright-smoke`
-job. If the seed fails in CI, it is treated as an environment problem
+In CI the seed runs with the rest of the suite (`npm test`) in the GitHub
+Actions `playwright-full` job. If the seed fails in CI, it is treated as an environment problem
 (stale credentials, app down, BASE_URL misconfigured), not a test
 problem — because the seed has no business assertions.
 
@@ -155,9 +155,9 @@ The reasoning:
 - **Fixtures are app-specific.** Auth flows, test users, seeded data
   — every app needs its own. Writing fixtures speculatively, before
   there is a concrete need, produces fragile abstractions.
-- **Phase 1's seed is auth-free.** It only loads `BASE_URL` and
+- **The seed is auth-free.** It only loads `BASE_URL` and
   checks the title. No fixture needed.
-- **When an app needs auth in Phase 2+,** the answer is
+- **When an app needs auth,** the answer is
   Playwright's `storageState` pattern — see
   https://playwright.dev/docs/auth. The seed is updated to capture
   storage state once; subsequent tests reuse it via fixtures defined
@@ -179,7 +179,7 @@ Three legitimate reasons to modify the seed:
    means "the app loaded".
 2. **Auth is now required to reach the landing page.** Update the
    seed to call into a `storageState` setup so the Planner has an
-   authenticated starting point. This is a Phase 2+ change and
+   authenticated starting point. That change
    should land alongside fixture work.
 3. **A new browser project is added.** If the project tests on
    Chromium and Firefox in CI, the seed should run on both. This is

@@ -47,7 +47,7 @@ session-summaries/*.md
 # Per-developer editor settings.
 /.vscode/
 
-# Phase 3 run history (scripts/new-run.js). Archived runs under runs/ ARE
+# Run history (scripts/new-run.js). Archived runs under runs/ ARE
 # versioned for their durable artifacts (context.json, test-cases/, specs/,
 # tests/, analysis/, release/, planner-input/, api-tests/, run-manifest.json),
 # but the heavy regenerable outputs are not — same rule as the repo root.

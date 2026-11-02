@@ -1,6 +1,6 @@
 # Prompt Versioning
 
-> **Status:** Phase 3. Every custom agent prompt (`agents/*.md`)
+> Every custom agent prompt (`agents/*.md`)
 > carries a semantic `version` in its frontmatter. A run records which
 > version of each agent it used in `context.json.prompt_versions`. A major
 > prompt change is evaluated on a candidate the agent generated from the fixed
@@ -41,7 +41,7 @@ changelog: |
 
 All seven agents start at `1.0.0` — the initial versioned baseline. The
 changelog of the baseline summarizes the prompt's history up to that point
-(Phase 1 → Phase 3) in one entry; it is not a per-phase diff.
+in one entry; it is not a per-phase diff.
 
 ### When to bump which number
 
@@ -190,7 +190,7 @@ Scores stay structural: wording similarity is not measured, and a structural
 
 - **Not** an automatic prompt-rewriter. Metrics and `/evolve` _propose_
   changes; a human edits the prompt and bumps the version. Prompts are never
-  rewritten autonomously (`CLAUDE.md` §3, Phase 3 §2).
+  rewritten autonomously (`CLAUDE.md` §3).
 - **Not** a separate version store. The version lives in the agent file; the
   history lives in Git; the per-run pin lives in `context.json`. No new system.
 - **Not** a gate. The evaluation check is a signal that informs the human at

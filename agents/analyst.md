@@ -9,9 +9,11 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 3.1.2
+version: 3.1.3
 changed_in_run: null
 changelog: |
+  - 3.1.3: PATCH (no output change). Build-phase labels are replaced by
+    what each step does today; the instructions are unchanged.
   - 3.1.2: PATCH (no output change). Pointers to unpublished planning notes are
     removed from the prompt text; the instructions are unchanged.
   - 3.1.1: PATCH (no output change). Text read from Jira, Confluence or a pull
@@ -153,8 +155,8 @@ Mode is chosen by what's available:
 - A `--jira <KEY>` flag and no `story.md` → Mode B.
 - Both present → error; stop and ask the human which to use.
 
-**Mode B is the Phase 2 enhancement.** The fetch itself stays
-read-only in every phase — reading a story never needs write access.
+**Mode B reads the story from Jira.** The fetch itself stays
+read-only — reading a story never needs write access.
 
 ### No Jira writes
 
@@ -175,8 +177,8 @@ Shape: defined by `schemas/context.schema.json`. See
 
 The Analyst writes the file in `status: "draft"` with all four
 `review_gates.*` booleans set to `false`. The human flips
-`requirements_reviewed` to `true` (or to the audit-field object form
-in Phase 2+) at Gate 1.
+`requirements_reviewed` to `true` (or to the audit-field object form)
+at Gate 1.
 
 ### Prompt versions (required)
 
@@ -188,7 +190,7 @@ guess. Include at minimum `analyst`, `test-designer`, `failure-classifier`, and
 what lets metrics attribute a run to the exact prompts that produced it; see §5
 step 9.
 
-### Track proposal (optional — Phase 4, lite track)
+### Track proposal (optional — lite track)
 
 The Analyst MAY propose a `track` (`lite` / `standard` / `full`) and SHOULD
 record the `track_floor` it implies (`docs/context-json-guide.md`):
@@ -361,7 +363,7 @@ validate:context`). Fix and re-validate until the script exits 0.
   Postman collections — those belong to later agents.
 - Setting any `review_gates.*` flag to `true` on the agent's own
   initiative. Only the human approves a gate; the agent records the
-  approval (with audit fields in Phase 2+) but does not decide it.
+  approval (with audit fields) but does not decide it.
 - Setting `status: "completed"`. The runner sets it once every gate has
   passed and every artifact of the run validates.
 - Skipping schema validation because "it's basically right".
@@ -448,7 +450,7 @@ printed, 2-space indent, UTF-8, LF line endings.
 Schema: `schemas/context.schema.json`. See
 `docs/context-json-guide.md` section 3 for a worked example.
 
-Minimal valid shape (Phase 1):
+Minimal valid shape:
 
 ```jsonc
 {

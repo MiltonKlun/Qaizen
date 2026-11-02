@@ -234,7 +234,7 @@
     },
 
     "case_outcomes": {
-      "description": "Approved-scope coverage, kept SEPARATE from runner units (the plan's counting clarification). An approved case with no executable unit is 'not_run' here and does NOT create an invented unit or inflate unit totals.",
+      "description": "Approved-scope coverage, kept SEPARATE from runner units. An approved case with no executable unit is 'not_run' here and does NOT create an invented unit or inflate unit totals.",
       "type": "array",
       "items": {
         "type": "object",

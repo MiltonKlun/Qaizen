@@ -140,11 +140,11 @@
         },
         "qmetry_fields": {
           "type": "object",
-          "description": "Reserved forward-compatibility slot. Phase 1 leaves this empty; future phases may bind a schema."
+          "description": "Reserved forward-compatibility slot. Left empty; a future change may bind a schema."
         },
         "testlink_id": {
           "type": "string",
-          "description": "Populated by Phase 2 syncing-testlink skill. Empty/omitted in Phase 1. DEPRECATED in favor of external_ids.testlink (Phase 2.6) but kept valid for backward compatibility; the TestLink adapter still writes it."
+          "description": "Populated by the syncing-testlink skill. DEPRECATED in favor of external_ids.testlink but kept valid for backward compatibility; the TestLink adapter still writes it."
         },
         "external_ids": {
           "type": "object",

@@ -35,7 +35,7 @@ test.describe('Seed: Environment Setup', () => {
   });
 });
 
-// TODO Phase 2+: if the app under test requires auth even to reach
+// TODO: if the app under test requires auth even to reach
 // the landing page, capture storageState here and have downstream
 // tests reuse it via fixtures defined in tests/fixtures/ (e.g. auth.ts),
 // the folder Gate 4 binds.

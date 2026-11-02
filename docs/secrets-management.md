@@ -1,11 +1,11 @@
 # Secrets Management
 
-> **Status:** Phase 2. This document covers how the pipeline handles
+> This document covers how the pipeline handles
 > credentials: where they live, how to create them, and how they reach
 > CI without ever entering the repository.
 
 The pipeline talks to several external services that need credentials —
-Jira, Confluence, Postman, reqres.in, and (Phase 2) TestLink, plus
+Jira, Confluence, Postman, reqres.in, and TestLink, plus
 GitHub Actions in CI. None of those credentials ever live in a committed
 file. This document is the single reference for getting them, storing
 them, and feeding them to CI.
@@ -82,7 +82,7 @@ create unless a workflow calls an external service.
 
 ---
 
-## 3. GitHub Actions secrets (Phase 2 CI)
+## 3. GitHub Actions secrets (CI)
 
 CI cannot read your local `.env`. Each secret the workflow needs is
 stored in the repo's GitHub Actions secret store and referenced as
@@ -102,7 +102,7 @@ stored in the repo's GitHub Actions secret store and referenced as
 
 ### Which secrets CI needs
 
-Depends on which jobs run. The Phase 2 `quality-checks` and
+Depends on which jobs run. The `quality-checks` and
 `playwright`/`newman` jobs need:
 
 | Secret           | Used by                                                                      |
@@ -156,7 +156,7 @@ newman run ... --env-var "api_key=$REQRES_API_KEY"
 so `api-tests/environments/*.postman_environment.json` keeps `api_key`
 empty in git.
 
-**Caveat learned in Phase 1.5:** run-time injection keeps secrets
+**Caveat learned on the API branch:** run-time injection keeps secrets
 out of _committed_ files, but tools may still record them in their
 **output**. Newman writes the live `x-api-key` request header into
 `reports/newman-results.json`, and the resolved `api_key` into that

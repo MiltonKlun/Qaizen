@@ -1,6 +1,6 @@
 # The `/evolve` loop
 
-> **Status:** Phase 3. `/evolve` reads signals about how the pipeline is
+> `/evolve` reads signals about how the pipeline is
 > actually used and **proposes** grouped, scored improvements. It never applies
 > a change — a human reviews and confirms each one. This is the same
 > "script gathers + scores deterministically, human judges" pattern as the
@@ -108,7 +108,7 @@ the maintainer's own input and is never published). The next `/evolve` mines it.
 
 The first `/evolve` run, against this repo's own 90-day history + the recorded
 session summary, produced two 🔴 high-confidence findings that match exactly the
-real systemic pain of building Phase 2–3:
+real systemic pain of building the pipeline:
 
 - **stacked / orphaned PRs** (3 mentions) — PRs branched off another feature
   branch auto-closed when the base branch was deleted on merge. Accepted →

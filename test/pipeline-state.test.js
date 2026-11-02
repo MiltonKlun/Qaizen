@@ -566,7 +566,7 @@ test('external: a mixed manual/API scope reviews every plan before Newman, and e
   );
 });
 
-test('lite track — sequencing uses one consolidated qa_scope gate (Phase 4)', () => {
+test('lite track — sequencing uses one consolidated qa_scope gate', () => {
   const cases = [
     [
       'lite, fresh: analyst first (no qa_scope before cases exist)',

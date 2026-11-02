@@ -1,6 +1,6 @@
-# TestLink Integration (Phase 2)
+# TestLink Integration
 
-> **Status:** Phase 2. TestLink is the first adapter behind the
+> TestLink is the first adapter behind the
 > `TestManagementAdapter` port (`agents/test-management-adapter.md`). It
 > syncs **approved** test cases and execution results from the pipeline
 > into a running TestLink instance. The pipeline's source of truth stays

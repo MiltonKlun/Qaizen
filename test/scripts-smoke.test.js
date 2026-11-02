@@ -271,7 +271,7 @@ test('run-pipeline — non-TTY gate refusal (no CI job can approve a gate)', () 
         '"requirements_reviewed": false'
       )
     );
-    // Gate 1 reviews the story; a gate does not prompt without it (4.2).
+    // Gate 1 reviews the story; a gate does not prompt without it.
     writeFileSync(join(dir, 'story.md'), '# Login\nThe story.\n');
     const r = spawnSync('node', ['scripts/run-pipeline.js'], {
       cwd: dir,

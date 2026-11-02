@@ -147,7 +147,7 @@ relative path of the new file, then re-validate `context.json`.
 - Producing Playwright tests (→ Playwright Generator Native Agent,
   after Gate 4).
 - Publishing to Confluence — not in this pipeline.
-- Anything in TestLink — Phase 2.
+- Anything in TestLink (→ `syncing-testlink`).
 
 ## When to STOP and ask
 

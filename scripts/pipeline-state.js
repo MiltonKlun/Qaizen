@@ -150,7 +150,7 @@ export function nextStep(context, hints = {}) {
   const g1 = consolidated || gatePassed(gates.requirements_reviewed);
   const g2 = consolidated || gatePassed(gates.test_scope_reviewed);
 
-  // Track-aware gate path (Phase 4, lite track). On the lite track the
+  // Track-aware gate path (lite track). On the lite track the
   // analyst's interpretation and the test scope are approved in ONE
   // qa_scope_approved decision (the runner records it once; both underlying
   // gates pass with it). On standard/full the two gates stay separate.

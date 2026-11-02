@@ -94,7 +94,7 @@
     "uncovered_high_severity_count": {
       "type": "integer",
       "minimum": 0,
-      "description": "OPTIONAL (Phase 2.6). Count of uncovered_risks whose severity in context.json.risks[] is 'high'. When > 0 the release_recommendation should not be 'pass' (a high-severity risk with no test is a coverage gap)."
+      "description": "OPTIONAL. Count of uncovered_risks whose severity in context.json.risks[] is 'high'. When > 0 the release_recommendation should not be 'pass' (a high-severity risk with no test is a coverage gap)."
     },
     "summary_by_risk_level": {
       "type": "object",
@@ -256,7 +256,7 @@
           },
           "jira_key_if_exists": {
             "type": "string",
-            "description": "Populated by Phase 2 scripts/create-jira-bugs.js --apply. Empty/omitted in Phase 1.",
+            "description": "Populated by scripts/create-jira-bugs.js --apply. Empty/omitted until then.",
             "pattern": "^[A-Z][A-Z0-9_]*-[0-9]+$"
           }
         }

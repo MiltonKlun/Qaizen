@@ -1566,7 +1566,7 @@ async function main() {
     exit(1);
   }
 
-  // Track-floor enforcement (Phase 4, lite track). A story may not run `lite`
+  // Track-floor enforcement (lite track). A story may not run `lite`
   // when its floor is higher: Red-taxonomy exposure or size pushes it to
   // standard (scripts/track-floor.js, docs/healer-guardrails.md §4). The floor
   // is computed live and is read-only here — the runner never rewrites

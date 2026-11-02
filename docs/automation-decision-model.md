@@ -211,8 +211,8 @@ Examples:
   reading order."
 - "Exploratory: poke at the new permissions UI for 30 minutes."
 
-The TC still gets written down. Manual cases go into TestLink in
-Phase 2 (via `skills/syncing-testlink`) and into the release report's
+The TC still gets written down. Manual cases can go into TestLink
+(via `skills/syncing-testlink`) and into the release report's
 manual section. They are not silently dropped.
 
 Anti-patterns:
@@ -331,4 +331,4 @@ Gate 2 conversation, not a freelance schema change.
 - `docs/review-gates.md` Gate 2 — checks the distribution and the
   reasons.
 - `docs/pipeline-architecture.md` section 5 — how `automate_api`
-  feeds the Phase 1.5 API branch.
+  feeds the API branch.

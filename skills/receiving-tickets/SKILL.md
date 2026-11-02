@@ -54,12 +54,12 @@ artifact.
 
 - Test cases (that's `designing-cases` writing to `test-cases/`).
 - Planner brief (that's `planning-tests` writing to `planner-input/`).
-- Confluence pages (this pipeline does not publish to Confluence in P1).
-- Any Jira writes (Phase 1 is MCP read-only; see `docs/mcp-setup.md`).
+- Confluence pages (this pipeline does not publish to Confluence).
+- Any Jira writes (the Atlassian MCP is read-only; see `docs/mcp-setup.md`).
 
 ## Modes
 
-### Mode A — Manual story (Phase 1 baseline)
+### Mode A — Manual story (baseline)
 
 Input: a `story.md` file at the project root.
 
@@ -75,7 +75,7 @@ Steps:
    - `story.title`, `story.description`, `story.path` = `"story.md"`.
    - `story.jira_issue_key` = omitted.
 
-### Mode B — Jira (also available in Phase 1 because MCP is read-only)
+### Mode B — Jira (read-only MCP)
 
 Input: a Jira issue key, e.g. `JIRA-1234`.
 

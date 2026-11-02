@@ -1,7 +1,7 @@
 ---
 name: api-agent
 description: |
-  API branch authoring (Phase 1.5+). Reads the subset of test cases
+  API branch authoring. Reads the subset of test cases
   marked automate_api and produces a Postman collection plus a matching
   environment for the story. Collections reference variables (base URL,
   credentials) from the environment — never hardcoded. The collection
@@ -10,9 +10,11 @@ description: |
   agent only authors it.
 phase_introduced: 1.5
 phase_active: 1.5+
-version: 1.3.2
+version: 1.3.3
 changed_in_run: null
 changelog: |
+  - 1.3.3: PATCH (no output change). Build-phase labels are replaced by
+    what each step does today; the instructions are unchanged.
   - 1.3.2: PATCH (no output change). Pointers to unpublished planning notes are
     removed from the prompt text; the instructions are unchanged.
   - 1.3.1: PATCH (no output change). Collections, specs and API responses are
@@ -49,8 +51,8 @@ case is the API Agent's input. The agent authors a Postman collection
 (the requests + assertions) and an environment (the variable values),
 then hands off to Newman for execution.
 
-This agent is the ONLY new custom agent in Phase 1.5. It is bound by the
-same discipline as the Phase 1 agents: schema validation, traceability,
+This agent authors the API branch. It is bound by the
+same discipline as the other custom agents: schema validation, traceability,
 folder ownership, and "do not invent" (here: do not invent endpoint
 shapes — verify them).
 
@@ -72,7 +74,7 @@ The agent authors; it does not execute. Newman runs the collection later
 (`npm run test:api`, see `docs/postman-integration.md`). The agent also
 does not decide automation level — the Test Designer already did that.
 
-For Phase 1.5 the API under test is **reqres.in** (`https://reqres.in/api`),
+The reference API under test is **reqres.in** (`https://reqres.in/api`),
 per `docs/design-decisions.md` D3 — Saucedemo has no real backend API, so the
 API branch targets a separate demo API. The `base_url` environment
 variable carries this value.
@@ -189,7 +191,7 @@ disk wins.
      so traceability survives even if the name is edited.
 6. **Author the environment.** Create
    `api-tests/environments/[story-id].postman_environment.json` with at
-   least `base_url` (= `https://reqres.in/api` for Phase 1.5) and any
+   least `base_url` (the API under test; `https://reqres.in/api` for the reference API, D3) and any
    credential variables the requests reference. Credentials come from
    the environment, sourced from `.env` at run time — never written as
    literal values into a committed file.
@@ -242,7 +244,7 @@ disk wins.
 - Hardcoding credentials, tokens, or the base URL into the collection
   file. Always via environment variables.
 - Modifying production collections in the Postman cloud without explicit
-  human approval. Phase 1.5 works against reqres.in (a demo API); there
+  human approval. The reference API is reqres.in (a demo API); there
   is no production target, but the rule stands for when there is one.
 - Changing the test case. If a TC's `expected_results` are wrong, that's
   a Test Designer change and a Gate 2 re-open — record it and stop, do
