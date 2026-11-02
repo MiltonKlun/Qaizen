@@ -102,7 +102,7 @@
   "untested_high_risk_items": [],
   "flaky_tests": [
     {
-      "test_id": "TC-001",
+      "test_id": "TC-003",
       "branch": "e2e",
       "note": "Passed on first retry; intermittent timeout on the inventory load step."
     }
@@ -110,7 +110,7 @@
   "blocking_failures": ["FAIL-001"],
   "non_blocking_failures": [],
   "release_recommendation": "fail",
-  "release_recommendation_reasoning": "RISK-002 (high) is covered_failing with a Red failure (FAIL-001 / BUG-001). A Red failure on a high-severity risk makes this a fail, even though a Jira issue (SK-101) tracks it: a tracked product bug in what matters most is still a product bug. RISK-001 (high) is covered_passing; RISK-003 (medium) is uncovered; TC-001 passed only on retry and is listed as flaky.",
+  "release_recommendation_reasoning": "RISK-002 (high) is covered_failing with a Red failure (FAIL-001 / BUG-001). A Red failure on a high-severity risk makes this a fail, even though a Jira issue (SK-101) tracks it: a tracked product bug in what matters most is still a product bug. RISK-001 (high) is covered_passing; RISK-003 (medium) is uncovered; TC-003 passed only on retry and is listed as flaky.",
   "bug_drafts": [
     {
       "bug_id": "BUG-001",

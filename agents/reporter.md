@@ -294,6 +294,12 @@ outcome_breakdown }` when only Playwright ran, and the grouped form
      skipped, an expected failure, or with no recorded result). The
      printed `not_passing` names the cases that keep a risk from passing;
      use it in the reasoning.
+   - **Legacy 1.x analysis** (no ledger, so no `--coverage` view): write
+     the 1.0 report's coverage by hand with the same rules: list every TC
+     that references the risk, and derive the status from the analysis's
+     failures and recorded results. Nothing checks a 1.x report's
+     statuses against a ledger, so state in the reasoning how each was
+     derived.
 5. **Build the failure lists.** From
    `analysis/failure-analysis.json.failures[]`:
    - `blocking_failures` — every `FAIL-XXX` with `severity: "red"`.
@@ -538,9 +544,9 @@ summary. It does not mint new ids. It consumes:
 | `FAIL-XXX`             | `analysis/failure-analysis.json.failures[]` |
 | `BUG-XXX`              | `release/bug-drafts/BUG-*.md`               |
 
-The Reporter's `coverage_by_risk[]` array is a derived view: for
-each risk, list the TCs that reference it, decide the status based
-on execution outcomes. Re-running the Reporter against the same
+The Reporter's `coverage_by_risk[]` array is a derived view, copied from
+`npm run report:summary -- --coverage` (derived from the execution ledger;
+step 4). Re-running the Reporter against the same
 inputs produces the same coverage view — idempotent by design.
 
 If `analysis/failure-analysis.json` contains failures with

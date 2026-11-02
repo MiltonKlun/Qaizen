@@ -289,6 +289,23 @@ test('report:summary --coverage prints each risk as the ledger shows it', () => 
     );
     assert.equal(misuse.status, 2);
     assert.match(misuse.stderr, /go with --coverage/);
+
+    // A ledger from another story is refused, not reported on.
+    const mismatch = spawnSync(
+      process.execPath,
+      [
+        script,
+        '--coverage',
+        '--ledger',
+        join(
+          process.cwd(),
+          'examples/expected/mixed-run.expected-execution-ledger.json'
+        ),
+      ],
+      { cwd: dir, encoding: 'utf8' }
+    );
+    assert.equal(mismatch.status, 2);
+    assert.match(mismatch.stderr, /different stories/);
   } finally {
     rmSync(dir, CLEANUP);
   }

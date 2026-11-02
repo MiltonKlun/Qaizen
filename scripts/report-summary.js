@@ -122,6 +122,21 @@ if (typeof casesPath !== 'string' || !casesPath) {
   exit(2);
 }
 const testCases = readInput(casesPath);
+// The three inputs must describe the same story, or the view is about none.
+const stories = {
+  [contextPath]: context.story?.id,
+  [casesPath]: testCases.story_id,
+  [path]: ledger.data.story_id,
+};
+if (new Set(Object.values(stories)).size !== 1) {
+  console.error(
+    'Error: the inputs are for different stories: ' +
+      Object.entries(stories)
+        .map(([p, id]) => `${p} ${id ?? '(none)'}`)
+        .join(', ')
+  );
+  exit(2);
+}
 if (!ledger.data.approved_scope_digest) {
   // Without an approved scope the ledger lists no case outcomes, so nothing
   // can be shown to pass; say why rather than print every case as not run.
