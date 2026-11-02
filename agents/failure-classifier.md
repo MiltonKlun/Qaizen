@@ -10,9 +10,13 @@ description: |
   does not own that path.
 phase_introduced: 1
 phase_active: 1+
-version: 2.3.4
+version: 2.4.0
 changed_in_run: null
 changelog: |
+  - 2.4.0: MINOR. The rule-based draft is kept unchanged in
+    analysis/failure-analysis.draft.json and named in rule_draft; a changed
+    classification or severity is recorded in overrides[] with its reason
+    instead of overwritten. The Healer takes eligibility from the draft.
   - 2.3.4: PATCH (no output change). Build-phase labels are replaced by
     what each step does today; the instructions are unchanged.
   - 2.3.3: PATCH (no output change). Review-finding labels that only made
@@ -206,8 +210,24 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
    flat totals are its legacy projection and `outcome_breakdown` explains
    them. **Never recompute totals from raw reports** -- that is how timed-out
    tests vanished and pass counts went negative.
+   The pre-classifier also kept its draft as written, in
+   `analysis/failure-analysis.draft.json`, and `failure-analysis.json` names
+   it in `rule_draft` with its SHA-256. **Never edit the draft file and
+   never remove `rule_draft`**: the draft is the record of what the rules
+   said, and the runner refuses a finalized analysis whose draft is
+   missing, changed, or another run's.
 3. **For each failure in the draft** (every failed, blocked and flaky unit
    is already present, once):
+   - **A changed classification or severity is an override, recorded.**
+     When you disagree with the draft's `classification` or `severity`,
+     change it in `failure-analysis.json` AND add one entry per changed
+     field to `overrides[]`:
+     `{ "failure_id": "FAIL-XXX", "field": "classification" | "severity",
+"from": "<draft value>", "to": "<your value>", "reason": "<the
+evidence>" }`. The runner compares the analysis with the draft and
+     refuses one that changes either field without exactly that entry, or
+     records a change it does not make. Filling in ids, `bug_draft_path`
+     or `status` needs no override. Do not add or remove failures.
    - Keep its `FAIL-XXX` and `unit_id`. `execution_outcome` is what the
      run did; `classification` is why. Keep them separate: a `flaky` unit
      can still carry a Red cause.
@@ -297,8 +317,9 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
 7. **Update `context.json`** with the new `artifact_paths.failure_analysis`
    path. Re-validate `context.json`.
 8. **Hand off to the Reporter.** Do not run the Healer. Your
-   classification decides what it may do later: only a Green failure
-   in a `finalized` analysis, linked to its ledger `unit_id`, can take a
+   classification decides what it may do later: only a failure that is
+   Green both in the rule-based draft and in the `finalized` analysis,
+   linked to its ledger `unit_id`, can take a
    proposed fix (`scripts/run-healer.js --failure FAIL-XXX --candidate
 <file>`), which is validated in an isolated copy and ends as a patch
    for human review. A wrong Green is how a product bug gets "healed",
@@ -344,6 +365,8 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
 - Adding `.skip`, `.fixme`, or any test-suppression mechanism to
   Playwright tests.
 - Updating snapshots.
+- Editing `analysis/failure-analysis.draft.json`, or changing a
+  classification or severity without recording the override.
 - Changing `expected_results` in `test-cases/[story-id].json` to
   match observed behaviour. That's the cardinal "weaken the
   assertion to make the test pass" anti-pattern.

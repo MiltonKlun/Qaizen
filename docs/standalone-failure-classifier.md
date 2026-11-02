@@ -29,6 +29,13 @@ Failure Classifier Agent (or a human) confirms each call, writes a bug draft
 for every Red failure, resolves or acknowledges unresolved links, and sets
 `status: "finalized"`. The Reporter and the TestLink sync refuse a draft.
 
+The draft is also kept as written, in `analysis/failure-analysis.draft.json`,
+and the analysis names it in `rule_draft` with its SHA-256. Finalizing may
+change a failure's classification or severity only by recording the change in
+`overrides[]` (`failure_id`, `field`, `from`, `to`, `reason`); the runner keeps
+the run at the finalize step while the analysis and its draft disagree without
+a record.
+
 ## Prerequisites (read this — it's not zero-ceremony)
 
 - A Playwright JSON report at `reports/results.json` (the repo's

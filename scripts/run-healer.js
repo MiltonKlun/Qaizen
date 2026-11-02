@@ -55,6 +55,7 @@ import {
   writeTextAtomic,
 } from './lib/artifact-io.js';
 import { requireCurrentGate } from './lib/approval-binding.js';
+import { draftProblems } from './lib/run-artifacts.js';
 import { readLedger } from './lib/execution-ledger.js';
 import {
   MAX_ATTEMPTS,
@@ -206,6 +207,18 @@ async function processCandidate(failureId, candidatePath) {
     console.error(`${FA} is not the current run's analysis. Refusing.`);
     return 1;
   }
+  // Eligibility comes from the rule-based draft, never from a classification
+  // the finalizing step changed (scripts/lib/analysis-overrides.js).
+  const drift = draftProblems(analysis, '.');
+  if (drift.length) {
+    console.error(`${FA}: ${drift.join('; ')}. Refusing.`);
+    return 1;
+  }
+  const draft = analysis.rule_draft ? readJson(analysis.rule_draft.path) : null;
+  if (draft && !draft.ok) {
+    console.error(`${draft.message}. Refusing.`);
+    return 1;
+  }
   const ledgerRead = readLedger(LEDGER, {
     storyId: context.story?.id,
     runId: context.run_id,
@@ -224,6 +237,7 @@ async function processCandidate(failureId, candidatePath) {
   const target = resolveTarget({
     context,
     analysis,
+    draft: draft?.ok ? draft.data : null,
     ledger: ledgerRead.data,
     failureId,
   });

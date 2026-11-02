@@ -150,6 +150,10 @@ node scripts/run-healer.js --failure FAIL-001 --candidate path/to/fixed.spec.ts 
    ledger identify the live test file and the single failing test. Gate 4
    must be current. API, Yellow and Red failures, an ambiguous test, and a
    candidate that is the live file itself are refused before anything runs.
+   Eligibility comes from the rule-based draft as well: a failure the
+   finalizing step raised to Green, but which the draft
+   (`analysis/failure-analysis.draft.json`) did not call Green, is refused,
+   and so is an analysis whose draft is missing or changed.
 2. The static check above must find the candidate eligible.
 3. With `--apply`, the config, the test and everything they import are
    copied into `.healer-workspace/` (gitignored; `.env` and other state

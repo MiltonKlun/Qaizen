@@ -16,6 +16,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   cpSync,
   existsSync,
@@ -390,6 +391,80 @@ test('a Red failure whose bug draft is missing blocks completion', () => {
     ];
     report.release_recommendation = 'fail';
     writeFileSync(rp, JSON.stringify(report));
+    assert.match(pipeline(dir, ['--resume']).out, /Pipeline complete/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a finalized analysis that changes a severity without recording it stays at FINALIZE', () => {
+  const dir = repo();
+  try {
+    writeCompletedRun(dir);
+    const p = join(dir, 'analysis', 'failure-analysis.json');
+    const fa = JSON.parse(readFileSync(p, 'utf8'));
+    const failure = {
+      failure_id: 'FAIL-001',
+      unit_id: 'pw:chromium:x',
+      execution_outcome: 'failed',
+      runner_identity: { kind: 'playwright', test_title: 'x' },
+      test_case_id: 'TC-002',
+      source: 'playwright',
+      playwright_test_id: 'PW-002',
+      classification: 'product_bug',
+      severity: 'red',
+      classification_reason: 'observed $1.00 where $100.00 was required',
+      error_message: 'x',
+      evidence_paths: ['analysis/execution-ledger.json'],
+    };
+    // The rule-based draft calls it Red, exactly as the pre-classifier writes.
+    const draft = { ...fa, failures: [failure], status: 'draft' };
+    write(
+      dir,
+      'analysis/failure-analysis.draft.json',
+      JSON.stringify(draft, null, 2) + '\n'
+    );
+    const sha256 = createHash('sha256')
+      .update(readFileSync(join(dir, 'analysis/failure-analysis.draft.json')))
+      .digest('hex');
+    // The finalized analysis lowers it to Yellow, in place.
+    const lowered = {
+      ...fa,
+      failures: [
+        { ...failure, classification: 'test_bug', severity: 'yellow' },
+      ],
+      rule_draft: { path: 'analysis/failure-analysis.draft.json', sha256 },
+      overrides: [],
+    };
+    writeFileSync(p, JSON.stringify(lowered));
+    const rp = join(dir, 'release', 'release-report.json');
+    const report = JSON.parse(readFileSync(rp, 'utf8'));
+    writeFileSync(
+      rp,
+      JSON.stringify({ ...report, non_blocking_failures: ['FAIL-001'] })
+    );
+
+    const out = pipeline(dir, ['--resume']).out;
+    assert.match(
+      out,
+      /failure_analysis: FAIL-001 classification changed from product_bug to test_bug with no override recording it/
+    );
+    assert.match(out, /Next step: FINALIZE/);
+    assert.doesNotMatch(out, /Pipeline complete/);
+
+    // Recorded, with a reason: the run completes.
+    const because = 'the test asserts the old price list';
+    lowered.overrides = [
+      ['classification', 'product_bug', 'test_bug'],
+      ['severity', 'red', 'yellow'],
+    ].map(([field, from, to]) => ({
+      failure_id: 'FAIL-001',
+      field,
+      from,
+      to,
+      reason: because,
+    }));
+    writeFileSync(p, JSON.stringify(lowered));
     assert.match(pipeline(dir, ['--resume']).out, /Pipeline complete/);
   } finally {
     rmSync(dir, { recursive: true, force: true });

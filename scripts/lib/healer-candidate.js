@@ -68,6 +68,9 @@ const posix = (/** @type {string} */ p) => p.split(sep).join('/');
  * @param {object} args
  * @param {import('./approval-binding.js').Context} args.context
  * @param {{ failures?: any[] }} args.analysis parsed failure analysis
+ * @param {{ failures?: any[] } | null} [args.draft] its rule-based draft, when
+ *   the analysis names one: eligibility comes from the draft, so a finalized
+ *   analysis cannot make a failure Green
  * @param {Pick<Ledger, 'units'>} args.ledger
  * @param {string} args.failureId
  * @param {string} [args.root]
@@ -77,6 +80,7 @@ const posix = (/** @type {string} */ p) => p.split(sep).join('/');
 export function resolveTarget({
   context,
   analysis,
+  draft = null,
   ledger,
   failureId,
   root = '.',
@@ -101,6 +105,15 @@ export function resolveTarget({
       ok: false,
       reason: `${failureId} is ${failure.severity ?? 'unclassified'}, not Green; only Green failures take a candidate (Yellow is a suggestion, Red is a bug draft)`,
     };
+  }
+  if (draft) {
+    const rule = (draft.failures ?? []).find((f) => f.failure_id === failureId);
+    if (rule?.severity !== 'green') {
+      return {
+        ok: false,
+        reason: `${failureId} is ${rule?.severity ?? 'absent'} in the rule-based draft; a finalized analysis cannot make a failure Green for the Healer`,
+      };
+    }
   }
   if (!failure.unit_id) {
     return {

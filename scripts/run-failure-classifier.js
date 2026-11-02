@@ -42,6 +42,7 @@
 // Exit codes: 0 ok · 1 --blocking with product_bug present, or the analysis
 //             could not be written · 2 usage / gate / missing-or-invalid evidence
 
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { argv, exit } from 'node:process';
@@ -55,6 +56,7 @@ import {
   UNIT_OUTCOMES,
 } from './lib/execution-ledger.js';
 import { classifyUnit } from './lib/classify-failure.js';
+import { DRAFT_PATH } from './lib/analysis-overrides.js';
 /** @typedef {import('./lib/execution-ledger.js').TestCase} TestCase */
 import { requireCurrentGate } from './lib/approval-binding.js';
 
@@ -345,21 +347,35 @@ if (DRY) {
   exit(0);
 }
 
-const written = writeJsonAtomic(OUT, doc, { schemaPath: SCHEMA });
-if (!written.ok) {
-  console.error(`\n${written.message}`);
-  for (const line of formatErrors(written.errors, { includeParams: false })) {
-    console.error(line);
+/** @param {string} path @param {any} value */
+const write = (path, value) => {
+  const w = writeJsonAtomic(path, value, { schemaPath: SCHEMA });
+  if (!w.ok) {
+    console.error(`\n${w.message}`);
+    for (const line of formatErrors(w.errors, { includeParams: false })) {
+      console.error(line);
+    }
+    exit(1);
   }
-  exit(1);
-}
+};
 
-console.log(`\nWrote ${OUT} (status: draft).`);
+// The rule-based draft is kept as its own record, which the finalized
+// analysis names by digest: a classification or severity the agent changes is
+// then an override it records, never an overwrite
+// (scripts/lib/analysis-overrides.js).
+write(DRAFT_PATH, doc);
+const sha256 = createHash('sha256')
+  .update(readFileSync(DRAFT_PATH))
+  .digest('hex');
+write(OUT, { ...doc, rule_draft: { path: DRAFT_PATH, sha256 }, overrides: [] });
+
+console.log(`\nWrote ${DRAFT_PATH} (the rule-based draft, kept as written)`);
+console.log(`  and ${OUT} (status: draft), to finalize.`);
 console.log(
   'Before the Reporter step, the Failure Classifier Agent or a human must:'
 );
 console.log(
-  '  1. confirm or correct each classification (the reason is recorded on each failure);'
+  '  1. confirm or correct each classification; a changed classification or severity is recorded in overrides[] with its reason;'
 );
 if (bySeverity.red) {
   console.log(

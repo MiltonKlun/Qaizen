@@ -90,6 +90,7 @@ export const RUN_DIRS = [
 /** Run-scoped singletons: at most one run occupies the root at a time. */
 const RUN_SCOPED = [
   /^analysis\/failure-analysis\.json$/,
+  /^analysis\/failure-analysis\.draft\.json$/,
   /^analysis\/execution-ledger\.json$/,
   /^analysis\/healer-validation\//,
   /^release\/release-report\.(md|json)$/,
@@ -106,6 +107,7 @@ const JSON_SCHEMAS = [
   [/^context\.json$/, 'context.schema.json'],
   [/^test-cases\/[^/]+\.json$/, 'test-cases.schema.json'],
   [/^analysis\/failure-analysis\.json$/, 'failure-analysis.schema.json'],
+  [/^analysis\/failure-analysis\.draft\.json$/, 'failure-analysis.schema.json'],
   [/^analysis\/execution-ledger\.json$/, 'execution-ledger.schema.json'],
   [/^release\/release-report\.json$/, 'release-report.schema.json'],
   [

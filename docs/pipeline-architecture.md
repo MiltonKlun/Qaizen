@@ -222,8 +222,11 @@ renderer (`scripts/gate-briefs.js`), and an interactive decision recorder:
   normalizes the reports into the execution ledger
   (`scripts/normalize-results.js`) and runs the rule-based pre-classifier on
   that ledger — deterministic, no judgment involved. The pre-classifier
-  writes a **draft** analysis; the Failure Classifier Agent (or a human)
-  finalizes it before the Reporter step.
+  writes a **draft** analysis, and keeps a copy of it unchanged in
+  `analysis/failure-analysis.draft.json`; the Failure Classifier Agent (or a
+  human) finalizes the analysis before the Reporter step, recording every
+  changed classification or severity as an override against that draft. The
+  Healer takes eligibility from the draft.
 
 It never commits, merges, or performs Jira/TestLink writes. Orchestration
 stays human-driven; the runner only removes the clerical "what do I run

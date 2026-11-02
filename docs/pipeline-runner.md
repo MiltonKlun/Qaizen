@@ -233,8 +233,9 @@ so the report step comes next.
 
 The run is **complete** only when every gate is passed, the execution evidence
 is valid (including the Newman branch for a story with API cases), the failure
-analysis is **finalized** with a non-empty bug draft on disk for every Red failure and
-flat totals that match its outcome breakdown, and the release report is valid.
+analysis is **finalized** with a non-empty bug draft on disk for every Red failure,
+every change to a classification or severity recorded against the kept
+rule-based draft (`overrides[]`), and flat totals that match its outcome breakdown, and the release report is valid.
 For a 2.x analysis the report must be 2.0, and its `execution_summary` must be
 exactly the one `npm run report:summary` derives from the ledger
 (`docs/execution-normalization.md`). Only then does the runner set

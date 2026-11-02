@@ -61,6 +61,32 @@
       "type": "string",
       "enum": ["draft", "finalized"]
     },
+    "rule_draft": {
+      "description": "v2, OPTIONAL (absent on analyses written before drafts were kept). The rule-based draft this analysis started from, kept unchanged at `path` (analysis/failure-analysis.draft.json) by scripts/run-failure-classifier.js, and the SHA-256 of its bytes. The runner refuses a finalized analysis whose draft is missing, changed, or another run's.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "overrides": {
+      "description": "v2, OPTIONAL. Every change the finalizing step made to a failure's classification or severity, against the rule-based draft. The runner refuses a finalized analysis that changes either field without exactly one matching entry, or records a change it does not make.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["failure_id", "field", "from", "to", "reason"],
+        "properties": {
+          "failure_id": { "type": "string", "pattern": "^FAIL-[0-9]+$" },
+          "field": { "type": "string", "enum": ["classification", "severity"] },
+          "from": { "type": "string", "minLength": 1 },
+          "to": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "execution_ledger": {
       "description": "v2. Path to the execution ledger this analysis was derived from (analysis/execution-ledger.json). The ledger is the counting model; this analysis adds causes.",
       "type": "string",
