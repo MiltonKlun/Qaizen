@@ -242,6 +242,48 @@ test('a runner that produces no report stops after ONE launch', () => {
   }
 });
 
+test('a report already on disk is not taken for this run’s when the runner writes none', () => {
+  const dir = repo();
+  try {
+    readyToExecute(dir);
+    write(
+      dir,
+      'reports/results.json',
+      readFileSync(
+        join(process.cwd(), 'test/fixtures/playwright-all-outcomes.json')
+      )
+    );
+    const r = pipeline(dir, ['--resume'], fakePlaywright(dir, 'no-report'));
+    assert.equal(r.code, 2, r.out);
+    assert.match(r.out, /does not exist/);
+    assert.doesNotMatch(r.out, /Recorded the execution/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a ledger from an earlier execution is re-classified, not reported on', () => {
+  const dir = repo();
+  try {
+    writeCompletedRun(dir);
+    // A new execution was recorded (after a re-approval, say): the ledger and
+    // the analysis built from the old one no longer describe this evidence.
+    const ctxPath = join(dir, 'context.json');
+    const ctx = JSON.parse(readFileSync(ctxPath, 'utf8'));
+    ctx.execution_identity.playwright.execution_id = 'exec-pw-new';
+    writeFileSync(ctxPath, JSON.stringify(ctx, null, 2));
+    const r = pipeline(dir, ['--status']);
+    assert.match(
+      r.out,
+      /execution_ledger: was normalized from a different Playwright execution than the one recorded; re-classify/
+    );
+    assert.match(r.out, /Next step: classify/);
+    assert.doesNotMatch(r.out, /Pipeline complete/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('a `{}` report is a startup/report error, not a failing suite', () => {
   const dir = repo();
   try {

@@ -499,7 +499,9 @@ demo fails CI.
 > (where the demo config writes its report, i.e. back into the workspace the
 > classifier then reads). Both are absent in a normal run, and
 > `PIPELINE_PW_CONFIG` is refused anywhere but a demo workspace (one holding a
-> `DEMO_RUN` marker): in a real run another config would be another execution.
+> `DEMO_RUN` marker): in a real run another config would be another execution. The
+> marker is a convention, not a lock; whichever config runs is recorded, with
+> its digest, in `execution_identity` and the ledger.
 
 ## 8. References
 

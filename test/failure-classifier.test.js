@@ -362,6 +362,12 @@ test('the ledger keeps the identity the execute step recorded for the Playwright
       .filter((/** @type {any} */ u) => u.identity?.kind === 'playwright')
       .every((/** @type {any} */ u) => u.execution_id === identity.execution_id)
   );
+
+  // An identity that names another report is refused, not recorded.
+  const wrong = { ...identity, report_sha256: 'f'.repeat(64) };
+  const r = normalize(w, ['--playwright-identity', JSON.stringify(wrong)]);
+  assert.equal(r.code, 2);
+  assert.match(r.out, /is not the report its identity names/);
 });
 
 test('the CLI writes a schema-valid v2 DRAFT with every failure preserved', () => {

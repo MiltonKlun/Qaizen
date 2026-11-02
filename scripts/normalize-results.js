@@ -410,6 +410,17 @@ export function main(args = argv.slice(2)) {
       usage('--playwright-identity goes with --playwright');
       return 2;
     }
+    // The identity must describe the report being read, or the ledger would
+    // record another execution's identity for it.
+    const actual = existsSync(pwPath)
+      ? createHash('sha256').update(readFileSync(pwPath)).digest('hex')
+      : null;
+    if (actual !== pwIdentity?.report_sha256) {
+      console.error(
+        `Error: ${pwPath} is not the report its identity names (digest mismatch); re-run the execute step.`
+      );
+      return 2;
+    }
   }
 
   if (pwPath) {

@@ -37,12 +37,12 @@
 // Exit codes: 0 ok / step instruction printed · 1 gate pending (non-TTY),
 //   gate rejected, or blocked · 2 usage/validation/safety error
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
 import { argv, env, exit, stdin, stdout } from 'node:process';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import {
   nextStep,
@@ -378,6 +378,16 @@ function gatherHints(context) {
       if (!ledger.ok) {
         hints.problems.push(`execution_ledger: ${ledger.reason}`);
         produced = false;
+      } else if (
+        hints.branches?.e2e &&
+        !ledgerHasRecordedPlaywright(ledger.data, context)
+      ) {
+        // Classified from another execution: a re-run (after a re-approval,
+        // or a replaced report) needs a new ledger and analysis.
+        hints.problems.push(
+          'execution_ledger: was normalized from a different Playwright execution than the one recorded; re-classify'
+        );
+        produced = false;
       } else if (hints.branches?.api && !ledgerHasApiExecution(ledger.data)) {
         hints.problems.push(
           'execution_ledger: has no Newman execution for this API story; re-classify after the API run'
@@ -465,6 +475,29 @@ function fileSha256(path) {
   return existsSync(path)
     ? createHash('sha256').update(readFileSync(path)).digest('hex')
     : null;
+}
+
+/**
+ * Was the ledger built from the Playwright execution the execute step
+ * recorded? A ledger from an earlier execution classifies other evidence.
+ * Without a recorded identity the report itself is refused, so nothing more
+ * is checked here.
+ * @param {import('./lib/execution-ledger.js').Ledger} ledger
+ * @param {Context} context
+ */
+function ledgerHasRecordedPlaywright(ledger, context) {
+  const id = /** @type {any} */ (context).execution_identity?.playwright;
+  if (!id) return true;
+  return (ledger?.source_executions ?? []).some((s) => {
+    const c = /** @type {any} */ (s).config_identity;
+    return (
+      s.runner === 'playwright' &&
+      s.execution_id === id.execution_id &&
+      c &&
+      typeof c === 'object' &&
+      c.report_sha256 === id.report_sha256
+    );
+  });
 }
 
 /**
@@ -1259,6 +1292,11 @@ function execStep(step, context) {
       `Executing: playwright ${pwArgs.join(' ')}  (failures are DATA for the`
     );
     console.log('classifier, not a runner error)\n');
+    const p = context.artifact_paths;
+    const reportRel = p.execution_results || 'reports/results.json';
+    // Only a report this run writes can be recorded as its evidence: one left
+    // on disk (or dropped in) must not survive a run that writes nothing.
+    rmSync(reportRel, { force: true });
     // Playwright's own CLI under this Node, with no shell and no npx lookup:
     // every argument reaches it literally.
     const run = spawnSync(process.execPath, [playwrightCli(env), ...pwArgs], {
@@ -1276,8 +1314,6 @@ function execStep(step, context) {
       );
       exit(2);
     }
-    const p = context.artifact_paths;
-    const reportRel = p.execution_results || 'reports/results.json';
     const report = existsSync(reportRel)
       ? playwrightReportShape(reportRel)
       : { ok: false, reason: `${reportRel} does not exist` };
@@ -1302,7 +1338,10 @@ function execStep(step, context) {
     const identity = playwrightIdentity({
       root: '.',
       reportPath: reportRel,
-      configPath: customConfig || 'playwright.config.ts',
+      // Playwright resolves a relative --config from its own cwd (the repo).
+      configPath: customConfig
+        ? resolve(REPO_DIR, customConfig)
+        : 'playwright.config.ts',
       context,
       env,
     });

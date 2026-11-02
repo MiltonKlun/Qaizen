@@ -186,8 +186,9 @@ export function writeCompletedRun(dir, opts = {}, overrides = {}) {
   // What the execute step records once the report exists: the report is this
   // run's evidence only while it, its config and the Gate 4 approval match.
   if (existsSync(join(dir, 'reports/results.json'))) {
-    ctx.execution_identity = {
-      playwright: playwrightIdentity({
+    // The gold ledger's units belong to its Playwright execution, exec-pw-1.
+    const identity = {
+      ...playwrightIdentity({
         root: dir,
         reportPath: 'reports/results.json',
         configPath: 'playwright.config.ts',
@@ -195,8 +196,18 @@ export function writeCompletedRun(dir, opts = {}, overrides = {}) {
         env: {},
         now: '2026-09-02T00:00:00Z',
       }),
+      execution_id: 'exec-pw-1',
     };
+    ctx.execution_identity = { playwright: identity };
     write('context.json', JSON.stringify(ctx, null, 2));
+    // ...and the classify step normalized THAT execution into the ledger.
+    if (overrides['analysis/execution-ledger.json'] === undefined) {
+      const pw = ledger.source_executions.find(
+        (/** @type {any} */ s) => s.runner === 'playwright'
+      );
+      if (pw) pw.config_identity = identity;
+      write('analysis/execution-ledger.json', JSON.stringify(ledger));
+    }
   }
   return ctx;
 }
