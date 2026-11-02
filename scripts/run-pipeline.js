@@ -820,6 +820,13 @@ async function runGateInteractive(step, context) {
   );
 
   const rl = createInterface({ input: stdin, output: stdout });
+  // Input that ends (Ctrl-D) records nothing, and says so.
+  let settled = false;
+  rl.once('close', () => {
+    if (settled) return;
+    console.error('\nInput ended. No decision recorded.');
+    exit(1);
+  });
   try {
     if (!reviewer) {
       reviewer =
@@ -896,6 +903,7 @@ async function runGateInteractive(step, context) {
       `\n${gateKey}: approved — recorded with telemetry and bound to the reviewed inputs.`
     );
   } finally {
+    settled = true;
     rl.close();
   }
 }
@@ -928,6 +936,19 @@ export function applyDowngradeConfirmation(
     });
   }
   return context;
+}
+
+/**
+ * Read an answer at the downgrade prompt. Only the exact words count: an
+ * answer like "cancel" must not read as "c".
+ * @param {string} raw
+ * @returns {'confirm' | 'quit' | null} null asks again
+ */
+export function confirmAnswer(raw) {
+  const a = raw.trim().toLowerCase();
+  if (a === 'c' || a === 'confirm') return 'confirm';
+  if (a === 'q' || a === 'quit') return 'quit';
+  return null;
 }
 
 /**
@@ -972,23 +993,28 @@ async function runDowngradeConfirmation(context) {
       : 'No reviewer name found (QAIZEN_REVIEWER or git user.name).'
   );
   const rl = createInterface({ input: stdin, output: stdout });
+  // Input that ends (Ctrl-D) records nothing, and says so.
+  let settled = false;
+  rl.once('close', () => {
+    if (settled) return;
+    console.error('\nInput ended. No decision recorded.');
+    exit(1);
+  });
   try {
     if (!reviewer) {
       reviewer =
         (await rl.question('Reviewer name for this session: ')).trim() || null;
     }
-    let answer = '';
-    while (answer !== 'c' && answer !== 'q') {
-      answer = (
+    /** @type {'confirm' | 'quit' | null} */
+    let answer = null;
+    while (answer === null) {
+      answer = confirmAnswer(
         await rl.question(
           `Confirm ${status.pending.length === 1 ? 'this lowered severity' : `these ${status.pending.length} lowered severities`} — [c]onfirm / [q]uit: `
         )
-      )
-        .trim()
-        .toLowerCase()
-        .slice(0, 1);
+      );
     }
-    if (answer === 'q') {
+    if (answer === 'quit') {
       console.log(
         'Nothing recorded. To undo a downgrade, restore the draft severity in\n' +
           `${faRel}, remove its override, then --resume.`
@@ -1012,6 +1038,7 @@ async function runDowngradeConfirmation(context) {
       `\nRecorded ${status.pending.length} confirmation(s) in context.json downgrade_confirmations[], bound to this analysis.`
     );
   } finally {
+    settled = true;
     rl.close();
   }
 }

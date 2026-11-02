@@ -121,7 +121,7 @@ export function gateTimeline(context, records) {
     rows.push({
       kind: 'confirmation',
       at: c.confirmed_at,
-      gate: 'severity downgrade',
+      gate: 'downgrade',
       failure_id: c.failure_id,
       from: c.from,
       to: c.to,

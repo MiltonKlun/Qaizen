@@ -215,6 +215,7 @@ test('a lowered Red, or a lowering on a high, Red-domain or untraced risk, needs
       ['FAIL-004', 'yellow', 'TC-003'],
       ['FAIL-005', 'yellow', null],
       ['FAIL-006', 'green', 'TC-001'],
+      ['FAIL-007', 'yellow', null],
     ]),
   };
   const final = {
@@ -225,6 +226,9 @@ test('a lowered Red, or a lowering on a high, Red-domain or untraced risk, needs
       ['FAIL-004', 'green', 'TC-003'], // low, not a Red domain: no confirmation
       ['FAIL-005', 'green', null],
       ['FAIL-006', 'yellow', 'TC-001'], // raised, not lowered
+      // The finalizing step filled in a low, non-Red case: the draft could not
+      // trace it, so a person still confirms.
+      ['FAIL-007', 'green', 'TC-003'],
     ]),
   };
   assert.deepEqual(downgradesOf({ ...run, draft, final }), [
@@ -250,7 +254,13 @@ test('a lowered Red, or a lowering on a high, Red-domain or untraced risk, needs
       failure_id: 'FAIL-005',
       from: 'yellow',
       to: 'green',
-      why: 'traced to no risk',
+      why: "not traced to a test case's risk in the rule-based draft",
+    },
+    {
+      failure_id: 'FAIL-007',
+      from: 'yellow',
+      to: 'green',
+      why: "not traced to a test case's risk in the rule-based draft",
     },
   ]);
 });

@@ -165,10 +165,16 @@ export function downgradesOf({ draft, final, context, testCases }) {
     const from = was?.severity;
     const to = f.severity;
     if (!was || !from || !to || !(RANK[to] < RANK[from])) return [];
-    const tc = f.test_case_id ?? was.test_case_id ?? null;
-    const risks = (tc ? (risksOf.get(tc) ?? []) : [])
-      .map((id) => riskBy.get(id))
-      .filter((r) => r !== undefined);
+    // The trace that decides is the draft's. A test case the finalizing step
+    // filled in can add risks, but it cannot remove the need to confirm a
+    // failure the rules could not trace: the agent that lowered the severity
+    // would otherwise choose the trace that skips the confirmation.
+    const traced = (/** @type {string | null | undefined} */ tc) =>
+      (tc ? (risksOf.get(tc) ?? []) : [])
+        .map((id) => riskBy.get(id))
+        .filter((r) => r !== undefined);
+    const draftRisks = traced(was.test_case_id);
+    const risks = [...new Set([...draftRisks, ...traced(f.test_case_id)])];
     /** @type {string[]} */
     const why = [];
     if (from === 'red') why.push('a Red failure lowered');
@@ -178,7 +184,9 @@ export function downgradesOf({ draft, final, context, testCases }) {
       if (domains.length)
         why.push(`on ${r.risk_id}, a Red domain (${domains.join(', ')})`);
     }
-    if (risks.length === 0) why.push('traced to no risk');
+    if (draftRisks.length === 0) {
+      why.push("not traced to a test case's risk in the rule-based draft");
+    }
     return why.length
       ? [{ failure_id: f.failure_id, from, to, why: why.join('; ') }]
       : [];

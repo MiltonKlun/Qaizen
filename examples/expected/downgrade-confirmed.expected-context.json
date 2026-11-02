@@ -6,7 +6,7 @@
     "title": "Login — Successful sign-in (audited gates)",
     "source": "manual",
     "path": "story.md",
-    "description": "Same login slice as login-success, but showing the Phase 2 review-gate audit-field form. Demonstrates that the object gate form and the legacy boolean form validate side by side under the same schema (gateValue oneOf)."
+    "description": "Same login slice as login-success, after a person confirmed at the terminal that FAIL-001, Red in the rule-based draft, is Yellow in the finalized analysis. The confirmation is bound to the analysis bytes (analysis_sha256) and is part of the gate trail, not a gate."
   },
   "acceptance_criteria": [
     "Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",
@@ -70,7 +70,7 @@
       "failure_id": "FAIL-001",
       "from": "red",
       "to": "yellow",
-      "why": "a Red failure lowered; on high-severity RISK-001",
+      "why": "a Red failure lowered; on high-severity RISK-001; on RISK-001, a Red domain (security)",
       "reviewer": "alice@example.com",
       "confirmed_at": "2026-06-06T12:10:00Z",
       "analysis_sha256": "3c9d1b6f0a2e4d58c7b1e9a0f3d2c4b6a8e0f1d3c5b7a9e1f2d4c6b8a0e2f4d6"

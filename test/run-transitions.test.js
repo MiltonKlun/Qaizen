@@ -37,6 +37,7 @@ import {
 } from './helpers/valid-run.js';
 import {
   applyDowngradeConfirmation,
+  confirmAnswer,
   progressGuard,
 } from '../scripts/run-pipeline.js';
 
@@ -398,6 +399,15 @@ test('a Red failure whose bug draft is missing blocks completion', () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('only the exact words confirm or quit a downgrade', () => {
+  for (const a of ['c', 'C', ' confirm '])
+    assert.equal(confirmAnswer(a), 'confirm', a);
+  for (const a of ['q', 'quit']) assert.equal(confirmAnswer(a), 'quit', a);
+  // An answer that merely starts with c or q asks again.
+  for (const a of ['cancel', 'continue', "can't", 'quiet', 'yes', ''])
+    assert.equal(confirmAnswer(a), null, a);
 });
 
 test('a finalized analysis that changes a severity without recording it stays at FINALIZE', () => {

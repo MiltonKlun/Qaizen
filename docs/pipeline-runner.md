@@ -48,7 +48,7 @@ npm run pipeline -- --story SK-10       # start from Jira (read-only fetch)
 npm run pipeline                         # advance from the current state
 npm run pipeline -- --resume             # same as bare invocation
 npm run pipeline -- --status             # read-only: where is this run?
-npm run pipeline -- --history            # read-only: every gate decision, in order
+npm run pipeline -- --history            # read-only: every gate decision and confirmed downgrade, in order
 npm run pipeline -- --diff gate2         # read-only: what changed since Gate 2's approval
 npm run pipeline -- --reopen gate2       # send the run back to Gate 2 (asks why)
 npm run pipeline -- --restore gate2      # put back the files Gate 2 approved (asks first)
@@ -373,8 +373,8 @@ decides anything. The records belong to the run and are archived with it.
 Two read-only views use them. Neither writes anything, not even when an
 approval has gone stale:
 
-- `--history` lists every decision and every return to pending in time
-  order, each decision with its record (decisions made before records were
+- `--history` lists every decision, every confirmed severity downgrade and
+  every return to pending in time order, each decision with its record (decisions made before records were
   kept have none), then where each gate stands now.
 - `--diff <gate>` compares what the gate reviews now with the copy kept by its
   latest approval, and prints the changed lines. A gate is named by its step
