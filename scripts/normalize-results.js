@@ -394,9 +394,28 @@ export function main(args = argv.slice(2)) {
   /** @type {Unit[]} */
   const units = [];
 
+  // The identity the pipeline's execute step recorded for this report
+  // (scripts/lib/execution-identity.js): kept in the ledger as the
+  // execution's config_identity, and its execution id is used.
+  /** @type {any} */
+  let pwIdentity = null;
+  if (flags['playwright-identity']) {
+    try {
+      pwIdentity = JSON.parse(flags['playwright-identity']);
+    } catch {
+      usage('--playwright-identity is not valid JSON');
+      return 2;
+    }
+    if (!pwPath) {
+      usage('--playwright-identity goes with --playwright');
+      return 2;
+    }
+  }
+
   if (pwPath) {
     const report = loadReport(pwPath, 'Playwright');
-    const executionId = `exec-pw-${randomUUID().slice(0, 8)}`;
+    const executionId =
+      pwIdentity?.execution_id ?? `exec-pw-${randomUUID().slice(0, 8)}`;
     const { units: u, sourceErrors } = adaptPlaywrightReport(report, {
       executionId,
       secrets,
@@ -408,6 +427,7 @@ export function main(args = argv.slice(2)) {
       completed_at: generatedAt,
       process_status: 'completed',
       report_reference: pwPath,
+      ...(pwIdentity ? { config_identity: pwIdentity } : {}),
       source_errors: sourceErrors,
     });
     units.push(...u);

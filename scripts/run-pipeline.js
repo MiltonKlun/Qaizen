@@ -96,6 +96,7 @@ import {
 import {
   checkArtifact,
   checkContext,
+  playwrightReportShape,
   downgradeStatus,
   draftProblems,
   missingBugDrafts,
@@ -103,6 +104,10 @@ import {
   latestNewmanExecution,
   newmanEvidence,
 } from './lib/run-artifacts.js';
+import { UNKNOWN_BUILD, playwrightIdentity } from './lib/execution-identity.js';
+
+/** The demo workspace's marker (scripts/demo-pipeline.js DEMO_SENTINEL). */
+const DEMO_RUN_SENTINEL = 'DEMO_RUN';
 import {
   writeJsonAtomic,
   formatErrors,
@@ -909,6 +914,26 @@ async function runGateInteractive(step, context) {
 }
 
 /**
+ * What the Playwright evidence ran against, for the report step: the app
+ * build (or "unknown"), the base URL and the execution id, as the execute
+ * step recorded them.
+ * @param {Context} ctx
+ * @returns {string}
+ */
+export function executionLine(ctx) {
+  const id = /** @type {any} */ (ctx).execution_identity?.playwright;
+  if (!id) return '';
+  const build =
+    id.app_build === UNKNOWN_BUILD
+      ? 'unknown (QAIZEN_APP_BUILD was not set at execution)'
+      : id.app_build;
+  return (
+    `  Evidence: ${id.execution_id} · app build ${build} · ` +
+    `base URL ${id.base_url ?? 'not set'}\n`
+  );
+}
+
+/**
  * Record a person's confirmation of lowered severities (exported for unit
  * tests; the CLI only calls this after an interactive TTY session captured
  * it). Each confirmation is bound to the analysis bytes it was given for.
@@ -1125,6 +1150,7 @@ const GUIDE_STEPS = {
   report: (ctx) =>
     `Run the REPORTER: agents/reporter.md for ${storyId(ctx)}.\n` +
     launchLine('report') +
+    executionLine(ctx) +
     '  It writes release/release-report.{md,json} from the FINALIZED failure analysis\n' +
     '  (summaries only) and fills artifact_paths.release_report_md/_json.\n' +
     '  It does not set context.json status; the runner does, after validating.\n' +
@@ -1215,6 +1241,17 @@ function execStep(step, context) {
     // report lands in the workspace the classifier then reads.
     const pwArgs = ['test'];
     const customConfig = env.PIPELINE_PW_CONFIG;
+    // Another config is a different execution. Only the demo, in its own
+    // workspace marked by the DEMO_RUN sentinel (scripts/demo-pipeline.js),
+    // may point Playwright elsewhere; in a real run it would let evidence of
+    // other tests stand for the approved ones.
+    if (customConfig && !existsSync(DEMO_RUN_SENTINEL)) {
+      console.error(
+        'PIPELINE_PW_CONFIG is honoured only in the demo workspace (marked by a DEMO_RUN file). ' +
+          'Unset it and run again; the run executes with playwright.config.ts.'
+      );
+      exit(2);
+    }
     if (customConfig) pwArgs.push('--config', customConfig);
     const cwd = customConfig ? REPO_DIR : process.cwd();
     const reportDir = customConfig ? join(process.cwd(), 'reports') : 'reports';
@@ -1240,14 +1277,10 @@ function execStep(step, context) {
       exit(2);
     }
     const p = context.artifact_paths;
-    const candidate = {
-      ...context,
-      artifact_paths: {
-        ...p,
-        execution_results: p.execution_results || 'reports/results.json',
-      },
-    };
-    const report = checkArtifact('execution_results', candidate, '.');
+    const reportRel = p.execution_results || 'reports/results.json';
+    const report = existsSync(reportRel)
+      ? playwrightReportShape(reportRel)
+      : { ok: false, reason: `${reportRel} does not exist` };
     if (!report.ok) {
       console.error(
         `The test runner exited ${run.status ?? `by signal ${run.signal}`} without a valid report for this code: ` +
@@ -1263,7 +1296,28 @@ function execStep(step, context) {
         `\nThe suite exited ${run.status} with a valid report: failures are data; continuing to classification.`
       );
     }
-    if (!p.execution_results) p.execution_results = 'reports/results.json';
+    if (!p.execution_results) p.execution_results = reportRel;
+    // What this execution was, recorded now: the report is accepted later only
+    // while it, its config and the Gate 4 approval are still exactly these.
+    const identity = playwrightIdentity({
+      root: '.',
+      reportPath: reportRel,
+      configPath: customConfig || 'playwright.config.ts',
+      context,
+      env,
+    });
+    const c = /** @type {any} */ (context);
+    c.execution_identity = {
+      ...(c.execution_identity ?? {}),
+      playwright: identity,
+    };
+    console.log(
+      `Recorded the execution: ${identity.execution_id}, app build ${identity.app_build}` +
+        (identity.app_build === UNKNOWN_BUILD
+          ? ' (set QAIZEN_APP_BUILD to name it)'
+          : '') +
+        `, base URL ${identity.base_url ?? 'not set'}.`
+    );
     if (!p.html_report) p.html_report = 'reports/html';
     if (!p.traces) p.traces = 'reports/traces';
     if (!p.screenshots) p.screenshots = 'reports/screenshots';
@@ -1333,6 +1387,12 @@ function execStep(step, context) {
         '--playwright',
         context.artifact_paths.execution_results || 'reports/results.json'
       );
+      // What the execute step recorded goes into the ledger with the report.
+      const recorded = /** @type {any} */ (context).execution_identity
+        ?.playwright;
+      if (recorded) {
+        normalizeArgs.push('--playwright-identity', JSON.stringify(recorded));
+      }
     }
     if (context.run_id) normalizeArgs.push('--run-id', context.run_id);
     // The approved scope: recorded in the ledger so its results can only be

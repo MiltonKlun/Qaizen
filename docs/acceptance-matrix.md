@@ -75,7 +75,7 @@ reads.
 - `test/run-transitions.test.js`: "an artifact from another story or run does not count"
 - `test/run-transitions.test.js`: "an invalid context.json stops the runner before any step"
 - `test/run-transitions.test.js`: "a gate does not prompt when an input it reviews is invalid"
-- `test/run-transitions.test.js`: "a stale report (older than the test it ran) is not accepted"
+- `test/run-transitions.test.js`: "a report dropped in after execution, or run under another config, is not this run’s evidence"
 - `test/run-transitions.test.js`: "--status reports invalid artifacts and never writes"
 
 ## 8. A test, spec or case edited after approval

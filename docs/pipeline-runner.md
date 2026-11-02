@@ -204,8 +204,17 @@ of relaunching (an earlier runner ignored the launch result and looped).
 
 An artifact counts as produced only when it **exists, validates against its
 schema, and belongs to this run** (same `story_id` and `run_id`). Text
-artifacts must be non-empty; the Playwright report must be a real report
-written after the generated test last changed and after Gate 4 approved it.
+artifacts must be non-empty; the Playwright report must be a real report and
+exactly the one the execute step recorded. Right after Playwright finishes, the
+runner records `context.json` `execution_identity.playwright`: the report's
+SHA-256, the config it ran with and its SHA-256, the base URL (`BASE_URL`),
+the app build (`QAIZEN_APP_BUILD` when the operator sets it, otherwise
+`unknown`), the Gate 4 approval digest and an execution id. On `--resume` the
+report counts only while all of that still holds, so a report dropped in
+later, one run under another config, or one from before a re-approval is not
+this run's evidence and the execute step comes next. The classify step
+copies the identity into the ledger (`config_identity`), and the report step
+shows the app build and base URL.
 File existence alone used to be enough, so four `{}` files could make
 `--resume` print "Run complete". Anything not accepted is listed
 with its reason, and the step that produces it comes next. `context.json`
@@ -488,7 +497,9 @@ demo fails CI.
 > `node_modules` lives. The runner honors two env vars for this:
 > `PIPELINE_PW_CONFIG` (point at a non-root config) and `PIPELINE_REPORT_DIR`
 > (where the demo config writes its report, i.e. back into the workspace the
-> classifier then reads). Both are absent in a normal run.
+> classifier then reads). Both are absent in a normal run, and
+> `PIPELINE_PW_CONFIG` is refused anywhere but a demo workspace (one holding a
+> `DEMO_RUN` marker): in a real run another config would be another execution.
 
 ## 8. References
 

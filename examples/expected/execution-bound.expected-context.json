@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-04T10-00-00Z-auditex",
+  "story": {
+    "id": "STORY-001",
+    "title": "Login — Successful sign-in (audited gates)",
+    "source": "manual",
+    "path": "story.md",
+    "description": "Same login slice as login-success, after the execute step ran: execution_identity records what the Playwright evidence was. The report is accepted only while its digest, its config digest and the Gate 4 approval digest still match; the app build was not declared, so it is unknown."
+  },
+  "acceptance_criteria": [
+    "Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",
+    "Given an invalid password, when the user submits the form, then they remain on the login page and an error message explains the credentials were not accepted. No partial session is created.",
+    "Given a locked user, when they submit valid credentials, then they remain on the login page and an error message explains the account is locked. No session is created."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "A partial session is created on failed login, leaving the user in an ambiguous authenticated state.",
+      "severity": "high",
+      "related_acs": [1, 2]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "Locked-account check is enforced only in the UI, allowing API-level bypass.",
+      "severity": "high",
+      "related_acs": [2]
+    }
+  ],
+  "artifact_paths": {
+    "test_cases": "test-cases/STORY-001.json",
+    "planner_brief": "planner-input/STORY-001.planner-brief.md",
+    "playwright_spec": "specs/STORY-001.md",
+    "generated_test": "tests/STORY-001.spec.ts",
+    "execution_results": "reports/results.json",
+    "html_report": "reports/html",
+    "traces": "reports/traces",
+    "screenshots": "reports/screenshots",
+    "failure_analysis": "analysis/failure-analysis.json",
+    "release_report_md": "release/release-report.md",
+    "release_report_json": "release/release-report.json",
+    "bug_drafts_dir": "release/bug-drafts"
+  },
+  "review_gates": {
+    "requirements_reviewed": {
+      "status": true,
+      "reviewer": "alice@example.com",
+      "reviewed_at": "2026-06-04T10-05-00Z",
+      "opened_at": "2026-06-04T09-57-00Z",
+      "notes": "AC accurate; both high-severity risks (partial session, UI-only lock check) captured."
+    },
+    "test_scope_reviewed": {
+      "status": true,
+      "reviewer": "alice@example.com",
+      "reviewed_at": "2026-06-04T10-20-00Z",
+      "notes": "Risk coverage complete; locked-user case routed to API branch, not E2E-heavy."
+    },
+    "specs_reviewed": {
+      "status": true,
+      "reviewer": "bob@example.com",
+      "reviewed_at": "2026-06-04T10-40-00Z",
+      "notes": null
+    },
+    "code_reviewed": true
+  },
+  "status": "completed",
+  "execution_identity": {
+    "playwright": {
+      "execution_id": "exec-pw-3f9a1c2b",
+      "recorded_at": "2026-06-06T12:05:00Z",
+      "report_path": "reports/results.json",
+      "report_sha256": "5e8f2a1c9b7d4e6f0a3c8b1d2e9f7a6c5b4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f",
+      "config_path": "playwright.config.ts",
+      "config_sha256": "7c6b5a4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6b",
+      "base_url": "https://www.saucedemo.com",
+      "app_build": "unknown",
+      "gate_digest": "2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c"
+    }
+  }
+}

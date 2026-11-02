@@ -551,6 +551,11 @@ older files continue to validate:
   Analyst Mode B only) and a `prompt_versions` map.
 - Optional `gate_decisions[]` log, optional `track` + `track_floor` (the lite
   track), and the token-efficient context-handling rules (§5.1).
+- Optional `execution_identity.playwright`: written only by the runner's execute
+  step. What the Playwright evidence was: the report and config digests, the
+  base URL, the app build (`QAIZEN_APP_BUILD`, or `unknown`), the Gate 4
+  approval digest and an execution id. The report counts as this run's
+  evidence only while they still match.
 - Optional `downgrade_confirmations[]`: written only by the runner when a person
   confirms, at the terminal, a severity the finalized failure analysis lowered
   from its rule-based draft (a Red failure, or a failure on a high-severity,

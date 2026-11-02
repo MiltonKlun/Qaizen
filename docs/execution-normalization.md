@@ -50,6 +50,14 @@ not passing coverage.
 Report-level errors (global setup failure) are preserved as **source errors**
 even when zero tests appear, and are counted separately from unit outcomes.
 
+**What the execution was.** When the pipeline runs the normalizer, it passes
+the identity its execute step recorded (`--playwright-identity <json>`,
+`scripts/lib/execution-identity.js`). The Playwright source execution keeps it
+as `config_identity`: the report and config digests, the base URL, the app
+build (`QAIZEN_APP_BUILD`, or `unknown`), the Gate 4 approval digest, and the
+execution id, which is also the source execution's `execution_id`. Older
+ledgers carry a plain string there and stay valid.
+
 ### Newman
 
 One unit per request per iteration. Assertions are **nested evidence** inside

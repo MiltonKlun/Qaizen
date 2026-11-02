@@ -26,6 +26,7 @@ import {
   unconfirmed,
 } from './analysis-overrides.js';
 import { validateValue } from './artifact-io.js';
+import { identityProblems } from './execution-identity.js';
 import { releaseRuleProblems } from './report-checks.js';
 import {
   analysisCountProblems,
@@ -111,16 +112,11 @@ function gateApprovedAt(context, gate) {
 }
 
 /**
- * A Playwright JSON report that can stand as THIS run's execution evidence:
- * well-formed, with suites and counts, and produced AFTER the code it ran was
- * last changed and approved. `{}` is not a report; a report older than the
- * generated test (or than the Gate 4 approval) is stale evidence of other code.
+ * Is this a Playwright JSON report at all: suites and counts? `{}` is not.
  * @param {string} path
- * @param {Context} context
- * @param {string} root
  * @returns {ArtifactCheck}
  */
-function checkPlaywrightReport(path, context, root) {
+export function playwrightReportShape(path) {
   const r = readJson(path);
   if (!r.ok) return bad('is not valid JSON');
   const rep = r.data;
@@ -132,18 +128,29 @@ function checkPlaywrightReport(path, context, root) {
   if (!stats || counts.some((k) => typeof stats[k] !== 'number')) {
     return bad('is not a Playwright JSON report (no stats counts)');
   }
-  const reportTime = statSync(path).mtimeMs;
-  const test = context?.artifact_paths?.generated_test;
-  if (test && existsSync(join(root, test))) {
-    if (statSync(join(root, test)).mtimeMs > reportTime) {
-      return bad(`is stale: ${test} changed after this report was written`);
-    }
-  }
-  const approved = gateApprovedAt(context, 'code_reviewed');
-  if (approved !== null && approved > reportTime) {
-    return bad('is stale: it predates the Gate 4 approval of the code it ran');
-  }
   return ok(rep);
+}
+
+/**
+ * A Playwright JSON report that can stand as THIS run's execution evidence:
+ * well-formed, and exactly the report the execute step recorded, produced
+ * with the config and under the Gate 4 approval it recorded
+ * (scripts/lib/execution-identity.js). A report dropped in later, or produced
+ * under another config or approval, is not this run's evidence.
+ * @param {string} path
+ * @param {string} rel
+ * @param {Context} context
+ * @param {string} root
+ * @returns {ArtifactCheck}
+ */
+function checkPlaywrightReport(path, rel, context, root) {
+  const shape = playwrightReportShape(path);
+  if (!shape.ok) return shape;
+  const problems = identityProblems(
+    /** @type {any} */ (context)?.execution_identity?.playwright,
+    { root, reportPath: rel, context }
+  );
+  return problems.length ? bad(problems.join('; ')) : shape;
 }
 
 /**
@@ -167,7 +174,7 @@ export function checkArtifact(key, context, root = '.') {
       : bad(`${rel} is empty`);
   }
   if (rule.kind === 'playwright-report') {
-    const r = checkPlaywrightReport(path, context, root);
+    const r = checkPlaywrightReport(path, rel, context, root);
     return r.ok ? r : bad(`${rel} ${r.reason}`);
   }
 
