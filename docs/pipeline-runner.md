@@ -213,18 +213,27 @@ A gate does not even prompt while an input it reviews is missing or invalid —
 a broken machine-readable contract is not a judgment call.
 
 A release report written for a 2.x analysis must also keep the **release
-rules**: no `pass` while a Red failure, a high-severity risk that is not
-covered and passing, or an empty run blocks it; a `conditional_pass` states
-its conditions; `blocking_failures` are exactly the Red failures and every
-Red failure's bug draft is listed; the uncovered-risk fields match the
-coverage. They are the same checks the Reporter evaluation uses
-(`scripts/lib/report-checks.js`), applied to every live run. A report that
-breaks one is not accepted, with the rule named, so the report step comes
-next.
+rules**. Coverage is checked against the execution ledger, not against what
+the report says about itself (`scripts/lib/risk-coverage.js`): a risk is
+passing only when every approved, non-skip case that references it passed in
+the ledger, so a failed, flaky, blocked, skipped or unrecorded case keeps it
+from passing. The rules: one coverage entry per context risk; `covered_by_tcs`
+lists exactly the cases that reference each risk; each status is the one its
+cases support; no `pass` while a Red failure, a high-severity risk that is not
+passing, or an empty run blocks it; a `conditional_pass` states its
+conditions and has no Red failure on a high-severity risk, tracked in Jira or
+not (a Red failure not traced to a test case's risk counts as one); `blocking_failures` are exactly the Red
+failures and every Red failure's bug draft is listed; the uncovered-risk
+fields match the coverage. They are the same checks the Reporter evaluation
+uses (`scripts/lib/report-checks.js`), applied to every live run. The Reporter
+copies coverage from `npm run report:summary -- --coverage`, which prints the
+same derivation. A report
+that breaks one is not accepted, with the rule, the risk and the case named,
+so the report step comes next.
 
 The run is **complete** only when every gate is passed, the execution evidence
 is valid (including the Newman branch for a story with API cases), the failure
-analysis is **finalized** with a bug draft on disk for every Red failure and
+analysis is **finalized** with a non-empty bug draft on disk for every Red failure and
 flat totals that match its outcome breakdown, and the release report is valid.
 For a 2.x analysis the report must be 2.0, and its `execution_summary` must be
 exactly the one `npm run report:summary` derives from the ledger

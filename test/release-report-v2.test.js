@@ -173,6 +173,144 @@ test('the runner accepts a report only when it is 2.0 and its counts are the led
   }
 });
 
+test('a live run accepts an honest conditional pass, and refuses one over a Red failure on a high risk', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'qaizen-rr2-'));
+  try {
+    const ctx = writeCompletedRun(dir);
+    const reportPath = join(dir, 'release/release-report.json');
+    const report = read(reportPath);
+    const faPath = join(dir, 'analysis/failure-analysis.json');
+    const fa = read(faPath);
+    const failure = {
+      failure_id: 'FAIL-001',
+      unit_id: 'pw:chromium:x',
+      execution_outcome: 'failed',
+      runner_identity: { kind: 'playwright', test_title: 'x' },
+      test_case_id: 'TC-002',
+      source: 'playwright',
+      playwright_test_id: 'PW-002',
+      classification: 'test_bug',
+      severity: 'yellow',
+      classification_reason: 'the locator matched two elements',
+      error_message: 'x',
+      evidence_paths: ['analysis/execution-ledger.json'],
+    };
+    writeFileSync(faPath, JSON.stringify({ ...fa, failures: [failure] }));
+    const conditional = {
+      ...report,
+      non_blocking_failures: ['FAIL-001'],
+      release_recommendation: 'conditional_pass',
+      conditional_pass_criteria: ['TC-002 is re-run green before release.'],
+    };
+    writeFileSync(reportPath, JSON.stringify(conditional));
+    const ok = checkArtifact('release_report_json', ctx, dir);
+    assert.equal(ok.ok, true, ok.ok ? '' : ok.reason);
+
+    // The same failure, Red, is on the high-severity RISK-001 via TC-002.
+    writeFileSync(
+      faPath,
+      JSON.stringify({
+        ...fa,
+        failures: [
+          {
+            ...failure,
+            classification: 'product_bug',
+            severity: 'red',
+            bug_draft_path: 'release/bug-drafts/BUG-001.md',
+          },
+        ],
+      })
+    );
+    writeFileSync(
+      reportPath,
+      JSON.stringify({
+        ...conditional,
+        blocking_failures: ['FAIL-001'],
+        non_blocking_failures: [],
+        bug_drafts: [
+          {
+            bug_id: 'BUG-001',
+            severity: 'red',
+            path: 'release/bug-drafts/BUG-001.md',
+            jira_key_if_exists: 'SK-101',
+          },
+        ],
+      })
+    );
+    const refused = checkArtifact('release_report_json', ctx, dir);
+    assert.equal(refused.ok, false);
+    assert.match(
+      refused.ok ? '' : refused.reason,
+      /a conditional pass has no Red failure on a high-severity risk \(FAIL-001 on RISK-001 \(TC-002\)\)/
+    );
+  } finally {
+    rmSync(dir, CLEANUP);
+  }
+});
+
+test('report:summary --coverage prints each risk as the ledger shows it', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'qaizen-rr2-'));
+  try {
+    writeCompletedRun(dir);
+    const script = join(process.cwd(), 'scripts/report-summary.js');
+    const r = spawnSync(process.execPath, [script, '--coverage'], {
+      cwd: dir,
+      encoding: 'utf8',
+    });
+    assert.equal(r.status, 0, r.stderr);
+    // The fixture's one risk: TC-001 passed and TC-002 failed in the ledger.
+    assert.deepEqual(JSON.parse(r.stdout), [
+      {
+        risk_id: 'RISK-001',
+        severity: 'high',
+        covered_by_tcs: ['TC-001', 'TC-002'],
+        status: 'covered_failing',
+        cases: [
+          { test_case_id: 'TC-001', outcome: 'passed' },
+          { test_case_id: 'TC-002', outcome: 'failed' },
+        ],
+        not_passing: 'TC-002 failed',
+      },
+    ]);
+    // And the report the fixture writes says exactly that.
+    const report = read(join(dir, 'release/release-report.json'));
+    assert.deepEqual(report.coverage_by_risk, [
+      {
+        risk_id: 'RISK-001',
+        covered_by_tcs: ['TC-001', 'TC-002'],
+        status: 'covered_failing',
+      },
+    ]);
+
+    const misuse = spawnSync(
+      process.execPath,
+      [script, '--context', 'context.json'],
+      { cwd: dir, encoding: 'utf8' }
+    );
+    assert.equal(misuse.status, 2);
+    assert.match(misuse.stderr, /go with --coverage/);
+
+    // A ledger from another story is refused, not reported on.
+    const mismatch = spawnSync(
+      process.execPath,
+      [
+        script,
+        '--coverage',
+        '--ledger',
+        join(
+          process.cwd(),
+          'examples/expected/mixed-run.expected-execution-ledger.json'
+        ),
+      ],
+      { cwd: dir, encoding: 'utf8' }
+    );
+    assert.equal(mismatch.status, 2);
+    assert.match(mismatch.stderr, /different stories/);
+  } finally {
+    rmSync(dir, CLEANUP);
+  }
+});
+
 test('report:summary prints the derived summary and refuses an inconsistent ledger', () => {
   const ok = spawnSync(
     process.execPath,

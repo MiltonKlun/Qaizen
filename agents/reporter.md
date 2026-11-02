@@ -11,9 +11,16 @@ description: |
   run completed: the runner does, after validating every artifact.
 phase_introduced: 1
 phase_active: 1+
-version: 4.0.4
+version: 5.0.0
 changed_in_run: null
 changelog: |
+  - 5.0.0: MAJOR (decision change). A Red failure on a high-severity risk,
+    or one not traced to a test case's risk, makes the recommendation fail,
+    tracked in Jira or not; it used to allow a conditional pass when the bug
+    had a Jira key. coverage_by_risk is copied from
+    `npm run report:summary -- --coverage` (the ledger-derived view the runner
+    enforces) instead of computed by hand; the only choice left is uncovered
+    versus accepted_without_test.
   - 4.0.4: PATCH (no output change). Build-phase labels are replaced by
     what each step does today; the instructions are unchanged.
   - 4.0.3: PATCH (no output change). Review-finding labels that only made
@@ -262,35 +269,37 @@ outcome_breakdown }` when only Playwright ran, and the grouped form
      from the analysis, `pass_rate` 0 for zero executions, and no
      `outcome_breakdown`. A 1.x report keeps that older meaning.
 
-4. **Compute `coverage_by_risk`** by walking the chain. Coverage spans
-   **both branches**: a risk may be covered by E2E test cases, API test
-   cases, or a mix.
-   - For each `RISK-XXX` in `context.json.risks[]`:
-     - List `covered_by_tcs` = every `TC-XXX` that references this risk
-       in `test-cases/[story-id].json`, regardless of its
-       `automation_decision`. A risk covered by one `automate_e2e` TC
-       (Playwright) and one `automate_api` TC (Newman) lists both, and
-       its status reflects the outcome across both branches.
-     - A risk is `covered_failing` if **any** TC for it failed in
-       **either** branch; `covered_partial` if some of its TCs ran and
-       others were skipped / not executed (e.g. the API branch ran but
-       a manual TC for the same risk did not).
-     - Determine `status`:
-       - `uncovered` — no TC references the risk.
-       - `accepted_without_test` — no TC references it, AND the
-         risk's description explicitly notes acceptance (or a Gate 2
-         note in the audit fields says so).
-       - `covered_passing` — every TC for this risk passed.
-       - `covered_failing` — at least one TC for this risk failed.
-       - `covered_partial` — some TCs ran but others were
-         `skipped` or did not execute (e.g. API TCs in a
-         run where the API branch did not run).
-     - A `manual` or `automate_component` TC counts by its **recorded and
-       reviewed** result (the ledger's case outcome): passed with evidence
-       counts as passing, a planned case with no recorded result as not
-       executed. An approved `skip` TC is never passing: a risk whose only
-       TCs are approved skips is `accepted_without_test`, citing the
-       exclusion reasons from the external plan.
+4. **Copy `coverage_by_risk` from the ledger.** Run
+   `npm run report:summary -- --coverage`. It prints one entry per
+   `RISK-XXX` in `context.json.risks[]`, derived from the approved test
+   cases and their outcomes in the execution ledger
+   (`scripts/lib/risk-coverage.js`). For each entry, copy `risk_id`,
+   `covered_by_tcs` and `status` into `coverage_by_risk` as printed. Do
+   not compute a status yourself and do not improve on one: the runner
+   refuses a report whose status differs from what the ledger supports.
+   - The one choice left to you: an entry with `"or":
+["accepted_without_test"]` has no approved case covering it. Write
+     `uncovered`, unless the risk's description or a Gate 2 note
+     explicitly accepts it; then write `accepted_without_test` and cite
+     that note (for approved `skip` cases, the exclusion reasons from the
+     external plan).
+   - How the status is derived, so you can explain it: `covered_by_tcs`
+     is every `TC-XXX` that references the risk, whatever its decision.
+     The status is decided by the **approved, non-`skip`** ones, across
+     both branches. A case counts by its outcome in the ledger: only
+     `passed` is passing (a `manual` or `automate_component` case passes
+     only with a recorded, reviewed result). `covered_failing` when any
+     case failed (a flaky case counts as failed); `covered_passing` when
+     every case passed; otherwise `covered_partial` (a case blocked,
+     skipped, an expected failure, or with no recorded result). The
+     printed `not_passing` names the cases that keep a risk from passing;
+     use it in the reasoning.
+   - **Legacy 1.x analysis** (no ledger, so no `--coverage` view): write
+     the 1.0 report's coverage by hand with the same rules: list every TC
+     that references the risk, and derive the status from the analysis's
+     failures and recorded results. Nothing checks a 1.x report's
+     statuses against a ledger, so state in the reasoning how each was
+     derived.
 5. **Build the failure lists.** From
    `analysis/failure-analysis.json.failures[]`:
    - `blocking_failures` — every `FAIL-XXX` with `severity: "red"`.
@@ -323,15 +332,20 @@ outcome_breakdown }` when only Playwright ran, and the grouped form
      risk is accounted for by a reviewed exclusion and none is
      high-severity without a test; list each exclusion as a condition.
      Otherwise `blocked`.
-   - `fail` — there is at least one `blocking_failures` entry
-     (from either branch) that is unresolved (no `Jira Issue Key` and
-     no other written mitigation), AND a `coverage_by_risk` entry is
-     `covered_failing` for a high-severity risk.
-   - `conditional_pass` — there are non-blocking failures or
-     manual-only / not-yet-executed TCs outstanding in either branch,
-     but no Red failures on high-severity risks. List the conditions
-     explicitly in `release_recommendation_reasoning`, naming which
-     branch each condition belongs to.
+   - `fail` — at least one Red failure (from either branch) is on a
+     high-severity risk: its `test_case_id` is a case that references a
+     risk with `severity: "high"`. A Red failure whose test case cannot
+     be traced to a risk counts too, since nothing shows it is not on
+     one. This holds **whether or not the bug is tracked in Jira or
+     otherwise mitigated**: a tracked product bug in what matters most is
+     still a product bug. The report is a recommendation; a person may
+     still decide to ship, and says so outside the report.
+   - `conditional_pass` — there are non-blocking failures, Red failures
+     only on medium- or low-severity risks, or manual-only /
+     not-yet-executed TCs outstanding in either branch, but no Red
+     failure on a high-severity risk. List the conditions explicitly in
+     `release_recommendation_reasoning`, naming which branch each
+     condition belongs to.
    - `pass` — no blocking failures in either branch, every
      high-severity risk is `covered_passing` (across both branches),
      AND `uncovered_high_severity_count == 0`. A high-severity risk with
@@ -339,12 +353,18 @@ outcome_breakdown }` when only Playwright ran, and the grouped form
      run is at best `conditional_pass` (list the uncovered risk as a
      condition) — or send it back to Gate 2 to add the missing case.
      The runner enforces the core of these rules on every 2.x report it
-     accepts (`RELEASE_RULES` in `scripts/lib/report-checks.js`): no `pass`
-     while a Red failure, a high-severity risk not covered and passing, or an
-     empty run blocks it; a `conditional_pass` states its conditions;
-     `blocking_failures` are exactly the Red failures and each Red failure's
-     bug draft is listed; the uncovered-risk fields match the coverage. A
-     report that breaks one is not accepted, and the report step stays next.
+     accepts (`RELEASE_RULES` in `scripts/lib/report-checks.js`), checking
+     coverage against the ledger rather than against your statuses
+     (`scripts/lib/risk-coverage.js`): one `coverage_by_risk` entry per
+     context risk; `covered_by_tcs` lists exactly the cases that reference
+     the risk; each status is the one the approved cases' ledger outcomes
+     support; no `pass` while a Red failure, a high-severity risk whose cases
+     did not all pass, or an empty run blocks it; a `conditional_pass` states
+     its conditions and has no Red failure on a high-severity risk (or one
+     not traced to a test case's risk); `blocking_failures` are exactly the Red failures and
+     each Red failure's bug draft is listed; the uncovered-risk fields match
+     the coverage. A report that breaks one is not accepted, and the report
+     step stays next.
 7. **Write `release_recommendation_reasoning`** — a non-empty
    string explaining the choice. For `conditional_pass`, list the
    conditions explicitly. Generic reasoning is a Gate-4-equivalent
@@ -440,10 +460,11 @@ outcome_breakdown }` when only Playwright ran, and the grouped form
   `analysis/failure-analysis.json` are the Failure Classifier's
   contract. If you think one is wrong, surface it as an
   `open_questions` entry — do not silently override.
-- **Don't decide pass on a Red failure.** A run with a Red failure
-  whose draft has no `Jira Issue Key` and no mitigation note is at
-  best `conditional_pass`, more often `fail`. The reasoning string
-  must say so.
+- **Don't decide pass on a Red failure.** A run with any Red failure
+  is never `pass`. A Red failure on a high-severity risk (or one not
+  traced to a test case's risk) is `fail`, tracked in Jira or not; a
+  Red failure only on lower-severity risks is at best
+  `conditional_pass`. The reasoning string must say so.
 - **`conditional_pass` requires conditions.** It cannot mean "I
   don't know". List the conditions: which TCs were skipped, which
   manual checks are pending, which environment caveats apply. A
@@ -523,9 +544,9 @@ summary. It does not mint new ids. It consumes:
 | `FAIL-XXX`             | `analysis/failure-analysis.json.failures[]` |
 | `BUG-XXX`              | `release/bug-drafts/BUG-*.md`               |
 
-The Reporter's `coverage_by_risk[]` array is a derived view: for
-each risk, list the TCs that reference it, decide the status based
-on execution outcomes. Re-running the Reporter against the same
+The Reporter's `coverage_by_risk[]` array is a derived view, copied from
+`npm run report:summary -- --coverage` (derived from the execution ledger;
+step 4). Re-running the Reporter against the same
 inputs produces the same coverage view — idempotent by design.
 
 If `analysis/failure-analysis.json` contains failures with

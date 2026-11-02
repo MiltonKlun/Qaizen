@@ -159,8 +159,10 @@ under review. This is the human prompt-change workflow:
    run of the fixed story, described in its README). The release report is
    checked against that run's own context, test cases, analysis and ledger
    (`scripts/lib/report-checks.js`): schema, version, counts derived from the
-   ledger, coverage per risk, failure lists, bug drafts, flaky units, and a
-   recommendation that is never `pass` while something blocks it. No gold
+   ledger, coverage per risk as the ledger supports it, failure lists, bug
+   drafts, flaky units, a recommendation that is never `pass` while something
+   blocks it, and no `conditional_pass` over a Red failure on a high-severity
+   risk. No gold
    release report is declared, so the comparison in step 4 is always with a
    previous candidate's results: for a change, produce one candidate with the
    current prompt first, then one with the changed prompt.

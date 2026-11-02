@@ -291,9 +291,10 @@ export function checkContext(context) {
 }
 
 /**
- * Red failures in a FINALIZED analysis that have no bug draft on disk.
- * A 1.x analysis keeps its own rule (every Red must name a draft) and is held
- * to the same "the draft exists" check.
+ * Red failures in a FINALIZED analysis that have no bug draft on disk, or
+ * whose draft is empty (whitespace only): an empty file is not a report of a
+ * bug. A 1.x analysis keeps its own rule (every Red must name a draft) and is
+ * held to the same check.
  * @param {any} analysis parsed failure analysis
  * @param {string} [root]
  * @returns {string[]}
@@ -301,10 +302,18 @@ export function checkContext(context) {
 export function missingBugDrafts(analysis, root = '.') {
   /** @type {{ severity?: string, bug_draft_path?: string, failure_id: string }[]} */
   const failures = analysis?.failures ?? [];
+  /** @param {string} path */
+  const hasContent = (path) => {
+    try {
+      return readFileSync(path, 'utf8').trim() !== '';
+    } catch {
+      return false;
+    }
+  };
   return failures
     .filter((f) => f.severity === 'red')
     .filter(
-      (f) => !f.bug_draft_path || !existsSync(join(root, f.bug_draft_path))
+      (f) => !f.bug_draft_path || !hasContent(join(root, f.bug_draft_path))
     )
     .map((f) => f.failure_id);
 }

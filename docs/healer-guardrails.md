@@ -251,8 +251,9 @@ follows the format documented in `skills/analyzing-logs/SKILL.md`
 
 The Reporter Agent then incorporates the bug draft into
 `release/release-report.md`, and if any Red bug drafts exist,
-recommends `fail` or `conditional_pass` in the report's
-`release_recommendation`.
+recommends `fail` (any Red failure on a high-severity risk, tracked in
+Jira or not) or at best `conditional_pass` (Red failures only on
+lower-severity risks) in the report's `release_recommendation`.
 
 ### Healer action
 
