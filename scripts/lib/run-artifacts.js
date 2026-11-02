@@ -333,7 +333,9 @@ export function draftProblems(analysis, root = '.') {
   if (!/^2\./.test(String(analysis?.schema_version))) return [];
   /** @type {{ path?: string, sha256?: string } | undefined} */
   const named = analysis.rule_draft;
-  const path = named?.path ?? DRAFT_PATH;
+  // The draft has one place. A rule_draft naming any other file would let a
+  // made-up "draft" vouch for the analysis.
+  const path = DRAFT_PATH;
   const abs = join(root, path);
   const ours = (/** @type {any} */ d) =>
     d?.run_id === analysis.run_id && d?.story_id === analysis.story_id;
@@ -346,8 +348,17 @@ export function draftProblems(analysis, root = '.') {
         ]
       : [];
   }
+  if (named.path !== DRAFT_PATH) {
+    return [`names ${named.path} as its rule-based draft; it is ${DRAFT_PATH}`];
+  }
   if (!existsSync(abs)) return [`its rule-based draft ${path} is missing`];
-  const bytes = readFileSync(abs);
+  /** @type {Buffer} */
+  let bytes;
+  try {
+    bytes = readFileSync(abs);
+  } catch {
+    return [`its rule-based draft ${path} cannot be read`];
+  }
   if (createHash('sha256').update(bytes).digest('hex') !== named.sha256) {
     return [
       `its rule-based draft ${path} changed after the pre-classifier wrote it (digest mismatch); re-run npm run classify`,

@@ -95,6 +95,64 @@ test('failures are neither added nor removed while finalizing', () => {
   ]);
 });
 
+test('a repeated failure id cannot hide a changed copy', () => {
+  const changed = final();
+  changed.failures = [
+    { ...draft.failures[0], severity: 'yellow' },
+    draft.failures[0],
+    draft.failures[1],
+  ];
+  assert.deepEqual(overrideProblems(draft, changed), [
+    'FAIL-001 appears more than once in the analysis',
+  ]);
+});
+
+test('what the ledger fixes never changes; a test case id is only filled in', () => {
+  const ledgerDraft = {
+    failures: [
+      {
+        failure_id: 'FAIL-001',
+        classification: 'product_bug',
+        severity: 'red',
+        unit_id: 'u-red',
+        execution_outcome: 'failed',
+        source: 'playwright',
+        runner_identity: { kind: 'playwright', test_title: 'pays' },
+        test_case_id: 'TC-001',
+      },
+      {
+        failure_id: 'FAIL-002',
+        classification: 'locator_or_selector',
+        severity: 'green',
+        unit_id: 'u-green',
+        execution_outcome: 'failed',
+        source: 'playwright',
+        runner_identity: { kind: 'playwright', test_title: 'opens help' },
+        test_case_id: null,
+      },
+    ],
+  };
+  // The Green failure moved onto the Red failure's unit: the Healer would
+  // otherwise be pointed at the test behind the Red one.
+  const moved = structuredClone(ledgerDraft);
+  moved.failures[1].unit_id = 'u-red';
+  moved.failures[1].runner_identity.test_title = 'pays';
+  assert.deepEqual(overrideProblems(ledgerDraft, moved), [
+    'FAIL-002 unit_id differs from the rule-based draft; the ledger fixes it',
+    'FAIL-002 runner_identity differs from the rule-based draft; the ledger fixes it',
+  ]);
+
+  const resolved = structuredClone(ledgerDraft);
+  resolved.failures[1].test_case_id = 'TC-004'; // unresolved -> resolved: fine
+  assert.deepEqual(overrideProblems(ledgerDraft, resolved), []);
+
+  const retargeted = structuredClone(ledgerDraft);
+  retargeted.failures[0].test_case_id = 'TC-009';
+  assert.deepEqual(overrideProblems(ledgerDraft, retargeted), [
+    'FAIL-001 test_case_id changed from TC-001 to TC-009; only an unresolved one may be filled in',
+  ]);
+});
+
 test('the Healer reads eligibility from the draft, never from an upgraded final', () => {
   const analysis = final();
   analysis.failures[0].severity = 'green';

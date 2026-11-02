@@ -222,12 +222,26 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
      When you disagree with the draft's `classification` or `severity`,
      change it in `failure-analysis.json` AND add one entry per changed
      field to `overrides[]`:
-     `{ "failure_id": "FAIL-XXX", "field": "classification" | "severity",
-"from": "<draft value>", "to": "<your value>", "reason": "<the
-evidence>" }`. The runner compares the analysis with the draft and
-     refuses one that changes either field without exactly that entry, or
-     records a change it does not make. Filling in ids, `bug_draft_path`
-     or `status` needs no override. Do not add or remove failures.
+
+     ```json
+     {
+       "failure_id": "FAIL-XXX",
+       "field": "severity",
+       "from": "<the draft's value>",
+       "to": "<your value>",
+       "reason": "<the evidence>"
+     }
+     ```
+
+     (`field` is `classification` or `severity`.) The runner compares the
+     analysis with the draft and refuses one that changes either field
+     without exactly that entry, or records a change it does not make.
+     Filling in a null `test_case_id`, test ids, `bug_draft_path` or
+     `status` needs no override. Never change `unit_id`,
+     `execution_outcome`, `source` or `runner_identity` (the ledger fixes
+     them), never change a test case id the draft already had, and do not
+     add or remove failures.
+
    - Keep its `FAIL-XXX` and `unit_id`. `execution_outcome` is what the
      run did; `classification` is why. Keep them separate: a `flaky` unit
      can still carry a Red cause.

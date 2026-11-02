@@ -56,6 +56,7 @@ import {
 } from './lib/artifact-io.js';
 import { requireCurrentGate } from './lib/approval-binding.js';
 import { draftProblems } from './lib/run-artifacts.js';
+import { DRAFT_PATH } from './lib/analysis-overrides.js';
 import { readLedger } from './lib/execution-ledger.js';
 import {
   MAX_ATTEMPTS,
@@ -114,7 +115,23 @@ function triage() {
   const failures = fa.failures || [];
   /** @type {Record<string, any>[]} */
   const all = failures;
-  const green = all.filter((f) => f.severity === 'green');
+  // A failure is Green for the Healer only if the rule-based draft says so too.
+  const draft =
+    fa.rule_draft && existsSync(DRAFT_PATH)
+      ? JSON.parse(readFileSync(DRAFT_PATH, 'utf8'))
+      : null;
+  /** @type {Set<string> | null} */
+  const draftGreen = draft
+    ? new Set(
+        (draft.failures ?? [])
+          .filter((/** @type {any} */ f) => f.severity === 'green')
+          .map((/** @type {any} */ f) => f.failure_id)
+      )
+    : null;
+  const green = all.filter(
+    (f) =>
+      f.severity === 'green' && (!draftGreen || draftGreen.has(f.failure_id))
+  );
   const yellow = all.filter((f) => f.severity === 'yellow');
   const red = all.filter((f) => f.severity === 'red');
 
@@ -214,7 +231,7 @@ async function processCandidate(failureId, candidatePath) {
     console.error(`${FA}: ${drift.join('; ')}. Refusing.`);
     return 1;
   }
-  const draft = analysis.rule_draft ? readJson(analysis.rule_draft.path) : null;
+  const draft = analysis.rule_draft ? readJson(DRAFT_PATH) : null;
   if (draft && !draft.ok) {
     console.error(`${draft.message}. Refusing.`);
     return 1;

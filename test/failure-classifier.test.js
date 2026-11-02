@@ -21,6 +21,7 @@ import {
   readFileSync,
   copyFileSync,
   existsSync,
+  rmSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -434,6 +435,51 @@ test('a finalized analysis records every change to a classification or severity'
   ).severity = 'yellow';
   writeFileSync(draftPath, JSON.stringify(draft, null, 2) + '\n');
   assert.match(draftProblems(quiet, w).join(), /digest mismatch/);
+});
+
+test('the draft has one place, belongs to this run, and must exist', () => {
+  const w = workspace();
+  normalize(w);
+  run(w, 'run-failure-classifier.js');
+  const doc = JSON.parse(
+    readFileSync(join(w, 'analysis', 'failure-analysis.json'), 'utf8')
+  );
+  const draftPath = join(w, DRAFT_PATH);
+  const original = readFileSync(draftPath);
+
+  // A rule_draft that names another file, even a matching one, is refused:
+  // a made-up "draft" cannot vouch for the analysis.
+  writeFileSync(join(w, 'analysis', 'other.json'), original);
+  const redirected = {
+    ...doc,
+    rule_draft: { ...doc.rule_draft, path: 'analysis/other.json' },
+  };
+  assert.deepEqual(draftProblems(redirected, w), [
+    `names analysis/other.json as its rule-based draft; it is ${DRAFT_PATH}`,
+  ]);
+
+  // Another run's draft, with a matching digest, is not this run's.
+  const foreign = JSON.parse(original.toString('utf8'));
+  foreign.run_id = 'another-run';
+  writeFileSync(draftPath, JSON.stringify(foreign, null, 2) + '\n');
+  const rehashed = {
+    ...doc,
+    rule_draft: {
+      path: DRAFT_PATH,
+      sha256: createHash('sha256')
+        .update(readFileSync(draftPath))
+        .digest('hex'),
+    },
+  };
+  assert.deepEqual(draftProblems(rehashed, w), [
+    `${DRAFT_PATH} is not this run's rule-based draft`,
+  ]);
+
+  // A missing draft is refused while the analysis still names it.
+  rmSync(draftPath);
+  assert.deepEqual(draftProblems(doc, w), [
+    `its rule-based draft ${DRAFT_PATH} is missing`,
+  ]);
 });
 
 test('a draft never points at bug drafts that do not exist', () => {
