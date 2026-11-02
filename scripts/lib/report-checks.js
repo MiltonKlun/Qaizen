@@ -113,6 +113,12 @@ export function releaseReportChecks({
   // What the ledger says about each risk: the approved cases that reference
   // it and their recorded outcomes (scripts/lib/risk-coverage.js).
   const derived = ledger ? riskCoverage({ context, testCases, ledger }) : null;
+  // A ledger normalized without --test-cases records no case outcomes, so
+  // every case reads as not run; say so instead of leaving that unexplained.
+  const noScope =
+    ledger && !ledger.approved_scope_digest
+      ? ' [the ledger records no approved scope; normalize with --test-cases]'
+      : '';
   if (derived) {
     const byId = new Map(derived.map((d) => [d.risk_id, d]));
     const contradicted = coverage
@@ -130,7 +136,7 @@ export function releaseReportChecks({
             : notPassingReason(/** @type {any} */ (d));
           return `${c.risk_id} says ${c.status}, but ${why}`;
         })
-        .join('; ')
+        .join('; ') + (contradicted.length ? noScope : '')
     );
   } else {
     // A 1.x analysis has no ledger; its report's statuses cannot be checked.
@@ -199,7 +205,7 @@ export function releaseReportChecks({
   const highNotPassing = derived
     ? derived
         .filter((d) => d.severity === 'high' && !d.passing)
-        .map((d) => `${d.risk_id}: ${notPassingReason(d)}`)
+        .map((d) => `${d.risk_id}: ${notPassingReason(d)}${noScope}`)
     : coverage
         .filter(
           (c) =>
@@ -238,7 +244,9 @@ export function releaseReportChecks({
     const tc = /** @type {{ test_case_id?: string | null }} */ (f).test_case_id;
     const traced = tc ? (risksOf.get(tc) ?? []) : [];
     if (traced.length === 0)
-      return [`${f.failure_id} (traced to no risk, so it may be one)`];
+      return [
+        `${f.failure_id} (not traced to a test case's risk, so it may be on a high-severity one)`,
+      ];
     return traced
       .filter((r) => severity.get(r) === 'high')
       .map((r) => `${f.failure_id} on ${r} (${tc})`);

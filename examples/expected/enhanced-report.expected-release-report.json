@@ -48,17 +48,17 @@
   "uncovered_high_severity_count": 0,
   "summary_by_risk_level": {
     "high": {
-      "total": 2,
+      "total": 1,
       "covered_passing": 1,
-      "covered_failing": 1,
+      "covered_failing": 0,
       "covered_partial": 0,
       "accepted_without_test": 0,
       "uncovered": 0
     },
     "medium": {
-      "total": 1,
+      "total": 2,
       "covered_passing": 0,
-      "covered_failing": 0,
+      "covered_failing": 1,
       "covered_partial": 0,
       "accepted_without_test": 0,
       "uncovered": 1
@@ -83,9 +83,9 @@
   "blocking_failures": ["FAIL-001"],
   "non_blocking_failures": [],
   "release_recommendation": "conditional_pass",
-  "release_recommendation_reasoning": "RISK-001 (high) is covered_passing. RISK-002 (high) is covered_failing with a Red bug (FAIL-001 / BUG-001) — but a Jira issue exists to track it, so it is a known, triaged defect rather than an unhandled blocker. RISK-003 (medium) is uncovered. No HIGH-severity risk is uncovered (uncovered_high_severity_count = 0), so this is conditional_pass, not fail. Conditions are listed in conditional_pass_criteria.",
+  "release_recommendation_reasoning": "RISK-001 (high) is covered_passing. RISK-002 (medium) is covered_failing with a Red bug (FAIL-001 / BUG-001), tracked in Jira; because the risk is not high-severity, the run is not a fail. RISK-003 (medium) is uncovered. No HIGH-severity risk is uncovered or failing, so this is conditional_pass. Conditions are listed in conditional_pass_criteria.",
   "conditional_pass_criteria": [
-    "BUG-001 (RISK-002, Red) is fixed or formally accepted by the product owner before release.",
+    "BUG-001 (RISK-002, medium, Red) is fixed or formally accepted by the product owner before release.",
     "A test case is added for RISK-003 (medium, uncovered) or the risk is explicitly accepted at Gate 2.",
     "The TC-001 flakiness (intermittent inventory-load timeout) is investigated; if it recurs, stabilize before promoting the suite to blocking."
   ],

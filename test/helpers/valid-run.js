@@ -150,7 +150,6 @@ export function writeCompletedRun(dir, opts = {}, overrides = {}) {
       non_blocking_failures: [],
       bug_drafts: [],
       release_recommendation: 'fail',
-      conditional_pass_criteria: [],
     }),
     'release/release-report.md': '# report\n',
     'context.json': JSON.stringify(ctx, null, 2),

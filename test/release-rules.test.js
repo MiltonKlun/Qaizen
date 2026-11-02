@@ -163,6 +163,7 @@ const approved = {
 };
 const ledger = {
   units: [],
+  approved_scope_digest: 'sha256:approved-scope',
   case_outcomes: [
     { test_case_id: 'TC-001', outcome: 'failed' },
     { test_case_id: 'TC-002', outcome: 'passed' },
@@ -261,7 +262,7 @@ test('a conditional pass with a Red failure on a high-severity risk is refused',
   // A Red failure traced to no case cannot be shown to be off the high risk.
   const untraced = { ...redOnTc1, test_case_id: null };
   assert.deepEqual(releaseRuleProblems(live(conditional, [untraced])), [
-    'a conditional pass has no Red failure on a high-severity risk (FAIL-001 (traced to no risk, so it may be one))',
+    "a conditional pass has no Red failure on a high-severity risk (FAIL-001 (not traced to a test case's risk, so it may be on a high-severity one))",
   ]);
 });
 

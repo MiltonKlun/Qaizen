@@ -221,11 +221,13 @@ from passing. The rules: one coverage entry per context risk; `covered_by_tcs`
 lists exactly the cases that reference each risk; each status is the one its
 cases support; no `pass` while a Red failure, a high-severity risk that is not
 passing, or an empty run blocks it; a `conditional_pass` states its
-conditions and has no Red failure on a high-severity risk (a Red failure
-traced to no risk counts as one); `blocking_failures` are exactly the Red
+conditions and has no Red failure on a high-severity risk, tracked in Jira or
+not (a Red failure not traced to a test case's risk counts as one); `blocking_failures` are exactly the Red
 failures and every Red failure's bug draft is listed; the uncovered-risk
 fields match the coverage. They are the same checks the Reporter evaluation
-uses (`scripts/lib/report-checks.js`), applied to every live run. A report
+uses (`scripts/lib/report-checks.js`), applied to every live run. The Reporter
+copies coverage from `npm run report:summary -- --coverage`, which prints the
+same derivation. A report
 that breaks one is not accepted, with the rule, the risk and the case named,
 so the report step comes next.
 
