@@ -395,7 +395,7 @@ function gatherHints(context) {
       hints.bugDraftsMissing = missing.length;
       if (missing.length) {
         hints.problems.push(
-          `failure_analysis: no bug draft on disk for Red failure(s) ${missing.join(', ')}`
+          `failure_analysis: no bug draft with content on disk for Red failure(s) ${missing.join(', ')}`
         );
       }
     }

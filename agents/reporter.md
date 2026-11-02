@@ -11,9 +11,13 @@ description: |
   run completed: the runner does, after validating every artifact.
 phase_introduced: 1
 phase_active: 1+
-version: 4.0.4
+version: 4.0.5
 changed_in_run: null
 changelog: |
+  - 4.0.5: PATCH (no output change). States that the runner now checks
+    coverage against the ledger: one entry per risk, the exact referencing
+    cases, statuses the ledger supports, and no conditional pass with a Red
+    failure on a high-severity risk.
   - 4.0.4: PATCH (no output change). Build-phase labels are replaced by
     what each step does today; the instructions are unchanged.
   - 4.0.3: PATCH (no output change). Review-finding labels that only made
@@ -339,12 +343,18 @@ outcome_breakdown }` when only Playwright ran, and the grouped form
      run is at best `conditional_pass` (list the uncovered risk as a
      condition) — or send it back to Gate 2 to add the missing case.
      The runner enforces the core of these rules on every 2.x report it
-     accepts (`RELEASE_RULES` in `scripts/lib/report-checks.js`): no `pass`
-     while a Red failure, a high-severity risk not covered and passing, or an
-     empty run blocks it; a `conditional_pass` states its conditions;
-     `blocking_failures` are exactly the Red failures and each Red failure's
-     bug draft is listed; the uncovered-risk fields match the coverage. A
-     report that breaks one is not accepted, and the report step stays next.
+     accepts (`RELEASE_RULES` in `scripts/lib/report-checks.js`), checking
+     coverage against the ledger rather than against your statuses
+     (`scripts/lib/risk-coverage.js`): one `coverage_by_risk` entry per
+     context risk; `covered_by_tcs` lists exactly the cases that reference
+     the risk; each status is the one the approved cases' ledger outcomes
+     support; no `pass` while a Red failure, a high-severity risk whose cases
+     did not all pass, or an empty run blocks it; a `conditional_pass` states
+     its conditions and has no Red failure on a high-severity risk (or one
+     traced to no risk); `blocking_failures` are exactly the Red failures and
+     each Red failure's bug draft is listed; the uncovered-risk fields match
+     the coverage. A report that breaks one is not accepted, and the report
+     step stays next.
 7. **Write `release_recommendation_reasoning`** — a non-empty
    string explaining the choice. For `conditional_pass`, list the
    conditions explicitly. Generic reasoning is a Gate-4-equivalent

@@ -11,6 +11,7 @@
 import { isDeepStrictEqual } from 'node:util';
 
 import { releaseExecutionSummary } from './execution-ledger.js';
+import { notPassingReason, riskCoverage } from './risk-coverage.js';
 
 /** @typedef {{ name: string, pass: boolean, detail: string }} Check */
 
@@ -89,20 +90,56 @@ export function releaseReportChecks({
 
   /** @type {{ test_case_id: string, risk_ids?: string[] }[]} */
   const cases = testCases.test_cases ?? [];
-  const wrongTcs = coverage.filter(
-    (c) =>
-      !sameSet(
-        c.covered_by_tcs ?? [],
-        cases
-          .filter((t) => (t.risk_ids ?? []).includes(c.risk_id))
-          .map((t) => t.test_case_id)
-      )
-  );
+  const wrongTcs = coverage
+    .map((c) => {
+      const want = cases
+        .filter((t) => (t.risk_ids ?? []).includes(c.risk_id))
+        .map((t) => t.test_case_id);
+      return { risk: c.risk_id, listed: c.covered_by_tcs ?? [], want };
+    })
+    .filter((w) => !sameSet(w.listed, w.want));
   add(
     'covered_by_tcs lists exactly the test cases that reference each risk',
     wrongTcs.length === 0,
-    wrongTcs.map((c) => c.risk_id).join(', ')
+    wrongTcs
+      .map(
+        (w) =>
+          `${w.risk} lists ${sorted(w.listed).join(',') || '(none)'}, ` +
+          `referenced by ${sorted(w.want).join(',') || '(none)'}`
+      )
+      .join('; ')
   );
+
+  // What the ledger says about each risk: the approved cases that reference
+  // it and their recorded outcomes (scripts/lib/risk-coverage.js).
+  const derived = ledger ? riskCoverage({ context, testCases, ledger }) : null;
+  if (derived) {
+    const byId = new Map(derived.map((d) => [d.risk_id, d]));
+    const contradicted = coverage
+      .map((c) => ({ c, d: byId.get(c.risk_id) }))
+      .filter(
+        ({ c, d }) => d && !d.statuses.includes(/** @type {any} */ (c.status))
+      );
+    add(
+      'each risk status is the one its cases in the ledger support',
+      contradicted.length === 0,
+      contradicted
+        .map(({ c, d }) => {
+          const why = d?.passing
+            ? `${d.cases.map((k) => k.test_case_id).join(', ')} passed`
+            : notPassingReason(/** @type {any} */ (d));
+          return `${c.risk_id} says ${c.status}, but ${why}`;
+        })
+        .join('; ')
+    );
+  } else {
+    // A 1.x analysis has no ledger; its report's statuses cannot be checked.
+    add(
+      'each risk status is the one its cases in the ledger support',
+      true,
+      'no ledger to check against'
+    );
+  }
 
   const severity = new Map(risks.map((r) => [r.risk_id, r.severity]));
   const uncovered = coverage
@@ -155,15 +192,27 @@ export function releaseReportChecks({
     );
   }
 
-  const highNotPassing = coverage.filter(
-    (c) => severity.get(c.risk_id) === 'high' && c.status !== 'covered_passing'
-  );
+  // With a ledger, a high-severity risk blocks a pass unless its cases
+  // passed, whatever the report says about it, and even when the report
+  // leaves it out. Without one (a 1.x analysis), the report's own statuses
+  // are all there is.
+  const highNotPassing = derived
+    ? derived
+        .filter((d) => d.severity === 'high' && !d.passing)
+        .map((d) => `${d.risk_id}: ${notPassingReason(d)}`)
+    : coverage
+        .filter(
+          (c) =>
+            severity.get(c.risk_id) === 'high' && c.status !== 'covered_passing'
+        )
+        .map((c) => c.risk_id);
   const summary = report.execution_summary ?? {};
   const executed = (summary.combined ?? summary).total ?? 0;
   const passBlockers = [
     red.length ? 'a blocking failure' : null,
     highNotPassing.length
-      ? 'a high-severity risk not covered and passing'
+      ? 'a high-severity risk not covered and passing' +
+        (derived ? ` (${highNotPassing.join('; ')})` : '')
       : null,
     executed === 0 ? 'nothing executed' : null,
   ].filter(Boolean);
@@ -178,6 +227,27 @@ export function releaseReportChecks({
     report.release_recommendation !== 'conditional_pass' ||
       (report.conditional_pass_criteria ?? []).length > 0,
     ''
+  );
+
+  // A Red failure on a high-severity risk is a product bug in what matters
+  // most; no listed condition turns that into a release. A Red failure that
+  // cannot be traced to a risk counts too: nothing shows it is not one.
+  /** @type {Map<string, string[]>} */
+  const risksOf = new Map(cases.map((t) => [t.test_case_id, t.risk_ids ?? []]));
+  const redOnHigh = red.flatMap((f) => {
+    const tc = /** @type {{ test_case_id?: string | null }} */ (f).test_case_id;
+    const traced = tc ? (risksOf.get(tc) ?? []) : [];
+    if (traced.length === 0)
+      return [`${f.failure_id} (traced to no risk, so it may be one)`];
+    return traced
+      .filter((r) => severity.get(r) === 'high')
+      .map((r) => `${f.failure_id} on ${r} (${tc})`);
+  });
+  add(
+    'a conditional pass has no Red failure on a high-severity risk',
+    report.release_recommendation !== 'conditional_pass' ||
+      redOnHigh.length === 0,
+    redOnHigh.join(', ')
   );
 
   /** @type {Record<string, Record<string, number>>} */
@@ -207,11 +277,15 @@ export function releaseReportChecks({
  * the report is laid out, and stay with the evaluation.
  */
 export const RELEASE_RULES = [
+  'one coverage entry per context risk',
+  'covered_by_tcs lists exactly the test cases that reference each risk',
+  'each risk status is the one its cases in the ledger support',
   'blocking failures are exactly the Red ones, the rest are non-blocking',
   "every Red failure's bug draft is listed",
   'uncovered risks and their high-severity count match the coverage',
   'the recommendation is never pass while something blocks it',
   'a conditional pass lists its conditions',
+  'a conditional pass has no Red failure on a high-severity risk',
 ];
 
 /**

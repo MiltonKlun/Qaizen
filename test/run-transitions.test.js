@@ -356,8 +356,18 @@ test('a Red failure whose bug draft is missing blocks completion', () => {
     ];
     writeFileSync(p, JSON.stringify(fa));
     const r = pipeline(dir, ['--resume']);
-    assert.match(r.out, /no bug draft on disk for Red failure\(s\) FAIL-001/);
+    assert.match(
+      r.out,
+      /no bug draft with content on disk for Red failure\(s\) FAIL-001/
+    );
     assert.match(r.out, /Next step: FINALIZE/);
+
+    // An empty draft is not a report of a bug.
+    write(dir, 'release/bug-drafts/BUG-001.md', '  \n');
+    assert.match(
+      pipeline(dir, ['--resume']).out,
+      /no bug draft with content on disk for Red failure\(s\) FAIL-001/
+    );
 
     write(dir, 'release/bug-drafts/BUG-001.md', '# BUG-001\n');
     // The report still says nothing blocks: the release rules refuse it.

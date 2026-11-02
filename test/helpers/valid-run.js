@@ -68,6 +68,12 @@ export function runContext({
 export function writeCompletedRun(dir, opts = {}, overrides = {}) {
   const { storyId = 'OLD-1', runId = 'old-run-1' } = opts;
   const ctx = runContext({ ...opts, storyId, runId });
+  // The one risk the test cases below reference. The ledger has TC-001
+  // passing and TC-002 failing, so the risk is covered and failing.
+  ctx.risks = [
+    gold('examples/expected/login-success-audited.expected-context.json')
+      .risks[0],
+  ];
   const own = (doc) => ({ ...doc, story_id: storyId, run_id: runId });
 
   const tc = validTestCases(storyId, runId);
@@ -115,13 +121,36 @@ export function writeCompletedRun(dir, opts = {}, overrides = {}) {
     'analysis/failure-analysis.json': JSON.stringify(analysis),
     'release/release-report.json': JSON.stringify({
       // A 2.0 report: the analysis is 2.x, and its execution_summary is the
-      // one derived from this same ledger. Its failures
-      // are this run's: the analysis has none, so nothing blocks and no bug
-      // draft is listed (the release rules, scripts/lib/report-checks.js).
+      // one derived from this same ledger. Its coverage and failures are this
+      // run's (the release rules, scripts/lib/report-checks.js): RISK-001 is
+      // covered and failing, the analysis has no failures, so nothing blocks,
+      // no bug draft is listed, and the recommendation is a plain fail.
       ...own(gold('examples/expected/mixed-run.expected-release-report.json')),
+      coverage_by_risk: [
+        {
+          risk_id: 'RISK-001',
+          covered_by_tcs: ['TC-001', 'TC-002'],
+          status: 'covered_failing',
+        },
+      ],
+      uncovered_risks: [],
+      uncovered_high_severity_count: 0,
+      summary_by_risk_level: {
+        high: {
+          total: 1,
+          covered_passing: 0,
+          covered_failing: 1,
+          covered_partial: 0,
+          accepted_without_test: 0,
+          uncovered: 0,
+        },
+      },
+      untested_high_risk_items: [],
       blocking_failures: [],
       non_blocking_failures: [],
       bug_drafts: [],
+      release_recommendation: 'fail',
+      conditional_pass_criteria: [],
     }),
     'release/release-report.md': '# report\n',
     'context.json': JSON.stringify(ctx, null, 2),
