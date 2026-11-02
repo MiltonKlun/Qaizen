@@ -592,6 +592,31 @@
       "type": "string",
       "enum": ["draft", "in_progress", "completed", "blocked"]
     },
+    "downgrade_confirmations": {
+      "description": "OPTIONAL. Written only by the runner, after a person confirmed at the terminal (TTY-only) a severity the finalized failure analysis lowered from its rule-based draft: a Red failure lowered, or a failure lowered on a high-severity, Red-domain or untraceable risk. Part of the gate trail, not a fifth gate. Each entry is bound to the analysis bytes it was given for (analysis_sha256), so a later change to the analysis needs a new confirmation. No agent writes this.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "failure_id",
+          "from",
+          "to",
+          "reviewer",
+          "confirmed_at",
+          "analysis_sha256"
+        ],
+        "properties": {
+          "failure_id": { "type": "string", "pattern": "^FAIL-[0-9]+$" },
+          "from": { "type": "string", "enum": ["red", "yellow", "green"] },
+          "to": { "type": "string", "enum": ["red", "yellow", "green"] },
+          "why": { "type": "string" },
+          "reviewer": { "type": ["string", "null"] },
+          "confirmed_at": { "type": "string", "format": "date-time" },
+          "analysis_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
     "gate_invalidations": {
       "type": "array",
       "description": "OPTIONAL. Approvals the runner returned to pending because what they reviewed changed (or because they predate input binding). Separate from gate_decisions[], which records only HUMAN decisions: an invalidation is not a rejection and never invents one. The prior approval is preserved here and in gate_decisions[].",

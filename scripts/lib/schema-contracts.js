@@ -65,7 +65,7 @@ export const SCHEMA_CONTRACTS = {
     artifact: 'context.json',
     producers: [
       'agents/analyst.md',
-      'scripts/run-pipeline.js (gate decisions, bindings, status)',
+      'scripts/run-pipeline.js (gate decisions, bindings, status, downgrade confirmations)',
     ],
     consumers: [
       'every agent',
@@ -73,7 +73,10 @@ export const SCHEMA_CONTRACTS = {
       'scripts/lib/approval-binding.js',
     ],
     docs: ['docs/context-json-guide.md', 'docs/review-gates.md'],
-    examples: ['examples/expected/login-success.expected-context.json'],
+    examples: [
+      'examples/expected/login-success.expected-context.json',
+      'examples/expected/downgrade-confirmed.expected-context.json',
+    ],
     invalid: [
       {
         path: 'examples/invalid/context.unknown-risk-severity.json',

@@ -226,7 +226,10 @@ renderer (`scripts/gate-briefs.js`), and an interactive decision recorder:
   `analysis/failure-analysis.draft.json`; the Failure Classifier Agent (or a
   human) finalizes the analysis before the Reporter step, recording every
   changed classification or severity as an override against that draft. The
-  Healer takes eligibility from the draft.
+  Healer takes eligibility from the draft. A lowered Red failure, or a failure
+  lowered on a high-severity, Red-domain or untraceable risk, stops the run at
+  `confirm-downgrades` until a person confirms it at the terminal (recorded in
+  the gate trail; not a fifth gate).
 
 It never commits, merges, or performs Jira/TestLink writes. Orchestration
 stays human-driven; the runner only removes the clerical "what do I run

@@ -18,6 +18,8 @@
 
 import { isDeepStrictEqual } from 'node:util';
 
+import { redDomainsInText } from '../red-domains.js';
+
 /** The fields whose change must be recorded as an override. */
 export const OVERRIDABLE = /** @type {const} */ ([
   'classification',
@@ -126,4 +128,90 @@ export function overrideProblems(draft, final) {
     }
   }
   return problems;
+}
+
+const RANK = /** @type {Record<string, number>} */ ({
+  green: 1,
+  yellow: 2,
+  red: 3,
+});
+
+/**
+ * @typedef {{ failure_id: string, from: string, to: string, why: string }}
+ *   Downgrade
+ */
+
+/**
+ * The severities a finalized analysis lowered that a person must confirm:
+ * a Red failure lowered, or any failure lowered on a high-severity or
+ * Red-domain risk (docs/healer-guardrails.md §4), or on no traceable risk.
+ * @param {object} run
+ * @param {{ failures?: Failure[] }} run.draft
+ * @param {{ failures?: Failure[] }} run.final
+ * @param {{ risks?: { risk_id: string, severity?: string,
+ *   description?: string }[] }} run.context
+ * @param {{ test_cases?: { test_case_id: string, risk_ids?: string[] }[] }}
+ *   run.testCases
+ * @returns {Downgrade[]}
+ */
+export function downgradesOf({ draft, final, context, testCases }) {
+  const before = new Map((draft.failures ?? []).map((f) => [f.failure_id, f]));
+  const riskBy = new Map((context?.risks ?? []).map((r) => [r.risk_id, r]));
+  const risksOf = new Map(
+    (testCases?.test_cases ?? []).map((t) => [t.test_case_id, t.risk_ids ?? []])
+  );
+  return (final.failures ?? []).flatMap((f) => {
+    const was = before.get(f.failure_id);
+    const from = was?.severity;
+    const to = f.severity;
+    if (!was || !from || !to || !(RANK[to] < RANK[from])) return [];
+    // The trace that decides is the draft's. A test case the finalizing step
+    // filled in can add risks, but it cannot remove the need to confirm a
+    // failure the rules could not trace: the agent that lowered the severity
+    // would otherwise choose the trace that skips the confirmation.
+    const traced = (/** @type {string | null | undefined} */ tc) =>
+      (tc ? (risksOf.get(tc) ?? []) : [])
+        .map((id) => riskBy.get(id))
+        .filter((r) => r !== undefined);
+    const draftRisks = traced(was.test_case_id);
+    const risks = [...new Set([...draftRisks, ...traced(f.test_case_id)])];
+    /** @type {string[]} */
+    const why = [];
+    if (from === 'red') why.push('a Red failure lowered');
+    for (const r of risks) {
+      if (r.severity === 'high') why.push(`on high-severity ${r.risk_id}`);
+      const domains = redDomainsInText(r.description ?? '');
+      if (domains.length)
+        why.push(`on ${r.risk_id}, a Red domain (${domains.join(', ')})`);
+    }
+    if (draftRisks.length === 0) {
+      why.push("not traced to a test case's risk in the rule-based draft");
+    }
+    return why.length
+      ? [{ failure_id: f.failure_id, from, to, why: why.join('; ') }]
+      : [];
+  });
+}
+
+/**
+ * The downgrades not confirmed for exactly this analysis: a confirmation
+ * counts only for the same failure, the same severities and the analysis
+ * bytes it was given for.
+ * @param {Downgrade[]} downgrades
+ * @param {{ failure_id: string, from: string, to: string,
+ *   analysis_sha256: string }[]} confirmations
+ * @param {string} analysisSha256
+ * @returns {Downgrade[]}
+ */
+export function unconfirmed(downgrades, confirmations, analysisSha256) {
+  return downgrades.filter(
+    (d) =>
+      !confirmations.some(
+        (c) =>
+          c.failure_id === d.failure_id &&
+          c.from === d.from &&
+          c.to === d.to &&
+          c.analysis_sha256 === analysisSha256
+      )
+  );
 }

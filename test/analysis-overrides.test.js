@@ -5,7 +5,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { overrideProblems } from '../scripts/lib/analysis-overrides.js';
+import {
+  downgradesOf,
+  overrideProblems,
+  unconfirmed,
+} from '../scripts/lib/analysis-overrides.js';
 import { resolveTarget } from '../scripts/lib/healer-candidate.js';
 
 const draft = {
@@ -170,4 +174,108 @@ test('the Healer reads eligibility from the draft, never from an upgraded final'
     target.ok ? '' : target.reason,
     /FAIL-001 is red in the rule-based draft; a finalized analysis cannot make a failure Green/
   );
+});
+
+// --- which lowered severities a person must confirm -------------------------
+
+const run = {
+  context: {
+    risks: [
+      { risk_id: 'RISK-001', severity: 'high', description: 'login works' },
+      {
+        risk_id: 'RISK-002',
+        severity: 'low',
+        description: 'the payment total is wrong',
+      },
+      { risk_id: 'RISK-003', severity: 'low', description: 'tooltip text' },
+    ],
+  },
+  testCases: {
+    test_cases: [
+      { test_case_id: 'TC-001', risk_ids: ['RISK-001'] },
+      { test_case_id: 'TC-002', risk_ids: ['RISK-002'] },
+      { test_case_id: 'TC-003', risk_ids: ['RISK-003'] },
+    ],
+  },
+};
+/** @param {[string, string, string | null][]} rows id, severity, case */
+const failures = (rows) =>
+  rows.map(([id, severity, tc]) => ({
+    failure_id: id,
+    severity,
+    test_case_id: tc,
+  }));
+
+test('a lowered Red, or a lowering on a high, Red-domain or untraced risk, needs confirming', () => {
+  const draft = {
+    failures: failures([
+      ['FAIL-001', 'red', 'TC-003'],
+      ['FAIL-002', 'yellow', 'TC-001'],
+      ['FAIL-003', 'yellow', 'TC-002'],
+      ['FAIL-004', 'yellow', 'TC-003'],
+      ['FAIL-005', 'yellow', null],
+      ['FAIL-006', 'green', 'TC-001'],
+      ['FAIL-007', 'yellow', null],
+    ]),
+  };
+  const final = {
+    failures: failures([
+      ['FAIL-001', 'yellow', 'TC-003'],
+      ['FAIL-002', 'green', 'TC-001'],
+      ['FAIL-003', 'green', 'TC-002'],
+      ['FAIL-004', 'green', 'TC-003'], // low, not a Red domain: no confirmation
+      ['FAIL-005', 'green', null],
+      ['FAIL-006', 'yellow', 'TC-001'], // raised, not lowered
+      // The finalizing step filled in a low, non-Red case: the draft could not
+      // trace it, so a person still confirms.
+      ['FAIL-007', 'green', 'TC-003'],
+    ]),
+  };
+  assert.deepEqual(downgradesOf({ ...run, draft, final }), [
+    {
+      failure_id: 'FAIL-001',
+      from: 'red',
+      to: 'yellow',
+      why: 'a Red failure lowered',
+    },
+    {
+      failure_id: 'FAIL-002',
+      from: 'yellow',
+      to: 'green',
+      why: 'on high-severity RISK-001',
+    },
+    {
+      failure_id: 'FAIL-003',
+      from: 'yellow',
+      to: 'green',
+      why: 'on RISK-002, a Red domain (business_logic, payment)',
+    },
+    {
+      failure_id: 'FAIL-005',
+      from: 'yellow',
+      to: 'green',
+      why: "not traced to a test case's risk in the rule-based draft",
+    },
+    {
+      failure_id: 'FAIL-007',
+      from: 'yellow',
+      to: 'green',
+      why: "not traced to a test case's risk in the rule-based draft",
+    },
+  ]);
+});
+
+test('a confirmation counts only for the same change and the same analysis bytes', () => {
+  const d = { failure_id: 'FAIL-001', from: 'red', to: 'yellow', why: 'x' };
+  const c = {
+    failure_id: 'FAIL-001',
+    from: 'red',
+    to: 'yellow',
+    analysis_sha256: 'a'.repeat(64),
+  };
+  assert.deepEqual(unconfirmed([d], [c], 'a'.repeat(64)), []);
+  assert.deepEqual(unconfirmed([d], [c], 'b'.repeat(64)), [d]);
+  assert.deepEqual(unconfirmed([d], [{ ...c, to: 'green' }], 'a'.repeat(64)), [
+    d,
+  ]);
 });

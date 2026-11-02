@@ -96,6 +96,7 @@ import {
 import {
   checkArtifact,
   checkContext,
+  downgradeStatus,
   draftProblems,
   missingBugDrafts,
   ledgerHasApiExecution,
@@ -401,6 +402,12 @@ function gatherHints(context) {
         : [];
       hints.draftProblems = drift.length;
       for (const p of drift) hints.problems.push(`failure_analysis: ${p}`);
+      // Lowered severities that need a person's confirmation, counted only
+      // once the analysis keeps its draft intact.
+      hints.unconfirmedDowngrades =
+        hints.failureAnalysisFinalized && drift.length === 0
+          ? downgradeStatus(context, '.').pending.length
+          : 0;
       if (missing.length) {
         hints.problems.push(
           `failure_analysis: no bug draft with content on disk for Red failure(s) ${missing.join(', ')}`
@@ -813,6 +820,13 @@ async function runGateInteractive(step, context) {
   );
 
   const rl = createInterface({ input: stdin, output: stdout });
+  // Input that ends (Ctrl-D) records nothing, and says so.
+  let settled = false;
+  rl.once('close', () => {
+    if (settled) return;
+    console.error('\nInput ended. No decision recorded.');
+    exit(1);
+  });
   try {
     if (!reviewer) {
       reviewer =
@@ -889,6 +903,142 @@ async function runGateInteractive(step, context) {
       `\n${gateKey}: approved — recorded with telemetry and bound to the reviewed inputs.`
     );
   } finally {
+    settled = true;
+    rl.close();
+  }
+}
+
+/**
+ * Record a person's confirmation of lowered severities (exported for unit
+ * tests; the CLI only calls this after an interactive TTY session captured
+ * it). Each confirmation is bound to the analysis bytes it was given for.
+ * Returns the same context, mutated.
+ * @param {Context} context
+ * @param {import('./lib/analysis-overrides.js').Downgrade[]} downgrades
+ * @param {{ reviewer: string | null, confirmedAt: string, sha256: string }} at
+ */
+export function applyDowngradeConfirmation(
+  context,
+  downgrades,
+  { reviewer, confirmedAt, sha256 }
+) {
+  const c = /** @type {any} */ (context);
+  if (!Array.isArray(c.downgrade_confirmations)) c.downgrade_confirmations = [];
+  for (const d of downgrades) {
+    c.downgrade_confirmations.push({
+      failure_id: d.failure_id,
+      from: d.from,
+      to: d.to,
+      why: d.why,
+      reviewer: reviewer || null,
+      confirmed_at: confirmedAt,
+      analysis_sha256: sha256,
+    });
+  }
+  return context;
+}
+
+/**
+ * Read an answer at the downgrade prompt. Only the exact words count: an
+ * answer like "cancel" must not read as "c".
+ * @param {string} raw
+ * @returns {'confirm' | 'quit' | null} null asks again
+ */
+export function confirmAnswer(raw) {
+  const a = raw.trim().toLowerCase();
+  if (a === 'c' || a === 'confirm') return 'confirm';
+  if (a === 'q' || a === 'quit') return 'quit';
+  return null;
+}
+
+/**
+ * Ask a person to confirm the severities the finalized analysis lowered
+ * (D3: interactive and TTY-only, recorded in the gate trail, not a fifth
+ * gate). Without a terminal, or on quit, nothing is recorded and the run
+ * stays here.
+ * @param {Context} context
+ */
+async function runDowngradeConfirmation(context) {
+  const status = downgradeStatus(context, '.');
+  if (!status.pending.length || !status.sha256) return;
+  const faRel = /** @type {string} */ (
+    context.artifact_paths?.failure_analysis
+  );
+  const analysis = JSON.parse(readFileSync(faRel, 'utf8'));
+  console.log('\n=== CONFIRM LOWERED SEVERITIES ===');
+  console.log(
+    'The finalized analysis lowers what the rule-based draft found. A person\n' +
+      'confirms each one before the Reporter runs (this is not a fifth gate).'
+  );
+  for (const d of status.pending) {
+    const o = (analysis.overrides ?? []).find(
+      (/** @type {any} */ x) =>
+        x.failure_id === d.failure_id && x.field === 'severity'
+    );
+    console.log(`  ${d.failure_id}: ${d.from} -> ${d.to}  (${d.why})`);
+    if (o?.reason) console.log(`    reason given: ${o.reason}`);
+  }
+  if (!stdin.isTTY) {
+    console.error('\nDOWNGRADE CONFIRMATION PENDING');
+    console.error(
+      'Confirmations are interactive-only (no flags, no piped stdin). Run\n' +
+        '`npm run pipeline` in a terminal to review and confirm them.'
+    );
+    exit(1);
+  }
+  let reviewer = sessionReviewer();
+  console.log(
+    reviewer
+      ? `Deciding as: ${reviewer}  (set QAIZEN_REVIEWER to change)`
+      : 'No reviewer name found (QAIZEN_REVIEWER or git user.name).'
+  );
+  const rl = createInterface({ input: stdin, output: stdout });
+  // Input that ends (Ctrl-D) records nothing, and says so.
+  let settled = false;
+  rl.once('close', () => {
+    if (settled) return;
+    console.error('\nInput ended. No decision recorded.');
+    exit(1);
+  });
+  try {
+    if (!reviewer) {
+      reviewer =
+        (await rl.question('Reviewer name for this session: ')).trim() || null;
+    }
+    /** @type {'confirm' | 'quit' | null} */
+    let answer = null;
+    while (answer === null) {
+      answer = confirmAnswer(
+        await rl.question(
+          `Confirm ${status.pending.length === 1 ? 'this lowered severity' : `these ${status.pending.length} lowered severities`} — [c]onfirm / [q]uit: `
+        )
+      );
+    }
+    if (answer === 'quit') {
+      console.log(
+        'Nothing recorded. To undo a downgrade, restore the draft severity in\n' +
+          `${faRel}, remove its override, then --resume.`
+      );
+      exit(1);
+    }
+    // What was confirmed must be what is on disk now.
+    if (downgradeStatus(context, '.').sha256 !== status.sha256) {
+      console.error(
+        `${faRel} changed while the confirmation was open. Nothing was recorded; re-run to review what exists now.`
+      );
+      exit(1);
+    }
+    applyDowngradeConfirmation(context, status.pending, {
+      reviewer,
+      confirmedAt: new Date().toISOString(),
+      sha256: status.sha256,
+    });
+    writeContext(context);
+    console.log(
+      `\nRecorded ${status.pending.length} confirmation(s) in context.json downgrade_confirmations[], bound to this analysis.`
+    );
+  } finally {
+    settled = true;
     rl.close();
   }
 }
@@ -1682,6 +1832,10 @@ async function main() {
       );
       console.log(GUIDE_STEPS[step](context));
       exit(0);
+    }
+    if (step === 'confirm-downgrades') {
+      await runDowngradeConfirmation(context); // exits on quit/non-TTY
+      continue;
     }
     if (GATE_KEYS[step]) {
       await runGateInteractive(step, context); // exits on reject/quit/non-TTY

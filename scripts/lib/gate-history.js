@@ -65,7 +65,10 @@ export function resolveGate(name) {
  * @typedef {{ kind: 'decision', at: string, gate: string,
  *   decision: string, reviewer: string | null, notes: string | null,
  *   opened_at: string | null, record: string | null }
- * | { kind: 'reset', at: string, gate: string, reason: string }} TimelineRow
+ * | { kind: 'reset', at: string, gate: string, reason: string }
+ * | { kind: 'confirmation', at: string, gate: string, failure_id: string,
+ *   from: string, to: string, why: string | null,
+ *   reviewer: string | null }} TimelineRow
  */
 
 /**
@@ -110,6 +113,22 @@ export function gateTimeline(context, records) {
       record: byGate.get(d.gate)?.[i] ?? null,
     };
   });
+  // A person's confirmation of a lowered severity (not a gate decision).
+  /** @type {{ failure_id: string, from: string, to: string, why?: string, reviewer?: string | null, confirmed_at: string }[]} */
+  const confirmations =
+    /** @type {any} */ (context)?.downgrade_confirmations ?? [];
+  for (const c of confirmations) {
+    rows.push({
+      kind: 'confirmation',
+      at: c.confirmed_at,
+      gate: 'downgrade',
+      failure_id: c.failure_id,
+      from: c.from,
+      to: c.to,
+      why: c.why ?? null,
+      reviewer: c.reviewer ?? null,
+    });
+  }
   for (const r of resets) {
     rows.push({
       kind: 'reset',
@@ -159,6 +178,11 @@ export function renderHistory(context, root = '.') {
       lines.push(
         `      ${r.record ?? '(no gate record: decided before records were kept)'}`
       );
+    } else if (r.kind === 'confirmation') {
+      lines.push(
+        `  ${when(r.at)}  ${label} CONFIRMED ${r.failure_id} ${r.from} -> ${r.to}  ${r.reviewer ?? '(no reviewer)'}`
+      );
+      if (r.why) lines.push(`      ${r.why}`);
     } else {
       lines.push(`  ${when(r.at)}  ${label} returned to pending`);
       lines.push(`      ${r.reason}`);

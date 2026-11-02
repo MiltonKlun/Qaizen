@@ -48,7 +48,7 @@ npm run pipeline -- --story SK-10       # start from Jira (read-only fetch)
 npm run pipeline                         # advance from the current state
 npm run pipeline -- --resume             # same as bare invocation
 npm run pipeline -- --status             # read-only: where is this run?
-npm run pipeline -- --history            # read-only: every gate decision, in order
+npm run pipeline -- --history            # read-only: every gate decision and confirmed downgrade, in order
 npm run pipeline -- --diff gate2         # read-only: what changed since Gate 2's approval
 npm run pipeline -- --reopen gate2       # send the run back to Gate 2 (asks why)
 npm run pipeline -- --restore gate2      # put back the files Gate 2 approved (asks first)
@@ -69,6 +69,8 @@ A full loop looks like:
     → EXTERNAL GATE 4 (external branch)
 → classify (runner normalizes, then runs the rule-based pre-classifier)
 → [finalize step: the Failure Classifier agent] → --resume
+→ confirm-downgrades (only when the analysis lowered a Red failure, or a failure
+   on a high-severity, Red-domain or untraceable risk: you confirm at the terminal)
 → [reporter step] → --resume → done (the runner marks the run completed)
 ```
 
@@ -156,11 +158,12 @@ finishes or undoes it before doing anything else, deterministically:
 
 ## 3. Guide steps vs exec steps
 
-| Kind      | Steps                                                                                                                   | Who acts                                                                                                             |
-| --------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Guide** | analyst, test-designer, planner, api, external-plan, generator, external-results, no-executable-scope, finalize, report | **You + the agent.** The runner prints the exact instruction and exits; it never fakes an LLM step.                  |
-| **Gate**  | gate1, gate2, gate3, gate4, gate3-api, gate4-api, gate3-ext, gate4-ext                                                  | **You, interactively.** Brief rendered, decision captured, audit + telemetry written.                                |
-| **Exec**  | execute, execute-api, classify                                                                                          | **The runner.** Deterministic: `npx playwright test`, `run-newman.js`, then `normalize-results.js` → the classifier. |
+| Kind        | Steps                                                                                                                   | Who acts                                                                                                                                                                                                          |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Guide**   | analyst, test-designer, planner, api, external-plan, generator, external-results, no-executable-scope, finalize, report | **You + the agent.** The runner prints the exact instruction and exits; it never fakes an LLM step.                                                                                                               |
+| **Gate**    | gate1, gate2, gate3, gate4, gate3-api, gate4-api, gate3-ext, gate4-ext                                                  | **You, interactively.** Brief rendered, decision captured, audit + telemetry written.                                                                                                                             |
+| **Confirm** | confirm-downgrades                                                                                                      | **You, interactively.** Each severity the analysis lowered is shown with its reason; a confirmation is recorded in `downgrade_confirmations[]`, bound to the analysis. Not a fifth gate (`docs/review-gates.md`). |
+| **Exec**    | execute, execute-api, classify                                                                                          | **The runner.** Deterministic: `npx playwright test`, `run-newman.js`, then `normalize-results.js` → the classifier.                                                                                              |
 
 ### Each agent step runs with only its MCP servers
 
@@ -370,8 +373,8 @@ decides anything. The records belong to the run and are archived with it.
 Two read-only views use them. Neither writes anything, not even when an
 approval has gone stale:
 
-- `--history` lists every decision and every return to pending in time
-  order, each decision with its record (decisions made before records were
+- `--history` lists every decision, every confirmed severity downgrade and
+  every return to pending in time order, each decision with its record (decisions made before records were
   kept have none), then where each gate stands now.
 - `--diff <gate>` compares what the gate reviews now with the copy kept by its
   latest approval, and prints the changed lines. A gate is named by its step
