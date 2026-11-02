@@ -167,6 +167,43 @@ test('the timeline matches records to the latest decisions; older ones have none
   );
 });
 
+test('a confirmed severity downgrade is part of the gate trail, not a gate', () => {
+  const rows = gateTimeline(
+    {
+      gate_decisions: [
+        {
+          gate: 'code_reviewed',
+          decision: 'approved',
+          decided_at: '2026-11-02T09:00:00Z',
+          reviewer: 'h',
+        },
+      ],
+      downgrade_confirmations: [
+        {
+          failure_id: 'FAIL-001',
+          from: 'red',
+          to: 'yellow',
+          why: 'a Red failure lowered',
+          reviewer: 'h',
+          confirmed_at: '2026-11-02T10:00:00Z',
+          analysis_sha256: 'a'.repeat(64),
+        },
+      ],
+    },
+    []
+  );
+  assert.deepEqual(
+    rows.map((r) => r.kind),
+    ['decision', 'confirmation']
+  );
+  const c = rows[1];
+  assert.equal(c.kind === 'confirmation' && c.failure_id, 'FAIL-001');
+  assert.equal(
+    c.kind === 'confirmation' && `${c.from}->${c.to}`,
+    'red->yellow'
+  );
+});
+
 test('--history shows each decision with its record, and where every gate stands now', (t) => {
   const { dir, put } = project(t);
   decide(

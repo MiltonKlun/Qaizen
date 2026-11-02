@@ -69,6 +69,8 @@ A full loop looks like:
     → EXTERNAL GATE 4 (external branch)
 → classify (runner normalizes, then runs the rule-based pre-classifier)
 → [finalize step: the Failure Classifier agent] → --resume
+→ confirm-downgrades (only when the analysis lowered a Red failure, or a failure
+   on a high-severity, Red-domain or untraceable risk: you confirm at the terminal)
 → [reporter step] → --resume → done (the runner marks the run completed)
 ```
 
@@ -156,11 +158,12 @@ finishes or undoes it before doing anything else, deterministically:
 
 ## 3. Guide steps vs exec steps
 
-| Kind      | Steps                                                                                                                   | Who acts                                                                                                             |
-| --------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Guide** | analyst, test-designer, planner, api, external-plan, generator, external-results, no-executable-scope, finalize, report | **You + the agent.** The runner prints the exact instruction and exits; it never fakes an LLM step.                  |
-| **Gate**  | gate1, gate2, gate3, gate4, gate3-api, gate4-api, gate3-ext, gate4-ext                                                  | **You, interactively.** Brief rendered, decision captured, audit + telemetry written.                                |
-| **Exec**  | execute, execute-api, classify                                                                                          | **The runner.** Deterministic: `npx playwright test`, `run-newman.js`, then `normalize-results.js` → the classifier. |
+| Kind        | Steps                                                                                                                   | Who acts                                                                                                                                                                                                          |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Guide**   | analyst, test-designer, planner, api, external-plan, generator, external-results, no-executable-scope, finalize, report | **You + the agent.** The runner prints the exact instruction and exits; it never fakes an LLM step.                                                                                                               |
+| **Gate**    | gate1, gate2, gate3, gate4, gate3-api, gate4-api, gate3-ext, gate4-ext                                                  | **You, interactively.** Brief rendered, decision captured, audit + telemetry written.                                                                                                                             |
+| **Confirm** | confirm-downgrades                                                                                                      | **You, interactively.** Each severity the analysis lowered is shown with its reason; a confirmation is recorded in `downgrade_confirmations[]`, bound to the analysis. Not a fifth gate (`docs/review-gates.md`). |
+| **Exec**    | execute, execute-api, classify                                                                                          | **The runner.** Deterministic: `npx playwright test`, `run-newman.js`, then `normalize-results.js` → the classifier.                                                                                              |
 
 ### Each agent step runs with only its MCP servers
 

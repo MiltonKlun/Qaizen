@@ -225,6 +225,34 @@ test('nextStep — sequencing table', () => {
       'report',
     ],
     [
+      'finalized, but a changed severity is not recorded against the draft',
+      ctx({
+        gates: ALL_GATES,
+        paths: { ...ALL_PATHS, release_report_json: '' },
+      }),
+      {
+        executionResultsExist: true,
+        failureAnalysisExists: true,
+        failureAnalysisFinalized: true,
+        draftProblems: 1,
+      },
+      'finalize',
+    ],
+    [
+      'finalized, with a lowered Red severity no person has confirmed',
+      ctx({
+        gates: ALL_GATES,
+        paths: { ...ALL_PATHS, release_report_json: '' },
+      }),
+      {
+        executionResultsExist: true,
+        failureAnalysisExists: true,
+        failureAnalysisFinalized: true,
+        unconfirmedDowngrades: 1,
+      },
+      'confirm-downgrades',
+    ],
+    [
       'everything produced -> done',
       ctx({ gates: ALL_GATES, paths: ALL_PATHS, status: 'completed' }),
       {

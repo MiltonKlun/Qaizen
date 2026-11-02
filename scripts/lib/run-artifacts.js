@@ -19,7 +19,12 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
-import { DRAFT_PATH, overrideProblems } from './analysis-overrides.js';
+import {
+  DRAFT_PATH,
+  downgradesOf,
+  overrideProblems,
+  unconfirmed,
+} from './analysis-overrides.js';
 import { validateValue } from './artifact-io.js';
 import { releaseRuleProblems } from './report-checks.js';
 import {
@@ -369,6 +374,54 @@ export function draftProblems(analysis, root = '.') {
     return [`${path} is not this run's rule-based draft`];
   }
   return overrideProblems(draft.data, analysis);
+}
+
+/**
+ * The severity downgrades a finalized analysis made that a person must
+ * confirm (scripts/lib/analysis-overrides.js), and which of them are not
+ * confirmed yet for these exact analysis bytes. Call it once draftProblems()
+ * is empty: the draft is then this run's and unchanged.
+ * @param {Context} context
+ * @param {string} [root]
+ * @returns {{ downgrades: import('./analysis-overrides.js').Downgrade[],
+ *   pending: import('./analysis-overrides.js').Downgrade[],
+ *   sha256: string | null }}
+ */
+export function downgradeStatus(context, root = '.') {
+  const none = { downgrades: [], pending: [], sha256: null };
+  const faRel = context?.artifact_paths?.failure_analysis;
+  if (typeof faRel !== 'string' || !faRel) return none;
+  /** @type {Buffer} */
+  let bytes;
+  try {
+    bytes = readFileSync(join(root, faRel));
+  } catch {
+    return none;
+  }
+  const final = readJson(join(root, faRel));
+  const draft = readJson(join(root, DRAFT_PATH));
+  if (!final.ok || !final.data.rule_draft || !draft.ok) return none;
+  const casesRel = context?.artifact_paths?.test_cases;
+  const cases =
+    typeof casesRel === 'string' && casesRel
+      ? readJson(join(root, casesRel))
+      : null;
+  const downgrades = downgradesOf({
+    draft: draft.data,
+    final: final.data,
+    context,
+    testCases: cases?.ok ? cases.data : { test_cases: [] },
+  });
+  const sha256 = createHash('sha256').update(bytes).digest('hex');
+  return {
+    downgrades,
+    pending: unconfirmed(
+      downgrades,
+      /** @type {any} */ (context).downgrade_confirmations ?? [],
+      sha256
+    ),
+    sha256,
+  };
 }
 
 /**

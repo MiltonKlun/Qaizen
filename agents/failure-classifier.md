@@ -10,9 +10,12 @@ description: |
   does not own that path.
 phase_introduced: 1
 phase_active: 1+
-version: 2.4.0
+version: 2.4.1
 changed_in_run: null
 changelog: |
+  - 2.4.1: PATCH (no output change). States that an override lowering a Red
+    failure, or a failure on a high-severity, Red-domain or untraceable risk,
+    waits for a person to confirm it at the runner.
   - 2.4.0: MINOR. The rule-based draft is kept unchanged in
     analysis/failure-analysis.draft.json and named in rule_draft; a changed
     classification or severity is recorded in overrides[] with its reason
@@ -241,6 +244,13 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
      `execution_outcome`, `source` or `runner_identity` (the ledger fixes
      them), never change a test case id the draft already had, and do not
      add or remove failures.
+
+   - **Lowering a Red failure waits for a person.** When your override
+     lowers a Red severity, or lowers any severity of a failure on a
+     high-severity, Red-domain or untraceable risk, the runner stops before
+     the Reporter and asks a person at the terminal to confirm it, showing
+     your reason. Write the reason for that person: what in the evidence
+     shows the rule was wrong.
 
    - Keep its `FAIL-XXX` and `unit_id`. `execution_outcome` is what the
      run did; `classification` is why. Keep them separate: a `flaky` unit

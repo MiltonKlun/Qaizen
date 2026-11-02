@@ -4,7 +4,9 @@
 > written only by the runner at a human decision, with the digest of the
 > inputs each approval reviewed (`input_digest`, `inputs`); approvals whose
 > inputs changed are logged in `gate_invalidations[]`, and every decision in
-> `gate_decisions[]`. The Analyst writes `prompt_versions` and `track_floor`,
+> `gate_decisions[]`. A person's confirmation of a severity the failure analysis
+> lowered is logged in `downgrade_confirmations[]`, also by the runner only.
+> The Analyst writes `prompt_versions` and `track_floor`,
 > and may propose a `track` no lower than that floor. No agent writes the gate fields
 > (`docs/pipeline-runner.md` §4). Older contexts migrate with
 > `scripts/migrate-context-v1-to-v2.js` and
@@ -549,6 +551,12 @@ older files continue to validate:
   Analyst Mode B only) and a `prompt_versions` map.
 - Optional `gate_decisions[]` log, optional `track` + `track_floor` (the lite
   track), and the token-efficient context-handling rules (§5.1).
+- Optional `downgrade_confirmations[]`: written only by the runner when a person
+  confirms, at the terminal, a severity the finalized failure analysis lowered
+  from its rule-based draft (a Red failure, or a failure on a high-severity,
+  Red-domain or untraceable risk). Each entry names the failure, the two
+  severities, the reviewer, the time and the SHA-256 of the analysis it was
+  given for; a later change to the analysis needs a new confirmation.
 - Optional `likelihood`, `impact` and `likelihood_basis` on each risk (the
   risk matrix, Analyst 3.0.0); when both are present, `severity` must be
   their cell.

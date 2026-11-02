@@ -9,9 +9,12 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 3.1.3
+version: 3.1.4
 changed_in_run: null
 changelog: |
+  - 3.1.4: PATCH (no output change). States that gate_decisions[],
+    gate_invalidations[] and downgrade_confirmations[] are written by the
+    runner only.
   - 3.1.3: PATCH (no output change). Build-phase labels are replaced by
     what each step does today; the instructions are unchanged.
   - 3.1.2: PATCH (no output change). Pointers to unpublished planning notes are
@@ -366,6 +369,9 @@ validate:context`). Fix and re-validate until the script exits 0.
   approval (with audit fields) but does not decide it.
 - Setting `status: "completed"`. The runner sets it once every gate has
   passed and every artifact of the run validates.
+- Writing `gate_decisions[]`, `gate_invalidations[]` or
+  `downgrade_confirmations[]`. The runner records them at a person's
+  decision; the Analyst leaves them out.
 - Skipping schema validation because "it's basically right".
 - Editing `.claude/agents/*.md` or `.mcp.json` — those are
   infrastructure, not Analyst output.

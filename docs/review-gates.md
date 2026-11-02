@@ -797,6 +797,21 @@ it survives nothing. Reject.
 
 ---
 
+## Confirming a lowered severity (not a gate)
+
+The Failure Classifier may disagree with the rule-based draft, and records
+each change as an override with its reason (`agents/failure-classifier.md`).
+When the finalized analysis **lowers** a Red failure, or lowers a failure on a
+high-severity, Red-domain or untraceable risk, the runner stops before the
+Reporter at `confirm-downgrades`: it shows each one with the draft and final
+severity, why it needs confirming and the reason given, and asks a person at
+the terminal to confirm or quit. Like a gate decision it is interactive-only;
+unlike one it approves nothing and adds no fifth gate. The confirmation is
+recorded in `context.json.downgrade_confirmations[]` with the reviewer, the
+time and the analysis digest, and `npm run pipeline -- --history` lists it in
+the gate trail. To undo a downgrade instead, restore the draft's severity,
+remove its override, and resume.
+
 ## What rejection looks like
 
 A rejection can be informal: the reviewer says no, the agent

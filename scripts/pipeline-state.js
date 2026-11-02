@@ -43,6 +43,7 @@
  *   generatedTestExists?: boolean, executionResultsExist?: boolean,
  *   failureAnalysisExists?: boolean, failureAnalysisFinalized?: boolean,
  *   bugDraftsMissing?: number, draftProblems?: number,
+ *   unconfirmedDowngrades?: number,
  *   releaseReportExists?: boolean }} StepHints
  */
 
@@ -129,7 +130,8 @@ export const GATE_KEYS = {
  *   qa_scope | no-executable-scope | planner | gate3 | generator | gate4 |
  *   api | gate3-api | gate4-api | external-plan | gate3-ext | execute |
  *   execute-api | external-results | gate4-ext | classify |
- *   finalize | report | done   (qa_scope replaces gate1+gate2 on the lite
+ *   finalize | confirm-downgrades | report | done   (qa_scope replaces
+ *   gate1+gate2 on the lite
  *   track — context.track === "lite" or a passed qa_scope_approved)
  */
 export function nextStep(context, hints = {}) {
@@ -230,6 +232,10 @@ export function nextStep(context, hints = {}) {
     (hints.draftProblems ?? 0) > 0
   )
     return 'finalize';
+  // A finalized analysis that lowered a Red failure, or a failure on a
+  // high-severity or Red-domain risk, waits for a person to confirm it at the
+  // terminal (scripts/run-pipeline.js); it is not a fifth gate.
+  if ((hints.unconfirmedDowngrades ?? 0) > 0) return 'confirm-downgrades';
   if (!produced(paths.release_report_json, hints.releaseReportExists))
     return 'report';
   return 'done';

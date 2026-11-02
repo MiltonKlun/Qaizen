@@ -35,7 +35,10 @@ import {
   writeCompletedRun,
   validTestCases,
 } from './helpers/valid-run.js';
-import { progressGuard } from '../scripts/run-pipeline.js';
+import {
+  applyDowngradeConfirmation,
+  progressGuard,
+} from '../scripts/run-pipeline.js';
 
 const REPO = process.cwd();
 const PW_REPORT = readFileSync(
@@ -452,7 +455,9 @@ test('a finalized analysis that changes a severity without recording it stays at
     assert.match(out, /Next step: FINALIZE/);
     assert.doesNotMatch(out, /Pipeline complete/);
 
-    // Recorded, with a reason: the run completes.
+    // Recorded, with a reason: the overrides are accepted, but a Red failure
+    // lowered on the high-severity RISK-001 waits for a person to confirm it,
+    // and a non-interactive run cannot.
     const because = 'the test asserts the old price list';
     lowered.overrides = [
       ['classification', 'product_bug', 'test_bug'],
@@ -465,7 +470,40 @@ test('a finalized analysis that changes a severity without recording it stays at
       reason: because,
     }));
     writeFileSync(p, JSON.stringify(lowered));
+    const pending = pipeline(dir, ['--resume']).out;
+    assert.match(
+      pending,
+      /FAIL-001: red -> yellow {2}\(a Red failure lowered; on high-severity RISK-001;/
+    );
+    assert.match(pending, new RegExp(`reason given: ${because}`));
+    assert.match(pending, /DOWNGRADE CONFIRMATION PENDING/);
+    assert.doesNotMatch(pending, /Pipeline complete/);
+
+    // Confirmed for exactly these analysis bytes (as the runner records it at
+    // the terminal): the run completes.
+    const sha = createHash('sha256').update(readFileSync(p)).digest('hex');
+    const ctxPath = join(dir, 'context.json');
+    const ctx = JSON.parse(readFileSync(ctxPath, 'utf8'));
+    applyDowngradeConfirmation(
+      ctx,
+      [{ failure_id: 'FAIL-001', from: 'red', to: 'yellow', why: 'x' }],
+      { reviewer: 'h', confirmedAt: '2026-11-02T10:00:00Z', sha256: sha }
+    );
+    writeFileSync(ctxPath, JSON.stringify(ctx, null, 2));
     assert.match(pipeline(dir, ['--resume']).out, /Pipeline complete/);
+
+    // A later change to the analysis needs a new confirmation.
+    writeFileSync(
+      p,
+      JSON.stringify({
+        ...lowered,
+        overrides: [...lowered.overrides].reverse(),
+      })
+    );
+    assert.match(
+      pipeline(dir, ['--resume']).out,
+      /DOWNGRADE CONFIRMATION PENDING/
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
