@@ -160,8 +160,8 @@ export const SCHEMA_CONTRACTS = {
   'schemas/failure-analysis.schema.json': {
     artifact: 'analysis/failure-analysis.json',
     producers: [
-      'scripts/run-failure-classifier.js (the draft)',
-      'agents/failure-classifier.md (finalizes it)',
+      'scripts/run-failure-classifier.js (the draft, kept unchanged in analysis/failure-analysis.draft.json)',
+      'agents/failure-classifier.md (finalizes it, recording each changed classification or severity in overrides[])',
     ],
     consumers: [
       'agents/reporter.md',
@@ -175,6 +175,7 @@ export const SCHEMA_CONTRACTS = {
     ],
     examples: [
       'examples/expected/classification-evidence.expected-failure-analysis.json',
+      'examples/expected/override-recorded.expected-failure-analysis.json',
     ],
     invalid: [
       {
@@ -182,10 +183,15 @@ export const SCHEMA_CONTRACTS = {
         rule: 'a finalized Red failure names its bug draft',
         errorAt: '/failures/1',
       },
+      {
+        path: 'examples/invalid/failure-analysis.override-without-reason.json',
+        rule: 'an override states its reason',
+        errorAt: '/overrides/0/reason',
+      },
     ],
     discovery: 'validate:all; validate:examples',
     migration:
-      'Versioned in place: 2.x is derived from the ledger; 1.x analyses in runs/ stay valid under their original rules.',
+      'Versioned in place: 2.x is derived from the ledger; 1.x analyses in runs/ stay valid under their original rules. rule_draft and overrides are optional, so 2.x analyses written before them stay valid without a migration.',
   },
   'schemas/healer-validation.schema.json': {
     artifact: 'analysis/healer-validation/FAIL-XXX.attempt-N.json',

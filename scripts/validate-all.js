@@ -52,7 +52,10 @@ function targetsFor(base = '.') {
       schema: 'schemas/test-cases.schema.json',
     },
     {
-      files: [at('analysis/failure-analysis.json')],
+      files: [
+        at('analysis/failure-analysis.json'),
+        at('analysis/failure-analysis.draft.json'),
+      ],
       schema: 'schemas/failure-analysis.schema.json',
     },
     {

@@ -96,6 +96,7 @@ import {
 import {
   checkArtifact,
   checkContext,
+  draftProblems,
   missingBugDrafts,
   ledgerHasApiExecution,
   latestNewmanExecution,
@@ -393,6 +394,13 @@ function gatherHints(context) {
         ? missingBugDrafts(fa.data, '.')
         : [];
       hints.bugDraftsMissing = missing.length;
+      // A finalized analysis keeps the rule-based draft and records every
+      // change it made to a classification or severity.
+      const drift = hints.failureAnalysisFinalized
+        ? draftProblems(fa.data, '.')
+        : [];
+      hints.draftProblems = drift.length;
+      for (const p of drift) hints.problems.push(`failure_analysis: ${p}`);
       if (missing.length) {
         hints.problems.push(
           `failure_analysis: no bug draft with content on disk for Red failure(s) ${missing.join(', ')}`
@@ -957,8 +965,10 @@ const GUIDE_STEPS = {
   finalize: (ctx) =>
     `Run the FAILURE CLASSIFIER: agents/failure-classifier.md for ${storyId(ctx)}.\n` +
     launchLine('finalize') +
-    '  The rule-based pre-classifier wrote a DRAFT analysis. Confirm or correct each\n' +
-    '  classification, write release/bug-drafts/BUG-XXX.md for every Red failure and set\n' +
+    '  The rule-based pre-classifier wrote a DRAFT analysis (and kept it unchanged in\n' +
+    '  analysis/failure-analysis.draft.json). Confirm or correct each classification;\n' +
+    '  record every changed classification or severity in overrides[] with its reason;\n' +
+    '  write release/bug-drafts/BUG-XXX.md for every Red failure and set\n' +
     '  its bug_draft_path, resolve or acknowledge unresolved links, then set\n' +
     '  status: "finalized" in analysis/failure-analysis.json.\n' +
     '  Then: npm run pipeline -- --resume',

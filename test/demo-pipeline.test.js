@@ -10,6 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
@@ -213,6 +214,14 @@ test('the demo completes: real run, finalized Red analysis, BUG-001, a 2.0 repor
   assert.equal(fail.playwright_test_id, 'PW-002');
   assert.equal(fail.bug_draft_path, 'release/bug-drafts/BUG-001.md');
   assert.ok(existsSync(join(ws, fail.bug_draft_path)));
+  // The rule-based draft survives finalization, byte for byte.
+  assert.equal(
+    createHash('sha256')
+      .update(readFileSync(join(ws, fa.rule_draft.path)))
+      .digest('hex'),
+    fa.rule_draft.sha256
+  );
+  assert.deepEqual(fa.overrides, []);
 
   const report = readJson(join(ws, 'release', 'release-report.json'));
   const ledger = readJson(join(ws, fa.execution_ledger));

@@ -42,7 +42,8 @@
  *   plannerBriefExists?: boolean, specExists?: boolean,
  *   generatedTestExists?: boolean, executionResultsExist?: boolean,
  *   failureAnalysisExists?: boolean, failureAnalysisFinalized?: boolean,
- *   bugDraftsMissing?: number, releaseReportExists?: boolean }} StepHints
+ *   bugDraftsMissing?: number, draftProblems?: number,
+ *   releaseReportExists?: boolean }} StepHints
  */
 
 /**
@@ -225,7 +226,8 @@ export function nextStep(context, hints = {}) {
   // the Reporter may run on it.
   if (
     hints.failureAnalysisFinalized === false ||
-    (hints.bugDraftsMissing ?? 0) > 0
+    (hints.bugDraftsMissing ?? 0) > 0 ||
+    (hints.draftProblems ?? 0) > 0
   )
     return 'finalize';
   if (!produced(paths.release_report_json, hints.releaseReportExists))

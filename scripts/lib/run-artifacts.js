@@ -13,11 +13,13 @@
 // Pure reads. The pure state machine stays pure: the runner computes these
 // facts and passes them in as hints.
 
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
+import { DRAFT_PATH, overrideProblems } from './analysis-overrides.js';
 import { validateValue } from './artifact-io.js';
 import { releaseRuleProblems } from './report-checks.js';
 import {
@@ -316,6 +318,57 @@ export function missingBugDrafts(analysis, root = '.') {
       (f) => !f.bug_draft_path || !hasContent(join(root, f.bug_draft_path))
     )
     .map((f) => f.failure_id);
+}
+
+/**
+ * Why a 2.x analysis does not keep its rule-based draft intact, or changes a
+ * classification or severity without recording it (scripts/lib/
+ * analysis-overrides.js). An analysis written before drafts were kept names
+ * none and has no draft file for its run; it is not checked.
+ * @param {any} analysis parsed failure analysis
+ * @param {string} [root]
+ * @returns {string[]}
+ */
+export function draftProblems(analysis, root = '.') {
+  if (!/^2\./.test(String(analysis?.schema_version))) return [];
+  /** @type {{ path?: string, sha256?: string } | undefined} */
+  const named = analysis.rule_draft;
+  // The draft has one place. A rule_draft naming any other file would let a
+  // made-up "draft" vouch for the analysis.
+  const path = DRAFT_PATH;
+  const abs = join(root, path);
+  const ours = (/** @type {any} */ d) =>
+    d?.run_id === analysis.run_id && d?.story_id === analysis.story_id;
+  if (!named) {
+    // Dropping rule_draft must not hide the draft this run has.
+    const d = existsSync(abs) ? readJson(abs) : null;
+    return d?.ok && ours(d.data)
+      ? [
+          `does not name its rule-based draft (${path} exists for this run); keep rule_draft as the pre-classifier wrote it`,
+        ]
+      : [];
+  }
+  if (named.path !== DRAFT_PATH) {
+    return [`names ${named.path} as its rule-based draft; it is ${DRAFT_PATH}`];
+  }
+  if (!existsSync(abs)) return [`its rule-based draft ${path} is missing`];
+  /** @type {Buffer} */
+  let bytes;
+  try {
+    bytes = readFileSync(abs);
+  } catch {
+    return [`its rule-based draft ${path} cannot be read`];
+  }
+  if (createHash('sha256').update(bytes).digest('hex') !== named.sha256) {
+    return [
+      `its rule-based draft ${path} changed after the pre-classifier wrote it (digest mismatch); re-run npm run classify`,
+    ];
+  }
+  const draft = readJson(abs);
+  if (!draft.ok || draft.data.status !== 'draft' || !ours(draft.data)) {
+    return [`${path} is not this run's rule-based draft`];
+  }
+  return overrideProblems(draft.data, analysis);
 }
 
 /**

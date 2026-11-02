@@ -14,12 +14,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   mkdtempSync,
   writeFileSync,
   readFileSync,
   copyFileSync,
   existsSync,
+  rmSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -38,6 +40,8 @@ import {
   idsFromMetadata,
 } from '../scripts/lib/build-ledger.js';
 import { validateValue } from '../scripts/lib/artifact-io.js';
+import { DRAFT_PATH } from '../scripts/lib/analysis-overrides.js';
+import { draftProblems } from '../scripts/lib/run-artifacts.js';
 import { bindGate } from './helpers/valid-run.js';
 
 const PW_FIXTURE = 'test/fixtures/playwright-classification.json';
@@ -351,6 +355,131 @@ test('the CLI writes a schema-valid v2 DRAFT with every failure preserved', () =
       (f) => f.execution_outcome === 'flaky' && f.severity === 'red'
     )
   );
+});
+
+test('the CLI keeps the rule-based draft, and the analysis names it by digest', () => {
+  const w = workspace();
+  assert.equal(normalize(w).code, 0);
+  assert.equal(run(w, 'run-failure-classifier.js').code, 0);
+  const draftPath = join(w, DRAFT_PATH);
+  const draft = JSON.parse(readFileSync(draftPath, 'utf8'));
+  const doc = JSON.parse(
+    readFileSync(join(w, 'analysis', 'failure-analysis.json'), 'utf8')
+  );
+  assert.equal(validateValue(draft, FA_SCHEMA).ok, true);
+  assert.equal(draft.status, 'draft');
+  assert.equal(doc.rule_draft.path, DRAFT_PATH);
+  assert.equal(
+    doc.rule_draft.sha256,
+    createHash('sha256').update(readFileSync(draftPath)).digest('hex')
+  );
+  assert.deepEqual(doc.overrides, []);
+  const rest = { ...doc };
+  delete rest.rule_draft;
+  delete rest.overrides;
+  assert.deepEqual(rest, draft);
+  assert.deepEqual(draftProblems(doc, w), []);
+});
+
+test('a finalized analysis records every change to a classification or severity', () => {
+  const w = workspace();
+  normalize(w);
+  run(w, 'run-failure-classifier.js');
+  const faPath = join(w, 'analysis', 'failure-analysis.json');
+  const doc = JSON.parse(readFileSync(faPath, 'utf8'));
+  const red = doc.failures.find((/** @type {any} */ f) => f.severity === 'red');
+  assert.ok(red, 'the fixtures hold a Red failure');
+
+  // Lowered in place, with no record: refused, naming the change.
+  const quiet = structuredClone(doc);
+  quiet.status = 'finalized';
+  quiet.failures.find(
+    (/** @type {any} */ f) => f.failure_id === red.failure_id
+  ).severity = 'yellow';
+  assert.deepEqual(draftProblems(quiet, w), [
+    `${red.failure_id} severity changed from red to yellow with no override recording it`,
+  ]);
+
+  // Recorded with a reason: accepted, and the draft is unchanged.
+  const recorded = structuredClone(quiet);
+  recorded.overrides = [
+    {
+      failure_id: red.failure_id,
+      field: 'severity',
+      from: 'red',
+      to: 'yellow',
+      reason: 'the expected value in the test is the outdated one',
+    },
+  ];
+  // The override's shape validates (as a draft: the other Red failures have
+  // no bug drafts in this workspace, which a finalized analysis requires).
+  assert.equal(
+    validateValue({ ...recorded, status: 'draft' }, FA_SCHEMA).ok,
+    true
+  );
+  assert.deepEqual(draftProblems(recorded, w), []);
+
+  // Dropping rule_draft does not hide this run's draft.
+  const unnamed = { ...recorded };
+  delete unnamed.rule_draft;
+  assert.match(
+    draftProblems(unnamed, w).join(),
+    /does not name its rule-based draft/
+  );
+
+  // An edited draft no longer matches its digest.
+  const draftPath = join(w, DRAFT_PATH);
+  const draft = JSON.parse(readFileSync(draftPath, 'utf8'));
+  draft.failures.find(
+    (/** @type {any} */ f) => f.failure_id === red.failure_id
+  ).severity = 'yellow';
+  writeFileSync(draftPath, JSON.stringify(draft, null, 2) + '\n');
+  assert.match(draftProblems(quiet, w).join(), /digest mismatch/);
+});
+
+test('the draft has one place, belongs to this run, and must exist', () => {
+  const w = workspace();
+  normalize(w);
+  run(w, 'run-failure-classifier.js');
+  const doc = JSON.parse(
+    readFileSync(join(w, 'analysis', 'failure-analysis.json'), 'utf8')
+  );
+  const draftPath = join(w, DRAFT_PATH);
+  const original = readFileSync(draftPath);
+
+  // A rule_draft that names another file, even a matching one, is refused:
+  // a made-up "draft" cannot vouch for the analysis.
+  writeFileSync(join(w, 'analysis', 'other.json'), original);
+  const redirected = {
+    ...doc,
+    rule_draft: { ...doc.rule_draft, path: 'analysis/other.json' },
+  };
+  assert.deepEqual(draftProblems(redirected, w), [
+    `names analysis/other.json as its rule-based draft; it is ${DRAFT_PATH}`,
+  ]);
+
+  // Another run's draft, with a matching digest, is not this run's.
+  const foreign = JSON.parse(original.toString('utf8'));
+  foreign.run_id = 'another-run';
+  writeFileSync(draftPath, JSON.stringify(foreign, null, 2) + '\n');
+  const rehashed = {
+    ...doc,
+    rule_draft: {
+      path: DRAFT_PATH,
+      sha256: createHash('sha256')
+        .update(readFileSync(draftPath))
+        .digest('hex'),
+    },
+  };
+  assert.deepEqual(draftProblems(rehashed, w), [
+    `${DRAFT_PATH} is not this run's rule-based draft`,
+  ]);
+
+  // A missing draft is refused while the analysis still names it.
+  rmSync(draftPath);
+  assert.deepEqual(draftProblems(doc, w), [
+    `its rule-based draft ${DRAFT_PATH} is missing`,
+  ]);
 });
 
 test('a draft never points at bug drafts that do not exist', () => {
