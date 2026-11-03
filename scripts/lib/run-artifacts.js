@@ -14,7 +14,7 @@
 // facts and passes them in as hints.
 
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
@@ -26,7 +26,11 @@ import {
   unconfirmed,
 } from './analysis-overrides.js';
 import { validateValue } from './artifact-io.js';
-import { identityProblems } from './execution-identity.js';
+import {
+  identityProblems,
+  newmanIdentityProblems,
+  newmanReportFiles,
+} from './execution-identity.js';
 import { releaseRuleProblems } from './report-checks.js';
 import {
   analysisCountProblems,
@@ -442,55 +446,58 @@ export function ledgerHasApiExecution(ledger) {
 }
 
 /**
- * Newman evidence that can stand for THIS run's approved API branch:
- * the newest execution for the story, with at least one executed
- * request, written after the collection last changed and after the Gate 4'
- * approval. An older execution is evidence of other assertions.
+ * Are an execution's Newman reports real evidence: valid JSON, with at least
+ * one executed request between them?
+ * @param {string} root
+ * @param {string} executionId
+ * @param {string} storyId
+ * @returns {{ok: true, files: string[]} | {ok: false, reason: string}}
+ */
+export function newmanExecutionShape(root, executionId, storyId) {
+  const files = newmanReportFiles(root, executionId, storyId);
+  if (!files.length) {
+    return {
+      ok: false,
+      reason: `execution ${executionId} wrote no Newman report for ${storyId}`,
+    };
+  }
+  let executed = 0;
+  for (const f of files) {
+    const r = readJson(join(root, f));
+    if (!r.ok) return { ok: false, reason: `${f} is not valid JSON` };
+    executed += (r.data?.run?.executions ?? []).length;
+  }
+  if (executed === 0) {
+    return {
+      ok: false,
+      reason: `execution ${executionId} executed no request`,
+    };
+  }
+  return { ok: true, files };
+}
+
+/**
+ * Newman evidence that can stand for THIS run's approved API branch: exactly
+ * the reports the execute-api step recorded, unchanged, from a collection and
+ * environment that have not changed since, under the current Gate 4' approval
+ * (scripts/lib/execution-identity.js), with at least one executed request.
  * @param {Context} context
- * @param {string | null | undefined} collectionPath
  * @param {string} [root]
  * @returns {{ok: true, executionId: string} | {ok: false, reason: string}}
  */
-export function newmanEvidence(context, collectionPath, root = '.') {
+export function newmanEvidence(context, root = '.') {
   /** @type {string} */
   const story = context?.story?.id;
-  const id = latestNewmanExecution(story, root);
-  if (!id) return { ok: false, reason: 'no Newman execution for this story' };
-  const dir = join(root, 'reports', id, 'newman', story);
-  const files = readdirSync(dir).filter((f) => f.endsWith('.json'));
-  let executed = 0;
-  let newest = 0;
-  for (const f of files) {
-    const r = readJson(join(dir, f));
-    if (!r.ok) {
-      return {
-        ok: false,
-        reason: `reports/${id}/newman/${story}/${f} is not valid JSON`,
-      };
-    }
-    executed += (r.data?.run?.executions ?? []).length;
-    newest = Math.max(newest, statSync(join(dir, f)).mtimeMs);
-  }
-  if (executed === 0) {
-    return { ok: false, reason: `execution ${id} executed no request` };
-  }
-  const col = collectionPath ? join(root, collectionPath) : null;
-  if (col && existsSync(col) && statSync(col).mtimeMs > newest) {
-    return {
-      ok: false,
-      reason: `execution ${id} predates the current collection`,
-    };
-  }
-  const g = context?.review_gates?.api_assertions_reviewed;
-  const approved =
-    g && typeof g === 'object' ? Date.parse(g.reviewed_at ?? '') : NaN;
-  if (!Number.isNaN(approved) && approved > newest) {
-    return {
-      ok: false,
-      reason: `execution ${id} predates the Gate 4' approval`,
-    };
-  }
-  return { ok: true, executionId: id };
+  const identity = /** @type {any} */ (context)?.execution_identity?.newman;
+  const problems = newmanIdentityProblems(identity, {
+    root,
+    storyId: story,
+    context,
+  });
+  if (problems.length) return { ok: false, reason: problems.join('; ') };
+  const shape = newmanExecutionShape(root, identity.execution_id, story);
+  if (!shape.ok) return shape;
+  return { ok: true, executionId: identity.execution_id };
 }
 
 /**

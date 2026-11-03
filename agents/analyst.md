@@ -9,9 +9,11 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 3.1.5
+version: 3.1.6
 changed_in_run: null
 changelog: |
+  - 3.1.6: PATCH (no output change). execution_identity covers the Newman
+    branch too; it is still written by the runner only.
   - 3.1.5: PATCH (no output change). Adds execution_identity to the
     fields only the runner writes.
   - 3.1.4: PATCH (no output change). States that gate_decisions[],
@@ -372,8 +374,9 @@ validate:context`). Fix and re-validate until the script exits 0.
 - Setting `status: "completed"`. The runner sets it once every gate has
   passed and every artifact of the run validates.
 - Writing `gate_decisions[]`, `gate_invalidations[]`,
-  `downgrade_confirmations[]` or `execution_identity`. The runner records
-  them at a person's decision or an execution; the Analyst leaves them out.
+  `downgrade_confirmations[]` or `execution_identity` (Playwright or
+  Newman). The runner records them at a person's decision or an execution;
+  the Analyst leaves them out.
 - Skipping schema validation because "it's basically right".
 - Editing `.claude/agents/*.md` or `.mcp.json` — those are
   infrastructure, not Analyst output.

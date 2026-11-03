@@ -423,6 +423,38 @@ export function main(args = argv.slice(2)) {
     }
   }
 
+  // The identity the pipeline's execute-api step recorded: it must name
+  // exactly the Newman reports being read, and goes into the ledger with
+  // each of them.
+  /** @type {any} */
+  let nmIdentity = null;
+  if (flags['newman-identity']) {
+    try {
+      nmIdentity = JSON.parse(flags['newman-identity']);
+    } catch {
+      usage('--newman-identity is not valid JSON');
+      return 2;
+    }
+    // Compared as sorted lists, not sets: two reports with one report's bytes
+    // must not pass for the two recorded ones.
+    const recorded = (nmIdentity?.reports ?? [])
+      .map((/** @type {any} */ r) => r.sha256)
+      .sort();
+    const read = nmPaths
+      .map((p) => createHash('sha256').update(readFileSync(p)).digest('hex'))
+      .sort();
+    if (
+      !read.length ||
+      read.join() !== recorded.join() ||
+      (flags.execution && nmIdentity?.execution_id !== flags.execution)
+    ) {
+      console.error(
+        'Error: the Newman reports given are not the ones their identity records; re-run the execute-api step.'
+      );
+      return 2;
+    }
+  }
+
   if (pwPath) {
     const report = loadReport(pwPath, 'Playwright');
     const executionId =
@@ -479,6 +511,7 @@ export function main(args = argv.slice(2)) {
       completed_at: generatedAt,
       process_status: 'completed',
       report_reference: nmPath,
+      ...(nmIdentity ? { config_identity: nmIdentity } : {}),
       source_errors: sourceErrors,
     });
     units.push(...u);

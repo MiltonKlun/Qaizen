@@ -203,6 +203,17 @@ pipeline supplies one, otherwise the runner mints its own. This is what stops a
 story's second collection from overwriting the first's evidence, and stops a
 stale report from reading as current.
 
+In a pipeline run the runner mints the id for the execute-api step and passes it
+as `--execution-id`, so an inherited `QAIZEN_EXECUTION_ID` cannot redirect it.
+It then records `context.json` `execution_identity.newman`: every report's
+SHA-256, the collection and environment digests, the environment's `base_url`,
+the app build (`QAIZEN_APP_BUILD`, or `unknown`) and the Gate 4' approval
+digest. The run's Newman evidence is exactly those reports, unchanged: a report
+added beside them, a changed collection or environment, or another Gate 4'
+approval is not this run's evidence (a changed collection first returns its
+API gates to pending; otherwise execute-api comes next). Classification
+reads that execution only, and refuses a `QAIZEN_EXECUTION_ID` naming any other.
+
 Exit codes from the wrapper: `0` requests executed and all assertions passed,
 `1` at least one assertion/request failed **or the run executed zero requests**,
 `2` usage error, the collection is missing or unusable, or publication was
