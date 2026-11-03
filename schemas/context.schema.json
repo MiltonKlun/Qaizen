@@ -592,6 +592,49 @@
       "type": "string",
       "enum": ["draft", "in_progress", "completed", "blocked"]
     },
+    "execution_identity": {
+      "description": "OPTIONAL. Written only by the runner's execute step: what the Playwright execution was (scripts/lib/execution-identity.js). The report is accepted as this run's evidence only while its digest, its config's digest and the Gate 4 approval digest still match. app_build is QAIZEN_APP_BUILD, or \"unknown\". No agent writes this.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "playwright": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "execution_id",
+            "recorded_at",
+            "report_path",
+            "report_sha256",
+            "config_path",
+            "config_sha256",
+            "base_url",
+            "app_build",
+            "gate_digest"
+          ],
+          "properties": {
+            "execution_id": { "type": "string", "minLength": 1 },
+            "recorded_at": { "type": "string", "format": "date-time" },
+            "report_path": { "type": "string", "minLength": 1 },
+            "report_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "config_path": { "type": "string", "minLength": 1 },
+            "config_sha256": {
+              "oneOf": [
+                { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                { "type": "null" }
+              ]
+            },
+            "base_url": { "type": ["string", "null"] },
+            "app_build": { "type": "string", "minLength": 1 },
+            "gate_digest": {
+              "oneOf": [
+                { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                { "type": "null" }
+              ]
+            }
+          }
+        }
+      }
+    },
     "downgrade_confirmations": {
       "description": "OPTIONAL. Written only by the runner, after a person confirmed at the terminal (TTY-only) a severity the finalized failure analysis lowered from its rule-based draft: a Red failure lowered, or a failure lowered on a high-severity, Red-domain or untraceable risk. Part of the gate trail, not a fifth gate. Each entry is bound to the analysis bytes it was given for (analysis_sha256), so a later change to the analysis needs a new confirmation. No agent writes this.",
       "type": "array",

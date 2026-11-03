@@ -330,6 +330,46 @@ function normalize(w, extra = [], runId = 'run-t') {
   ]);
 }
 
+test('the ledger keeps the identity the execute step recorded for the Playwright run', () => {
+  const w = workspace();
+  const identity = {
+    execution_id: 'exec-pw-0a1b2c3d',
+    recorded_at: '2026-11-02T10:00:00Z',
+    report_path: 'results.json',
+    report_sha256: createHash('sha256')
+      .update(readFileSync(join(w, 'results.json')))
+      .digest('hex'),
+    config_path: 'playwright.config.ts',
+    config_sha256: null,
+    base_url: 'http://127.0.0.1:4173',
+    app_build: 'unknown',
+    gate_digest: null,
+  };
+  assert.equal(
+    normalize(w, ['--playwright-identity', JSON.stringify(identity)]).code,
+    0
+  );
+  const ledger = JSON.parse(
+    readFileSync(join(w, 'analysis', 'execution-ledger.json'), 'utf8')
+  );
+  const pw = ledger.source_executions.find(
+    (/** @type {any} */ s) => s.runner === 'playwright'
+  );
+  assert.deepEqual(pw.config_identity, identity);
+  assert.equal(pw.execution_id, identity.execution_id);
+  assert.ok(
+    ledger.units
+      .filter((/** @type {any} */ u) => u.identity?.kind === 'playwright')
+      .every((/** @type {any} */ u) => u.execution_id === identity.execution_id)
+  );
+
+  // An identity that names another report is refused, not recorded.
+  const wrong = { ...identity, report_sha256: 'f'.repeat(64) };
+  const r = normalize(w, ['--playwright-identity', JSON.stringify(wrong)]);
+  assert.equal(r.code, 2);
+  assert.match(r.out, /is not the report its identity names/);
+});
+
 test('the CLI writes a schema-valid v2 DRAFT with every failure preserved', () => {
   const w = workspace();
   assert.equal(normalize(w).code, 0);

@@ -11,9 +11,12 @@ description: |
   run completed: the runner does, after validating every artifact.
 phase_introduced: 1
 phase_active: 1+
-version: 5.0.0
+version: 5.1.0
 changed_in_run: null
 changelog: |
+  - 5.1.0: MINOR. summary names the app build and base URL the evidence
+    ran against (context.json execution_identity.playwright), with an
+    unknown build stated as unknown.
   - 5.0.0: MAJOR (decision change). A Red failure on a high-severity risk,
     or one not traced to a test case's risk, makes the recommendation fail,
     tracked in Jira or not; it used to allow a conditional pass when the bug
@@ -369,6 +372,13 @@ outcome_breakdown }` when only Playwright ran, and the grouped form
    string explaining the choice. For `conditional_pass`, list the
    conditions explicitly. Generic reasoning is a Gate-4-equivalent
    self-rejection.
+   7.5. **Say what the evidence ran against.** In `summary`, name the
+   app build and the base URL from
+   `context.json.execution_identity.playwright` (`app_build`,
+   `base_url`). Write the build verbatim; when it is `unknown` (nobody
+   set `QAIZEN_APP_BUILD` before the run), say so plainly: the report
+   cannot say which build it describes. Omit this only when the run has
+   no Playwright execution.
 8. **Build `bug_drafts[]`** by listing every existing
    `release/bug-drafts/BUG-*.md`:
    - `bug_id`, `severity` (from the file's "## Severity" line),

@@ -53,6 +53,9 @@ function workspace() {
   const ws = mkdtempSync(join(REPO, 'runs', 'demo-test-'));
   const dirs = { fixtures: DEMO_FIXTURES, workspace: ws };
   startWorkspace(dirs);
+  // As the demo marks its workspace: only there may PIPELINE_PW_CONFIG point
+  // Playwright at the demo config.
+  writeFileSync(join(ws, 'DEMO_RUN'), 'demo test workspace\n');
   return dirs;
 }
 

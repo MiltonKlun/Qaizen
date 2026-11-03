@@ -24,7 +24,6 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
-  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -38,6 +37,7 @@ import {
 import {
   applyDowngradeConfirmation,
   confirmAnswer,
+  executionLine,
   progressGuard,
 } from '../scripts/run-pipeline.js';
 
@@ -242,6 +242,48 @@ test('a runner that produces no report stops after ONE launch', () => {
   }
 });
 
+test('a report already on disk is not taken for this run’s when the runner writes none', () => {
+  const dir = repo();
+  try {
+    readyToExecute(dir);
+    write(
+      dir,
+      'reports/results.json',
+      readFileSync(
+        join(process.cwd(), 'test/fixtures/playwright-all-outcomes.json')
+      )
+    );
+    const r = pipeline(dir, ['--resume'], fakePlaywright(dir, 'no-report'));
+    assert.equal(r.code, 2, r.out);
+    assert.match(r.out, /does not exist/);
+    assert.doesNotMatch(r.out, /Recorded the execution/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a ledger from an earlier execution is re-classified, not reported on', () => {
+  const dir = repo();
+  try {
+    writeCompletedRun(dir);
+    // A new execution was recorded (after a re-approval, say): the ledger and
+    // the analysis built from the old one no longer describe this evidence.
+    const ctxPath = join(dir, 'context.json');
+    const ctx = JSON.parse(readFileSync(ctxPath, 'utf8'));
+    ctx.execution_identity.playwright.execution_id = 'exec-pw-new';
+    writeFileSync(ctxPath, JSON.stringify(ctx, null, 2));
+    const r = pipeline(dir, ['--status']);
+    assert.match(
+      r.out,
+      /execution_ledger: was normalized from a different Playwright execution than the one recorded; re-classify/
+    );
+    assert.match(r.out, /Next step: classify/);
+    assert.doesNotMatch(r.out, /Pipeline complete/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('a `{}` report is a startup/report error, not a failing suite', () => {
   const dir = repo();
   try {
@@ -270,15 +312,96 @@ test('a failing suite WITH a valid report is data: it proceeds to classification
   }
 });
 
-test('a stale report (older than the test it ran) is not accepted', () => {
+test('a report dropped in after execution, or run under another config, is not this run’s evidence', () => {
   const dir = repo();
   try {
     writeCompletedRun(dir);
-    const old = new Date('2026-09-01T00:00:00Z');
-    utimesSync(join(dir, 'reports', 'results.json'), old, old);
-    const r = pipeline(dir, ['--status']);
-    assert.match(r.out, /is stale/);
+    const reportPath = join(dir, 'reports', 'results.json');
+    // An all-pass report written over the recorded one, with a fresh mtime:
+    // the old file-time check would have accepted it.
+    const allPass = JSON.parse(readFileSync(reportPath, 'utf8'));
+    allPass.stats = { ...allPass.stats, unexpected: 0, flaky: 0 };
+    writeFileSync(reportPath, JSON.stringify(allPass));
+    let r = pipeline(dir, ['--status']);
+    assert.match(
+      r.out,
+      /changed after the execute step recorded it \(digest mismatch\)/
+    );
     assert.match(r.out, /Next step: execute/);
+
+    // The recorded report, but the config it ran with has changed since.
+    writeCompletedRun(dir);
+    writeFileSync(join(dir, 'playwright.config.ts'), 'export default {};\n');
+    r = pipeline(dir, ['--status']);
+    assert.match(
+      r.out,
+      /was produced with playwright\.config\.ts, which has changed since/
+    );
+    // Gate 4 reviewed that config too, so the run goes back to Gate 4 first.
+    assert.match(r.out, /Next step: gate4/);
+    rmSync(join(dir, 'playwright.config.ts'));
+
+    // A report with no recorded identity was not produced by this run's
+    // execute step.
+    writeCompletedRun(dir);
+    const ctxPath = join(dir, 'context.json');
+    const ctx = JSON.parse(readFileSync(ctxPath, 'utf8'));
+    delete ctx.execution_identity;
+    writeFileSync(ctxPath, JSON.stringify(ctx, null, 2));
+    r = pipeline(dir, ['--status']);
+    assert.match(r.out, /has no recorded execution identity/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the report step names the app build, and says when it is unknown', () => {
+  const id = {
+    execution_id: 'exec-pw-1',
+    app_build: 'unknown',
+    base_url: null,
+  };
+  assert.equal(
+    executionLine(
+      /** @type {any} */ ({ execution_identity: { playwright: id } })
+    ),
+    '  Evidence: exec-pw-1 · app build unknown (QAIZEN_APP_BUILD was not set at execution) · base URL not set\n'
+  );
+  const named = executionLine(
+    /** @type {any} */ ({
+      execution_identity: {
+        playwright: {
+          ...id,
+          app_build: '2.4.1+88',
+          base_url: 'https://shop.test',
+        },
+      },
+    })
+  );
+  assert.ok(
+    named.includes('app build 2.4.1+88 · base URL https://shop.test'),
+    named
+  );
+  assert.equal(executionLine(/** @type {any} */ ({})), '');
+});
+
+test('PIPELINE_PW_CONFIG is refused outside the demo workspace', () => {
+  const dir = repo();
+  try {
+    writeCompletedRun(dir);
+    const ctxPath = join(dir, 'context.json');
+    const ctx = JSON.parse(readFileSync(ctxPath, 'utf8'));
+    delete ctx.execution_identity; // so the next step is execute
+    writeFileSync(ctxPath, JSON.stringify(ctx, null, 2));
+    const r = pipeline(dir, ['--resume'], {
+      ...process.env,
+      PIPELINE_PW_CONFIG: 'other.config.ts',
+    });
+    assert.equal(r.code, 2);
+    assert.match(
+      r.out,
+      /PIPELINE_PW_CONFIG is honoured only in the demo workspace/
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

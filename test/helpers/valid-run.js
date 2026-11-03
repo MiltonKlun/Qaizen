@@ -8,10 +8,11 @@
 // `status: "completed"` -- which is exactly the false completion the runner now refuses.
 // This builds the real thing from the repo's gold examples.
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { bindingFor } from '../../scripts/lib/approval-binding.js';
+import { playwrightIdentity } from '../../scripts/lib/execution-identity.js';
 
 const REPO = process.cwd();
 const gold = (p) => JSON.parse(readFileSync(join(REPO, p), 'utf8'));
@@ -176,12 +177,37 @@ export function writeCompletedRun(dir, opts = {}, overrides = {}) {
   }
   write('context.json', JSON.stringify(ctx, null, 2));
 
-  // Written LAST so it is newer than the generated test it ran.
   if (overrides['reports/results.json'] === undefined) {
     write(
       'reports/results.json',
       readFileSync(join(REPO, 'test/fixtures/playwright-all-outcomes.json'))
     );
+  }
+  // What the execute step records once the report exists: the report is this
+  // run's evidence only while it, its config and the Gate 4 approval match.
+  if (existsSync(join(dir, 'reports/results.json'))) {
+    // The gold ledger's units belong to its Playwright execution, exec-pw-1.
+    const identity = {
+      ...playwrightIdentity({
+        root: dir,
+        reportPath: 'reports/results.json',
+        configPath: 'playwright.config.ts',
+        context: ctx,
+        env: {},
+        now: '2026-09-02T00:00:00Z',
+      }),
+      execution_id: 'exec-pw-1',
+    };
+    ctx.execution_identity = { playwright: identity };
+    write('context.json', JSON.stringify(ctx, null, 2));
+    // ...and the classify step normalized THAT execution into the ledger.
+    if (overrides['analysis/execution-ledger.json'] === undefined) {
+      const pw = ledger.source_executions.find(
+        (/** @type {any} */ s) => s.runner === 'playwright'
+      );
+      if (pw) pw.config_identity = identity;
+      write('analysis/execution-ledger.json', JSON.stringify(ledger));
+    }
   }
   return ctx;
 }
