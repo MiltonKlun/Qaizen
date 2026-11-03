@@ -76,6 +76,23 @@
       "base_url": "https://www.saucedemo.com",
       "app_build": "unknown",
       "gate_digest": "2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c"
+    },
+    "newman": {
+      "execution_id": "exec-2026-06-06T12-06-00-000Z-4d5e6f7a",
+      "recorded_at": "2026-06-06T12:06:30Z",
+      "reports": [
+        {
+          "path": "reports/exec-2026-06-06T12-06-00-000Z-4d5e6f7a/newman/STORY-001/STORY-001.json",
+          "sha256": "f6a7b8c9d0e1324c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4"
+        }
+      ],
+      "collection_path": "api-tests/collections/STORY-001.postman_collection.json",
+      "collection_sha256": "c3d4e5f6a7b8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192",
+      "environment_path": "api-tests/environments/STORY-001.postman_environment.json",
+      "environment_sha256": "d4e5f6a7b8c9102a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2",
+      "base_url": "https://reqres.in/api",
+      "app_build": "unknown",
+      "gate_digest": "e5f6a7b8c9d0213b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3"
     }
   }
 }

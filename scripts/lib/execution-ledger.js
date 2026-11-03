@@ -77,7 +77,9 @@ const UNTRUSTWORTHY = new Set(['errored', 'interrupted', 'not_started']);
  * @typedef {{ message: string, phase?: string }} SourceError
  * @typedef {{ execution_id: string, runner: string, started_at: string,
  *   completed_at?: string | null, command_identity?: string,
- *   config_identity?: string | import('./execution-identity.js').ExecutionIdentity,
+ *   config_identity?: string
+ *     | import('./execution-identity.js').ExecutionIdentity
+ *     | import('./execution-identity.js').NewmanIdentity,
  *   process_status: string,
  *   exit_code?: number | null, report_reference?: string | null,
  *   report_digest?: string | null, source_errors?: SourceError[] }} SourceExecution

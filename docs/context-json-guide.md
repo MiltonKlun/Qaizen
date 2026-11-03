@@ -555,7 +555,10 @@ older files continue to validate:
   step. What the Playwright evidence was: the report and config digests, the
   base URL, the app build (`QAIZEN_APP_BUILD`, or `unknown`), the Gate 4
   approval digest and an execution id. The report counts as this run's
-  evidence only while they still match.
+  evidence only while they still match. `execution_identity.newman` is the same
+  for the API branch: each report's digest, the collection and environment
+  digests, the environment's `base_url`, the app build and the Gate 4'
+  approval digest.
 - Optional `downgrade_confirmations[]`: written only by the runner when a person
   confirms, at the terminal, a severity the finalized failure analysis lowered
   from its rule-based draft (a Red failure, or a failure on a high-severity,

@@ -12,6 +12,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   cpSync,
   existsSync,
@@ -303,6 +304,65 @@ test('API-only run: the runner executes Newman and classifies without a Playwrig
     const ctx = readCtx(dir);
     assert.equal(ctx.artifact_paths.api_collection, COL_PATH);
     assert.equal(ctx.artifact_paths.generated_test, '');
+
+    // What the execution was is recorded, and the ledger carries it.
+    const id = ctx.execution_identity.newman;
+    assert.equal(id.execution_id, newmanReports(dir)[0]);
+    assert.equal(id.reports.length, 1);
+    assert.equal(id.app_build, 'unknown');
+    assert.deepEqual(ledger.source_executions[0].config_identity, id);
+    assert.doesNotMatch(
+      pipeline(dir, ['--status']).out,
+      /Next step: execute-api/
+    );
+
+    // A report changed after it was recorded is not this run's evidence.
+    const [report] = id.reports;
+    const doc = JSON.parse(readFileSync(join(dir, report.path), 'utf8'));
+    doc.run.failures = [];
+    write(dir, report.path, JSON.stringify(doc));
+    let out = pipeline(dir, ['--status']).out;
+    assert.match(out, /changed after it was recorded \(digest mismatch\)/);
+    assert.match(out, /Next step: execute-api/);
+
+    // Nor is a report dropped in beside the recorded ones. (First make the
+    // recorded digest match the file again, so only the extra report is wrong.)
+    const ctx2 = readCtx(dir);
+    ctx2.execution_identity.newman.reports[0].sha256 = createHash('sha256')
+      .update(readFileSync(join(dir, report.path)))
+      .digest('hex');
+    writeCtx(dir, ctx2);
+    const extra = report.path.replace(/[^/]+\.json$/, 'extra.json');
+    write(dir, extra, JSON.stringify(doc));
+    out = pipeline(dir, ['--status']).out;
+    assert.match(out, /holds reports it did not record/);
+  } finally {
+    api.stop();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('QAIZEN_EXECUTION_ID may only name the execution this run recorded', async () => {
+  const dir = run([
+    ['automate_api', 'approved'],
+    ['automate_api', 'approved'],
+    ['manual', 'rejected'],
+  ]);
+  const api = await apiServer();
+  try {
+    withCollection(dir, api.url);
+    approveApi(dir);
+    const r = pipeline(dir, ['--resume'], {
+      QAIZEN_EXECUTION_ID: 'exec-other',
+    });
+    assert.equal(r.code, 2, r.out);
+    // Newman ran under the runner's own id, not the inherited one...
+    assert.notEqual(newmanReports(dir)[0], 'exec-other');
+    // ...and classification refuses to read another execution.
+    assert.match(
+      r.out,
+      /QAIZEN_EXECUTION_ID names exec-other, but this run recorded exec-/
+    );
   } finally {
     api.stop();
     rmSync(dir, { recursive: true, force: true });

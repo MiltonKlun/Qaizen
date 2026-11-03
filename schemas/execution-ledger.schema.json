@@ -66,6 +66,64 @@
           "config_identity": {
             "description": "What this execution was. A string (older ledgers), or the identity the pipeline's execute step recorded for a Playwright run (scripts/lib/execution-identity.js): the report and config digests, the base URL, the app build (QAIZEN_APP_BUILD, or \"unknown\"), the Gate 4 approval digest and the execution id.",
             "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "execution_id",
+                  "recorded_at",
+                  "reports",
+                  "collection_path",
+                  "collection_sha256",
+                  "environment_path",
+                  "environment_sha256",
+                  "base_url",
+                  "app_build",
+                  "gate_digest"
+                ],
+                "properties": {
+                  "execution_id": { "type": "string", "minLength": 1 },
+                  "recorded_at": { "type": "string", "format": "date-time" },
+                  "reports": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["path", "sha256"],
+                      "properties": {
+                        "path": { "type": "string", "minLength": 1 },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        }
+                      }
+                    }
+                  },
+                  "collection_path": { "type": "string", "minLength": 1 },
+                  "collection_sha256": {
+                    "oneOf": [
+                      { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                      { "type": "null" }
+                    ]
+                  },
+                  "environment_path": { "type": "string", "minLength": 1 },
+                  "environment_sha256": {
+                    "oneOf": [
+                      { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                      { "type": "null" }
+                    ]
+                  },
+                  "base_url": { "type": ["string", "null"] },
+                  "app_build": { "type": "string", "minLength": 1 },
+                  "gate_digest": {
+                    "oneOf": [
+                      { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                      { "type": "null" }
+                    ]
+                  }
+                }
+              },
               { "type": "string" },
               {
                 "type": "object",

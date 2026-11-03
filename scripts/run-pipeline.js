@@ -103,8 +103,14 @@ import {
   ledgerHasApiExecution,
   latestNewmanExecution,
   newmanEvidence,
+  newmanExecutionShape,
 } from './lib/run-artifacts.js';
-import { UNKNOWN_BUILD, playwrightIdentity } from './lib/execution-identity.js';
+import {
+  UNKNOWN_BUILD,
+  newmanIdentity,
+  playwrightIdentity,
+} from './lib/execution-identity.js';
+import { newExecutionId } from './lib/execution-paths.js';
 
 /** The demo workspace's marker (scripts/demo-pipeline.js DEMO_SENTINEL). */
 const DEMO_RUN_SENTINEL = 'DEMO_RUN';
@@ -347,9 +353,15 @@ function gatherHints(context) {
           hints.problems.push(`api_collection: ${col.reason}`);
         }
         hints.apiCollectionExists = col.ok;
-        const ev = newmanEvidence(context, apiPaths(context).collection, '.');
+        const ev = newmanEvidence(context, '.');
         hints.apiExecuted = ev.ok;
-        if (!ev.ok && latestNewmanExecution(context.story?.id) !== null) {
+        if (
+          !ev.ok &&
+          /** @type {any} */ (
+            context.execution_identity?.newman ||
+              latestNewmanExecution(context.story?.id) !== null
+          )
+        ) {
           hints.problems.push(`api execution: ${ev.reason}`);
         }
       }
@@ -391,6 +403,14 @@ function gatherHints(context) {
       } else if (hints.branches?.api && !ledgerHasApiExecution(ledger.data)) {
         hints.problems.push(
           'execution_ledger: has no Newman execution for this API story; re-classify after the API run'
+        );
+        produced = false;
+      } else if (
+        hints.branches?.api &&
+        !ledgerHasRecordedNewman(ledger.data, context)
+      ) {
+        hints.problems.push(
+          'execution_ledger: was normalized from a different Newman execution than the one recorded; re-classify'
         );
         produced = false;
       } else if (
@@ -498,6 +518,33 @@ function ledgerHasRecordedPlaywright(ledger, context) {
       c.report_sha256 === id.report_sha256
     );
   });
+}
+
+/**
+ * Was the ledger built from the Newman execution the execute-api step
+ * recorded: every Newman source of the ledger carries that identity, and
+ * between them they are exactly its reports?
+ * @param {import('./lib/execution-ledger.js').Ledger} ledger
+ * @param {Context} context
+ */
+function ledgerHasRecordedNewman(ledger, context) {
+  const id = /** @type {any} */ (context).execution_identity?.newman;
+  if (!id) return true;
+  const sources = (ledger?.source_executions ?? []).filter(
+    (s) => s.runner === 'newman'
+  );
+  return (
+    sources.length === id.reports.length &&
+    sources.every((s) => {
+      const c = /** @type {any} */ (s).config_identity;
+      return (
+        c &&
+        typeof c === 'object' &&
+        c.execution_id === id.execution_id &&
+        JSON.stringify(c.reports) === JSON.stringify(id.reports)
+      );
+    })
+  );
 }
 
 /**
@@ -1368,20 +1415,24 @@ function execStep(step, context) {
     // reaches this step only then). A failing collection is data for the
     // classifier; a run with no trustworthy evidence stops the pipeline.
     const story = storyId(context);
+    // The runner names the execution; an inherited QAIZEN_EXECUTION_ID cannot
+    // point this run's evidence at another directory.
+    const executionId = newExecutionId();
     console.log(
-      `Executing: node scripts/run-newman.js ${story}  (failures are DATA for the classifier)\n`
+      `Executing: node scripts/run-newman.js ${story} --execution-id ${executionId}  (failures are DATA for the classifier)\n`
     );
-    const run = spawnSync(process.execPath, [RUN_NEWMAN, story], {
-      stdio: 'inherit',
-      env,
-    });
+    const run = spawnSync(
+      process.execPath,
+      [RUN_NEWMAN, story, '--execution-id', executionId],
+      { stdio: 'inherit', env }
+    );
     if (run.error) {
       console.error(
         `Could not launch Newman (${run.error.message}); stopping.`
       );
       exit(2);
     }
-    const ev = newmanEvidence(context, apiPaths(context).collection, '.');
+    const ev = newmanExecutionShape('.', executionId, story);
     if (!ev.ok) {
       console.error(
         `Newman exited ${run.status ?? `by signal ${run.signal}`} without trustworthy evidence: ${ev.reason}. Stopping.`
@@ -1390,10 +1441,28 @@ function execStep(step, context) {
     }
     if (run.status !== 0) {
       console.log(
-        `\nNewman exited ${run.status} with evidence (${ev.executionId}): failures are data; continuing.`
+        `\nNewman exited ${run.status} with evidence (${executionId}): failures are data; continuing.`
       );
     }
     const api = apiPaths(context);
+    // What this execution was, recorded now (scripts/lib/execution-identity.js).
+    const identity = newmanIdentity({
+      root: '.',
+      executionId,
+      storyId: story,
+      collectionPath: api.collection,
+      environmentPath: api.environment,
+      context,
+      env,
+    });
+    const c = /** @type {any} */ (context);
+    c.execution_identity = {
+      ...(c.execution_identity ?? {}),
+      newman: identity,
+    };
+    console.log(
+      `Recorded the execution: ${executionId}, ${identity.reports.length} report(s), app build ${identity.app_build}.`
+    );
     if (!context.artifact_paths.api_collection) {
       context.artifact_paths.api_collection = api.collection;
     }
@@ -1442,15 +1511,25 @@ function execStep(step, context) {
     ) {
       normalizeArgs.push('--test-cases', context.artifact_paths.test_cases);
     }
-    // This story's Newman reports from ONE execution: the one named by
-    // QAIZEN_EXECUTION_ID when it holds them, otherwise the newest that does.
+    // This story's Newman reports from the ONE execution the execute-api step
+    // recorded. QAIZEN_EXECUTION_ID may only name that same execution: it can
+    // no longer point the ledger at another run's reports.
+    const recordedApi = /** @type {any} */ (context).execution_identity?.newman;
     const pinned = env.QAIZEN_EXECUTION_ID;
-    const apiExecution =
-      pinned && existsSync(join('reports', pinned, 'newman', storyId(context)))
-        ? pinned
-        : latestNewmanExecution(storyId(context));
-    if (branches.api && apiExecution) {
-      normalizeArgs.push('--execution', apiExecution);
+    if (branches.api && pinned && pinned !== recordedApi?.execution_id) {
+      console.error(
+        `QAIZEN_EXECUTION_ID names ${pinned}, but this run recorded ${recordedApi?.execution_id ?? 'no Newman execution'}. ` +
+          'Unset it; the run classifies the execution it recorded.'
+      );
+      exit(2);
+    }
+    if (branches.api && recordedApi) {
+      normalizeArgs.push(
+        '--execution',
+        recordedApi.execution_id,
+        '--newman-identity',
+        JSON.stringify(recordedApi)
+      );
     }
     // The reviewed external plan and, when there is work to record, its
     // results. A skip-only plan yields no unit at all.

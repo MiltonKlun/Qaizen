@@ -56,7 +56,10 @@ the identity its execute step recorded (`--playwright-identity <json>`,
 as `config_identity`: the report and config digests, the base URL, the app
 build (`QAIZEN_APP_BUILD`, or `unknown`), the Gate 4 approval digest, and the
 execution id, which is also the source execution's `execution_id`. Older
-ledgers carry a plain string there and stay valid.
+ledgers carry a plain string there and stay valid. For the API branch the
+pipeline passes `--newman-identity <json>` with `--execution`: the normalizer
+refuses it unless the reports it reads are exactly the recorded ones, and keeps
+it as each Newman source execution's `config_identity`.
 
 ### Newman
 
@@ -255,6 +258,16 @@ pipeline supplies one, otherwise the runner mints its own. Story and collection
 ids are validated as path components before use: they originate in filenames and
 env vars, and a component containing a separator or `..` would escape the
 execution directory. A rejection names the field without echoing the value.
+
+In a pipeline run the runner mints the id for the execute-api step and passes it
+as `--execution-id`, so an inherited `QAIZEN_EXECUTION_ID` cannot redirect it.
+It then records `context.json` `execution_identity.newman`: every report's
+SHA-256, the collection and environment digests, the environment's `base_url`,
+the app build (`QAIZEN_APP_BUILD`, or `unknown`) and the Gate 4' approval
+digest. The run's Newman evidence is exactly those reports, unchanged: a report
+added beside them, a changed collection or environment, or another Gate 4'
+approval is not this run's evidence, and execute-api comes next. Classification
+reads that execution only, and refuses a `QAIZEN_EXECUTION_ID` naming any other.
 
 `ci-summary.js` reads **one** execution — the one named by
 `QAIZEN_EXECUTION_ID`, else the most recent `reports/exec-*` directory — and
