@@ -105,7 +105,13 @@ _passed_ when its value is the boolean `true` **or** an object whose
 is _not passed_. The runner adds one condition: an approval must carry the
 `input_digest` it recorded, and that digest must still match the inputs.
 A bare `true`, or an object without a digest, is a legacy approval it
-returns to pending for re-review (`docs/pipeline-runner.md` §4). Agents that gate on `code_reviewed` /
+returns to pending for re-review (`docs/pipeline-runner.md` §4). What each
+gate's digest covers is listed per gate in "Approvals are bound to what was
+reviewed" there. Gate 4 covers the whole suite the test runs with, not only
+the generated file: everything under the Playwright `testDir`, the fixtures,
+the page objects and helpers they import, the config, `tsconfig.json`,
+`package.json` and the lockfile, so editing any of them after approval
+returns Gate 4 to pending. Agents that gate on `code_reviewed` /
 `requirements_reviewed` etc. apply exactly this rule — see the
 preconditions in `agents/test-designer.md`, `agents/failure-classifier.md`,
 and `agents/reporter.md`.

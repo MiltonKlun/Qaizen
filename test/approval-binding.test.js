@@ -25,6 +25,8 @@ import {
   bindingFor,
   findInvalidations,
   gateDigest,
+  gateInputs,
+  playwrightTestDir,
   requireCurrentGate,
 } from '../scripts/lib/approval-binding.js';
 import { applyGateDecision } from '../scripts/run-pipeline.js';
@@ -164,6 +166,108 @@ test('a changed test or dependency lock makes Gate 4 stale only', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  }
+});
+
+// Files Gate 4 reviews beyond the generated test: a page object reached only
+// through imports (outside the testDir), the helper it imports, the seed
+// spec, tests/fixtures.ts, and the project files the test compiles under.
+const CODE_FILES = {
+  'tests/OLD-1.spec.ts':
+    "import { LoginPage } from '../pages/login.page';\n// generated\n",
+  'pages/login.page.ts':
+    "import { base } from './base.js';\nexport class LoginPage {}\n",
+  'pages/base.ts': 'export const base = 1;\n',
+  'tests/fixtures.ts': 'export const fixture = 1;\n',
+  'tests/.env.local': 'SECRET=never-bound\n',
+  'tsconfig.json': '{ // comments are allowed\n  "compilerOptions": {}\n}\n',
+  'package.json': '{"name":"app","version":"1.0.0"}',
+  'playwright.config.ts': "export default { testDir: './tests' };\n",
+};
+
+test('Gate 4 binds page objects, the seed spec, fixtures.ts, tsconfig.json and package.json', () => {
+  for (const [rel, content] of [
+    [
+      'pages/login.page.ts',
+      "import { base } from './base.js';\nexport class LoginPage { x = 1 }\n",
+    ],
+    ['pages/base.ts', 'export const base = 2;\n'],
+    ['tests/seed.spec.ts', '// seed edited after review\n'],
+    ['tests/fixtures.ts', 'export const fixture = 2;\n'],
+    ['tsconfig.json', '{ "compilerOptions": { "strict": false } }\n'],
+    ['package.json', '{"name":"app","version":"1.0.1"}'],
+  ]) {
+    const dir = repo();
+    try {
+      writeCompletedRun(dir, {}, CODE_FILES);
+      assert.deepEqual(staleGates(dir), [], `${rel}: current before`);
+      writeFileSync(join(dir, rel), content);
+      assert.deepEqual(staleGates(dir), ['code_reviewed'], rel);
+      const g4 = findInvalidations(ctxOf(dir), dir)[0];
+      assert.deepEqual(g4.changed_inputs, [rel], rel);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+});
+
+test('an approval records binding version 2 and never binds an environment file', () => {
+  const dir = repo();
+  try {
+    writeCompletedRun(dir, {}, CODE_FILES);
+    const g4 = ctxOf(dir).review_gates.code_reviewed;
+    assert.equal(g4.binding_version, 2);
+    assert.ok('pages/login.page.ts' in g4.inputs);
+    assert.ok('tests/seed.spec.ts' in g4.inputs);
+    assert.ok(!Object.keys(g4.inputs).some((k) => k.includes('.env')));
+    writeFileSync(join(dir, 'tests/.env.local'), 'SECRET=changed\n');
+    assert.deepEqual(staleGates(dir), []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('an approval recorded under binding version 1 keeps verifying with the v1 inputs', () => {
+  const dir = repo();
+  try {
+    writeCompletedRun(dir, {}, CODE_FILES);
+    // Re-record Gate 4 exactly as a v1 runner did: no binding_version.
+    const ctx = ctxOf(dir);
+    const rest = { ...ctx.review_gates.code_reviewed };
+    delete rest.binding_version;
+    ctx.review_gates.code_reviewed = {
+      ...rest,
+      input_digest: gateDigest('code_reviewed', ctx, dir, 1),
+      inputs: gateInputs('code_reviewed', ctx, dir, 1),
+    };
+    writeFileSync(join(dir, 'context.json'), JSON.stringify(ctx));
+    assert.deepEqual(staleGates(dir), []);
+    // v1 never bound the seed spec or page objects: still current.
+    writeFileSync(join(dir, 'tests/seed.spec.ts'), '// edited\n');
+    writeFileSync(join(dir, 'pages/base.ts'), 'export const base = 3;\n');
+    assert.deepEqual(staleGates(dir), []);
+    // What v1 did bind still counts.
+    writeFileSync(join(dir, 'tests/OLD-1.spec.ts'), '// edited\n');
+    assert.deepEqual(staleGates(dir), ['code_reviewed']);
+    assert.deepEqual(findInvalidations(ctxOf(dir), dir)[0].changed_inputs, [
+      'generated_test',
+    ]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the testDir is read from the Playwright config, and stays inside the repository', () => {
+  const dir = repo();
+  try {
+    const cfg = (t) => writeFileSync(join(dir, 'playwright.config.ts'), t);
+    assert.equal(playwrightTestDir(dir), 'tests');
+    cfg("export default defineConfig({ testDir: './e2e/' });\n");
+    assert.equal(playwrightTestDir(dir), 'e2e');
+    cfg("export default defineConfig({ testDir: '../elsewhere' });\n");
+    assert.equal(playwrightTestDir(dir), 'tests');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 

@@ -26,21 +26,12 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import {
-  basename,
-  dirname,
-  extname,
-  isAbsolute,
-  join,
-  relative,
-  resolve,
-  sep,
-} from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 
 import { playwrightCli } from './cli.js';
 import { adaptPlaywrightReport } from './execution-results.js';
 import { sanitizeDiagnostic } from './integration-io.js';
-import { parseTestSource, ts, visit } from './test-source.js';
+import { importClosure } from './import-closure.js';
 
 export const MAX_ATTEMPTS = 3;
 export const VALIDATION_DIR = 'analysis/healer-validation';
@@ -206,66 +197,6 @@ export function readAttempts(root, key) {
 
 // ---------------------------------------------------------------- workspace
 
-const CODE_EXT = ['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs'];
-
-/**
- * Relative module specifiers a source file imports (static, dynamic, re-export).
- * @param {string} text
- * @param {string} fileName
- * @returns {string[]}
- */
-function relativeImports(text, fileName) {
-  const parsed = parseTestSource(text, fileName);
-  if (!parsed.ok) return [];
-  /** @type {string[]} */
-  const specs = [];
-  visit(parsed.sourceFile, (/** @type {import('typescript').Node} */ n) => {
-    if (
-      (ts.isImportDeclaration(n) || ts.isExportDeclaration(n)) &&
-      n.moduleSpecifier &&
-      ts.isStringLiteral(n.moduleSpecifier)
-    ) {
-      specs.push(n.moduleSpecifier.text);
-    } else if (
-      ts.isCallExpression(n) &&
-      (n.expression.kind === ts.SyntaxKind.ImportKeyword ||
-        (ts.isIdentifier(n.expression) && n.expression.text === 'require')) &&
-      n.arguments[0] &&
-      ts.isStringLiteral(n.arguments[0])
-    ) {
-      specs.push(n.arguments[0].text);
-    }
-  });
-  return specs.filter((s) => s.startsWith('./') || s.startsWith('../'));
-}
-
-/**
- * @param {string} fromFile
- * @param {string} spec
- * @returns {string | null}
- */
-function resolveModule(fromFile, spec) {
-  const base = resolve(dirname(fromFile), spec);
-  const tries = [
-    base,
-    ...CODE_EXT.map((e) => base + e),
-    ...CODE_EXT.map((e) => join(base, `index${e}`)),
-  ];
-  // `./x.js` written for a TS source compiled on the fly.
-  if (extname(base) === '.js') tries.push(base.slice(0, -3) + '.ts');
-  return tries.find((p) => existsSync(p) && !readdirSafe(p)) ?? null;
-}
-
-/** @param {string} p */
-function readdirSafe(p) {
-  try {
-    readdirSync(p);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * The files a single test needs: the config, the test, everything they import
  * relatively (transitively), and package.json for module resolution. Only
@@ -275,34 +206,10 @@ function readdirSafe(p) {
  * @param {string} testPath
  */
 export function collectSources(root, configPath, testPath) {
-  const rootAbs = resolve(root);
-  /** @type {Set<string>} */
-  const wanted = new Set();
-  const queue = [resolve(rootAbs, configPath), resolve(rootAbs, testPath)];
-  /** @type {string[]} */
-  const problems = [];
-  for (let abs = queue.shift(); abs !== undefined; abs = queue.shift()) {
-    const rel = relative(rootAbs, abs);
-    if (rel.startsWith('..') || isAbsolute(rel)) {
-      problems.push(`${abs} is outside the repository`);
-      continue;
-    }
-    if (/^\.env/.test(basename(abs))) {
-      problems.push(
-        `${rel} looks like an environment file and is never copied`
-      );
-      continue;
-    }
-    if (wanted.has(rel)) continue;
-    wanted.add(rel);
-    for (const spec of relativeImports(readFileSync(abs, 'utf8'), abs)) {
-      const target = resolveModule(abs, spec);
-      if (target) queue.push(target);
-      else problems.push(`${rel} imports ${spec}, which cannot be resolved`);
-    }
-  }
-  if (existsSync(join(rootAbs, 'package.json'))) wanted.add('package.json');
-  return { files: [...wanted].map(posix), problems };
+  const { files, problems } = importClosure(root, [configPath, testPath]);
+  if (existsSync(join(root, 'package.json')) && !files.includes('package.json'))
+    files.push('package.json');
+  return { files, problems };
 }
 
 /**

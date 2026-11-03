@@ -26,6 +26,7 @@ import { dirname, join, resolve, sep } from 'node:path';
 import {
   DOWNSTREAM,
   applyInvalidations,
+  bindingVersionOf,
   gateDigest,
 } from './approval-binding.js';
 import { gateDiff } from './gate-history.js';
@@ -66,7 +67,7 @@ export function reopenGate(
           : `depends on ${gate}, which was reopened`,
       approved_digest:
         typeof value === 'object' ? (value.input_digest ?? null) : null,
-      current_digest: gateDigest(g, context, root),
+      current_digest: gateDigest(g, context, root, bindingVersionOf(value)),
       changed_inputs: [],
     };
   });

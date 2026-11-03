@@ -21,8 +21,10 @@ import { tmpdir } from 'node:os';
 import { join, relative, resolve, sep } from 'node:path';
 
 import {
+  BINDING_VERSION,
   BOUND_GATES,
   bindingState,
+  bindingVersionOf,
   gateFiles,
   gateInputs,
 } from './approval-binding.js';
@@ -307,10 +309,16 @@ export function gateDiff(gate, context, root = '.') {
   if (!record) return { record: null, entries: [] };
   const rootAbs = resolve(root);
   const recorded = context?.review_gates?.[gate]?.inputs ?? null;
-  const now = gateInputs(gate, context, root);
+  // The approval's own scheme while it stands; once the gate is pending,
+  // the latest, whose file list includes every earlier scheme's files.
+  const value = context?.review_gates?.[gate];
+  const version = value?.input_digest
+    ? bindingVersionOf(value)
+    : BINDING_VERSION;
+  const now = gateInputs(gate, context, root, version);
   /** @type {DiffEntry[]} */
   const entries = [];
-  for (const f of gateFiles(gate, context, root)) {
+  for (const f of gateFiles(gate, context, root, version)) {
     const abs = resolve(root, f.path);
     const inside = abs.startsWith(rootAbs + sep);
     const rel = relative(rootAbs, abs).split(sep).join('/');
