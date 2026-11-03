@@ -435,16 +435,18 @@ export function main(args = argv.slice(2)) {
       usage('--newman-identity is not valid JSON');
       return 2;
     }
-    const recorded = new Set(
-      (nmIdentity?.reports ?? []).map((/** @type {any} */ r) => r.sha256)
-    );
-    const read = nmPaths.map((p) =>
-      createHash('sha256').update(readFileSync(p)).digest('hex')
-    );
+    // Compared as sorted lists, not sets: two reports with one report's bytes
+    // must not pass for the two recorded ones.
+    const recorded = (nmIdentity?.reports ?? [])
+      .map((/** @type {any} */ r) => r.sha256)
+      .sort();
+    const read = nmPaths
+      .map((p) => createHash('sha256').update(readFileSync(p)).digest('hex'))
+      .sort();
     if (
       !read.length ||
-      read.length !== recorded.size ||
-      read.some((d) => !recorded.has(d))
+      read.join() !== recorded.join() ||
+      (flags.execution && nmIdentity?.execution_id !== flags.execution)
     ) {
       console.error(
         'Error: the Newman reports given are not the ones their identity records; re-run the execute-api step.'

@@ -266,7 +266,8 @@ SHA-256, the collection and environment digests, the environment's `base_url`,
 the app build (`QAIZEN_APP_BUILD`, or `unknown`) and the Gate 4' approval
 digest. The run's Newman evidence is exactly those reports, unchanged: a report
 added beside them, a changed collection or environment, or another Gate 4'
-approval is not this run's evidence, and execute-api comes next. Classification
+approval is not this run's evidence (a changed collection first returns its
+API gates to pending; otherwise execute-api comes next). Classification
 reads that execution only, and refuses a `QAIZEN_EXECUTION_ID` naming any other.
 
 `ci-summary.js` reads **one** execution — the one named by

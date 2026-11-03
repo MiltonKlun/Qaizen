@@ -316,6 +316,43 @@ test('API-only run: the runner executes Newman and classifies without a Playwrig
       /Next step: execute-api/
     );
 
+    // A ledger normalized from another Newman execution is re-classified.
+    const ledgerPath = join(dir, 'analysis', 'execution-ledger.json');
+    const ledgerBytes = readFileSync(ledgerPath, 'utf8');
+    const older = JSON.parse(ledgerBytes);
+    older.source_executions[0].config_identity.execution_id = 'exec-older';
+    write(dir, 'analysis/execution-ledger.json', JSON.stringify(older));
+    const stale = pipeline(dir, ['--status']).out;
+    assert.match(
+      stale,
+      /was normalized from a different Newman execution than the one recorded/
+    );
+    assert.match(stale, /Next step: classify/);
+    write(dir, 'analysis/execution-ledger.json', ledgerBytes);
+
+    // The normalizer refuses an identity that names other reports.
+    const wrongIdentity = {
+      ...id,
+      reports: [{ ...id.reports[0], sha256: 'f'.repeat(64) }],
+    };
+    const refused = spawnSync(
+      execPath,
+      [
+        'scripts/normalize-results.js',
+        '--story',
+        STORY,
+        '--execution',
+        id.execution_id,
+        '--newman-identity',
+        JSON.stringify(wrongIdentity),
+        '--out',
+        'analysis/other-ledger.json',
+      ],
+      { cwd: dir, encoding: 'utf8' }
+    );
+    assert.equal(refused.status, 2, refused.stdout + refused.stderr);
+    assert.match(refused.stderr, /not the ones their identity records/);
+
     // A report changed after it was recorded is not this run's evidence.
     const [report] = id.reports;
     const doc = JSON.parse(readFileSync(join(dir, report.path), 'utf8'));

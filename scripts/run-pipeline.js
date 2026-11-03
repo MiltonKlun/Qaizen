@@ -541,7 +541,12 @@ function ledgerHasRecordedNewman(ledger, context) {
         c &&
         typeof c === 'object' &&
         c.execution_id === id.execution_id &&
-        JSON.stringify(c.reports) === JSON.stringify(id.reports)
+        Array.isArray(c.reports) &&
+        c.reports.length === id.reports.length &&
+        c.reports.every(
+          (/** @type {any} */ r, /** @type {number} */ i) =>
+            r.path === id.reports[i].path && r.sha256 === id.reports[i].sha256
+        )
       );
     })
   );
@@ -1415,6 +1420,23 @@ function execStep(step, context) {
     // reaches this step only then). A failing collection is data for the
     // classifier; a run with no trustworthy evidence stops the pipeline.
     const story = storyId(context);
+    // run-newman.js runs the conventional collection and environment. An
+    // artifact_paths entry naming other files would make the recorded identity
+    // (and the Gate 3' review) describe files Newman never ran.
+    const planned = apiPaths(context);
+    const conventional = {
+      collection: `api-tests/collections/${story}.postman_collection.json`,
+      environment: `api-tests/environments/${story}.postman_environment.json`,
+    };
+    for (const k of /** @type {const} */ (['collection', 'environment'])) {
+      if (planned[k] !== conventional[k]) {
+        console.error(
+          `artifact_paths.api_${k} names ${planned[k]}, but run-newman.js runs ${conventional[k]}. ` +
+            'Use the conventional path; nothing was run.'
+        );
+        exit(2);
+      }
+    }
     // The runner names the execution; an inherited QAIZEN_EXECUTION_ID cannot
     // point this run's evidence at another directory.
     const executionId = newExecutionId();
