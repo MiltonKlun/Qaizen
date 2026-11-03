@@ -125,7 +125,9 @@ import {
   apiPaths,
   externalPaths,
   bindingFor,
+  codeClosure,
   gateDigest,
+  gateFiles,
   findInvalidations,
   applyInvalidations,
   bindingState,
@@ -869,10 +871,29 @@ async function runGateInteractive(step, context) {
   // The gate's automatic checks (scripts/lib/brief-checks.js). Blocking on
   // scope coverage, when configured, already happened in the input check.
   const checks = briefChecks(step, context, '.');
-  const briefText = renderGateBrief({ step, context, artifacts, checks });
+  // Gate 4 binds the whole suite the test runs with: name all of it.
+  const shown = new Set(artifacts.map((a) => a.path));
+  const covered =
+    gateKey === 'code_reviewed'
+      ? gateFiles(gateKey, context, '.')
+          .map((f) => f.path)
+          .filter((p) => !shown.has(p))
+      : [];
+  const unbound =
+    gateKey === 'code_reviewed'
+      ? codeClosure('.', context?.artifact_paths?.generated_test).problems
+      : [];
+  const briefText = renderGateBrief({
+    step,
+    context,
+    artifacts,
+    checks,
+    covered,
+    unbound,
+  });
   console.log(briefText);
   // Restored files, or a gate reopened without changes: say what this is.
-  const earlier = earlierApprovalOf(gateKey, reviewedDigests[gateKey], '.');
+  const earlier = earlierApprovalOf(gateKey, context, '.');
   if (earlier) {
     console.log(
       `\nThis is exactly what ${earlier.reviewer} approved at ${earlier.decided} (${earlier.record}).`

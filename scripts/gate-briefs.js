@@ -264,16 +264,21 @@ function fmtArtifact(a) {
 /**
  * Render the one-screen brief for a gate step ('gate1'..'gate4').
  * `artifacts`: [{ path, exists, valid }] gathered by the CLI. `checks`: more
- * automatic checks the CLI ran for this gate, one line each.
+ * automatic checks the CLI ran for this gate, one line each. `covered`:
+ * the other files the approval binds (Gate 4's suite), and `unbound`: what
+ * it could not bind, so the reviewer sees exactly what they sign.
  * Returns a string (the CLI prints it).
  * @param {{ step: string, context: Context | null,
- *   artifacts?: ArtifactStatus[], checks?: string[] }} args
+ *   artifacts?: ArtifactStatus[], checks?: string[], covered?: string[],
+ *   unbound?: string[] }} args
  */
 export function renderGateBrief({
   step,
   context,
   artifacts = [],
   checks = [],
+  covered = [],
+  unbound = [],
 }) {
   const brief = GATE_BRIEFS[step];
   if (!brief) throw new Error(`Unknown gate step: ${step}`);
@@ -291,6 +296,14 @@ export function renderGateBrief({
     'Artifacts under review (produced since the previous gate):',
     ...artifacts.map(fmtArtifact),
     '',
+    ...(covered.length || unbound.length
+      ? [
+          'Also covered by this approval (a change to any returns the gate to pending):',
+          ...covered.map((p) => `  - ${p}`),
+          ...unbound.map((p) => `  ! not bound: ${p}`),
+          '',
+        ]
+      : []),
     'Auto-checks:',
     autoBad.length === 0
       ? '  - all reviewed artifacts exist and schema-validate (where applicable)'

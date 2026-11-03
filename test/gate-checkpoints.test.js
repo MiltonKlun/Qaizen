@@ -22,7 +22,9 @@ import {
   bindingFor,
   bindingState,
   gateDigest,
+  gateInputs,
 } from '../scripts/lib/approval-binding.js';
+import { listGateRecords } from '../scripts/lib/gate-records.js';
 import { validateValue } from '../scripts/lib/artifact-io.js';
 import {
   applyRestore,
@@ -245,11 +247,7 @@ test('restoring never approves: a reopened gate stays pending, and its brief can
   writeFileSync(join(dir, 'context.json'), JSON.stringify(ctx, null, 2));
   put(`planner-input/${STORY}.planner-brief.md`, 'A reworked brief.\n');
   assert.equal(
-    earlierApprovalOf(
-      'test_scope_reviewed',
-      gateDigest('test_scope_reviewed', readCtx(dir), dir),
-      dir
-    ),
+    earlierApprovalOf('test_scope_reviewed', readCtx(dir), dir),
     null
   );
 
@@ -264,11 +262,7 @@ test('restoring never approves: a reopened gate stays pending, and its brief can
     'pending'
   );
   assert.deepEqual(
-    earlierApprovalOf(
-      'test_scope_reviewed',
-      gateDigest('test_scope_reviewed', readCtx(dir), dir),
-      dir
-    ),
+    earlierApprovalOf('test_scope_reviewed', readCtx(dir), dir),
     {
       record: 'gates/002-gate2-approved.md',
       reviewer: 'Ada Reviewer',
@@ -324,6 +318,92 @@ test('what was kept only as a digest, or added since, is listed and never touche
         'added since the approval; a restore does not delete files',
       ],
     ]
+  );
+});
+
+test('a Gate 4 record keeps the page object its test imports, and a restore puts it back', (t) => {
+  const { dir, put } = project(t);
+  put(
+    `tests/${STORY}.spec.ts`,
+    "import { Cart } from '../pages/cart';\ntest('x [TC-001]', () => {});\n"
+  );
+  put('pages/cart.ts', 'export class Cart {}\n');
+  approveAll(dir);
+  const record = listGateRecords(dir).pop();
+  assert.match(read(dir, record.record), /^\| Binding version \| 2 \|$/m);
+  assert.equal(
+    read(dir, `${record.dir}/pages/cart.ts`),
+    'export class Cart {}\n'
+  );
+
+  put('pages/cart.ts', 'export class Cart { changed = true }\n');
+  const ctx = readCtx(dir);
+  reopenGate(ctx, 'code_reviewed', { reviewer: 'Ada', reason: 'x', root: dir });
+  writeFileSync(join(dir, 'context.json'), JSON.stringify(ctx, null, 2));
+  const now = readCtx(dir);
+  const plan = restorePlan('code_reviewed', now, dir);
+  assert.deepEqual(
+    plan.restore.map((r) => r.path),
+    ['pages/cart.ts']
+  );
+  restore(plan, now, dir);
+  assert.equal(read(dir, 'pages/cart.ts'), 'export class Cart {}\n');
+  assert.equal(
+    earlierApprovalOf('code_reviewed', readCtx(dir), dir)?.record,
+    record.record
+  );
+});
+
+test('a Gate 4 approved under binding version 1 is compared and restored under version 1', (t) => {
+  const { dir, put } = project(t);
+  put('tests/seed.spec.ts', '// seed\n');
+  approveAll(dir, 3);
+  // Gate 4 recorded exactly as a version-1 runner did: no binding_version,
+  // the v1 inputs, and no copy of what v1 never bound (the seed spec).
+  const ctx = readCtx(dir);
+  const r = recordGateDecision({
+    root: dir,
+    context: ctx,
+    step: 'gate4',
+    gateKey: 'code_reviewed',
+    decision: 'approved',
+    reviewer: 'Ada Reviewer',
+    notes: null,
+    openedAt: '2026-10-10T10:00:00.000Z',
+    decidedAt: '2026-10-10T10:00:30.000Z',
+    bindings: {
+      code_reviewed: {
+        input_digest: gateDigest('code_reviewed', ctx, dir, 1),
+        inputs: gateInputs('code_reviewed', ctx, dir, 1),
+      },
+    },
+    brief: 'brief',
+  });
+  assert.equal(r.ok, true, r.message);
+  assert.match(read(dir, r.record), /^\| Binding version \| 1 \|$/m);
+  rmSync(join(dir, r.record.replace(/\.md$/, ''), 'tests/seed.spec.ts'));
+
+  put(`tests/${STORY}.spec.ts`, "test('edited [TC-001]', () => {});\n");
+  const reopened = readCtx(dir);
+  reopenGate(reopened, 'code_reviewed', {
+    reviewer: 'Ada',
+    reason: 'x',
+    root: dir,
+  });
+  writeFileSync(join(dir, 'context.json'), JSON.stringify(reopened, null, 2));
+  const now = readCtx(dir);
+  const plan = restorePlan('code_reviewed', now, dir);
+  // The seed spec existed at approval; v1 did not bind it, so it is neither
+  // restored nor called "added since".
+  assert.deepEqual(plan.cannot, []);
+  assert.deepEqual(
+    plan.restore.map((x) => x.path),
+    [`tests/${STORY}.spec.ts`]
+  );
+  restore(plan, now, dir);
+  assert.equal(
+    earlierApprovalOf('code_reviewed', readCtx(dir), dir)?.record,
+    r.record
   );
 });
 

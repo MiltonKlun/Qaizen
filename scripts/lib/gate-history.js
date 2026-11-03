@@ -21,14 +21,17 @@ import { tmpdir } from 'node:os';
 import { join, relative, resolve, sep } from 'node:path';
 
 import {
-  BINDING_VERSION,
   BOUND_GATES,
   bindingState,
   bindingVersionOf,
   gateFiles,
   gateInputs,
 } from './approval-binding.js';
-import { GATE_STEP, listGateRecords } from './gate-records.js';
+import {
+  GATE_STEP,
+  listGateRecords,
+  recordBindingVersion,
+} from './gate-records.js';
 import { GATE_KEYS } from '../pipeline-state.js';
 
 /** @typedef {import('./approval-binding.js').Context} Context */
@@ -309,12 +312,12 @@ export function gateDiff(gate, context, root = '.') {
   if (!record) return { record: null, entries: [] };
   const rootAbs = resolve(root);
   const recorded = context?.review_gates?.[gate]?.inputs ?? null;
-  // The approval's own scheme while it stands; once the gate is pending,
-  // the latest, whose file list includes every earlier scheme's files.
+  // The scheme the compared approval was bound under: the standing
+  // approval's own, or once the gate is pending, the record's.
   const value = context?.review_gates?.[gate];
   const version = value?.input_digest
     ? bindingVersionOf(value)
-    : BINDING_VERSION;
+    : recordBindingVersion(root, record.record);
   const now = gateInputs(gate, context, root, version);
   /** @type {DiffEntry[]} */
   const entries = [];

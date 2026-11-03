@@ -44,9 +44,10 @@
 // the runner's job; this only answers "what is the digest now?" and "which
 // approvals no longer match?".
 
+import { isUtf8 } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { basename, isAbsolute, join, normalize } from 'node:path';
+import { isAbsolute, join, normalize } from 'node:path';
 
 import { importClosure } from './import-closure.js';
 
@@ -326,16 +327,25 @@ function textDigest(buf) {
 
 /**
  * A file's digest, or null when it does not exist. JSON is canonicalized.
+ * `exact` hashes a file that is not UTF-8 text (an image, a snapshot
+ * baseline) byte for byte: decoding it as text would map different invalid
+ * bytes to the same character, so a changed binary could keep its digest.
  * @param {string} root
  * @param {string | undefined | null} rel
- * @param {{ json?: boolean, strip?: ((parsed: any) => unknown) | null }} [opts]
+ * @param {{ json?: boolean, strip?: ((parsed: any) => unknown) | null,
+ *   exact?: boolean }} [opts]
  * @returns {string | null}
  */
-function fileDigest(root, rel, { json = false, strip = null } = {}) {
+function fileDigest(
+  root,
+  rel,
+  { json = false, strip = null, exact = false } = {}
+) {
   if (!rel) return null;
   const abs = join(root, rel);
   if (!existsSync(abs) || !statSync(abs).isFile()) return null;
   const buf = readFileSync(abs);
+  if (exact && !isUtf8(buf)) return sha256(buf);
   if (!json) return textDigest(buf);
   try {
     const parsed = JSON.parse(buf.toString('utf8'));
@@ -387,53 +397,93 @@ function walk(root, rel) {
 
 const CODE_FILE = /\.(?:[cm]?[jt]s|tsx)$/;
 
+/** Repository-relative POSIX form of a path as written in artifact_paths. */
+const repoPath = (/** @type {string} */ p) =>
+  normalize(p).split('\\').join('/').replace(/^\.\//, '');
+
+/**
+ * Files under the testDir that are not part of the suite: anything in a
+ * hidden directory or hidden itself (`.auth/` storage state with session
+ * cookies, `.env*`, `.DS_Store`) and OS or editor leftovers. Binding them
+ * would copy secrets into gate records and let a run make Gate 4 stale by
+ * itself. Snapshot baselines are not excluded: they are expected values.
+ * @param {string} p repository-relative POSIX path
+ */
+function isSuiteFile(p) {
+  const parts = p.split('/');
+  if (parts.some((s) => s.startsWith('.'))) return false;
+  const name = parts[parts.length - 1];
+  return !/^(?:thumbs\.db|desktop\.ini)$/i.test(name) && !name.endsWith('~');
+}
+
 /**
  * The Playwright testDir as a repository-relative POSIX path, read from the
- * config's `testDir: '<literal>'`. Falls back to `tests` when the config is
- * missing, sets no literal testDir, or points outside the repository.
+ * config's first uncommented `testDir: '<literal>'`. Falls back to `tests`
+ * when the config is missing, sets no plain literal (a template with `${`),
+ * names a folder that does not exist, or points outside the repository.
  * @param {string} root
  * @returns {string}
  */
 export function playwrightTestDir(root) {
   const abs = join(root, 'playwright.config.ts');
-  const text = existsSync(abs) ? readFileSync(abs, 'utf8') : '';
+  const text = (existsSync(abs) ? readFileSync(abs, 'utf8') : '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
   const m = /\btestDir\s*:\s*(['"`])([^'"`]+)\1/.exec(text);
-  const dir = m
-    ? normalize(m[2]).split('\\').join('/').replace(/\/+$/, '')
-    : 'tests';
-  if (!dir || dir === '.' || dir.startsWith('..') || isAbsolute(dir))
+  if (!m || m[2].includes('${')) return 'tests';
+  const dir = repoPath(m[2]).replace(/\/+$/, '');
+  if (
+    !dir ||
+    dir === '.' ||
+    dir.startsWith('..') ||
+    isAbsolute(dir) ||
+    !existsSync(join(root, dir))
+  )
     return 'tests';
   return dir;
 }
 
+/** Inputs Gate 4 digests under their own key, never again by path. */
+const OWN_KEYED = [
+  'playwright.config.ts',
+  'tsconfig.json',
+  'package.json',
+  'package-lock.json',
+];
+
 /**
- * The code Gate 4 binds by path under v2, besides the generated test and the
- * config (which keep their own inputs): every file under the testDir and
- * tests/fixtures, tests/fixtures.ts, and what those files, the generated
- * test and the config import relatively. Environment files are never bound.
+ * The code Gate 4 binds by path under v2, besides the inputs it keys on
+ * their own (the generated test, the config, tsconfig.json, package.json,
+ * the lockfile): every suite file under the testDir and tests/fixtures,
+ * tests/fixtures.ts, and what those files, the generated test and the config
+ * import relatively. `problems` names imports that could not be bound (they
+ * leave the repository, are environment files, or do not resolve).
  * @param {string} root
  * @param {string | undefined} generatedTest
- * @returns {string[]}
+ * @returns {{ files: string[], problems: string[] }}
  */
-function boundCodeFiles(root, generatedTest) {
+export function codeClosure(root, generatedTest) {
+  const gen = generatedTest ? repoPath(generatedTest) : null;
   const listed = [
     ...walk(root, playwrightTestDir(root)),
     ...walk(root, 'tests/fixtures'),
     ...(existsSync(join(root, 'tests/fixtures.ts'))
       ? ['tests/fixtures.ts']
       : []),
-  ];
+  ].filter(isSuiteFile);
   const entries = [
-    ...(generatedTest ? [generatedTest] : []),
+    ...(gen ? [gen] : []),
     ...(existsSync(join(root, 'playwright.config.ts'))
       ? ['playwright.config.ts']
       : []),
     ...listed.filter((p) => CODE_FILE.test(p)),
   ].filter((p) => existsSync(join(root, p)));
-  const own = new Set([generatedTest, 'playwright.config.ts']);
-  return [...new Set([...listed, ...importClosure(root, entries).files])]
-    .filter((p) => !own.has(p) && !/^\.env/.test(basename(p)))
+  const closure = importClosure(root, entries);
+  const own = new Set([gen, ...OWN_KEYED]);
+  const files = [...new Set([...listed, ...closure.files])]
+    .filter((p) => !own.has(p) && isSuiteFile(p))
     .sort();
+  return { files, problems: closure.problems };
 }
 
 /**
@@ -491,7 +541,8 @@ export function gateInputs(
         'gate:requirements_reviewed': gateDigest(
           'requirements_reviewed',
           context,
-          root
+          root,
+          version
         ),
         ...scope(),
       };
@@ -507,7 +558,8 @@ export function gateInputs(
         'gate:test_scope_reviewed': gateDigest(
           'test_scope_reviewed',
           context,
-          root
+          root,
+          version
         ),
         playwright_spec: fileDigest(root, paths.playwright_spec),
         prompt_versions: sha256(canonicalJson(versions)),
@@ -516,7 +568,12 @@ export function gateInputs(
     case 'code_reviewed': {
       /** @type {Record<string, string | null>} */
       const inputs = {
-        'gate:specs_reviewed': gateDigest('specs_reviewed', context, root),
+        'gate:specs_reviewed': gateDigest(
+          'specs_reviewed',
+          context,
+          root,
+          version
+        ),
         generated_test: fileDigest(root, paths.generated_test),
         'playwright.config.ts': fileDigest(root, 'playwright.config.ts'),
         'package-lock.json': fileDigest(root, 'package-lock.json', {
@@ -533,8 +590,8 @@ export function gateInputs(
       inputs['package.json'] = fileDigest(root, 'package.json', {
         json: true,
       });
-      for (const f of boundCodeFiles(root, paths.generated_test)) {
-        inputs[f] = fileDigest(root, f);
+      for (const f of codeClosure(root, paths.generated_test).files) {
+        inputs[f] = fileDigest(root, f, { exact: true });
       }
       return inputs;
     }
@@ -544,7 +601,8 @@ export function gateInputs(
         'gate:test_scope_reviewed': gateDigest(
           'test_scope_reviewed',
           context,
-          root
+          root,
+          version
         ),
         api_requests: jsonFileView(root, api.collection, collectionRequests),
         api_environment: jsonFileView(root, api.environment, environmentShape),
@@ -557,7 +615,8 @@ export function gateInputs(
         'gate:collection_reviewed': gateDigest(
           'collection_reviewed',
           context,
-          root
+          root,
+          version
         ),
         api_assertions: jsonFileView(
           root,
@@ -575,7 +634,8 @@ export function gateInputs(
         'gate:test_scope_reviewed': gateDigest(
           'test_scope_reviewed',
           context,
-          root
+          root,
+          version
         ),
         external_plan: fileDigest(root, externalPaths(context).plan, {
           json: true,
@@ -587,7 +647,8 @@ export function gateInputs(
         'gate:external_plan_reviewed': gateDigest(
           'external_plan_reviewed',
           context,
-          root
+          root,
+          version
         ),
         external_results: fileDigest(root, ext.results, { json: true }),
         ...evidenceDigests(root, ext.results),
@@ -651,7 +712,7 @@ export function gateFiles(
         ...f('package-lock.json', 'package-lock.json', false),
         ...(version < 2
           ? walk(root, 'tests/fixtures').sort()
-          : boundCodeFiles(root, paths.generated_test)
+          : codeClosure(root, paths.generated_test).files
         ).flatMap((p) => f(p, p)),
         ...(version < 2
           ? []
@@ -744,6 +805,17 @@ export function bindingState(gate, context, root = '.') {
   if (!passed(value)) return { state: 'pending' };
   if (value === true || !value.input_digest) return { state: 'legacy' };
   const version = bindingVersionOf(value);
+  if (version > BINDING_VERSION) {
+    // Recorded by a newer checkout: its inputs cannot be recomputed here,
+    // so the approval cannot be shown to still hold.
+    return {
+      state: 'stale',
+      changed: [
+        `binding_version ${version} (this checkout knows up to ${BINDING_VERSION})`,
+      ],
+      current_digest: gateDigest(gate, context, root),
+    };
+  }
   const current = gateDigest(gate, context, root, version);
   if (current === value.input_digest) return { state: 'current' };
   const now = gateInputs(gate, context, root, version);

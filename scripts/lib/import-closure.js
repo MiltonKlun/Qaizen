@@ -8,7 +8,7 @@
 // Only relative specifiers are followed. Package imports resolve through
 // package.json and the lockfile, which callers bind on their own.
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import {
   basename,
   dirname,
@@ -100,10 +100,13 @@ export function importClosure(root, entries) {
   const queue = entries.map((e) => resolve(rootAbs, e));
   /** @type {string[]} */
   const problems = [];
+  const realRoot = existsSync(rootAbs) ? realpathSync(rootAbs) : rootAbs;
+  const outside = (/** @type {string} */ r) =>
+    r.startsWith('..') || isAbsolute(r);
   for (let abs = queue.shift(); abs !== undefined; abs = queue.shift()) {
-    const rel = relative(rootAbs, abs);
-    if (rel.startsWith('..') || isAbsolute(rel)) {
-      problems.push(`${abs} is outside the repository`);
+    const rel = posix(relative(rootAbs, abs));
+    if (outside(rel)) {
+      problems.push(`${posix(abs)} is outside the repository`);
       continue;
     }
     if (/^\.env/.test(basename(abs))) {
@@ -114,7 +117,12 @@ export function importClosure(root, entries) {
     }
     if (wanted.has(rel)) continue;
     if (!existsSync(abs) || isDirectory(abs)) {
-      problems.push(`${posix(rel)} does not exist`);
+      problems.push(`${rel} does not exist`);
+      continue;
+    }
+    // A link inside the repository may still point out of it.
+    if (outside(relative(realRoot, realpathSync(abs)))) {
+      problems.push(`${rel} links outside the repository`);
       continue;
     }
     wanted.add(rel);
@@ -124,5 +132,5 @@ export function importClosure(root, entries) {
       else problems.push(`${rel} imports ${spec}, which cannot be resolved`);
     }
   }
-  return { files: [...wanted].map(posix), problems };
+  return { files: [...wanted], problems };
 }

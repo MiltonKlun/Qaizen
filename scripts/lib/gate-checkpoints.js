@@ -30,7 +30,7 @@ import {
   gateDigest,
 } from './approval-binding.js';
 import { gateDiff } from './gate-history.js';
-import { listGateRecords } from './gate-records.js';
+import { listGateRecords, recordBindingVersion } from './gate-records.js';
 import { gatePassed } from '../pipeline-state.js';
 
 /** @typedef {import('./approval-binding.js').Context} Context */
@@ -173,21 +173,28 @@ export function applyRestore(plan, context, root = '.') {
  * The approval a gate's inputs match exactly, when an earlier gate record
  * shows one: the brief says so, so re-approving restored files is a quick,
  * informed decision. Read from the record's header table.
+ * Each record is compared with the gate's digest now under the binding
+ * scheme that record was computed with.
  * @param {string} gate a gate key
- * @param {string} digest the gate's digest now
+ * @param {Context} context
  * @param {string} [root]
  * @returns {{ record: string, reviewer: string, decided: string } | null}
  */
-export function earlierApprovalOf(gate, digest, root = '.') {
+export function earlierApprovalOf(gate, context, root = '.') {
   const records = listGateRecords(root)
     .filter((r) => r.gate === gate && r.decision === 'approved')
     .reverse();
+  /** @type {Map<number, string>} */
+  const now = new Map();
   for (const r of records) {
     const path = join(root, r.record);
     if (!existsSync(path)) continue;
     const md = readFileSync(path, 'utf8');
     const d = /\| Approval digest \| `([0-9a-f]{64})` \|/.exec(md)?.[1];
-    if (d !== digest) continue;
+    const version = recordBindingVersion(root, r.record);
+    if (!now.has(version))
+      now.set(version, gateDigest(gate, context, root, version));
+    if (d !== now.get(version)) continue;
     return {
       record: r.record,
       reviewer: /\| Reviewer \| (.*?) \|/.exec(md)?.[1] ?? '(unknown)',

@@ -162,7 +162,11 @@ export function writeCompletedRun(dir, opts = {}, overrides = {}) {
     writeFileSync(join(dir, p), c);
   };
   for (const [p, c] of Object.entries(files)) {
-    if (c !== null) write(p, typeof c === 'string' ? c : JSON.stringify(c));
+    if (c !== null)
+      write(
+        p,
+        typeof c === 'string' || Buffer.isBuffer(c) ? c : JSON.stringify(c)
+      );
   }
   // Every approved gate is BOUND to what now exists, exactly
   // as the runner records it at a human decision. An unbound approval is a

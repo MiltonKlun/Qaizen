@@ -306,7 +306,19 @@ scheme widened keeps verifying instead of going stale on upgrade. Version 1
 (no `binding_version` recorded) bound Gate 4 to the generated test,
 `tests/fixtures/`, `playwright.config.ts` and `package-lock.json` only;
 version 2 is the row above. Every other gate binds the same inputs under both.
-Environment files (`.env*`) are never bound or copied.
+The gate record names the version too (`Binding version` in its header), so
+`--diff` and `--restore` compare a pending gate with what that approval
+actually bound.
+
+Gate 4's brief lists every file the approval covers beyond the reviewed
+artifacts, and any import it could not bind (one that leaves the repository,
+is an environment file, or does not resolve). Under the testDir, hidden files
+and folders are never bound or copied: Playwright storage state in `.auth/`
+holds session cookies, and `.env*`, `.DS_Store`, `Thumbs.db` and editor
+backups are not part of the suite. Snapshot baselines are bound, byte for
+byte: they are expected values (`CLAUDE.md` §3.6). A run that writes a
+missing baseline therefore returns Gate 4 to pending, and the new baseline is
+reviewed like any other change before the run goes on.
 
 On every `--resume`, an approval whose inputs changed — or a legacy approval
 recorded before binding existed — returns to **pending**, together with every
