@@ -14,8 +14,12 @@
 //                                    + planner brief
 //   Gate 3 (specs_reviewed)        = Gate-2 digest + spec + planner/generator
 //                                    prompt versions
-//   Gate 4 (code_reviewed)         = Gate-3 digest + generated test + fixtures
-//                                    + Playwright config + dependency lock
+//   Gate 4 (code_reviewed)         = Gate-3 digest + generated test + every
+//                                    file under the Playwright testDir and
+//                                    tests/fixtures, tests/fixtures.ts, what
+//                                    they import relatively (page objects,
+//                                    helpers) + Playwright config +
+//                                    tsconfig.json + package.json + lockfile
 //   qa_scope_approved (lite)       = the union of Gate-1 and Gate-2 inputs
 //   external_plan_reviewed         = Gate-2 digest + external plan
 //   external_evidence_reviewed     = external-plan digest + imported results
@@ -26,13 +30,29 @@
 // timestamps, or integration ids written back by adapters (a Jira id added
 // to a test case is not a change to what was approved).
 //
+// Binding scheme versions. An approval records the version it was bound
+// under (`binding_version`; absent = 1) and is always checked against that
+// version's inputs, so a run approved before a scheme change keeps verifying.
+//   v1  Gate 4 = Gate-3 digest + generated test + tests/fixtures/** +
+//       playwright.config.ts + package-lock.json
+//   v2  Gate 4 as above, plus everything else under the testDir (the seed
+//       spec among it), tests/fixtures.ts, the relative-import closure of
+//       those files and the config, tsconfig.json and package.json
+// Every other gate has the same inputs under both versions.
+//
 // Pure computation over files and context. Recording and invalidating are
 // the runner's job; this only answers "what is the digest now?" and "which
 // approvals no longer match?".
 
+import { isUtf8 } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join, normalize } from 'node:path';
+
+import { importClosure } from './import-closure.js';
+
+/** The binding scheme new approvals are recorded under. */
+export const BINDING_VERSION = 2;
 
 /** Gates that are bound, in pipeline order. */
 export const BOUND_GATES = [
@@ -307,16 +327,25 @@ function textDigest(buf) {
 
 /**
  * A file's digest, or null when it does not exist. JSON is canonicalized.
+ * `exact` hashes a file that is not UTF-8 text (an image, a snapshot
+ * baseline) byte for byte: decoding it as text would map different invalid
+ * bytes to the same character, so a changed binary could keep its digest.
  * @param {string} root
  * @param {string | undefined | null} rel
- * @param {{ json?: boolean, strip?: ((parsed: any) => unknown) | null }} [opts]
+ * @param {{ json?: boolean, strip?: ((parsed: any) => unknown) | null,
+ *   exact?: boolean }} [opts]
  * @returns {string | null}
  */
-function fileDigest(root, rel, { json = false, strip = null } = {}) {
+function fileDigest(
+  root,
+  rel,
+  { json = false, strip = null, exact = false } = {}
+) {
   if (!rel) return null;
   const abs = join(root, rel);
   if (!existsSync(abs) || !statSync(abs).isFile()) return null;
   const buf = readFileSync(abs);
+  if (exact && !isUtf8(buf)) return sha256(buf);
   if (!json) return textDigest(buf);
   try {
     const parsed = JSON.parse(buf.toString('utf8'));
@@ -366,14 +395,124 @@ function walk(root, rel) {
   return out;
 }
 
+const CODE_FILE = /\.(?:[cm]?[jt]s|tsx)$/;
+
+/** Repository-relative POSIX form of a path as written in artifact_paths. */
+const repoPath = (/** @type {string} */ p) =>
+  normalize(p).split('\\').join('/').replace(/^\.\//, '');
+
+/**
+ * Files under the testDir that are not part of the suite: anything in a
+ * hidden directory or hidden itself (`.auth/` storage state with session
+ * cookies, `.env*`, `.DS_Store`) and OS or editor leftovers. Binding them
+ * would copy secrets into gate records and let a run make Gate 4 stale by
+ * itself. Snapshot baselines are not excluded: they are expected values.
+ * @param {string} p repository-relative POSIX path
+ */
+function isSuiteFile(p) {
+  const parts = p.split('/');
+  if (parts.some((s) => s.startsWith('.'))) return false;
+  const name = parts[parts.length - 1];
+  return !/^(?:thumbs\.db|desktop\.ini)$/i.test(name) && !name.endsWith('~');
+}
+
+/**
+ * The Playwright testDir as a repository-relative POSIX path, read from the
+ * config's first uncommented `testDir: '<literal>'`. Falls back to `tests`
+ * when the config is missing, sets no plain literal (a template with `${`),
+ * names a folder that does not exist, or points outside the repository.
+ * @param {string} root
+ * @returns {string}
+ */
+export function playwrightTestDir(root) {
+  const abs = join(root, 'playwright.config.ts');
+  const text = (existsSync(abs) ? readFileSync(abs, 'utf8') : '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+  const m = /\btestDir\s*:\s*(['"`])([^'"`]+)\1/.exec(text);
+  if (!m || m[2].includes('${')) return 'tests';
+  const dir = repoPath(m[2]).replace(/\/+$/, '');
+  if (
+    !dir ||
+    dir === '.' ||
+    dir.startsWith('..') ||
+    isAbsolute(dir) ||
+    !existsSync(join(root, dir))
+  )
+    return 'tests';
+  return dir;
+}
+
+/** Inputs Gate 4 digests under their own key, never again by path. */
+const OWN_KEYED = [
+  'playwright.config.ts',
+  'tsconfig.json',
+  'package.json',
+  'package-lock.json',
+];
+
+/**
+ * The code Gate 4 binds by path under v2, besides the inputs it keys on
+ * their own (the generated test, the config, tsconfig.json, package.json,
+ * the lockfile): every suite file under the testDir and tests/fixtures,
+ * tests/fixtures.ts, and what those files, the generated test and the config
+ * import relatively. `problems` names imports that could not be bound (they
+ * leave the repository, are environment files, or do not resolve).
+ * @param {string} root
+ * @param {string | undefined} generatedTest
+ * @returns {{ files: string[], problems: string[] }}
+ */
+export function codeClosure(root, generatedTest) {
+  const gen = generatedTest ? repoPath(generatedTest) : null;
+  const listed = [
+    ...walk(root, playwrightTestDir(root)),
+    ...walk(root, 'tests/fixtures'),
+    ...(existsSync(join(root, 'tests/fixtures.ts'))
+      ? ['tests/fixtures.ts']
+      : []),
+  ].filter(isSuiteFile);
+  const entries = [
+    ...(gen ? [gen] : []),
+    ...(existsSync(join(root, 'playwright.config.ts'))
+      ? ['playwright.config.ts']
+      : []),
+    ...listed.filter((p) => CODE_FILE.test(p)),
+  ].filter((p) => existsSync(join(root, p)));
+  const closure = importClosure(root, entries);
+  const own = new Set([gen, ...OWN_KEYED]);
+  const files = [...new Set([...listed, ...closure.files])]
+    .filter((p) => !own.has(p) && isSuiteFile(p))
+    .sort();
+  return { files, problems: closure.problems };
+}
+
+/**
+ * The binding version an approval was recorded under (absent = 1).
+ * @param {unknown} value a review_gates entry
+ * @returns {number}
+ */
+export function bindingVersionOf(value) {
+  const v =
+    value && typeof value === 'object'
+      ? /** @type {any} */ (value).binding_version
+      : undefined;
+  return Number.isInteger(v) ? v : 1;
+}
+
 /**
  * The named inputs a gate reviews, each reduced to a digest (null = absent).
  * @param {string} gate
  * @param {Context} context
  * @param {string} [root]
+ * @param {number} [version] binding scheme (see the header)
  * @returns {Record<string, string|null>}
  */
-export function gateInputs(gate, context, root = '.') {
+export function gateInputs(
+  gate,
+  context,
+  root = '.',
+  version = BINDING_VERSION
+) {
   const paths = context?.artifact_paths ?? {};
   const g1 = () => ({
     story: fileDigest(root, context?.story?.path || 'story.md'),
@@ -402,7 +541,8 @@ export function gateInputs(gate, context, root = '.') {
         'gate:requirements_reviewed': gateDigest(
           'requirements_reviewed',
           context,
-          root
+          root,
+          version
         ),
         ...scope(),
       };
@@ -418,7 +558,8 @@ export function gateInputs(gate, context, root = '.') {
         'gate:test_scope_reviewed': gateDigest(
           'test_scope_reviewed',
           context,
-          root
+          root,
+          version
         ),
         playwright_spec: fileDigest(root, paths.playwright_spec),
         prompt_versions: sha256(canonicalJson(versions)),
@@ -427,15 +568,30 @@ export function gateInputs(gate, context, root = '.') {
     case 'code_reviewed': {
       /** @type {Record<string, string | null>} */
       const inputs = {
-        'gate:specs_reviewed': gateDigest('specs_reviewed', context, root),
+        'gate:specs_reviewed': gateDigest(
+          'specs_reviewed',
+          context,
+          root,
+          version
+        ),
         generated_test: fileDigest(root, paths.generated_test),
         'playwright.config.ts': fileDigest(root, 'playwright.config.ts'),
         'package-lock.json': fileDigest(root, 'package-lock.json', {
           json: true,
         }),
       };
-      for (const f of walk(root, 'tests/fixtures').sort()) {
-        inputs[f] = fileDigest(root, f);
+      if (version < 2) {
+        for (const f of walk(root, 'tests/fixtures').sort()) {
+          inputs[f] = fileDigest(root, f);
+        }
+        return inputs;
+      }
+      inputs['tsconfig.json'] = fileDigest(root, 'tsconfig.json');
+      inputs['package.json'] = fileDigest(root, 'package.json', {
+        json: true,
+      });
+      for (const f of codeClosure(root, paths.generated_test).files) {
+        inputs[f] = fileDigest(root, f, { exact: true });
       }
       return inputs;
     }
@@ -445,7 +601,8 @@ export function gateInputs(gate, context, root = '.') {
         'gate:test_scope_reviewed': gateDigest(
           'test_scope_reviewed',
           context,
-          root
+          root,
+          version
         ),
         api_requests: jsonFileView(root, api.collection, collectionRequests),
         api_environment: jsonFileView(root, api.environment, environmentShape),
@@ -458,7 +615,8 @@ export function gateInputs(gate, context, root = '.') {
         'gate:collection_reviewed': gateDigest(
           'collection_reviewed',
           context,
-          root
+          root,
+          version
         ),
         api_assertions: jsonFileView(
           root,
@@ -476,7 +634,8 @@ export function gateInputs(gate, context, root = '.') {
         'gate:test_scope_reviewed': gateDigest(
           'test_scope_reviewed',
           context,
-          root
+          root,
+          version
         ),
         external_plan: fileDigest(root, externalPaths(context).plan, {
           json: true,
@@ -488,7 +647,8 @@ export function gateInputs(gate, context, root = '.') {
         'gate:external_plan_reviewed': gateDigest(
           'external_plan_reviewed',
           context,
-          root
+          root,
+          version
         ),
         external_results: fileDigest(root, ext.results, { json: true }),
         ...evidenceDigests(root, ext.results),
@@ -513,9 +673,15 @@ export function gateInputs(gate, context, root = '.') {
  * @param {string} gate
  * @param {Context} context
  * @param {string} [root]
+ * @param {number} [version] binding scheme (see the header)
  * @returns {GateFile[]}
  */
-export function gateFiles(gate, context, root = '.') {
+export function gateFiles(
+  gate,
+  context,
+  root = '.',
+  version = BINDING_VERSION
+) {
   const paths = context?.artifact_paths ?? {};
   /** @type {(input: string, path: string | undefined | null, copy?: boolean) => GateFile[]} */
   const f = (input, path, copy = true) => (path ? [{ input, path, copy }] : []);
@@ -544,9 +710,16 @@ export function gateFiles(gate, context, root = '.') {
         ...f('generated_test', paths.generated_test),
         ...f('playwright.config.ts', 'playwright.config.ts'),
         ...f('package-lock.json', 'package-lock.json', false),
-        ...walk(root, 'tests/fixtures')
-          .sort()
-          .flatMap((p) => f(p, p)),
+        ...(version < 2
+          ? walk(root, 'tests/fixtures').sort()
+          : codeClosure(root, paths.generated_test).files
+        ).flatMap((p) => f(p, p)),
+        ...(version < 2
+          ? []
+          : [
+              ...f('tsconfig.json', 'tsconfig.json', false),
+              ...f('package.json', 'package.json', false),
+            ]),
       ];
     case 'collection_reviewed': {
       const api = apiPaths(context);
@@ -583,10 +756,16 @@ export function gateFiles(gate, context, root = '.') {
  * @param {string} gate
  * @param {Context} context
  * @param {string} [root]
+ * @param {number} [version] binding scheme (see the header)
  * @returns {string}
  */
-export function gateDigest(gate, context, root = '.') {
-  const inputs = gateInputs(gate, context, root);
+export function gateDigest(
+  gate,
+  context,
+  root = '.',
+  version = BINDING_VERSION
+) {
+  const inputs = gateInputs(gate, context, root, version);
   return sha256(
     canonicalJson({
       gate,
@@ -605,6 +784,7 @@ export function gateDigest(gate, context, root = '.') {
  */
 export function bindingFor(gate, context, root = '.') {
   return {
+    binding_version: BINDING_VERSION,
     input_digest: gateDigest(gate, context, root),
     inputs: gateInputs(gate, context, root),
   };
@@ -624,9 +804,21 @@ export function bindingState(gate, context, root = '.') {
   const value = context?.review_gates?.[gate];
   if (!passed(value)) return { state: 'pending' };
   if (value === true || !value.input_digest) return { state: 'legacy' };
-  const current = gateDigest(gate, context, root);
+  const version = bindingVersionOf(value);
+  if (version > BINDING_VERSION) {
+    // Recorded by a newer checkout: its inputs cannot be recomputed here,
+    // so the approval cannot be shown to still hold.
+    return {
+      state: 'stale',
+      changed: [
+        `binding_version ${version} (this checkout knows up to ${BINDING_VERSION})`,
+      ],
+      current_digest: gateDigest(gate, context, root),
+    };
+  }
+  const current = gateDigest(gate, context, root, version);
   if (current === value.input_digest) return { state: 'current' };
-  const now = gateInputs(gate, context, root);
+  const now = gateInputs(gate, context, root, version);
   const was = value.inputs ?? {};
   const changed = [...new Set([...Object.keys(now), ...Object.keys(was)])]
     .filter((k) => now[k] !== was[k])
@@ -677,7 +869,7 @@ export function findInvalidations(context, root = '.') {
         reason: `depends on ${gate}, which is no longer approved`,
         approved_digest:
           typeof dv === 'object' ? (dv.input_digest ?? null) : null,
-        current_digest: gateDigest(d, context, root),
+        current_digest: gateDigest(d, context, root, bindingVersionOf(dv)),
         changed_inputs: [],
       });
     }

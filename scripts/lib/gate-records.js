@@ -124,6 +124,21 @@ export function listGateRecords(root = '.') {
   return out.sort((a, b) => a.number - b.number);
 }
 
+/**
+ * The binding scheme a gate record's approval was computed under, from its
+ * header table. A record written before the scheme was versioned has no such
+ * row and is version 1.
+ * @param {string} root
+ * @param {string} record repository-relative path of the record (.md)
+ * @returns {number}
+ */
+export function recordBindingVersion(root, record) {
+  const abs = join(root, record);
+  if (!existsSync(abs)) return 1;
+  const m = /^\| Binding version \| (\d+) \|$/m.exec(readFileSync(abs, 'utf8'));
+  return m ? Number(m[1]) : 1;
+}
+
 /** @param {string | null | undefined} from @param {string | null | undefined} to */
 function duration(from, to) {
   if (!from || !to) return null;
@@ -150,7 +165,8 @@ const short = (/** @type {string | null | undefined} */ d) =>
  *   notes: string | null,
  *   openedAt: string,
  *   decidedAt: string,
- *   binding: { input_digest: string, inputs: Record<string, string | null> },
+ *   binding: { binding_version?: number, input_digest: string,
+ *     inputs: Record<string, string | null> },
  *   captured: CapturedFile[],
  *   brief: string,
  *   scan?: string | null,
@@ -230,6 +246,7 @@ export function writeGateRecord({
     `| Opened | ${cell(openedAt)} |`,
     `| Decided | ${cell(decidedAt)}${took ? ` (${took})` : ''} |`,
     `| Approval digest | \`${binding.input_digest}\` |`,
+    `| Binding version | ${binding.binding_version ?? 1} |`,
     '',
   ];
   if (notes) {

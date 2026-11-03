@@ -9,9 +9,11 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 3.1.6
+version: 3.1.7
 changed_in_run: null
 changelog: |
+  - 3.1.7: PATCH (no output change). An approved gate's binding_version,
+    input_digest and inputs are written by the runner only.
   - 3.1.6: PATCH (no output change). execution_identity covers the Newman
     branch too; it is still written by the runner only.
   - 3.1.5: PATCH (no output change). Adds execution_identity to the
@@ -370,7 +372,10 @@ validate:context`). Fix and re-validate until the script exits 0.
   Postman collections — those belong to later agents.
 - Setting any `review_gates.*` flag to `true` on the agent's own
   initiative. Only the human approves a gate; the agent records the
-  approval (with audit fields) but does not decide it.
+  approval (with audit fields) but does not decide it. The binding fields
+  on an approval (`binding_version`, `input_digest`, `inputs`) are the
+  runner's, computed at the person's decision; the Analyst never writes
+  them.
 - Setting `status: "completed"`. The runner sets it once every gate has
   passed and every artifact of the run validates.
 - Writing `gate_decisions[]`, `gate_invalidations[]`,

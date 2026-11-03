@@ -85,6 +85,10 @@ kept.
 
 - `test/approval-binding.test.js`: "a changed expected value makes Gate 2 stale, and every later gate with it"
 - `test/approval-binding.test.js`: "a changed test or dependency lock makes Gate 4 stale only"
+- `test/approval-binding.test.js`: "Gate 4 binds page objects, the seed spec, fixtures.ts, tsconfig.json and package.json"
+- `test/approval-binding.test.js`: "an approval recorded under binding version 1 keeps verifying with the v1 inputs"
+- `test/approval-binding.test.js`: "runtime state, OS and editor files under the testDir are never bound"
+- `test/gate-checkpoints.test.js`: "a Gate 4 approved under binding version 1 is compared and restored under version 1"
 - `test/approval-binding.test.js`: "resume returns stale approvals to pending, records why, keeps the history"
 
 ## 9. A remote id added after the scope review

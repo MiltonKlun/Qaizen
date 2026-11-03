@@ -288,17 +288,37 @@ gate to pending rather than passing silently.
 At a human approval the runner records `input_digest` (and the per-input
 digests) on the gate:
 
-| Gate                     | Bound to                                                                                                |
-| ------------------------ | ------------------------------------------------------------------------------------------------------- |
-| Gate 1                   | the story file + the interpreted ACs, risks, ambiguities and `track`                                    |
-| Gate 2                   | Gate 1's digest + the test cases (semantic content) + the planner brief                                 |
-| Gate 3                   | Gate 2's digest + the spec + the planner/generator prompt versions                                      |
-| Gate 4                   | Gate 3's digest + the generated test + `tests/fixtures/` + `playwright.config.ts` + `package-lock.json` |
-| Gate 3'                  | Gate 2's digest + the collection's requests + the environment's keys + `docs/api-spec.yaml`             |
-| Gate 4'                  | Gate 3''s digest + the assertion scripts + `scripts/run-newman.js` + `package-lock.json`                |
-| External Gate 3          | Gate 2's digest + the external plan                                                                     |
-| External Gate 4          | External Gate 3's digest + the imported results + the current bytes of each evidence file               |
-| lite `qa_scope_approved` | the union of the Gate 1 and Gate 2 inputs                                                               |
+| Gate                     | Bound to                                                                                                                                                                                                                                                                                                              |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Gate 1                   | the story file + the interpreted ACs, risks, ambiguities and `track`                                                                                                                                                                                                                                                  |
+| Gate 2                   | Gate 1's digest + the test cases (semantic content) + the planner brief                                                                                                                                                                                                                                               |
+| Gate 3                   | Gate 2's digest + the spec + the planner/generator prompt versions                                                                                                                                                                                                                                                    |
+| Gate 4                   | Gate 3's digest + the generated test + every file under the Playwright `testDir` (the seed spec among them) and `tests/fixtures/` + `tests/fixtures.ts` + what those files and the config import relatively (page objects, helpers) + `playwright.config.ts` + `tsconfig.json` + `package.json` + `package-lock.json` |
+| Gate 3'                  | Gate 2's digest + the collection's requests + the environment's keys + `docs/api-spec.yaml`                                                                                                                                                                                                                           |
+| Gate 4'                  | Gate 3''s digest + the assertion scripts + `scripts/run-newman.js` + `package-lock.json`                                                                                                                                                                                                                              |
+| External Gate 3          | Gate 2's digest + the external plan                                                                                                                                                                                                                                                                                   |
+| External Gate 4          | External Gate 3's digest + the imported results + the current bytes of each evidence file                                                                                                                                                                                                                             |
+| lite `qa_scope_approved` | the union of the Gate 1 and Gate 2 inputs                                                                                                                                                                                                                                                                             |
+
+An approval also records the `binding_version` it was computed under. It is
+always checked against that version's inputs, so a run approved before the
+scheme widened keeps verifying instead of going stale on upgrade. Version 1
+(no `binding_version` recorded) bound Gate 4 to the generated test,
+`tests/fixtures/`, `playwright.config.ts` and `package-lock.json` only;
+version 2 is the row above. Every other gate binds the same inputs under both.
+The gate record names the version too (`Binding version` in its header), so
+`--diff` and `--restore` compare a pending gate with what that approval
+actually bound.
+
+Gate 4's brief lists every file the approval covers beyond the reviewed
+artifacts, and any import it could not bind (one that leaves the repository,
+is an environment file, or does not resolve). Under the testDir, hidden files
+and folders are never bound or copied: Playwright storage state in `.auth/`
+holds session cookies, and `.env*`, `.DS_Store`, `Thumbs.db` and editor
+backups are not part of the suite. Snapshot baselines are bound, byte for
+byte: they are expected values (`CLAUDE.md` §3.6). A run that writes a
+missing baseline therefore returns Gate 4 to pending, and the new baseline is
+reviewed like any other change before the run goes on.
 
 On every `--resume`, an approval whose inputs changed — or a legacy approval
 recorded before binding existed — returns to **pending**, together with every

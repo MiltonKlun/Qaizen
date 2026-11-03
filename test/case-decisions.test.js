@@ -108,6 +108,24 @@ test("the brief lists the gate's own automatic checks", () => {
   );
 });
 
+test('the Gate 4 brief names every other file its approval covers, and what it could not bind', () => {
+  const brief = renderGateBrief({
+    step: 'gate4',
+    context: { story: { id: 'S-1' } },
+    artifacts: [{ path: 'tests/S-1.spec.ts', exists: true, valid: null }],
+    covered: ['pages/cart.ts', 'tests/seed.spec.ts', 'tsconfig.json'],
+    unbound: ['tests/S-1.spec.ts imports ./missing, which cannot be resolved'],
+  });
+  assert.match(
+    brief,
+    /Also covered by this approval \(a change to any returns the gate to pending\):\n {2}- pages\/cart\.ts\n {2}- tests\/seed\.spec\.ts\n {2}- tsconfig\.json\n {2}! not bound: tests\/S-1\.spec\.ts imports \.\/missing, which cannot be resolved\n/
+  );
+  assert.doesNotMatch(
+    renderGateBrief({ step: 'gate1', context: null, artifacts: [] }),
+    /Also covered/
+  );
+});
+
 const cases = () => ({
   test_cases: [
     {
