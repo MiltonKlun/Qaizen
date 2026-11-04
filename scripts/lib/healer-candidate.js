@@ -166,28 +166,42 @@ export function resolveTarget({
 // ---------------------------------------------------------------- attempts
 
 /**
- * One used attempt, from context.json, a record file, or both.
+ * One used attempt, from context.json, a record file, or both. `evidence`
+ * says how far its record backs it: intact (the record exists, matches the
+ * digest in context.json and agrees with the entry), record_only (no context
+ * entry yet), missing, changed (the bytes differ from the recorded digest) or
+ * disagrees (the bytes match but the entry says something else).
  * @typedef {{ attempt: number, candidate_sha256: string, outcome: string,
- *   reason: string, file: string }} Attempt
+ *   reason: string, file: string,
+ *   evidence: 'intact' | 'record_only' | 'missing' | 'changed' | 'disagrees',
+ *   record: any }} Attempt
+ */
+
+/**
+ * A record file that has no context entry yet, with what an entry needs.
+ * @typedef {{ record: any, path: string, sha256: string }} RecordOnly
  */
 
 /**
  * Every attempt already used for this failure's unit. Two stores count: the
  * entries in context.json `healer_attempts[]` (archived with the run) and the
  * record files in analysis/healer-validation/. An attempt in either one is
- * used, so deleting the record files, or editing the context alone, gives
- * nothing back. Where both have an attempt, the context entry is what counts,
- * and a record that no longer matches it is reported.
+ * used. Where both have an attempt, the context entry is what counts, and a
+ * record that no longer backs it is reported. A record with no entry is
+ * returned in `recordOnly`, so the caller can add it to context.json before
+ * it uses another attempt.
  * @param {string} root
  * @param {{ runId: string, originalDigest: string, unitId: string }} key
  * @param {any} context the run's parsed context.json
- * @returns {{ attempts: Attempt[], problems: string[] }} attempts by number
+ * @returns {{ attempts: Attempt[], problems: string[], recordOnly: RecordOnly[] }}
  */
 export function readAttempts(root, key, context) {
-  /** @type {Map<number, Attempt & { record_sha256?: string }>} */
+  /** @type {Map<number, Attempt & { record_sha256?: string, failure_id?: string }>} */
   const byNumber = new Map();
   /** @type {string[]} */
   const problems = [];
+  /** @type {RecordOnly[]} */
+  const recordOnly = [];
   const entries = Array.isArray(context?.healer_attempts)
     ? context.healer_attempts
     : [];
@@ -196,10 +210,15 @@ export function readAttempts(root, key, context) {
       e?.run_id !== key.runId ||
       e.original_sha256 !== key.originalDigest ||
       e.unit_id !== key.unitId ||
-      !Number.isInteger(e.attempt) ||
-      byNumber.has(e.attempt)
+      !Number.isInteger(e.attempt)
     )
       continue;
+    if (byNumber.has(e.attempt)) {
+      problems.push(
+        `context.json healer_attempts[] has attempt ${e.attempt} more than once; the first counts`
+      );
+      continue;
+    }
     byNumber.set(e.attempt, {
       attempt: e.attempt,
       candidate_sha256: e.candidate_sha256,
@@ -207,14 +226,16 @@ export function readAttempts(root, key, context) {
       reason: e.reason,
       file: e.record?.path ?? '(no record named)',
       record_sha256: e.record?.sha256,
+      failure_id: e.failure_id,
+      evidence: 'missing',
+      record: null,
     });
   }
 
   const dir = join(root, VALIDATION_DIR);
-  /** @type {Set<number>} */
-  const seen = new Set();
-  for (const name of existsSync(dir) ? readdirSync(dir) : []) {
-    if (!/\.attempt-\d+\.json$/.test(name)) continue;
+  for (const name of existsSync(dir) ? readdirSync(dir).sort() : []) {
+    const named = /\.attempt-(\d+)\.json$/.exec(name);
+    if (!named) continue;
     const file = posix(join(VALIDATION_DIR, name));
     let bytes;
     let r;
@@ -234,10 +255,14 @@ export function readAttempts(root, key, context) {
       !Number.isInteger(r.attempt)
     )
       continue;
+    if (Number(named[1]) !== r.attempt)
+      problems.push(
+        `${file} says it is attempt ${r.attempt}; it counts as attempt ${r.attempt}`
+      );
     const entry = byNumber.get(r.attempt);
     if (!entry) {
       problems.push(
-        `attempt ${r.attempt} is in ${file} but not in context.json healer_attempts[]; it still counts`
+        `attempt ${r.attempt} is in ${file} but not in context.json healer_attempts[]`
       );
       byNumber.set(r.attempt, {
         attempt: r.attempt,
@@ -245,19 +270,40 @@ export function readAttempts(root, key, context) {
         outcome: r.outcome,
         reason: r.reason,
         file,
+        evidence: 'record_only',
+        record: r,
       });
-    } else if (entry.file === file) {
-      seen.add(r.attempt);
-      if (entry.record_sha256 !== sha256(bytes))
+      recordOnly.push({ record: r, path: file, sha256: sha256(bytes) });
+    } else if (entry.file !== file) {
+      problems.push(
+        `${file} also claims attempt ${r.attempt}, which context.json gives to ${entry.file}`
+      );
+    } else if (entry.record_sha256 !== sha256(bytes)) {
+      entry.evidence = 'changed';
+      problems.push(
+        `${file} changed after attempt ${r.attempt} was recorded; context.json is what counts`
+      );
+    } else {
+      /** @type {[string, unknown, unknown][]} */
+      const fields = [
+        ['candidate', r.candidate?.sha256, entry.candidate_sha256],
+        ['outcome', r.outcome, entry.outcome],
+        ['failure', r.failure_id, entry.failure_id],
+      ];
+      const differs = fields.filter(([, a, b]) => a !== b);
+      entry.record = r;
+      if (differs.length) {
+        entry.evidence = 'disagrees';
         problems.push(
-          `${file} changed after attempt ${r.attempt} was recorded; context.json is what counts`
+          `context.json disagrees with ${file} on attempt ${r.attempt} (${differs.map(([k]) => k).join(', ')})`
         );
+      } else entry.evidence = 'intact';
     }
   }
   /** @type {Attempt[]} */
   const attempts = [];
   for (const a of byNumber.values()) {
-    if (a.record_sha256 !== undefined && !seen.has(a.attempt))
+    if (a.evidence === 'missing')
       problems.push(
         `the record of attempt ${a.attempt} (${a.file}) is missing; the attempt still counts`
       );
@@ -267,10 +313,59 @@ export function readAttempts(root, key, context) {
       outcome: a.outcome,
       reason: a.reason,
       file: a.file,
+      evidence: a.evidence,
+      record: a.record,
     });
   }
   attempts.sort((a, b) => a.attempt - b.attempt);
-  return { attempts, problems };
+  return { attempts, problems, recordOnly };
+}
+
+/**
+ * The context.json entry for a saved healer-validation record.
+ * @param {any} record a schema-valid healer-validation record
+ * @param {string} path the record file, repository-relative
+ * @param {string} digest SHA-256 of the record file's bytes
+ */
+export function attemptEntry(record, path, digest) {
+  return {
+    run_id: record.run_id,
+    failure_id: record.failure_id,
+    unit_id: record.unit.unit_id,
+    original_sha256: record.original.sha256,
+    candidate_sha256: record.candidate.sha256,
+    attempt: record.attempt,
+    outcome: record.outcome,
+    reason: record.reason,
+    record: { path: posix(path), sha256: digest },
+    recorded_at: record.created_at,
+  };
+}
+
+/**
+ * Keep the healer attempts another process wrote to context.json since this
+ * copy was read. The runner holds context.json in memory across prompts; run
+ * in another terminal, the Healer may add an attempt meanwhile, and writing
+ * the older copy back would drop it. Mutates and returns `context`.
+ * @param {any} context the copy about to be written
+ * @param {any} onDisk the current context.json, parsed (or null)
+ */
+export function keepHealerAttempts(context, onDisk) {
+  const theirs = Array.isArray(onDisk?.healer_attempts)
+    ? onDisk.healer_attempts
+    : [];
+  if (!theirs.length || onDisk?.run_id !== context?.run_id) return context;
+  if (!Array.isArray(context.healer_attempts)) context.healer_attempts = [];
+  const id = (/** @type {any} */ e) =>
+    JSON.stringify([e?.run_id, e?.unit_id, e?.original_sha256, e?.attempt]);
+  const have = new Set(context.healer_attempts.map(id));
+  for (const e of theirs) {
+    if (!have.has(id(e))) {
+      context.healer_attempts.push(e);
+      have.add(id(e));
+    }
+  }
+  return context;
 }
 
 // ---------------------------------------------------------------- workspace

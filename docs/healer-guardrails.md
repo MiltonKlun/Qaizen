@@ -223,16 +223,25 @@ Every submission with `--apply` is recorded in
 (`schemas/healer-validation.schema.json`) as `rejected_static`,
 `validation_failed` or `validated`, with digests, the commands and their
 results. At most **three** submissions per run, original source and test;
-resubmitting an identical candidate reuses its outcome. Each submission is
-also added to `context.json` `healer_attempts[]` with its record file's
-SHA-256, so the cap travels with the run. Both are counted: an attempt in
-either one is used, so deleting `analysis/healer-validation/` gives nothing
-back. Where both have it, the context entry counts, and a record file that
-changed since, is missing, or is not in the context is reported. Only
-editing both stores together can reset the cap; like the gate trail,
-`context.json` is not tamper-proof.
+resubmitting an identical candidate reuses its outcome.
 
-- Never modifies the live test or the main working tree.
+The cap travels with the run: each submission is also added to
+`context.json` `healer_attempts[]` with its record file's SHA-256, and
+`--apply` refuses to start when `context.json` does not validate. An attempt
+in either store is used. A record file with no context entry (one written
+before the context kept attempts) is added to the context on the next
+`--apply`, before another attempt is used, so once recorded, deleting
+`analysis/healer-validation/` gives nothing back. Where both stores have an
+attempt, the context entry counts; a record that is missing, changed since,
+disagrees with its entry, or claims an attempt number the context gives to
+another file is reported. An identical resubmission of a `validated`
+candidate exits 0 only while its record backs it and its patch is present
+with the recorded digest. The runner keeps attempts added while it waited at
+a prompt. Only editing both stores together can reset the cap; like the gate
+trail, `context.json` is not tamper-proof.
+
+- Never modifies the live test. It writes only its records, its patches and
+  `context.json` `healer_attempts[]`.
 - Never commits, never merges, never approves: a validated patch still
   needs human review before a human applies it.
 - The workspace is a filesystem separation, not a security sandbox: the
@@ -342,8 +351,9 @@ again.
 
 - **Maximum 3 fix attempts per test.** Counted from `context.json`
   `healer_attempts[]` and the record files together (§2). After 3
-  attempts on the same test, the Healer stops and marks the failure
-  `unknown_needs_human_review`. Grinding past 3 attempts has
+  attempts on the same test, the Healer refuses further candidates and
+  writes `FAIL-XXX.exhausted.md`: a human fixes the test, or it becomes a
+  Yellow or Red decision. Grinding past 3 attempts has
   historically not produced better fixes — only more questionable ones.
 - **Never change an expected value.** If the test expects
   `total === 42` and the app returns `40`, the Healer never edits the

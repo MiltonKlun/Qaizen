@@ -119,8 +119,10 @@ const DEMO_RUN_SENTINEL = 'DEMO_RUN';
 import {
   writeJsonAtomic,
   formatErrors,
+  readJson,
   readValidatedJson,
 } from './lib/artifact-io.js';
+import { keepHealerAttempts } from './lib/healer-candidate.js';
 import { playwrightCli } from './lib/cli.js';
 import { approvedScopeDigest, externalSource } from './lib/execution-ledger.js';
 import {
@@ -270,6 +272,10 @@ function writeContext(context) {
   // implementation behind scripts/validate-json.js (CLAUDE.md §3.3). The old
   // path overwrote context.json first and validated second, so a rejected
   // update was already on disk.
+  // The Healer may have added attempts in another terminal while this copy
+  // waited at a prompt; writing it back must not drop them.
+  const onDisk = readJson(CONTEXT_PATH);
+  keepHealerAttempts(context, onDisk.ok ? onDisk.data : null);
   const r = writeJsonAtomic(CONTEXT_PATH, context, {
     schemaPath: CONTEXT_SCHEMA,
   });
