@@ -44,7 +44,7 @@ export const GATE_STEP = Object.fromEntries(
   Object.entries(GATE_KEYS).map(([step, key]) => [key, step])
 );
 
-const RECORD = /^(\d{3})-([a-z0-9_-]+?)-(approved|rejected)\.md$/;
+const RECORD = /^(\d{3,})-([a-z0-9_-]+?)-(approved|rejected)\.md$/;
 
 /**
  * One reviewed file as it was when the decision was made.
@@ -109,8 +109,8 @@ export function listGateRecords(root = '.') {
   if (!existsSync(dir) || !statSync(dir).isDirectory()) return [];
   /** @type {GateRecord[]} */
   const out = [];
-  for (const name of readdirSync(dir)) {
-    const m = RECORD.exec(name);
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const m = e.isFile() ? RECORD.exec(e.name) : null;
     if (!m) continue;
     const step = m[2];
     out.push({
@@ -118,11 +118,40 @@ export function listGateRecords(root = '.') {
       step,
       gate: GATE_KEYS[step] ?? step,
       decision: /** @type {'approved' | 'rejected'} */ (m[3]),
-      record: `${GATES_DIR}/${name}`,
-      dir: `${GATES_DIR}/${name.slice(0, -3)}`,
+      record: `${GATES_DIR}/${e.name}`,
+      dir: `${GATES_DIR}/${e.name.slice(0, -3)}`,
     });
   }
-  return out.sort((a, b) => a.number - b.number);
+  return out.sort(
+    (a, b) => a.number - b.number || a.record.localeCompare(b.record)
+  );
+}
+
+/**
+ * The number the next record gets: one past every number already used, by
+ * a record or a copy folder on disk or by a decision that names its record.
+ * A record whose write failed is never numbered again, so a retry cannot
+ * take its name.
+ * @param {string} root
+ * @param {Context} context
+ * @returns {number}
+ */
+function nextRecordNumber(root, context) {
+  const dir = join(root, GATES_DIR);
+  const used = [0];
+  if (existsSync(dir) && statSync(dir).isDirectory()) {
+    for (const name of readdirSync(dir)) {
+      const m = /^(\d{3,})-/.exec(name);
+      if (m) used.push(Number(m[1]));
+    }
+  }
+  for (const d of Array.isArray(context?.gate_decisions)
+    ? context.gate_decisions
+    : []) {
+    const m = /^gates\/(\d{3,})-/.exec(d?.record?.path ?? '');
+    if (m) used.push(Number(m[1]));
+  }
+  return Math.max(...used) + 1;
 }
 
 /**
@@ -225,41 +254,50 @@ export function verifyGateTrail(context, root = '.') {
   /** @type {string[]} */
   const problems = [];
   const records = listGateRecords(root);
+  const paths = new Set(records.map((r) => r.record));
+  /** @type {any[]} */
+  const decisions = Array.isArray(context?.gate_decisions)
+    ? context.gate_decisions
+    : [];
+  const named = new Set(decisions.map((d) => d?.record?.path).filter(Boolean));
+  const n = (/** @type {number} */ x) => String(x).padStart(3, '0');
   records.forEach((r, i) => {
-    const expected = i === 0 ? 1 : records[i - 1].number + 1;
-    if (r.number > expected) {
-      const n = (/** @type {number} */ x) => String(x).padStart(3, '0');
+    const before = records[i - 1];
+    if (before && before.number === r.number) {
       problems.push(
-        r.number - 1 === expected
-          ? `record ${n(expected)} is missing before ${r.record}`
-          : `records ${n(expected)}-${n(r.number - 1)} are missing before ${r.record}`
+        `two records are numbered ${n(r.number)}: ${before.record} and ${r.record}`
       );
+    } else {
+      const expected = before ? before.number + 1 : 1;
+      if (r.number > expected)
+        problems.push(
+          r.number - 1 === expected
+            ? `record ${n(expected)} is missing before ${r.record}`
+            : `records ${n(expected)}-${n(r.number - 1)} are missing before ${r.record}`
+        );
     }
     const { previous } = readRecord(root, r.record);
     if (previous === undefined) return;
-    const before = records[i - 1];
+    if (!named.has(r.record))
+      problems.push(`no decision in context.json names ${r.record}`);
     if (previous === null) {
-      if (before)
+      if (before && before.number !== r.number)
         problems.push(
           `${r.record} says it is the first record, but ${before.record} comes before it`
         );
       return;
     }
-    if (!before || before.record !== previous.record) {
+    if (!paths.has(previous.record)) {
       problems.push(
         `${r.record} follows ${previous.record}, which is no longer in the trail`
       );
       return;
     }
-    if (recordDigest(root, before.record) !== previous.sha256)
+    if (recordDigest(root, previous.record) !== previous.sha256)
       problems.push(
-        `${before.record} was edited after ${r.record} was chained to it`
+        `${previous.record} was edited after ${r.record} was chained to it`
       );
   });
-  /** @type {any[]} */
-  const decisions = Array.isArray(context?.gate_decisions)
-    ? context.gate_decisions
-    : [];
   for (const d of decisions) {
     const rec = d?.record;
     if (!rec?.path) continue;
@@ -307,6 +345,36 @@ export function recordProblem(context, root, record) {
   return null;
 }
 
+/**
+ * Everything that keeps a record from showing what was approved: its own
+ * problem (recordProblem), and each copy whose bytes no longer have the
+ * digest the record holds for it. Empty when it can be trusted.
+ * @param {Context} context
+ * @param {string} root
+ * @param {GateRecord} record
+ * @returns {string[]}
+ */
+export function recordTrustProblems(context, root, record) {
+  const own = recordProblem(context, root, record.record);
+  if (own) return [own];
+  const { previous, copies } = readRecord(root, record.record);
+  if (previous === undefined || !copies) return [];
+  /** @type {string[]} */
+  const out = [];
+  for (const [rel, digest] of copies) {
+    const abs = join(root, record.dir, rel);
+    const now =
+      existsSync(abs) && statSync(abs).isFile()
+        ? sha256(readFileSync(abs))
+        : null;
+    if (now !== digest)
+      out.push(
+        `${record.dir}/${rel} ${now === null ? 'is missing' : 'changed since the approval'}`
+      );
+  }
+  return out;
+}
+
 /** @param {string | null | undefined} from @param {string | null | undefined} to */
 function duration(from, to) {
   if (!from || !to) return null;
@@ -321,9 +389,10 @@ const short = (/** @type {string | null | undefined} */ d) =>
   d ? `\`${d.slice(0, 12)}\`` : '(absent)';
 
 /**
- * Write the record of one decision and the copy of what it reviewed.
- * The snapshot is assembled in a temporary folder and renamed into place, so
- * a failure never leaves a half-written snapshot under its final name.
+ * Build the record of one decision and the copies of what it reviewed, in
+ * memory: nothing is written (commitGateRecord writes it). The record names
+ * the record before it by digest; its own digest is returned so the decision
+ * can name it.
  * @param {{
  *   root?: string,
  *   context: Context,
@@ -361,7 +430,7 @@ export function prepareGateRecord({
   if (!step) throw new Error(`prepareGateRecord: unknown gate "${gate}"`);
   const existing = listGateRecords(root);
   const last = existing[existing.length - 1];
-  const number = last ? last.number + 1 : 1;
+  const number = nextRecordNumber(root, context);
   const name = `${String(number).padStart(3, '0')}-${step}-${decision}`;
   const dirRel = `${GATES_DIR}/${name}`;
   const recordRel = `${dirRel}.md`;
@@ -524,14 +593,4 @@ export function commitGateRecord(root, prepared) {
     record: prepared.record,
     dir: prepared.dir,
   };
-}
-
-/**
- * Prepare and write the record of one decision and the copy of what it
- * reviewed (see prepareGateRecord for the arguments).
- * @param {Parameters<typeof prepareGateRecord>[0]} args
- * @returns {{ number: number, record: string, dir: string }}
- */
-export function writeGateRecord(args) {
-  return commitGateRecord(args.root ?? '.', prepareGateRecord(args));
 }

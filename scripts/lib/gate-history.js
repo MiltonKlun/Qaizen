@@ -31,6 +31,7 @@ import {
   GATE_STEP,
   listGateRecords,
   recordBindingVersion,
+  recordTrustProblems,
   verifyGateTrail,
 } from './gate-records.js';
 import { GATE_KEYS } from '../pipeline-state.js';
@@ -388,8 +389,15 @@ export function renderDiff(gate, context, root = '.') {
   if (!record) {
     return `${label} (${GATE_STEP[gate]}): no approved gate record to compare with yet.`;
   }
+  const untrusted = recordTrustProblems(context, root, record);
   const lines = [
     `${label} (${GATE_STEP[gate]}): now, compared with ${record.record}`,
+    ...(untrusted.length
+      ? [
+          '  ! This record cannot be shown to be what was approved, so the comparison may not be either:',
+          ...untrusted.map((p) => `    ${p}`),
+        ]
+      : []),
     '',
   ];
   for (const e of entries) {

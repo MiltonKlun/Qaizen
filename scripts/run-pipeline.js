@@ -752,10 +752,22 @@ export function recordGateDecision({
     const rec = commitGateRecord(root, prepared);
     return { ok: true, record: rec.record, dir: rec.dir };
   } catch (e) {
+    // The decision stands; it no longer names a record that was never
+    // written, so the trail check does not read the failure as a deletion.
+    // A copy folder it left behind keeps its number used (nextRecordNumber),
+    // so a retry never collides with it.
+    delete logged.record;
+    const undo = writeJsonAtomic(join(root, CONTEXT_PATH), context, {
+      schemaPath: CONTEXT_SCHEMA,
+    });
     return {
       ok: false,
       stage: 'record',
-      message: /** @type {Error} */ (e).message,
+      message:
+        /** @type {Error} */ (e).message +
+        (undo.ok
+          ? ''
+          : `; context.json still names ${prepared.record}, so the trail check reports it missing`),
     };
   }
 }
@@ -1822,6 +1834,14 @@ async function restoreInteractive(context, gate) {
   console.log('');
   for (const c of plan.cannot)
     console.log(`Not restored: ${c.path} (${c.why}).`);
+  // A copy that cannot be shown to be what was approved stops the whole
+  // restore: putting back the rest would mix verified and unverified files.
+  if (plan.cannot.some((c) => c.refused)) {
+    console.error(
+      `Nothing restored: ${plan.record.record} or a copy it keeps cannot be shown to be what was approved (npm run pipeline -- --history).`
+    );
+    exit(2);
+  }
   if (!plan.restore.length) {
     console.log(
       `Nothing to restore: every file ${label} kept a copy of is as it was approved.`

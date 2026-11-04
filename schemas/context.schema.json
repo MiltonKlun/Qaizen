@@ -593,7 +593,7 @@
             "properties": {
               "path": {
                 "type": "string",
-                "pattern": "^gates/[0-9]{3}-[a-z0-9_-]+-(approved|rejected)\\.md$"
+                "pattern": "^gates/[0-9]{3,}-[a-z0-9_-]+-(approved|rejected)\\.md$"
               },
               "sha256": {
                 "type": "string",

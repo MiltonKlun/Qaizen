@@ -286,8 +286,9 @@ conduct (`CLAUDE.md` §3.5), not something the code enforces. What the code
 does is make changes visible: every approval records a digest of exactly what
 was reviewed (next section), so a change made after it returns the gate to
 pending rather than passing silently, and the gate records are chained, so a
-record edited or deleted afterwards shows in the trail check (§5). Neither
-shows who made a decision.
+record edited or deleted afterwards shows in the trail check (§5) unless the
+same person also rewrites the records after it and the decisions in
+`context.json` to match. Neither shows who made a decision.
 
 ### Approvals are bound to what was reviewed
 
@@ -414,7 +415,14 @@ check, and `--status` prints any problem it finds: a gap in the numbering, a
 record edited after the next one was chained to it, a record missing or
 edited after its decision named it (the last record included). Records and
 decisions from before the chain existed are not checked for what they never
-carried. The check shows that the trail changed after the fact, not who
+carried, and a chained record that no decision names is reported. The
+digests carry no secret: the check catches an edit or a deletion that was not
+carried through the rest of the trail, not a deliberate rewrite of `gates/`
+and `context.json` together (deleting the last record along with its decision
+leaves nothing to compare). For an archived run, its git history is the
+stronger anchor. Copy digests are taken over the raw bytes, so a copy whose
+line endings a checkout converted no longer matches; nothing restores from an
+archive. The check shows that the trail changed after the fact, not who
 changed it or who decided.
 
 Two read-only views use them. Neither writes anything, not even when an
@@ -444,7 +452,8 @@ need a terminal, and neither ever records an approval:
   cannot be shown to be what was approved: the record must pass the trail
   check, and each copy must still have the digest its record holds (checked
   again just before writing; one mismatch and nothing is written). A record
-  from before copies carried digests cannot be restored from. If the approval was never
+  from before records were chained cannot be restored from, and one refused
+  copy stops the whole restore (exit 2). If the approval was never
   withdrawn, it stands again because the files match it; if it was, the gate
   stays pending and its brief says the files are exactly what was approved
   before, by whom and when. A restore is the reviewer's action, through the
