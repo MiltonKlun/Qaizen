@@ -42,7 +42,6 @@ const ORIG = body([
 ]);
 const CHECKOUT = 'page.locator(\'[data-test="checkout"]\')';
 
-/** @type {(from: string, to: string, src?: string) => string} */
 const swap = (from, to, src = ORIG) => {
   assert.ok(src.includes(from), `probe bug: "${from}" not in source`);
   return src.replace(from, to);
@@ -50,18 +49,25 @@ const swap = (from, to, src = ORIG) => {
 const TOTAL = '\'[data-test="total"]\'';
 const SUBTOTAL = '\'[data-test="subtotal"]\'';
 
-/** @type {(original: string, candidate: string) => void} */
-function refused(original, candidate) {
+// Why each kind of probe must be refused, so that a refusal for an
+// unrelated reason does not pass for the right one.
+const NOT_REPAIRABLE = /not eligible for automatic repair|changes an assertion/;
+const BROADENS = /the repaired selector adds/;
+
+function refused(original, candidate, reason) {
   const r = checkCandidate(original, candidate, {
     fileName: 'tests/STORY-1.spec.ts',
   });
   assert.equal(r.eligible, false, 'the probe must be refused');
   assert.deepEqual(r.repairs, []);
+  assert.ok(
+    r.violations.some((v) => reason.test(v)),
+    r.violations.join(' | ')
+  );
 }
 
 // ---- Data flow: a locator whose value reaches a check -------------------
 
-/** @type {[string, string, (string | [string, string])[]][]} */
 const DATA_FLOW = [
   [
     'the subject of expect.poll',
@@ -119,7 +125,7 @@ const DATA_FLOW = [
 for (const [label, line, [from, to]] of DATA_FLOW) {
   test(`data flow: retargeting ${label} is refused`, () => {
     const original = body([...ACTIONS, line]);
-    refused(original, swap(from, to, original));
+    refused(original, swap(from, to, original), NOT_REPAIRABLE);
   });
 }
 
@@ -137,7 +143,7 @@ ${ACTIONS.join('\n')}
   await expectTotal(page.locator('[data-test="total"]').first(), 'Total: $43.18');
 });
 `;
-  refused(original, swap(TOTAL, SUBTOTAL, original));
+  refused(original, swap(TOTAL, SUBTOTAL, original), NOT_REPAIRABLE);
 });
 
 test('data flow: value-reading methods never make a locator repairable', () => {
@@ -157,7 +163,7 @@ test('data flow: value-reading methods never make a locator repairable', () => {
       ...ACTIONS,
       `  await page.locator('#old').${method};`,
     ]);
-    refused(original, swap("'#old'", "'#new'", original));
+    refused(original, swap("'#old'", "'#new'", original), NOT_REPAIRABLE);
   }
 });
 
@@ -170,13 +176,12 @@ test('data flow: an action awaited inside a larger expression is refused', () =>
     "  await page.locator('#old').locator('button').click();",
   ]) {
     const original = body([...ACTIONS, line]);
-    refused(original, swap("'#old'", "'#new'", original));
+    refused(original, swap("'#old'", "'#new'", original), NOT_REPAIRABLE);
   }
 });
 
 // ---- In-string tricks: syntax added to an action's selector --------------
 
-/** @type {[string, string][]} */
 const IN_STRING = [
   [
     '>> nth=1 (the .nth(1) that is refused as code)',
@@ -198,11 +203,28 @@ const IN_STRING = [
   ['the html element through the css engine', 'css=html'],
   ['an XPath union', 'xpath=//button | //a'],
   ['a :has-text() with new text', 'button:has-text("Pay")'],
+  ['an escape that hides a union', "#a\\', button >> nth=0"],
+  ['an escaped bracket that hides a union', '#x\\(, button >> nth=0'],
+  ['an upper-case :IS() union', ':IS([data-test="nope"], button)'],
+  ['an upper-case positional pseudo-class', 'button:NTH-CHILD(1)'],
+  ['an upper-case :HAS-TEXT()', 'button:HAS-TEXT("Pay")'],
+  ['an XPath position', 'xpath=(//button)[1]'],
+  ['an XPath step position', '//li[1]/button'],
+  ['a :first-child position', 'li:first-child > button'],
+  ['a qualified page body', 'html > body'],
+  ['the :scope element', ':scope'],
+  ['an unclosed bracket that hides a union', 'button.x(, a'],
+  ['an unquoted :has-text()', 'button:has-text(Pay)'],
+  ['a role engine with a name', 'role=button[name="Pay"]'],
 ];
 
 for (const [label, selector] of IN_STRING) {
   test(`in-string: an action selector rewritten to ${label} is refused`, () => {
-    refused(ORIG, swap(CHECKOUT, `page.locator('${selector}')`));
+    refused(
+      ORIG,
+      swap(CHECKOUT, `page.locator(${JSON.stringify(selector)})`),
+      BROADENS
+    );
   });
 }
 
@@ -212,7 +234,69 @@ test('in-string: a no-op click before a negative assertion is refused', () => {
     '  await page.locator(\'[data-test="pay"]\').click();',
     '  await expect(page.locator(\'[data-test="order-complete"]\')).toBeHidden();',
   ]);
-  refused(original, swap('\'[data-test="pay"]\'', "'body'", original));
+  refused(
+    original,
+    swap('\'[data-test="pay"]\'', "'body'", original),
+    BROADENS
+  );
+});
+
+test('in-string: new text after a chain the original already had is refused', () => {
+  const original = body([
+    "  await page.locator('#cart >> text=Checkout').click();",
+  ]);
+  refused(
+    original,
+    swap(
+      "'#cart >> text=Checkout'",
+      '\'#cart >> internal:has-text="Continue"i\'',
+      original
+    ),
+    BROADENS
+  );
+});
+
+// ---- Assertion context reached through another name ------------------------
+
+test('data flow: an action inside an assertion reached through an alias is refused', () => {
+  const CLICK = "await page.locator('#refresh').click();";
+  const POLL = `async () => { ${CLICK} return 1; }`;
+  for (const [header, line] of [
+    [HDR, `  const ex = expect;\n  await ex.poll(${POLL}).toBe(1);`],
+    [
+      HDR,
+      `  const soft = expect.configure({ soft: true });\n  await soft(async () => { ${CLICK} }).toPass();`,
+    ],
+    [
+      `${HDR}\nimport * as pw from '@playwright/test';`,
+      `  await pw.expect.poll(${POLL}).toBe(1);`,
+    ],
+    [HDR, `  await expect['poll'](${POLL}).toBe(1);`],
+    [HDR, `  await (expect.poll)(${POLL}).toBe(1);`],
+    [
+      HDR,
+      `  const attempt = async () => { ${CLICK} };\n  await expect(attempt).toPass();`,
+    ],
+    [
+      HDR,
+      `  const { expect: e2 } = require('@playwright/test');\n  await e2.poll(${POLL}).toBe(1);`,
+    ],
+    [HDR, "  await page.locator('#refresh').click({ trial: true });"],
+  ]) {
+    const original = body([line]).replace(HDR, header);
+    refused(original, swap("'#refresh'", "'#other'", original), NOT_REPAIRABLE);
+  }
+});
+
+test('an action inside a test.step callback stays repairable', () => {
+  const original = body([
+    "  await test.step('pay', async () => { await page.locator('#pay').click(); });",
+  ]);
+  const r = checkCandidate(
+    original,
+    swap("'#pay'", '\'[data-test="pay"]\'', original)
+  );
+  assert.equal(r.eligible, true, r.violations.join(' | '));
 });
 
 // ---- What stays repairable ------------------------------------------------
@@ -283,6 +367,11 @@ test('selectorBroadening names only what the candidate adds', () => {
   ]);
   assert.deepEqual(selectorBroadening('[a="x|y"]', '[a="x|y|z"]'), []);
   assert.deepEqual(selectorBroadening('[lang|="en"]', '[lang|="es"]'), []);
+  assert.deepEqual(selectorBroadening('text=Checkout', 'text="Checkout"'), []);
+  assert.deepEqual(selectorBroadening('text="a >> b"', 'text="a >> c"'), [
+    'text matching on text the original did not use',
+  ]);
+  assert.deepEqual(selectorBroadening('#a\\:b', '#c\\:d'), []);
 });
 
 // ---- Known limit -----------------------------------------------------------

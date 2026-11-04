@@ -16,10 +16,9 @@
 //     .click();`), outside any assertion; see repairableLocators(). A new
 //     `page.locator()` string may not add syntax that widens or moves what it
 //     matches (selectorBroadening()). Everything else in the executable code
-//     must be identical: test
-//     declarations, imports, hooks, control flow, every assertion (target,
-//     matcher, modifiers such as `.not`, expected values, `await`), snapshot
-//     targets and every other statement.
+//     must be identical: test declarations, imports, hooks, control flow,
+//     every assertion (target, matcher, modifiers such as `.not`, expected
+//     values, `await`), snapshot targets and every other statement.
 //   - Test registrations are resolved through the file's imports (aliases
 //     included). Adding `.skip`/`.fixme`/`.only`/`.fail`, deleting a test or a
 //     hook, or registering tests dynamically is rejected, regardless of what
@@ -223,8 +222,9 @@ export function guardrailViolations(originalSource, patchedSource, opts) {
 
 /**
  * The locator method a masked literal is the argument of (`locator` or
- * `getByTestId`).
+ * `getByTestId`), or '' when it is neither.
  * @param {ts.Node} literal
+ * @returns {string}
  */
 function locatorMethod(literal) {
   const call = literal.parent;
@@ -440,82 +440,188 @@ function classify({ a, b }, A, B) {
 
 // ---------------------------------------------------------------- selectors
 
+/** Stands in for a character inside quotes or brackets (see topLevel). */
+const BLANK = '\u0001';
+
 /**
- * The parts of a selector outside quotes and brackets: what is left once
- * attribute values, quoted text and pseudo-class arguments are blanked, so a
- * comma or `>>` inside `[data-test="a,b"]` is not read as syntax.
+ * The selector with everything inside quotes and brackets blanked, one
+ * character for one, so a comma or `>>` inside `[data-test="a,b"]` is not
+ * read as syntax and positions still line up with the original string. A
+ * backslash escape is blanked with the character it escapes, as Playwright's
+ * parser skips it.
  * @param {string} selector
  */
 function topLevel(selector) {
+  return scanSelector(selector).top;
+}
+
+/**
+ * Whether every quote and bracket in a selector is closed, and closed in
+ * order. An unclosed one hides the rest of the string from the checks below.
+ * @param {string} selector
+ */
+function isBalanced(selector) {
+  return scanSelector(selector).balanced;
+}
+
+/**
+ * @param {string} selector
+ * @returns {{ top: string, balanced: boolean }}
+ */
+function scanSelector(selector) {
   let out = '';
   let depth = 0;
+  let balanced = true;
   /** @type {string | null} */
   let quote = null;
   for (let i = 0; i < selector.length; i++) {
     const c = selector[i];
+    if (c === '\\') {
+      out += BLANK;
+      if (i + 1 < selector.length) {
+        out += BLANK;
+        i++;
+      }
+      continue;
+    }
     if (quote) {
-      if (c === '\\') i++;
-      else if (c === quote) quote = null;
-      out += ' ';
+      if (c === quote) quote = null;
+      out += BLANK;
       continue;
     }
     if (c === '"' || c === "'" || c === '`') {
       quote = c;
-      out += ' ';
+      out += BLANK;
     } else if (c === '[' || c === '(') {
       depth++;
-      out += depth === 1 ? c : ' ';
+      out += depth === 1 ? c : BLANK;
     } else if (c === ']' || c === ')') {
+      if (depth === 0) balanced = false;
       depth = Math.max(0, depth - 1);
-      out += depth === 0 ? c : ' ';
+      out += depth === 0 ? c : BLANK;
     } else {
-      out += depth === 0 ? c : ' ';
+      out += depth === 0 ? c : BLANK;
     }
   }
-  return out;
+  return { top: out, balanced: balanced && depth === 0 && quote === null };
+}
+
+/**
+ * The `>>`-separated parts of a selector, split only where `>>` is syntax.
+ * @param {string} selector
+ */
+function selectorParts(selector) {
+  const top = topLevel(selector);
+  /** @type {string[]} */
+  const parts = [];
+  let start = 0;
+  for (let i = top.indexOf('>>'); i !== -1; i = top.indexOf('>>', i + 2)) {
+    parts.push(selector.slice(start, i).trim());
+    start = i + 2;
+  }
+  parts.push(selector.slice(start).trim());
+  return parts;
 }
 
 /** @type {(s: string, re: RegExp) => number} */
 const occurrences = (s, re) => (s.match(re) ?? []).length;
 
 /**
- * The text a selector matches by: `text=` parts, legacy quoted parts and the
- * arguments of `:has-text()`, `:text()`, `:text-is()` and `:text-matches()`.
+ * A matched text in a comparable form: quotes and a trailing `i`/`s` flag
+ * removed, case folded.
+ * @param {string} raw
+ */
+function normalText(raw) {
+  let t = raw.trim();
+  const quoted = /^(["'`])([\s\S]*)\1[is]?$/.exec(t);
+  if (quoted) t = quoted[2];
+  return t.trim().toLowerCase();
+}
+
+/**
+ * The texts a selector matches by: text engines (`text=`, `internal:text=`,
+ * `internal:has-text=`, ...), legacy quoted parts, and the arguments of
+ * `:has-text()`, `:text()`, `:text-is()` and `:text-matches()`.
  * @param {string} selector
  * @returns {string[]}
  */
 function selectorTexts(selector) {
   /** @type {string[]} */
   const texts = [];
-  for (const raw of selector.split('>>')) {
-    const part = raw.trim();
-    const engine = /^(?:internal:)?text=(.*)$/s.exec(part);
-    if (engine) texts.push(engine[1].trim());
-    else if (/^["'].*["']$/s.test(part)) texts.push(part.slice(1, -1));
+  for (const part of selectorParts(selector)) {
+    const engine = /^(?:internal:)?[a-z-]*text[a-z-]*=([\s\S]*)$/i.exec(part);
+    if (engine) texts.push(normalText(engine[1]));
+    else if (/^["'][\s\S]*["'][is]?$/.test(part)) texts.push(normalText(part));
   }
-  const pseudo = /:(?:has-text|text|text-is|text-matches)\(\s*(["'])(.*?)\1/gs;
-  for (const m of selector.matchAll(pseudo)) texts.push(m[2]);
+  const pseudo =
+    /:(?:has-text|has-not-text|text|text-is|text-matches)\(\s*(?:(["'])([\s\S]*?)\1|([^)]*))/gi;
+  for (const m of selector.matchAll(pseudo)) {
+    texts.push(normalText(m[2] ?? m[3] ?? ''));
+  }
   return texts;
 }
 
-const WHOLE_PAGE = new Set([
-  'body',
-  'html',
-  ':root',
-  '*',
-  '//body',
-  '//html',
-  '/html',
-  '/html/body',
-]);
+/**
+ * Whether a selector part is XPath: an `xpath=` engine, or a part Playwright
+ * reads as XPath because it starts with `/`, `..` or `(`.
+ * @param {string} part
+ */
+const isXPath = (part) => /^(?:xpath=|\/|\.\.|\()/i.test(part.trim());
+
+/**
+ * The engine a selector part names (`text`, `role`, `internal:label`, ...),
+ * lower-cased; empty for a plain CSS part or an explicit `css=`.
+ * @param {string} part
+ * @returns {string}
+ */
+function engineOf(part) {
+  const name = /^([a-z][a-z0-9_:-]*)=/i.exec(part.trim())?.[1].toLowerCase();
+  return !name || name === 'css' ? '' : name;
+}
+
+const WHOLE_PAGE = new Set(['body', 'html', ':root', ':scope', '*']);
+
+/**
+ * Whether a CSS selector part's subject (its last compound) is the whole
+ * page: `body`, `html`, `:root`, `:scope` or `*`, alone or qualified
+ * (`html > body`, `body:not(.x)`).
+ * @param {string} part
+ */
+function cssSubjectIsPage(part) {
+  const top = topLevel(part.replace(/^css=/i, '')).toLowerCase();
+  const compounds = top.split(/[\s>+~]+/).filter(Boolean);
+  const last = compounds.at(-1) ?? '';
+  const head = /^(?:\*|[a-z][a-z0-9-]*|:root|:scope)/.exec(last)?.[0] ?? '';
+  return WHOLE_PAGE.has(head);
+}
+
+/**
+ * Whether an XPath part's last step is the whole page (`/html`, `//body`,
+ * `/*`, `.`).
+ * @param {string} part
+ */
+function xpathSubjectIsPage(part) {
+  const path = part
+    .trim()
+    .replace(/^xpath=/i, '')
+    .trim()
+    .toLowerCase();
+  if (path === '.' || path === '/') return true;
+  const step = path.split('/').at(-1) ?? '';
+  return ['body', 'html', '*'].includes(step.trim());
+}
 
 /**
  * Selector syntax a repaired `page.locator()` string may not add, because it
  * widens what the locator matches or picks an element by position: `>>`
- * chains, `nth=` and `:nth-*`, `:is()` and `:where()`, top-level unions
- * (`,` or `|`), text matching with text the original did not use, and the
- * whole page (`body`, `html`, ...). Only what the candidate adds counts;
- * syntax the original already had may stay.
+ * chains, `nth=`, positional pseudo-classes (`:nth-*`, `:first-*`,
+ * `:last-*`, `:only-*`), `:is()` and `:where()`, top-level unions (`,` or
+ * `|`), escapes, XPath (and in XPath any new predicate, group or union),
+ * text matching with text the original did not use, and a subject that is
+ * the whole page (`body`, `html`, `:root`, `:scope`, `*`). Only what the
+ * candidate adds counts; syntax the original already had may stay. Pseudo-
+ * classes and engines are matched without regard to case, as Playwright
+ * reads them.
  * @param {string} from the original selector
  * @param {string} to the candidate selector
  * @returns {string[]} what was added, empty when nothing was
@@ -523,30 +629,68 @@ const WHOLE_PAGE = new Set([
 export function selectorBroadening(from, to) {
   /** @type {string[]} */
   const added = [];
-  const a = topLevel(from);
-  const b = topLevel(to);
+  const a = topLevel(from).toLowerCase();
+  const b = topLevel(to).toLowerCase();
   /** @type {[RegExp, string][]} */
   const SYNTAX = [
     [/>>/g, 'a chained selector (>>)'],
     [/\bnth=/g, 'a positional selector (nth=)'],
-    [/:nth-[a-z-]+\(/g, 'a positional pseudo-class (:nth-...)'],
+    [/:(?:nth|first|last|only)-[a-z-]+/g, 'a positional pseudo-class'],
     [/:is\(/g, 'a selector list (:is())'],
     [/:where\(/g, 'a selector list (:where())'],
+    [/:not\(/g, 'a negation (:not())'],
     [/,/g, 'a selector union (,)'],
     [/\|(?!=)/g, 'a selector union (|)'],
   ];
   for (const [re, what] of SYNTAX) {
     if (occurrences(b, re) > occurrences(a, re)) added.push(what);
   }
+  if (occurrences(to, /\\/g) > occurrences(from, /\\/g)) {
+    added.push('an escape (\\)');
+  }
+
+  if (!isBalanced(to) && isBalanced(from)) {
+    added.push('an unclosed quote or bracket');
+  }
+
+  const partsA = selectorParts(from);
+  const partsB = selectorParts(to);
+  const enginesA = new Set(partsA.map(engineOf));
+  const newEngines = [
+    ...new Set(partsB.map(engineOf).filter((e) => e && !enginesA.has(e))),
+  ];
+  if (newEngines.length) {
+    added.push(
+      `a selector engine the original did not use (${newEngines.join(', ')})`
+    );
+  }
+  const xA = partsA.filter(isXPath);
+  const xB = partsB.filter(isXPath);
+  if (xB.length > xA.length) {
+    added.push('an XPath selector');
+  } else if (xB.length) {
+    // In XPath, `[...]` is a predicate (often a position), `(...)` a group
+    // and `|` a union, wherever they sit.
+    const count = (/** @type {string[]} */ xs, /** @type {RegExp} */ re) =>
+      xs.reduce((n, x) => n + occurrences(x, re), 0);
+    if (count(xB, /[[(|]/g) > count(xA, /[[(|]/g)) {
+      added.push('an XPath predicate, group or union');
+    }
+  }
+
   const known = new Set(selectorTexts(from));
   if (selectorTexts(to).some((t) => !known.has(t))) {
-    added.push('text matching with text the original did not use');
+    added.push('text matching on text the original did not use');
   }
-  const bare = to
-    .trim()
-    .replace(/^(?:css|xpath)=/i, '')
-    .trim()
-    .toLowerCase();
-  if (WHOLE_PAGE.has(bare)) added.push(`the whole page (${to.trim()})`);
+
+  const subject = partsB.at(-1) ?? '';
+  const pageA = (() => {
+    const s = partsA.at(-1) ?? '';
+    return isXPath(s) ? xpathSubjectIsPage(s) : cssSubjectIsPage(s);
+  })();
+  const pageB = isXPath(subject)
+    ? xpathSubjectIsPage(subject)
+    : cssSubjectIsPage(subject);
+  if (pageB && !pageA) added.push(`the whole page (${to.trim()})`);
   return added;
 }

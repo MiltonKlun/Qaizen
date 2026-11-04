@@ -47,8 +47,11 @@ Project rules (they override your default instructions):
 - The only change allowed is the string inside page.locator('...') or
   page.getByTestId('...') where the locator is the receiver of an action in
   a statement of its own (for example: await page.locator('...').click();).
-  Do not add >>, nth=, :nth-, :is(, :where(, a comma union, new text= text,
-  or body/html to that string.
+  Do not add to that string: >>, nth=, :nth-/:first-/:last-/:only-, :is(,
+  :where(, :not(, a , or | union, a backslash, a new engine (text=, role=,
+  xpath=, internal:...), new text (:has-text() and the like), or a
+  body/html/:root/:scope/* target. docs/healer-guardrails.md has the full
+  rule.
 - Never change an assertion, a matcher or an expected value. Never add
   test.fixme, test.skip, test.only or test.fail. Never add waits, timeouts or
   snapshot updates. Never delete or rename a test.

@@ -129,13 +129,30 @@ in a variable or assigned, one passed to a function, one chained further
 (`Promise.all`, `.catch`, `.then`), and any locator inside an assertion.
 
 The new string of a `page.locator()` repair may not add selector syntax that
-widens what it matches or picks an element by position: `>>` chains,
-`nth=`, `:nth-*` pseudo-classes, `:is()` and `:where()`, a top-level union
-(`,` or `|`), text matching (`text=`, a quoted selector, `:has-text()`,
-`:text()`, `:text-is()`, `:text-matches()`) with text the original did not
-use, and the whole page (`body`, `html`, `:root`, `*` and their XPath
-forms). Syntax the original already had may stay. A `getByTestId` string is
-matched exactly as a test id, so this check does not apply to it.
+widens what it matches, moves it, or picks an element by position: `>>`
+chains, `nth=`, positional pseudo-classes (`:nth-*`, `:first-*`, `:last-*`,
+`:only-*`), `:is()`, `:where()` and `:not()`, a top-level union (`,` or
+`|`), a backslash escape, an unclosed quote or bracket, a selector engine
+the original did not use (`text=`, `role=`, `xpath=`, `internal:*`, ...),
+XPath (and, where the original was XPath, a new predicate, group or union),
+text matching (text engines, a quoted selector, `:has-text()`, `:text()`,
+`:text-is()`, `:text-matches()`) on text the original did not use, and a
+subject that is the whole page (`body`, `html`, `:root`, `:scope`, `*`,
+alone or qualified, and their XPath forms). Pseudo-classes and engines are
+matched regardless of case, as Playwright reads them; texts are compared
+without quotes or case. Syntax the original already had may stay. A
+`getByTestId` string is matched exactly as a test id, so this check does not
+apply to it. The list refuses known ways to widen or move a target from
+inside the string; it does not prove that the new selector means the same
+element (see below).
+
+A locator stays repairable inside a loop, a condition and a `test.step`
+callback. It is not repairable inside a function stored under a name (which
+could be handed to an assertion elsewhere), inside an assertion reached
+through an alias (`const ex = expect`, `expect.configure(...)`, a namespace
+import, `expect['poll']`, a destructured `require`), or when the action is
+a trial (`click({ trial: true })`), which only checks that the element is
+actionable.
 
 Rejected with a reason: added `.skip` / `.fixme` / `.only` / `.fail` (even if
 the file already had one), a removed test or hook, dynamic test registration,
