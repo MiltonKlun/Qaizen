@@ -31,6 +31,7 @@ import {
   GATE_STEP,
   listGateRecords,
   recordBindingVersion,
+  verifyGateTrail,
 } from './gate-records.js';
 import { GATE_KEYS } from '../pipeline-state.js';
 
@@ -207,6 +208,14 @@ export function renderHistory(context, root = '.') {
             : `approved, but changed since: ${s.changed.join(', ')} (returns to pending on the next --resume)`;
     lines.push(`  ${(GATE_LABEL[gate] ?? gate).padEnd(16)} ${state}`);
   }
+  const trail = verifyGateTrail(context, root);
+  lines.push(
+    '',
+    trail.length
+      ? 'Trail check: the records were changed after they were written:'
+      : 'Trail check: every record is where the trail says, as it was written.',
+    ...trail.map((p) => `  ! ${p}`)
+  );
   return lines.join('\n');
 }
 

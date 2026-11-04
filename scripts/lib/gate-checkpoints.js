@@ -21,6 +21,7 @@ import {
   renameSync,
   writeFileSync,
 } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, join, resolve, sep } from 'node:path';
 
 import {
@@ -30,10 +31,18 @@ import {
   gateDigest,
 } from './approval-binding.js';
 import { gateDiff } from './gate-history.js';
-import { listGateRecords, recordBindingVersion } from './gate-records.js';
+import {
+  listGateRecords,
+  readRecord,
+  recordBindingVersion,
+  recordProblem,
+} from './gate-records.js';
 import { gatePassed } from '../pipeline-state.js';
 
 /** @typedef {import('./approval-binding.js').Context} Context */
+
+const sha256 = (/** @type {Buffer} */ b) =>
+  createHash('sha256').update(b).digest('hex');
 /** @typedef {import('./gate-records.js').GateRecord} GateRecord */
 
 /**
@@ -78,7 +87,7 @@ export function reopenGate(
 /**
  * What a restore of `gate` would do.
  * @typedef {{ record: GateRecord | null,
- *   restore: { input: string, path: string, from: string }[],
+ *   restore: { input: string, path: string, from: string, sha256: string }[],
  *   cannot: { input: string, path: string, why: string }[] }} RestorePlan
  */
 
@@ -94,16 +103,37 @@ export function restorePlan(gate, context, root = '.') {
   const plan = { record, restore: [], cannot: [] };
   if (!record) return plan;
   const rootAbs = resolve(root);
+  // Nothing is put back that cannot be shown to be what was approved: the
+  // record must be intact, and each copy must still have the digest the
+  // record holds for it.
+  const untrusted = recordProblem(context, root, record.record);
+  const { copies } = readRecord(root, record.record);
   for (const e of entries) {
     if (e.state === 'changed' || e.state === 'missing now') {
       const rel = resolve(root, e.path)
         .slice(rootAbs.length + 1)
         .split(sep)
         .join('/');
+      const from = `${record.dir}/${rel}`;
+      const kept = copies?.get(rel);
+      const why = untrusted
+        ? `not restored: ${untrusted}`
+        : !copies
+          ? 'not restored: its record was written before copies carried digests, so the copy cannot be verified'
+          : !kept
+            ? 'not restored: its record holds no digest for this copy'
+            : sha256(readFileSync(join(root, from))) !== kept
+              ? 'not restored: its copy changed since the approval'
+              : null;
+      if (why) {
+        plan.cannot.push({ input: e.input, path: e.path, why });
+        continue;
+      }
       plan.restore.push({
         input: e.input,
         path: e.path,
-        from: `${record.dir}/${rel}`,
+        from,
+        sha256: /** @type {string} */ (kept),
       });
     } else if (e.state === 'changed (by digest)') {
       plan.cannot.push({
@@ -132,13 +162,23 @@ const specPrompt = (/** @type {string} */ k) => /planner|generator/i.test(k);
  * @param {RestorePlan} plan
  * @param {Context} context changed in place for context.json inputs
  * @param {string} [root]
+ * Every copy is read and checked against the digest its record holds
+ * before anything is written; one that changed since the plan was made
+ * stops the restore with nothing written.
  * @returns {string[]} what was restored
  */
 export function applyRestore(plan, context, root = '.') {
+  const read = plan.restore.map((item) => {
+    const bytes = readFileSync(join(root, item.from));
+    if (sha256(bytes) !== item.sha256)
+      throw new Error(
+        `${item.from} changed since the approval; nothing was restored`
+      );
+    return { item, bytes };
+  });
   /** @type {string[]} */
   const done = [];
-  for (const item of plan.restore) {
-    const bytes = readFileSync(join(root, item.from));
+  for (const { item, bytes } of read) {
     if (item.input === 'interpretation' || item.input === 'prompt_versions') {
       const was = JSON.parse(bytes.toString('utf8'));
       if (item.input === 'interpretation') {

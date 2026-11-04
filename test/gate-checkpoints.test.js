@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -24,7 +25,10 @@ import {
   gateDigest,
   gateInputs,
 } from '../scripts/lib/approval-binding.js';
-import { listGateRecords } from '../scripts/lib/gate-records.js';
+import {
+  listGateRecords,
+  verifyGateTrail,
+} from '../scripts/lib/gate-records.js';
 import { validateValue } from '../scripts/lib/artifact-io.js';
 import {
   applyRestore,
@@ -450,4 +454,149 @@ test('the CLI changes nothing without a terminal, and refuses misuse', (t) => {
   assert.equal(runner(dir, '--restore', 'gate9').status, 2);
   assert.equal(runner(dir, '--reopen', 'gate2', '--resume').status, 2);
   assert.equal(runner(dir, '--restore', 'gate2', '--diff', 'gate2').status, 2);
+});
+
+// ------------------------------------------------- the chained trail --
+
+test('the trail check passes on an untouched trail and names a deleted or edited record', (t) => {
+  const { dir } = project(t);
+  approveAll(dir);
+  assert.deepEqual(verifyGateTrail(readCtx(dir), dir), []);
+  assert.match(
+    read(dir, 'gates/001-gate1-approved.md'),
+    /^\| Previous record \| \(none\) \|$/m
+  );
+  assert.match(
+    read(dir, 'gates/002-gate2-approved.md'),
+    /^\| Previous record \| gates\/001-gate1-approved\.md `[0-9a-f]{64}` \|$/m
+  );
+
+  // An edit to a record in the middle: its successor and its decision see it.
+  const first = join(dir, 'gates/001-gate1-approved.md');
+  writeFileSync(first, read(dir, 'gates/001-gate1-approved.md') + '\nedit\n');
+  assert.deepEqual(verifyGateTrail(readCtx(dir), dir), [
+    'gates/001-gate1-approved.md was edited after gates/002-gate2-approved.md was chained to it',
+    'gates/001-gate1-approved.md was edited after the approved requirements_reviewed decision recorded it',
+  ]);
+
+  // The last record has no successor: its decision still sees an edit...
+  const last = join(dir, 'gates/004-gate4-approved.md');
+  writeFileSync(
+    first,
+    read(dir, 'gates/001-gate1-approved.md').replace('\nedit\n', '')
+  );
+  writeFileSync(
+    last,
+    read(dir, 'gates/004-gate4-approved.md').replace(
+      'Ada Reviewer',
+      'Someone Else'
+    )
+  );
+  assert.deepEqual(verifyGateTrail(readCtx(dir), dir), [
+    'gates/004-gate4-approved.md was edited after the approved code_reviewed decision recorded it',
+  ]);
+
+  // ...and deletions, in the middle or at the end.
+  rmSync(last);
+  rmSync(join(dir, 'gates/002-gate2-approved.md'));
+  const problems = verifyGateTrail(readCtx(dir), dir);
+  assert.ok(
+    problems.includes(
+      'record 002 is missing before gates/003-gate3-approved.md'
+    ),
+    problems.join('\n')
+  );
+  assert.ok(
+    problems.some((p) =>
+      /^gates\/002-gate2-approved\.md \(the record of the approved test_scope_reviewed decision .*\) is missing$/.test(
+        p
+      )
+    )
+  );
+  assert.ok(
+    problems.some((p) =>
+      /^gates\/004-gate4-approved\.md \(the record of the approved code_reviewed decision .*\) is missing$/.test(
+        p
+      )
+    )
+  );
+});
+
+test('--history and --status report a changed trail without writing anything', (t) => {
+  const { dir } = project(t);
+  approveAll(dir, 2);
+  const history = runner(dir, '--history');
+  assert.match(
+    history.stdout,
+    /Trail check: every record is where the trail says/
+  );
+  rmSync(join(dir, 'gates/002-gate2-approved.md'));
+  const before = read(dir, 'context.json');
+  assert.match(
+    runner(dir, '--history').stdout,
+    /Trail check: the records were changed after they were written:\n {2}! gates\/002-gate2-approved\.md/
+  );
+  assert.match(
+    runner(dir, '--status').stdout,
+    /Gate trail: gates\/002-gate2-approved\.md .* is missing \(npm run pipeline -- --history\)/
+  );
+  assert.equal(read(dir, 'context.json'), before);
+});
+
+test('a restore refuses a copy or a record that changed since the approval', (t) => {
+  const { dir, put } = project(t);
+  approveAll(dir, 2);
+  const approved = read(dir, `test-cases/${STORY}.json`);
+  put(`test-cases/${STORY}.json`, approved.replace('"P0"', '"P3"'));
+  const copy = `gates/002-gate2-approved/test-cases/${STORY}.json`;
+
+  // A tampered copy is not put back.
+  put(copy, approved.replace('"P0"', '"P1"'));
+  let plan = restorePlan('test_scope_reviewed', readCtx(dir), dir);
+  assert.deepEqual(plan.restore, []);
+  assert.deepEqual(
+    plan.cannot.map((c) => [c.path, c.why]),
+    [
+      [
+        `test-cases/${STORY}.json`,
+        'not restored: its copy changed since the approval',
+      ],
+    ]
+  );
+
+  // A record edited to match the tampered copy is not trusted either.
+  put(copy, approved);
+  const rec = 'gates/002-gate2-approved.md';
+  put(rec, read(dir, rec).replace('Ada Reviewer', 'Mallory'));
+  plan = restorePlan('test_scope_reviewed', readCtx(dir), dir);
+  assert.deepEqual(plan.restore, []);
+  assert.match(
+    plan.cannot[0].why,
+    /^not restored: gates\/002-gate2-approved\.md was edited after its decision recorded it$/
+  );
+});
+
+test('a copy changed between the plan and the restore stops it with nothing written', (t) => {
+  const { dir, put } = project(t);
+  approveAll(dir, 2);
+  const approved = read(dir, `test-cases/${STORY}.json`);
+  const changed = approved.replace('"P0"', '"P3"');
+  put(`test-cases/${STORY}.json`, changed);
+  rmSync(join(dir, `planner-input/${STORY}.planner-brief.md`));
+  const ctx = readCtx(dir);
+  const plan = restorePlan('test_scope_reviewed', ctx, dir);
+  assert.equal(plan.restore.length, 2);
+  put(
+    `gates/002-gate2-approved/planner-input/${STORY}.planner-brief.md`,
+    'swapped\n'
+  );
+  assert.throws(
+    () => applyRestore(plan, ctx, dir),
+    /changed since the approval; nothing was restored/
+  );
+  assert.equal(read(dir, `test-cases/${STORY}.json`), changed);
+  assert.equal(
+    existsSync(join(dir, `planner-input/${STORY}.planner-brief.md`)),
+    false
+  );
 });

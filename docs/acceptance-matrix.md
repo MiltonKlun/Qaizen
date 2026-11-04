@@ -90,6 +90,8 @@ kept.
 - `test/approval-binding.test.js`: "runtime state, OS and editor files under the testDir are never bound"
 - `test/gate-checkpoints.test.js`: "a Gate 4 approved under binding version 1 is compared and restored under version 1"
 - `test/approval-binding.test.js`: "resume returns stale approvals to pending, records why, keeps the history"
+- `test/gate-checkpoints.test.js`: "the trail check passes on an untouched trail and names a deleted or edited record"
+- `test/gate-checkpoints.test.js`: "a restore refuses a copy or a record that changed since the approval"
 
 ## 9. A remote id added after the scope review
 
