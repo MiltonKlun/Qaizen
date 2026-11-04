@@ -11,8 +11,12 @@
 //
 //   - The ONLY automatic edit is a changed static string in
 //     `page.locator('...')` / `page.getByTestId('...')`, where `page` is
-//     provably the Playwright fixture and the locator is used directly by an
-//     action. Everything else in the executable code must be identical: test
+//     provably the Playwright fixture and the locator is the receiver of an
+//     allowed action in a statement of its own (`await page.locator('...')
+//     .click();`), outside any assertion; see repairableLocators(). A new
+//     `page.locator()` string may not add syntax that widens or moves what it
+//     matches (selectorBroadening()). Everything else in the executable code
+//     must be identical: test
 //     declarations, imports, hooks, control flow, every assertion (target,
 //     matcher, modifiers such as `.not`, expected values, `await`), snapshot
 //     targets and every other statement.
@@ -183,13 +187,26 @@ export function checkCandidate(
   visit(B, (n) => {
     if (maskB.has(n)) litsB.push(/** @type {ts.StringLiteralLike} */ (n));
   });
-  const repairs = litsA
-    .map((n, i) => ({
-      line: lineOf(litsB[i]),
-      from: n.text,
-      to: litsB[i].text,
-    }))
-    .filter((r) => r.from !== r.to);
+  const changed = litsA
+    .map((n, i) => ({ a: n, b: litsB[i] }))
+    .filter(({ a, b }) => a.text !== b.text);
+  // A `page.locator()` string is a selector: the new one may not widen what
+  // it matches or pick by position. A test id is matched exactly, so a
+  // getByTestId string cannot.
+  for (const { a, b } of changed) {
+    if (locatorMethod(b) !== 'locator') continue;
+    for (const what of selectorBroadening(a.text, b.text)) {
+      v.push(
+        `the repaired selector adds ${what}; it may widen or move what the locator matches (line ${lineOf(b)})`
+      );
+    }
+  }
+  if (v.length) return reject(v);
+  const repairs = changed.map(({ a, b }) => ({
+    line: lineOf(b),
+    from: a.text,
+    to: b.text,
+  }));
   return { eligible: true, violations: [], repairs };
 }
 
@@ -202,6 +219,19 @@ export function checkCandidate(
  */
 export function guardrailViolations(originalSource, patchedSource, opts) {
   return checkCandidate(originalSource, patchedSource, opts).violations;
+}
+
+/**
+ * The locator method a masked literal is the argument of (`locator` or
+ * `getByTestId`).
+ * @param {ts.Node} literal
+ */
+function locatorMethod(literal) {
+  const call = literal.parent;
+  return ts.isCallExpression(call) &&
+    ts.isPropertyAccessExpression(call.expression)
+    ? call.expression.name.text
+    : '';
 }
 
 /**
@@ -401,9 +431,122 @@ function classify({ a, b }, A, B) {
       ['locator', 'getByTestId'].includes(n.parent.expression.name.text)
   );
   if (changedLocator) {
-    return `changes a locator that is not eligible for automatic repair (not an action on the provable page fixture)${where}`;
+    return `changes a locator that is not eligible for automatic repair (only the receiver of an awaited action statement such as click or fill on the provable page fixture is)${where}`;
   }
   if (!sb) return `removes executable code${where}`;
   if (!sa) return `adds executable code${where}`;
   return `changes executable code outside the allowed locator-literal edit${where}`;
+}
+
+// ---------------------------------------------------------------- selectors
+
+/**
+ * The parts of a selector outside quotes and brackets: what is left once
+ * attribute values, quoted text and pseudo-class arguments are blanked, so a
+ * comma or `>>` inside `[data-test="a,b"]` is not read as syntax.
+ * @param {string} selector
+ */
+function topLevel(selector) {
+  let out = '';
+  let depth = 0;
+  /** @type {string | null} */
+  let quote = null;
+  for (let i = 0; i < selector.length; i++) {
+    const c = selector[i];
+    if (quote) {
+      if (c === '\\') i++;
+      else if (c === quote) quote = null;
+      out += ' ';
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      quote = c;
+      out += ' ';
+    } else if (c === '[' || c === '(') {
+      depth++;
+      out += depth === 1 ? c : ' ';
+    } else if (c === ']' || c === ')') {
+      depth = Math.max(0, depth - 1);
+      out += depth === 0 ? c : ' ';
+    } else {
+      out += depth === 0 ? c : ' ';
+    }
+  }
+  return out;
+}
+
+/** @type {(s: string, re: RegExp) => number} */
+const occurrences = (s, re) => (s.match(re) ?? []).length;
+
+/**
+ * The text a selector matches by: `text=` parts, legacy quoted parts and the
+ * arguments of `:has-text()`, `:text()`, `:text-is()` and `:text-matches()`.
+ * @param {string} selector
+ * @returns {string[]}
+ */
+function selectorTexts(selector) {
+  /** @type {string[]} */
+  const texts = [];
+  for (const raw of selector.split('>>')) {
+    const part = raw.trim();
+    const engine = /^(?:internal:)?text=(.*)$/s.exec(part);
+    if (engine) texts.push(engine[1].trim());
+    else if (/^["'].*["']$/s.test(part)) texts.push(part.slice(1, -1));
+  }
+  const pseudo = /:(?:has-text|text|text-is|text-matches)\(\s*(["'])(.*?)\1/gs;
+  for (const m of selector.matchAll(pseudo)) texts.push(m[2]);
+  return texts;
+}
+
+const WHOLE_PAGE = new Set([
+  'body',
+  'html',
+  ':root',
+  '*',
+  '//body',
+  '//html',
+  '/html',
+  '/html/body',
+]);
+
+/**
+ * Selector syntax a repaired `page.locator()` string may not add, because it
+ * widens what the locator matches or picks an element by position: `>>`
+ * chains, `nth=` and `:nth-*`, `:is()` and `:where()`, top-level unions
+ * (`,` or `|`), text matching with text the original did not use, and the
+ * whole page (`body`, `html`, ...). Only what the candidate adds counts;
+ * syntax the original already had may stay.
+ * @param {string} from the original selector
+ * @param {string} to the candidate selector
+ * @returns {string[]} what was added, empty when nothing was
+ */
+export function selectorBroadening(from, to) {
+  /** @type {string[]} */
+  const added = [];
+  const a = topLevel(from);
+  const b = topLevel(to);
+  /** @type {[RegExp, string][]} */
+  const SYNTAX = [
+    [/>>/g, 'a chained selector (>>)'],
+    [/\bnth=/g, 'a positional selector (nth=)'],
+    [/:nth-[a-z-]+\(/g, 'a positional pseudo-class (:nth-...)'],
+    [/:is\(/g, 'a selector list (:is())'],
+    [/:where\(/g, 'a selector list (:where())'],
+    [/,/g, 'a selector union (,)'],
+    [/\|(?!=)/g, 'a selector union (|)'],
+  ];
+  for (const [re, what] of SYNTAX) {
+    if (occurrences(b, re) > occurrences(a, re)) added.push(what);
+  }
+  const known = new Set(selectorTexts(from));
+  if (selectorTexts(to).some((t) => !known.has(t))) {
+    added.push('text matching with text the original did not use');
+  }
+  const bare = to
+    .trim()
+    .replace(/^(?:css|xpath)=/i, '')
+    .trim()
+    .toLowerCase();
+  if (WHOLE_PAGE.has(bare)) added.push(`the whole page (${to.trim()})`);
+  return added;
 }

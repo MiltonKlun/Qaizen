@@ -13,7 +13,10 @@
 parse both files and compare their executable structure. In this version the
 only change accepted automatically is the string in `page.locator('...')` or
 `page.getByTestId('...')` when `page` is the Playwright fixture and the
-locator is used directly by an action. Changed or removed assertions,
+locator is the receiver of an action (`click`, `fill`, `selectOption`, ...)
+in an awaited statement of its own, outside any assertion; the new selector
+may not add syntax that widens what it matches (`>>`, `nth=`, unions, new
+`text=` text, `body`). Changed or removed assertions,
 expected values, snapshots, waits, test registrations, `.skip` / `.fixme` /
 `.only` / `.fail`, deleted tests and removed traceability ids are all
 rejected with a reason. A clean result means "eligible under static checks;

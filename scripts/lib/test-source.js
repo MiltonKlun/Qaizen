@@ -334,11 +334,49 @@ export function expectBindings(sourceFile) {
 }
 
 /**
+ * Locator methods whose result an automatic repair may retarget. Each one
+ * acts on the page and returns nothing a test can check; methods that read a
+ * value (`innerText`, `isVisible`, `waitFor`, `count`, ...) are not here.
+ */
+export const REPAIRABLE_ACTIONS = new Set([
+  'click',
+  'dblclick',
+  'fill',
+  'press',
+  'pressSequentially',
+  'check',
+  'uncheck',
+  'selectOption',
+  'hover',
+  'setInputFiles',
+]);
+
+/**
+ * Whether a call belongs to an assertion: its callee chain starts at an
+ * `expect` binding, so `expect(...)`, `expect.soft(...)`, `expect.poll(...)`
+ * and `expect(...).toPass()` all count.
+ * @param {ts.CallExpression} call
+ * @param {Set<string>} expects
+ */
+function isAssertionCall(call, expects) {
+  /** @type {ts.Expression} */
+  let root = call.expression;
+  while (ts.isPropertyAccessExpression(root) || ts.isCallExpression(root)) {
+    root = root.expression;
+  }
+  return ts.isIdentifier(root) && expects.has(root.text);
+}
+
+/**
  * The string literals an automatic repair may change: the first argument of
  * `page.locator('...')` / `page.getByTestId('...')`, where `page` is provably
- * the fixture and the locator is used directly by an action in the same
- * statement. Excluded, because their value can decide what an assertion
- * checks: a locator inside `expect(...)`, and a locator stored in a variable.
+ * the fixture and the locator is the receiver of an allowed action
+ * (REPAIRABLE_ACTIONS) in a statement of its own,
+ * `await page.locator('...').click(...);`, whose value nothing uses. Not
+ * repairable, because their value can decide what a check examines: a
+ * locator read for a value, stored, passed on, chained further or awaited
+ * inside a larger expression, and any locator inside an assertion, including
+ * the callbacks of `expect.poll` and `expect(...).toPass()`.
  * @param {ts.SourceFile} sourceFile
  * @returns {Set<ts.Node>}
  */
@@ -365,26 +403,37 @@ export function repairableLocators(sourceFile) {
     ) {
       return;
     }
-    // The locator must be the receiver of an action: page.locator(x).click().
+    // Exactly `await page.locator(x).<action>(...);` as a statement.
     const access = call.parent;
     if (
       !access ||
       !ts.isPropertyAccessExpression(access) ||
       access.expression !== call ||
-      !access.parent ||
-      !ts.isCallExpression(access.parent)
+      !REPAIRABLE_ACTIONS.has(access.name.text)
     ) {
       return;
     }
-    for (let n = call.parent; n && !isStatementNode(n); n = n.parent) {
-      if (ts.isVariableDeclaration(n)) return;
-      if (
-        ts.isCallExpression(n) &&
-        ts.isIdentifier(n.expression) &&
-        expects.has(n.expression.text)
-      ) {
-        return;
-      }
+    const action = access.parent;
+    if (
+      !action ||
+      !ts.isCallExpression(action) ||
+      action.expression !== access
+    ) {
+      return;
+    }
+    const awaited = action.parent;
+    if (
+      !awaited ||
+      !ts.isAwaitExpression(awaited) ||
+      !awaited.parent ||
+      !ts.isExpressionStatement(awaited.parent)
+    ) {
+      return;
+    }
+    // Not anywhere inside an assertion (the callback of expect.poll or of
+    // expect(...).toPass() is part of the check).
+    for (let n = awaited.parent.parent; n; n = n.parent) {
+      if (ts.isCallExpression(n) && isAssertionCall(n, expects)) return;
     }
     out.add(node);
   });

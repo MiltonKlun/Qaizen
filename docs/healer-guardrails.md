@@ -110,14 +110,32 @@ candidate is eligible only if the one thing that changed is:
 - where `page` is provably the Playwright fixture (destructured as
   `{ page }` in a test or hook callback, never renamed, aliased or
   reassigned),
-- and the locator is used directly by an action in the same statement
-  (`await page.locator('...').click()`).
+- and the locator is the receiver of an action in a statement of its own,
+  awaited, whose value nothing uses: `await page.locator('...').click();`.
+  The actions are `click`, `dblclick`, `fill`, `press`, `pressSequentially`,
+  `check`, `uncheck`, `selectOption`, `hover` and `setInputFiles`. The
+  statement may sit inside a loop or a condition, but not anywhere inside an
+  assertion: any `expect(...)` chain, `expect.soft`, `expect.poll` and the
+  callback of `expect(...).toPass()` are assertion context.
 
 Everything else must be identical: imports, tests, groups, hooks, control
 flow, every assertion (its target, matcher, modifiers such as `.not`,
 expected values and `await`), snapshot targets and every other statement.
-Locators inside `expect(...)` and locators stored in a variable are **not**
-eligible, because their value can decide what an assertion checks.
+A locator whose value can reach a check is **not** eligible: one read with
+`innerText`, `textContent`, `inputValue`, `isVisible`, `count`,
+`getAttribute`, `waitFor` or any other method outside the list, one stored
+in a variable or assigned, one passed to a function, one chained further
+(`.first()`, `.locator(...)`), one awaited inside a larger expression
+(`Promise.all`, `.catch`, `.then`), and any locator inside an assertion.
+
+The new string of a `page.locator()` repair may not add selector syntax that
+widens what it matches or picks an element by position: `>>` chains,
+`nth=`, `:nth-*` pseudo-classes, `:is()` and `:where()`, a top-level union
+(`,` or `|`), text matching (`text=`, a quoted selector, `:has-text()`,
+`:text()`, `:text-is()`, `:text-matches()`) with text the original did not
+use, and the whole page (`body`, `html`, `:root`, `*` and their XPath
+forms). Syntax the original already had may stay. A `getByTestId` string is
+matched exactly as a test id, so this check does not apply to it.
 
 Rejected with a reason: added `.skip` / `.fixme` / `.only` / `.fail` (even if
 the file already had one), a removed test or hook, dynamic test registration,
@@ -128,7 +146,20 @@ automatic acceptance in this version.
 
 A clean result means **eligible under static checks; human review still
 required**. Equal structure does not prove that a new selector targets the
-same business element.
+same business element: an action moved to another element of the same shape
+(a click on `checkout` changed to `continue-shopping`) passes this check.
+The isolated re-run below catches such a swap only when it changes the
+outcome; the reviewer reading the patch is the check for the rest.
+
+The probe suite, `test/healer-probes.test.js`, holds candidates that keep a
+test's structure but change what a check examines, or widen a selector from
+inside its string; every one must be refused. Re-run it after every
+`npx playwright init-agents` regeneration, because a regenerated healer may
+propose patches in shapes the earlier one did not:
+
+```bash
+node --test test/healer-probes.test.js test/healer-guardrails.test.js
+```
 
 ### Classifier action
 
