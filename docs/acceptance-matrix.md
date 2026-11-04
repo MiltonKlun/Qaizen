@@ -136,6 +136,9 @@ Rejected, the live file unchanged, and the attempt's evidence kept.
 - `test/run-healer.test.js`: "a candidate that still fails, skips, or runs no single test is validation_failed"
 - `test/healer-guardrails.test.js`: "negating a matcher is rejected"
 - `test/healer-guardrails.test.js`: "adding .skip is rejected even when the file already skips something"
+- `test/healer-probes.test.js`: "data flow: a locator passed to an in-file assertion helper is refused"
+- `test/healer-probes.test.js`: "data flow: value-reading methods never make a locator repairable"
+- `test/healer-probes.test.js`: "in-string: a no-op click before a negative assertion is refused"
 
 ## 14. An eligible Healer candidate
 
@@ -144,6 +147,7 @@ approval is still pending.
 
 - `test/run-healer.test.js`: "a validated candidate yields a patch that reproduces it, plus evidence; the live test is untouched"
 - `test/run-healer.test.js`: "real Playwright: a broken locator is healed against the demo app"
+- `test/healer-probes.test.js`: "every allowed action keeps its locator repairable"
 
 ## 15. API-only, manual-only, skip-only and mixed scopes
 

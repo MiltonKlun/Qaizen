@@ -45,8 +45,13 @@ Project rules (they override your default instructions):
 - Copy tests/<story>.spec.ts to .healer-candidates/FAIL-XXX/<story>.spec.ts and
   make your change ONLY in that copy.
 - The only change allowed is the string inside page.locator('...') or
-  page.getByTestId('...') where it is used directly by an action
-  (for example: await page.locator('...').click()).
+  page.getByTestId('...') where the locator is the receiver of an action in
+  a statement of its own (for example: await page.locator('...').click();).
+  Do not add to that string: >>, nth=, :nth-/:first-/:last-/:only-, :is(,
+  :where(, :not(, a , or | union, a backslash, a new engine (text=, role=,
+  xpath=, internal:...), new text (:has-text() and the like), or a
+  body/html/:root/:scope/* target. docs/healer-guardrails.md has the full
+  rule.
 - Never change an assertion, a matcher or an expected value. Never add
   test.fixme, test.skip, test.only or test.fail. Never add waits, timeouts or
   snapshot updates. Never delete or rename a test.
@@ -96,4 +101,7 @@ that applies a patch or records a gate decision.
    instructions still allow fixing assertions.
 3. Read the new `.claude/agents/playwright-test-healer.md` for instructions
    that conflict with section 1, and add them to the table if new.
-4. Keep using the invocation in section 2. Never edit the generated file.
+4. Re-run the probe suite:
+   `node --test test/healer-probes.test.js test/healer-guardrails.test.js`.
+   Every probe must still be refused (`docs/healer-guardrails.md`).
+5. Keep using the invocation in section 2. Never edit the generated file.

@@ -330,15 +330,156 @@ export function expectBindings(sourceFile) {
         names.add(el.name.text);
     }
   }
+  // Local aliases: `const ex = expect`, `const soft = expect.soft`,
+  // `const strict = expect.configure({ ... })`, followed until no new name
+  // appears. The value of an assertion (`const r = expect(x)`) is not one.
+  /** @type {ts.VariableDeclaration[]} */
+  const decls = [];
+  visit(sourceFile, (n) => {
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer)
+      decls.push(n);
+    // Destructured: `const { expect: e } = require('@playwright/test')`.
+    if (
+      ts.isBindingElement(n) &&
+      ts.isIdentifier(n.name) &&
+      (n.propertyName && ts.isIdentifier(n.propertyName)
+        ? n.propertyName.text
+        : n.name.text) === 'expect'
+    ) {
+      names.add(n.name.text);
+    }
+  });
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const d of decls) {
+      const name = /** @type {ts.Identifier} */ (d.name).text;
+      if (names.has(name)) continue;
+      if (isExpectAlias(/** @type {ts.Expression} */ (d.initializer), names)) {
+        names.add(name);
+        grew = true;
+      }
+    }
+  }
   return names;
+}
+
+/**
+ * Whether an initializer is `expect` itself, a member of it, or the result
+ * of `expect.configure(...)`.
+ * @param {ts.Expression} init
+ * @param {Set<string>} names
+ * @returns {boolean}
+ */
+function isExpectAlias(init, names) {
+  /** @type {ts.Expression} */
+  let n = init;
+  while (ts.isParenthesizedExpression(n) || ts.isAsExpression(n)) {
+    n = n.expression;
+  }
+  if (ts.isIdentifier(n)) return names.has(n.text);
+  if (ts.isCallExpression(n)) {
+    const callee = n.expression;
+    return (
+      ts.isPropertyAccessExpression(callee) &&
+      callee.name.text === 'configure' &&
+      isExpectAlias(callee.expression, names)
+    );
+  }
+  if (ts.isPropertyAccessExpression(n)) {
+    return n.name.text === 'expect' || isExpectAlias(n.expression, names);
+  }
+  if (ts.isElementAccessExpression(n)) {
+    return isExpectAlias(n.expression, names);
+  }
+  return false;
+}
+
+/**
+ * Locator methods whose result an automatic repair may retarget. Each one
+ * acts on the page and returns nothing a test can check; methods that read a
+ * value (`innerText`, `isVisible`, `waitFor`, `count`, ...) are not here.
+ */
+export const REPAIRABLE_ACTIONS = new Set([
+  'click',
+  'dblclick',
+  'fill',
+  'press',
+  'pressSequentially',
+  'check',
+  'uncheck',
+  'selectOption',
+  'hover',
+  'setInputFiles',
+]);
+
+/**
+ * Whether an expression's callee chain starts at `expect`: an `expect`
+ * binding, or `.expect` on a namespace (`pw.expect.poll`). Parentheses,
+ * element access (`expect['poll']`) and non-null assertions are seen through.
+ * @param {ts.Expression} expr
+ * @param {Set<string>} expects
+ */
+function rootedAtExpect(expr, expects) {
+  /** @type {ts.Expression} */
+  let n = expr;
+  for (;;) {
+    if (ts.isPropertyAccessExpression(n)) {
+      if (n.name.text === 'expect') return true;
+      n = n.expression;
+    } else if (
+      ts.isCallExpression(n) ||
+      ts.isElementAccessExpression(n) ||
+      ts.isParenthesizedExpression(n) ||
+      ts.isNonNullExpression(n) ||
+      ts.isAsExpression(n)
+    ) {
+      n = n.expression;
+    } else {
+      return ts.isIdentifier(n) && expects.has(n.text);
+    }
+  }
+}
+
+/**
+ * Whether a call belongs to an assertion: its callee chain starts at
+ * `expect`, so `expect(...)`, `expect.soft(...)`, `expect.poll(...)`,
+ * `expect(...).toPass()` and calls through an alias all count.
+ * @param {ts.CallExpression} call
+ * @param {Set<string>} expects
+ */
+function isAssertionCall(call, expects) {
+  return rootedAtExpect(call.expression, expects);
+}
+
+/**
+ * Whether a function is passed straight to a call (a test, hook or step
+ * callback), rather than stored under a name that could be handed to an
+ * assertion elsewhere.
+ * @param {ts.Node} fn
+ */
+function isInlineCallback(fn) {
+  let n = fn.parent;
+  while (n && ts.isParenthesizedExpression(n)) n = n.parent;
+  return Boolean(
+    n &&
+    ts.isCallExpression(n) &&
+    n.arguments.some(
+      (x) =>
+        x === fn || (ts.isParenthesizedExpression(x) && x.expression === fn)
+    )
+  );
 }
 
 /**
  * The string literals an automatic repair may change: the first argument of
  * `page.locator('...')` / `page.getByTestId('...')`, where `page` is provably
- * the fixture and the locator is used directly by an action in the same
- * statement. Excluded, because their value can decide what an assertion
- * checks: a locator inside `expect(...)`, and a locator stored in a variable.
+ * the fixture and the locator is the receiver of an allowed action
+ * (REPAIRABLE_ACTIONS) in a statement of its own,
+ * `await page.locator('...').click(...);`, whose value nothing uses. Not
+ * repairable, because their value can decide what a check examines: a
+ * locator read for a value, stored, passed on, chained further or awaited
+ * inside a larger expression, and any locator inside an assertion, including
+ * the callbacks of `expect.poll` and `expect(...).toPass()`.
  * @param {ts.SourceFile} sourceFile
  * @returns {Set<ts.Node>}
  */
@@ -365,26 +506,53 @@ export function repairableLocators(sourceFile) {
     ) {
       return;
     }
-    // The locator must be the receiver of an action: page.locator(x).click().
+    // Exactly `await page.locator(x).<action>(...);` as a statement.
     const access = call.parent;
     if (
       !access ||
       !ts.isPropertyAccessExpression(access) ||
       access.expression !== call ||
-      !access.parent ||
-      !ts.isCallExpression(access.parent)
+      !REPAIRABLE_ACTIONS.has(access.name.text)
     ) {
       return;
     }
-    for (let n = call.parent; n && !isStatementNode(n); n = n.parent) {
-      if (ts.isVariableDeclaration(n)) return;
-      if (
-        ts.isCallExpression(n) &&
-        ts.isIdentifier(n.expression) &&
-        expects.has(n.expression.text)
-      ) {
-        return;
-      }
+    const action = access.parent;
+    if (
+      !action ||
+      !ts.isCallExpression(action) ||
+      action.expression !== access
+    ) {
+      return;
+    }
+    const awaited = action.parent;
+    if (
+      !awaited ||
+      !ts.isAwaitExpression(awaited) ||
+      !awaited.parent ||
+      !ts.isExpressionStatement(awaited.parent)
+    ) {
+      return;
+    }
+    // Not anywhere inside an assertion (the callback of expect.poll or of
+    // expect(...).toPass() is part of the check).
+    // A trial action only checks that the element is actionable.
+    const trial = action.arguments.some(
+      (arg) =>
+        ts.isObjectLiteralExpression(arg) &&
+        arg.properties.some(
+          (p) =>
+            p.name !== undefined &&
+            (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) &&
+            p.name.text === 'trial'
+        )
+    );
+    if (trial) return;
+    // Not anywhere inside an assertion (the callback of expect.poll or of
+    // expect(...).toPass() is part of the check), and not inside a function
+    // stored under a name, which could be handed to one elsewhere.
+    for (let n = awaited.parent.parent; n; n = n.parent) {
+      if (ts.isCallExpression(n) && isAssertionCall(n, expects)) return;
+      if (ts.isFunctionLike(n) && !isInlineCallback(n)) return;
     }
     out.add(node);
   });
