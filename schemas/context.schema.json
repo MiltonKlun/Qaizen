@@ -584,6 +584,22 @@
           "notes": {
             "type": ["string", "null"],
             "description": "Why — especially for a rejection (what must change before re-review)."
+          },
+          "record": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256"],
+            "description": "OPTIONAL. The gate record this decision wrote (scripts/lib/gate-records.js) and the SHA-256 of its text (line endings normalized), taken before it was written. Each record also carries the digest of the record before it, so the trail check (`npm run pipeline -- --history`) reports a missing or edited record, the last one included, and --restore refuses a record or copy that changed. It shows the trail was changed after the fact, not who decided. Absent on decisions recorded before records were chained. Written only by the runner.",
+            "properties": {
+              "path": {
+                "type": "string",
+                "pattern": "^gates/[0-9]{3,}-[a-z0-9_-]+-(approved|rejected)\\.md$"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
           }
         }
       }

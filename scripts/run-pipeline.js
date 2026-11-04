@@ -65,8 +65,10 @@ import {
 } from './lib/scope-coverage.js';
 import {
   captureGateFiles,
+  commitGateRecord,
   GATE_STEP,
-  writeGateRecord,
+  prepareGateRecord,
+  verifyGateTrail,
 } from './lib/gate-records.js';
 import {
   applyRestore,
@@ -675,9 +677,12 @@ const REDO_AFTER_REJECT = {
 
 /**
  * Record one human gate decision: what was reviewed is read first, then the
- * decision goes into context.json (validated, atomic), then the gate record
- * of it is written under gates/ (scripts/lib/gate-records.js). The
- * interactive gate prompt is the only caller in the runner; it never decides.
+ * decision goes into context.json (validated, atomic) naming its gate record
+ * by digest, then that record is written under gates/
+ * (scripts/lib/gate-records.js). The interactive gate prompt is the only
+ * caller in the runner; it never decides. Nothing here checks for a
+ * terminal: any script that imports this can record a decision, and the
+ * rule that only a person decides is a rule of conduct (CLAUDE.md §3.5).
  * @param {{ root?: string, context: Context, step: string, gateKey: string,
  *   decision: 'approved' | 'rejected', reviewer: string | null,
  *   notes: string | null, openedAt: string, decidedAt: string,
@@ -709,12 +714,13 @@ export function recordGateDecision({
     decidedAt,
     bindings,
   });
-  const w = writeJsonAtomic(join(root, CONTEXT_PATH), context, {
-    schemaPath: CONTEXT_SCHEMA,
-  });
-  if (!w.ok) return { ok: false, stage: 'context', message: w.message };
+  // The record is built before anything is written, so the decision can
+  // name it by digest: an edited or deleted record is then visible in the
+  // trail check (verifyGateTrail), even when it is the last one.
+  /** @type {ReturnType<typeof prepareGateRecord>} */
+  let prepared;
   try {
-    const rec = writeGateRecord({
+    prepared = prepareGateRecord({
       root,
       context,
       gate: gateKey,
@@ -729,12 +735,39 @@ export function recordGateDecision({
       scan,
       title: GATE_BRIEFS[step]?.name,
     });
-    return { ok: true, record: rec.record, dir: rec.dir };
   } catch (e) {
     return {
       ok: false,
-      stage: 'record',
+      stage: 'context',
       message: /** @type {Error} */ (e).message,
+    };
+  }
+  const logged = context.gate_decisions[context.gate_decisions.length - 1];
+  logged.record = { path: prepared.record, sha256: prepared.sha256 };
+  const w = writeJsonAtomic(join(root, CONTEXT_PATH), context, {
+    schemaPath: CONTEXT_SCHEMA,
+  });
+  if (!w.ok) return { ok: false, stage: 'context', message: w.message };
+  try {
+    const rec = commitGateRecord(root, prepared);
+    return { ok: true, record: rec.record, dir: rec.dir };
+  } catch (e) {
+    // The decision stands; it no longer names a record that was never
+    // written, so the trail check does not read the failure as a deletion.
+    // A copy folder it left behind keeps its number used (nextRecordNumber),
+    // so a retry never collides with it.
+    delete logged.record;
+    const undo = writeJsonAtomic(join(root, CONTEXT_PATH), context, {
+      schemaPath: CONTEXT_SCHEMA,
+    });
+    return {
+      ok: false,
+      stage: 'record',
+      message:
+        /** @type {Error} */ (e).message +
+        (undo.ok
+          ? ''
+          : `; context.json still names ${prepared.record}, so the trail check reports it missing`),
     };
   }
 }
@@ -1801,6 +1834,14 @@ async function restoreInteractive(context, gate) {
   console.log('');
   for (const c of plan.cannot)
     console.log(`Not restored: ${c.path} (${c.why}).`);
+  // A copy that cannot be shown to be what was approved stops the whole
+  // restore: putting back the rest would mix verified and unverified files.
+  if (plan.cannot.some((c) => c.refused)) {
+    console.error(
+      `Nothing restored: ${plan.record.record} or a copy it keeps cannot be shown to be what was approved (npm run pipeline -- --history).`
+    );
+    exit(2);
+  }
   if (!plan.restore.length) {
     console.log(
       `Nothing to restore: every file ${label} kept a copy of is as it was approved.`
@@ -1827,7 +1868,14 @@ async function restoreInteractive(context, gate) {
   } finally {
     rl.close();
   }
-  const restored = applyRestore(plan, context, '.');
+  /** @type {string[]} */
+  let restored;
+  try {
+    restored = applyRestore(plan, context, '.');
+  } catch (e) {
+    console.error(`Refusing to restore: ${/** @type {Error} */ (e).message}.`);
+    exit(2);
+  }
   if (restored.some((r) => r.endsWith('(context.json)'))) writeContext(context);
   console.log(`Restored: ${restored.join(', ')}.`);
   console.log(
@@ -1878,6 +1926,9 @@ async function main() {
       console.log(
         `Stale approval: ${inv.gate} — ${inv.reason} (the next --resume returns it to pending).`
       );
+    }
+    for (const p of context ? verifyGateTrail(context, '.') : []) {
+      console.log(`Gate trail: ${p} (npm run pipeline -- --history)`);
     }
     printStatus(view, gatherHints(view));
     exit(0);

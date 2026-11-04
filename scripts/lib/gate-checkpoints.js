@@ -21,6 +21,7 @@ import {
   renameSync,
   writeFileSync,
 } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, join, resolve, sep } from 'node:path';
 
 import {
@@ -30,11 +31,19 @@ import {
   gateDigest,
 } from './approval-binding.js';
 import { gateDiff } from './gate-history.js';
-import { listGateRecords, recordBindingVersion } from './gate-records.js';
+import {
+  listGateRecords,
+  readRecord,
+  recordBindingVersion,
+  recordProblem,
+} from './gate-records.js';
 import { gatePassed } from '../pipeline-state.js';
 
 /** @typedef {import('./approval-binding.js').Context} Context */
 /** @typedef {import('./gate-records.js').GateRecord} GateRecord */
+
+const sha256 = (/** @type {Buffer} */ b) =>
+  createHash('sha256').update(b).digest('hex');
 
 /**
  * Return a gate and the approvals that depended on it to pending.
@@ -78,8 +87,9 @@ export function reopenGate(
 /**
  * What a restore of `gate` would do.
  * @typedef {{ record: GateRecord | null,
- *   restore: { input: string, path: string, from: string }[],
- *   cannot: { input: string, path: string, why: string }[] }} RestorePlan
+ *   restore: { input: string, path: string, from: string, sha256: string }[],
+ *   cannot: { input: string, path: string, why: string,
+ *     refused?: boolean }[] }} RestorePlan
  */
 
 /**
@@ -94,16 +104,40 @@ export function restorePlan(gate, context, root = '.') {
   const plan = { record, restore: [], cannot: [] };
   if (!record) return plan;
   const rootAbs = resolve(root);
+  // Nothing is put back that cannot be shown to be what was approved: the
+  // record must be intact, and each copy must still have the digest the
+  // record holds for it.
+  const untrusted = recordProblem(context, root, record.record);
+  // Copy digests count only in a chained record: one written before the
+  // chain could have such a section appended to it afterwards.
+  const rec = readRecord(root, record.record);
+  const copies = rec.previous === undefined ? null : rec.copies;
   for (const e of entries) {
     if (e.state === 'changed' || e.state === 'missing now') {
       const rel = resolve(root, e.path)
         .slice(rootAbs.length + 1)
         .split(sep)
         .join('/');
+      const from = `${record.dir}/${rel}`;
+      const kept = copies?.get(rel);
+      const why = untrusted
+        ? untrusted
+        : !copies
+          ? 'its record was written before records were chained, so the copy cannot be verified'
+          : !kept
+            ? 'its record holds no digest for this copy'
+            : sha256(readFileSync(join(root, from))) !== kept
+              ? 'its copy changed since the approval'
+              : null;
+      if (why) {
+        plan.cannot.push({ input: e.input, path: e.path, why, refused: true });
+        continue;
+      }
       plan.restore.push({
         input: e.input,
         path: e.path,
-        from: `${record.dir}/${rel}`,
+        from,
+        sha256: /** @type {string} */ (kept),
       });
     } else if (e.state === 'changed (by digest)') {
       plan.cannot.push({
@@ -128,17 +162,26 @@ const specPrompt = (/** @type {string} */ k) => /planner|generator/i.test(k);
 /**
  * Put back every file in the plan from its approved copy. Gate 1's
  * interpretation and Gate 3's prompt versions are restored into `context`,
- * which the caller then saves (validated).
+ * which the caller then saves (validated). Every copy is read and checked
+ * against the digest its record holds before anything is written; one that
+ * changed since the plan was made stops the restore with nothing written.
  * @param {RestorePlan} plan
  * @param {Context} context changed in place for context.json inputs
  * @param {string} [root]
  * @returns {string[]} what was restored
  */
 export function applyRestore(plan, context, root = '.') {
+  const read = plan.restore.map((item) => {
+    const bytes = readFileSync(join(root, item.from));
+    if (sha256(bytes) !== item.sha256)
+      throw new Error(
+        `${item.from} changed since the approval; nothing was restored`
+      );
+    return { item, bytes };
+  });
   /** @type {string[]} */
   const done = [];
-  for (const item of plan.restore) {
-    const bytes = readFileSync(join(root, item.from));
+  for (const { item, bytes } of read) {
     if (item.input === 'interpretation' || item.input === 'prompt_versions') {
       const was = JSON.parse(bytes.toString('utf8'));
       if (item.input === 'interpretation') {
@@ -189,6 +232,8 @@ export function earlierApprovalOf(gate, context, root = '.') {
   for (const r of records) {
     const path = join(root, r.record);
     if (!existsSync(path)) continue;
+    // An edited record cannot vouch for who approved what.
+    if (recordProblem(context, root, r.record)) continue;
     const md = readFileSync(path, 'utf8');
     const d = /\| Approval digest \| `([0-9a-f]{64})` \|/.exec(md)?.[1];
     const version = recordBindingVersion(root, r.record);

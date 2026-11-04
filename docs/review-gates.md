@@ -852,6 +852,17 @@ it, gate cost becomes measurable: `decided_at − opened_at` per event
 of X minutes per story." Optional and backward-compatible: older runs omit it
 and validate fine; recording `decided_at` without `opened_at` remains valid.
 
+**The record it wrote (`record`, runner only).** A decision the runner records
+also names its gate record, `{ "path": "gates/002-gate2-approved.md",
+"sha256": "…" }`, with the digest taken before the record was written. Each
+record in turn names the one before it by digest. Together they let the trail
+check (`npm run pipeline -- --history`) report a record that was deleted or
+edited afterwards, the last one included, and let `--restore` refuse a record
+or copy that changed (`docs/pipeline-runner.md` §5). It catches a change not
+carried through the rest of the trail, not a deliberate rewrite of `gates/` and
+`context.json` together, and it shows that the trail changed, not who decided: approving stays a person's act by rule of conduct
+(`CLAUDE.md` §3.5).
+
 The log is **append-only** and **optional** — older runs omit it and validate
 fine; the pipeline runs identically without it. `npm run metrics` reads it and,
 once enough runs carry the log, computes the `<10% rejection over 10 runs`

@@ -6,7 +6,7 @@
     "title": "Login — Successful sign-in (audited gates)",
     "source": "manual",
     "path": "story.md",
-    "description": "Same login slice as login-success, after the execute step ran: execution_identity records what the Playwright evidence was. The report is accepted only while its digest, its config digest and the Gate 4 approval digest still match; the app build was not declared, so it is unknown. Gate 4 is bound under binding_version 2: besides the generated test it covers the seed spec, the fixtures, tsconfig.json and package.json."
+    "description": "Same login slice as login-success, after the execute step ran: execution_identity records what the Playwright evidence was. The report is accepted only while its digest, its config digest and the Gate 4 approval digest still match; the app build was not declared, so it is unknown. Gate 4 is bound under binding_version 2: besides the generated test it covers the seed spec, the fixtures, tsconfig.json and package.json. Its decision names its gate record by digest, so the trail check sees that record edited or deleted."
   },
   "acceptance_criteria": [
     "Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",
@@ -82,6 +82,20 @@
       }
     }
   },
+  "gate_decisions": [
+    {
+      "gate": "code_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-06-04T11:02:00Z",
+      "decided_at": "2026-06-04T11:10:00Z",
+      "reviewer": "bob@example.com",
+      "notes": null,
+      "record": {
+        "path": "gates/004-gate4-approved.md",
+        "sha256": "8a9b0c1d2e3f405162738495a6b7c8d9e0f1a2b3c4d5e6f708192a3b4c5d6e7f"
+      }
+    }
+  ],
   "status": "completed",
   "execution_identity": {
     "playwright": {

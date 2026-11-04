@@ -9,6 +9,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -24,6 +25,7 @@ import {
 import {
   captureGateFiles,
   listGateRecords,
+  verifyGateTrail,
 } from '../scripts/lib/gate-records.js';
 import { classifyRootArtifacts } from '../scripts/lib/run-lifecycle.js';
 import { recordGateDecision } from '../scripts/run-pipeline.js';
@@ -246,6 +248,24 @@ test('a record that cannot be written is reported after the decision is saved', 
   assert.equal(r.stage, 'record');
   const saved = JSON.parse(read(dir, 'context.json'));
   assert.equal(saved.review_gates.requirements_reviewed.status, true);
+  // The decision does not name a record that was never written, so the
+  // trail check does not read the failure as a deletion...
+  assert.equal(saved.gate_decisions.at(-1).record, undefined);
+  assert.deepEqual(verifyGateTrail(saved, dir), []);
+  // ...and once the folder is back, the next record starts a clean trail.
+  rmSync(join(dir, 'gates'));
+  const again = decide(
+    dir,
+    saved,
+    'gate1',
+    'requirements_reviewed',
+    'approved'
+  );
+  assert.equal(again.ok, true, again.message);
+  assert.deepEqual(
+    verifyGateTrail(JSON.parse(read(dir, 'context.json')), dir),
+    []
+  );
 });
 
 test('gate records belong to the run: they are archived with it', (t) => {

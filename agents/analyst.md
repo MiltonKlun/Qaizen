@@ -9,9 +9,12 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 3.1.7
+version: 3.1.8
 changed_in_run: null
 changelog: |
+  - 3.1.8: PATCH (no output change). A gate decision's record (the gate
+    record's path and digest) is written by the runner only, like the rest
+    of gate_decisions[].
   - 3.1.7: PATCH (no output change). An approved gate's binding_version,
     input_digest and inputs are written by the runner only.
   - 3.1.6: PATCH (no output change). execution_identity covers the Newman

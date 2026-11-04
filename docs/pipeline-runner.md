@@ -278,10 +278,17 @@ smoke test asserts no GitHub workflow invokes the runner at all.
 **What the TTY check is not.** It protects ordinary non-interactive entry. It
 is **not authentication** (a process can allocate a pseudo-terminal) and
 `context.json` is **not tamper-proof** (anyone who can edit it can edit a gate).
-So "agents and CI never approve a gate" stays a rule of conduct, backed by
-review — and by binding: every approval records a digest of exactly what was
-reviewed (next section), so a change made after it is visible and returns the
-gate to pending rather than passing silently.
+The decision writer is not protected either: `recordGateDecision` and
+`applyGateDecision` are exported from `scripts/run-pipeline.js`, so any script
+can import them and record a decision without a terminal; the TTY check lives
+only in the CLI prompt. So "agents and CI never approve a gate" is a rule of
+conduct (`CLAUDE.md` §3.5), not something the code enforces. What the code
+does is make changes visible: every approval records a digest of exactly what
+was reviewed (next section), so a change made after it returns the gate to
+pending rather than passing silently, and the gate records are chained, so a
+record edited or deleted afterwards shows in the trail check (§5) unless the
+same person also rewrites the records after it and the decisions in
+`context.json` to match. Neither shows who made a decision.
 
 ### Approvals are bound to what was reviewed
 
@@ -399,6 +406,25 @@ Each decision, approved or rejected, also leaves a **gate record** under
 The record is written after the decision is saved in `context.json`; it never
 decides anything. The records belong to the run and are archived with it.
 
+The records form a chain. Each one names the record before it with that
+record's SHA-256 (`Previous record` in its header; the first says `(none)`),
+and each decision in `gate_decisions[]` names its own record by digest
+(`record`), taken before the record was written. The record also lists the
+SHA-256 of every copy it keeps (`Copy digests`). `--history` ends with a trail
+check, and `--status` prints any problem it finds: a gap in the numbering, a
+record edited after the next one was chained to it, a record missing or
+edited after its decision named it (the last record included). Records and
+decisions from before the chain existed are not checked for what they never
+carried, and a chained record that no decision names is reported. The
+digests carry no secret: the check catches an edit or a deletion that was not
+carried through the rest of the trail, not a deliberate rewrite of `gates/`
+and `context.json` together (deleting the last record along with its decision
+leaves nothing to compare). For an archived run, its git history is the
+stronger anchor. Copy digests are taken over the raw bytes, so a copy whose
+line endings a checkout converted no longer matches; nothing restores from an
+archive. The check shows that the trail changed after the fact, not who
+changed it or who decided.
+
 Two read-only views use them. Neither writes anything, not even when an
 approval has gone stale:
 
@@ -422,7 +448,12 @@ need a terminal, and neither ever records an approval:
 - `--restore <gate>` shows what differs from the copy kept by the gate's
   latest approval, asks to confirm, and puts those files back (Gate 1's
   interpretation goes back into `context.json`). Files kept only as a digest
-  and files added since are listed, never touched. If the approval was never
+  and files added since are listed, never touched. Nothing is put back that
+  cannot be shown to be what was approved: the record must pass the trail
+  check, and each copy must still have the digest its record holds (checked
+  again just before writing; one mismatch and nothing is written). A record
+  from before records were chained cannot be restored from, and one refused
+  copy stops the whole restore (exit 2). If the approval was never
   withdrawn, it stands again because the files match it; if it was, the gate
   stays pending and its brief says the files are exactly what was approved
   before, by whom and when. A restore is the reviewer's action, through the
