@@ -6,7 +6,8 @@
 //
 //   resolveTarget   which live test file and which single test a failure is,
 //                   from the current run's context, ledger and analysis;
-//   attempts        the persisted three-submission cap and outcome reuse;
+//   attempts        the three-submission cap, counted from context.json and
+//                   the record files together, and outcome reuse;
 //   workspace       a task-owned copy of just the sources the test needs;
 //   runSingleTest   run exactly that one test there and read the outcome;
 //   buildPatch      a unified diff, proven by applying it to a copy.
@@ -165,34 +166,111 @@ export function resolveTarget({
 // ---------------------------------------------------------------- attempts
 
 /**
- * Every candidate record already written for this failure's unit.
+ * One used attempt, from context.json, a record file, or both.
+ * @typedef {{ attempt: number, candidate_sha256: string, outcome: string,
+ *   reason: string, file: string }} Attempt
+ */
+
+/**
+ * Every attempt already used for this failure's unit. Two stores count: the
+ * entries in context.json `healer_attempts[]` (archived with the run) and the
+ * record files in analysis/healer-validation/. An attempt in either one is
+ * used, so deleting the record files, or editing the context alone, gives
+ * nothing back. Where both have an attempt, the context entry is what counts,
+ * and a record that no longer matches it is reported.
  * @param {string} root
  * @param {{ runId: string, originalDigest: string, unitId: string }} key
- * @returns {any[]} the parsed records, each with its `file`
+ * @param {any} context the run's parsed context.json
+ * @returns {{ attempts: Attempt[], problems: string[] }} attempts by number
  */
-export function readAttempts(root, key) {
+export function readAttempts(root, key, context) {
+  /** @type {Map<number, Attempt & { record_sha256?: string }>} */
+  const byNumber = new Map();
+  /** @type {string[]} */
+  const problems = [];
+  const entries = Array.isArray(context?.healer_attempts)
+    ? context.healer_attempts
+    : [];
+  for (const e of entries) {
+    if (
+      e?.run_id !== key.runId ||
+      e.original_sha256 !== key.originalDigest ||
+      e.unit_id !== key.unitId ||
+      !Number.isInteger(e.attempt) ||
+      byNumber.has(e.attempt)
+    )
+      continue;
+    byNumber.set(e.attempt, {
+      attempt: e.attempt,
+      candidate_sha256: e.candidate_sha256,
+      outcome: e.outcome,
+      reason: e.reason,
+      file: e.record?.path ?? '(no record named)',
+      record_sha256: e.record?.sha256,
+    });
+  }
+
   const dir = join(root, VALIDATION_DIR);
-  if (!existsSync(dir)) return [];
-  /** @type {any[]} */
-  const out = [];
-  for (const name of readdirSync(dir)) {
+  /** @type {Set<number>} */
+  const seen = new Set();
+  for (const name of existsSync(dir) ? readdirSync(dir) : []) {
     if (!/\.attempt-\d+\.json$/.test(name)) continue;
+    const file = posix(join(VALIDATION_DIR, name));
+    let bytes;
+    let r;
     try {
-      const r = JSON.parse(readFileSync(join(dir, name), 'utf8'));
-      if (
-        r.record_type === 'candidate_validation' &&
-        r.run_id === key.runId &&
-        r.original?.sha256 === key.originalDigest &&
-        r.unit?.unit_id === key.unitId
-      ) {
-        out.push({ ...r, file: join(VALIDATION_DIR, name) });
-      }
+      bytes = readFileSync(join(dir, name));
+      r = JSON.parse(bytes.toString('utf8'));
     } catch {
       // A record that does not parse is not evidence either way; the
       // validators report it. It does not grant or consume attempts.
+      continue;
+    }
+    if (
+      r?.record_type !== 'candidate_validation' ||
+      r.run_id !== key.runId ||
+      r.original?.sha256 !== key.originalDigest ||
+      r.unit?.unit_id !== key.unitId ||
+      !Number.isInteger(r.attempt)
+    )
+      continue;
+    const entry = byNumber.get(r.attempt);
+    if (!entry) {
+      problems.push(
+        `attempt ${r.attempt} is in ${file} but not in context.json healer_attempts[]; it still counts`
+      );
+      byNumber.set(r.attempt, {
+        attempt: r.attempt,
+        candidate_sha256: r.candidate?.sha256,
+        outcome: r.outcome,
+        reason: r.reason,
+        file,
+      });
+    } else if (entry.file === file) {
+      seen.add(r.attempt);
+      if (entry.record_sha256 !== sha256(bytes))
+        problems.push(
+          `${file} changed after attempt ${r.attempt} was recorded; context.json is what counts`
+        );
     }
   }
-  return out.sort((a, b) => a.attempt - b.attempt);
+  /** @type {Attempt[]} */
+  const attempts = [];
+  for (const a of byNumber.values()) {
+    if (a.record_sha256 !== undefined && !seen.has(a.attempt))
+      problems.push(
+        `the record of attempt ${a.attempt} (${a.file}) is missing; the attempt still counts`
+      );
+    attempts.push({
+      attempt: a.attempt,
+      candidate_sha256: a.candidate_sha256,
+      outcome: a.outcome,
+      reason: a.reason,
+      file: a.file,
+    });
+  }
+  attempts.sort((a, b) => a.attempt - b.attempt);
+  return { attempts, problems };
 }
 
 // ---------------------------------------------------------------- workspace

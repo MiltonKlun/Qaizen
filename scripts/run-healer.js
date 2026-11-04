@@ -26,9 +26,12 @@
 //        proven by applying it to a copy of the original.
 //    Every submission with --apply is recorded in analysis/healer-validation/
 //    (schemas/healer-validation.schema.json): rejected_static,
-//    validation_failed or validated. At most three per (run, original
-//    source, test); resubmitting an identical candidate reuses its record.
-//    Without --apply only the static check runs and nothing is written.
+//    validation_failed or validated, and added to context.json
+//    healer_attempts[] with that record's digest. At most three per (run,
+//    original source, test), counted from both stores, so deleting the
+//    record files gives no attempt back; resubmitting an identical candidate
+//    reuses its outcome. Without --apply only the static check runs and
+//    nothing is written.
 //
 // Never: edits the live test, commits, merges, approves, or retries on its
 // own. A validated patch still needs human review. The workspace is a
@@ -73,6 +76,8 @@ import {
 } from './lib/healer-candidate.js';
 import { ELIGIBILITY_NOTE, checkCandidate } from './healer-guardrails.js';
 
+const CONTEXT_PATH = 'context.json';
+const CONTEXT_SCHEMA = 'schemas/context.schema.json';
 const FA = 'analysis/failure-analysis.json';
 const LEDGER = 'analysis/execution-ledger.json';
 const ANALYSIS_SCHEMA = 'schemas/failure-analysis.schema.json';
@@ -196,7 +201,7 @@ function triage() {
  */
 async function processCandidate(failureId, candidatePath) {
   // --- The current run, and the one failure it names -------------------
-  const ctxRead = readJson('context.json');
+  const ctxRead = readJson(CONTEXT_PATH);
   if (!ctxRead.ok) {
     console.error(ctxRead.message);
     return 2;
@@ -290,8 +295,9 @@ async function processCandidate(failureId, candidatePath) {
 
   // --- The three-submission cap, and reuse of an identical candidate ---
   const key = { runId: context.run_id, originalDigest, unitId: unit.unit_id };
-  const prior = readAttempts('.', key);
-  const same = prior.find((r) => r.candidate.sha256 === candidateDigest);
+  const { attempts: prior, problems } = readAttempts('.', key, context);
+  for (const p of problems) console.log(`  Note: ${p}.`);
+  const same = prior.find((r) => r.candidate_sha256 === candidateDigest);
   if (same) {
     console.log(
       `\nThis exact candidate was already submitted (attempt ${same.attempt}): ${same.outcome} — ${same.reason}\n` +
@@ -331,7 +337,13 @@ async function processCandidate(failureId, candidatePath) {
     return staticCheck.eligible ? 0 : 1;
   }
 
-  const attempt = prior.length + 1;
+  const attempt = Math.max(0, ...prior.map((r) => r.attempt)) + 1;
+  if (attempt > MAX_ATTEMPTS) {
+    console.error(
+      `Attempt ${attempt} would pass the cap of ${MAX_ATTEMPTS}. Refusing.`
+    );
+    return 1;
+  }
   const recordPath = join(
     VALIDATION_DIR,
     `${failureId}.attempt-${attempt}.json`
@@ -489,6 +501,14 @@ async function processCandidate(failureId, candidatePath) {
       return 1;
     }
     writeTextAtomic(recordPath.replace(/\.json$/, '.md'), renderRecord(full));
+    const kept = recordAttempt(full, recordPath);
+    if (!kept.ok) {
+      console.error(
+        `\n${kept.message}\nThe record file is written and the attempt still counts from it, ` +
+          'but context.json does not show it. Fix context.json before healing again.'
+      );
+      return 1;
+    }
     console.log(
       `\n${full.outcome.toUpperCase()} (attempt ${attempt} of ${MAX_ATTEMPTS}): ${full.reason}`
     );
@@ -501,6 +521,46 @@ async function processCandidate(failureId, candidatePath) {
     }
     return full.outcome === 'validated' ? 0 : 1;
   }
+}
+
+/**
+ * Add a submitted attempt to context.json `healer_attempts[]`, the durable
+ * count that travels with the run. The context is read again just before the
+ * write so nothing recorded meanwhile is lost, and the whole file is validated
+ * before it replaces the old one.
+ * @param {Record<string, any>} record the saved healer-validation record
+ * @param {string} recordPath
+ * @returns {{ ok: true } | { ok: false, message: string }}
+ */
+function recordAttempt(record, recordPath) {
+  const read = readJson(CONTEXT_PATH);
+  if (!read.ok) return { ok: false, message: read.message };
+  const context = read.data;
+  if (context?.run_id !== record.run_id)
+    return {
+      ok: false,
+      message: `${CONTEXT_PATH} no longer belongs to run ${record.run_id}.`,
+    };
+  if (!Array.isArray(context.healer_attempts)) context.healer_attempts = [];
+  context.healer_attempts.push({
+    run_id: record.run_id,
+    failure_id: record.failure_id,
+    unit_id: record.unit.unit_id,
+    original_sha256: record.original.sha256,
+    candidate_sha256: record.candidate.sha256,
+    attempt: record.attempt,
+    outcome: record.outcome,
+    reason: record.reason,
+    record: {
+      path: recordPath.split('\\').join('/'),
+      sha256: sha256(readFileSync(recordPath)),
+    },
+    recorded_at: record.created_at,
+  });
+  const wrote = writeJsonAtomic(CONTEXT_PATH, context, {
+    schemaPath: CONTEXT_SCHEMA,
+  });
+  return wrote.ok ? { ok: true } : { ok: false, message: wrote.message };
 }
 
 /** @param {any} r a schema-valid healer-validation record */

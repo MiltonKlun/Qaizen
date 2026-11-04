@@ -9,9 +9,11 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 3.1.8
+version: 3.1.9
 changed_in_run: null
 changelog: |
+  - 3.1.9: PATCH (no output change). healer_attempts[] is written by
+    scripts/run-healer.js only; the Analyst leaves it out.
   - 3.1.8: PATCH (no output change). A gate decision's record (the gate
     record's path and digest) is written by the runner only, like the rest
     of gate_decisions[].
@@ -385,6 +387,8 @@ validate:context`). Fix and re-validate until the script exits 0.
   `downgrade_confirmations[]` or `execution_identity` (Playwright or
   Newman). The runner records them at a person's decision or an execution;
   the Analyst leaves them out.
+- Writing `healer_attempts[]`. `scripts/run-healer.js` records each candidate
+  fix submitted with `--apply`; the Analyst leaves it out.
 - Skipping schema validation because "it's basically right".
 - Editing `.claude/agents/*.md` or `.mcp.json` — those are
   infrastructure, not Analyst output.

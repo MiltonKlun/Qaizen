@@ -731,6 +731,48 @@
         }
       }
     },
+    "healer_attempts": {
+      "description": "OPTIONAL. Written only by scripts/run-healer.js with --apply: one entry per candidate fix submitted for a Green failure (at most three per run, test and original source). The cap is counted from these entries together with the records in analysis/healer-validation/, so deleting the record files does not give an attempt back. Each entry names its record file and that file's SHA-256. Evidence, not an approval: a validated patch still needs human review. No agent writes this.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "run_id",
+          "failure_id",
+          "unit_id",
+          "original_sha256",
+          "candidate_sha256",
+          "attempt",
+          "outcome",
+          "reason",
+          "record",
+          "recorded_at"
+        ],
+        "properties": {
+          "run_id": { "type": "string", "minLength": 1 },
+          "failure_id": { "type": "string", "pattern": "^FAIL-[0-9]+$" },
+          "unit_id": { "type": "string", "minLength": 1 },
+          "original_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "candidate_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "attempt": { "type": "integer", "minimum": 1, "maximum": 3 },
+          "outcome": {
+            "enum": ["rejected_static", "validation_failed", "validated"]
+          },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "record": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+            }
+          },
+          "recorded_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
     "gate_invalidations": {
       "type": "array",
       "description": "OPTIONAL. Approvals the runner returned to pending because what they reviewed changed (or because they predate input binding). Separate from gate_decisions[], which records only HUMAN decisions: an invalidation is not a rejection and never invents one. The prior approval is preserved here and in gate_decisions[].",

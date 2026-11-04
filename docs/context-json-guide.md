@@ -565,6 +565,13 @@ older files continue to validate:
   Red-domain or untraceable risk). Each entry names the failure, the two
   severities, the reviewer, the time and the SHA-256 of the analysis it was
   given for; a later change to the analysis needs a new confirmation.
+- Optional `healer_attempts[]`: written only by `scripts/run-healer.js --apply`,
+  one entry per candidate fix submitted for a Green failure. Each names the
+  run, failure, test unit, the original and candidate digests, the attempt
+  number (1–3), the outcome and reason, and the record file in
+  `analysis/healer-validation/` with its SHA-256. The three-attempt cap counts
+  these together with the record files, so deleting the records gives no
+  attempt back. Not part of any gate's reviewed input.
 - Optional `likelihood`, `impact` and `likelihood_basis` on each risk (the
   risk matrix, Analyst 3.0.0); when both are present, `severity` must be
   their cell.

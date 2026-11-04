@@ -58,7 +58,9 @@ node scripts/run-healer.js --failure FAIL-001 --candidate fixed.spec.ts --apply 
   API/Newman tests are never healed.
 - **Never** commits, merges, applies a patch or records a gate decision. A
   human reviews the patch and applies it; Gate 4 then needs a new decision.
-- **Three submissions** per test and run, persisted; no automatic retry.
+- **Three submissions** per test and run, kept in `context.json`
+  `healer_attempts[]` and the record files (deleting the records gives none
+  back); no automatic retry.
 - The isolated copy is a filesystem separation, not a security sandbox.
 
 ## References

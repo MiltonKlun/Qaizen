@@ -1,0 +1,100 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-04T10-00-00Z-healex",
+  "story": {
+    "id": "STORY-001",
+    "title": "Login — Successful sign-in (healer attempts recorded)",
+    "source": "manual",
+    "path": "story.md",
+    "description": "Same login slice as login-success, after two candidate fixes for the Green failure FAIL-001 were submitted with scripts/run-healer.js --apply. The static check rejected the first; the second passed the isolated re-run and its patch waits for human review. Each attempt is kept in healer_attempts[] with its record file's digest, so deleting analysis/healer-validation/ does not give an attempt back."
+  },
+  "acceptance_criteria": [
+    "Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",
+    "Given an invalid password, when the user submits the form, then they remain on the login page and an error message explains the credentials were not accepted. No partial session is created.",
+    "Given a locked user, when they submit valid credentials, then they remain on the login page and an error message explains the account is locked. No session is created."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "A partial session is created on failed login, leaving the user in an ambiguous authenticated state.",
+      "severity": "high",
+      "related_acs": [1, 2]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "Locked-account check is enforced only in the UI, allowing API-level bypass.",
+      "severity": "high",
+      "related_acs": [2]
+    }
+  ],
+  "artifact_paths": {
+    "test_cases": "test-cases/STORY-001.json",
+    "planner_brief": "planner-input/STORY-001.planner-brief.md",
+    "playwright_spec": "specs/STORY-001.md",
+    "generated_test": "tests/STORY-001.spec.ts",
+    "execution_results": "reports/results.json",
+    "html_report": "reports/html",
+    "traces": "reports/traces",
+    "screenshots": "reports/screenshots",
+    "failure_analysis": "analysis/failure-analysis.json",
+    "release_report_md": "release/release-report.md",
+    "release_report_json": "release/release-report.json",
+    "bug_drafts_dir": "release/bug-drafts"
+  },
+  "review_gates": {
+    "requirements_reviewed": {
+      "status": true,
+      "reviewer": "alice@example.com",
+      "reviewed_at": "2026-06-04T10-05-00Z",
+      "opened_at": "2026-06-04T09-57-00Z",
+      "notes": "AC accurate; both high-severity risks (partial session, UI-only lock check) captured."
+    },
+    "test_scope_reviewed": {
+      "status": true,
+      "reviewer": "alice@example.com",
+      "reviewed_at": "2026-06-04T10-20-00Z",
+      "notes": "Risk coverage complete; locked-user case routed to API branch, not E2E-heavy."
+    },
+    "specs_reviewed": {
+      "status": true,
+      "reviewer": "bob@example.com",
+      "reviewed_at": "2026-06-04T10-40-00Z",
+      "notes": null
+    },
+    "code_reviewed": true
+  },
+  "status": "in_progress",
+  "healer_attempts": [
+    {
+      "run_id": "2026-06-04T10-00-00Z-healex",
+      "failure_id": "FAIL-001",
+      "unit_id": "pw:chromium:STORY-001.spec.ts > logs in and sees the products [TC-001]",
+      "original_sha256": "5e2b8d14c0a7f3e9b6d2a1c8e4f7b0d3a9c6e2f5b8d1a4c7e0f3b6d9a2c5e8f1",
+      "candidate_sha256": "a1f4c7e0b3d6a9c2e5f8b1d4a7c0e3f6b9d2a5c8e1f4b7d0a3c6e9f2b5d8a1c4",
+      "attempt": 1,
+      "outcome": "rejected_static",
+      "reason": "the static check rejected it: changes an assertion (line 9)",
+      "record": {
+        "path": "analysis/healer-validation/FAIL-001.attempt-1.json",
+        "sha256": "0b7e3a9d5c1f8b4e2a6d0c9f3b7e1a5d8c2f6b0e4a9d3c7f1b5e8a2d6c0f4b9e"
+      },
+      "recorded_at": "2026-06-06T11:02:00.000Z"
+    },
+    {
+      "run_id": "2026-06-04T10-00-00Z-healex",
+      "failure_id": "FAIL-001",
+      "unit_id": "pw:chromium:STORY-001.spec.ts > logs in and sees the products [TC-001]",
+      "original_sha256": "5e2b8d14c0a7f3e9b6d2a1c8e4f7b0d3a9c6e2f5b8d1a4c7e0f3b6d9a2c5e8f1",
+      "candidate_sha256": "d8b1e4a7c0f3b6d9a2c5e8f1b4d7a0c3e6f9b2d5a8c1e4f7b0d3a6c9e2f5b8d1",
+      "attempt": 2,
+      "outcome": "validated",
+      "reason": "eligible under static checks, and the failing test passed with it in isolation",
+      "record": {
+        "path": "analysis/healer-validation/FAIL-001.attempt-2.json",
+        "sha256": "6c0f4b9e2a7d1c5f8b3e0a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c6f"
+      },
+      "recorded_at": "2026-06-06T11:09:00.000Z"
+    }
+  ]
+}

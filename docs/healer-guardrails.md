@@ -223,7 +223,14 @@ Every submission with `--apply` is recorded in
 (`schemas/healer-validation.schema.json`) as `rejected_static`,
 `validation_failed` or `validated`, with digests, the commands and their
 results. At most **three** submissions per run, original source and test;
-resubmitting an identical candidate reuses its record.
+resubmitting an identical candidate reuses its outcome. Each submission is
+also added to `context.json` `healer_attempts[]` with its record file's
+SHA-256, so the cap travels with the run. Both are counted: an attempt in
+either one is used, so deleting `analysis/healer-validation/` gives nothing
+back. Where both have it, the context entry counts, and a record file that
+changed since, is missing, or is not in the context is reported. Only
+editing both stores together can reset the cap; like the gate trail,
+`context.json` is not tamper-proof.
 
 - Never modifies the live test or the main working tree.
 - Never commits, never merges, never approves: a validated patch still
@@ -333,8 +340,9 @@ These rules apply regardless of severity classification. Violating any
 of them is a Healer bug that must be fixed before the Healer runs
 again.
 
-- **Maximum 3 fix attempts per test.** After 3 attempts on the same
-  test, the Healer stops and marks the failure
+- **Maximum 3 fix attempts per test.** Counted from `context.json`
+  `healer_attempts[]` and the record files together (§2). After 3
+  attempts on the same test, the Healer stops and marks the failure
   `unknown_needs_human_review`. Grinding past 3 attempts has
   historically not produced better fixes — only more questionable ones.
 - **Never change an expected value.** If the test expects
