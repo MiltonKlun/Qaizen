@@ -566,6 +566,14 @@ the API branch — the two branches are reviewed independently.
 >
 > Each finding names its test.
 >
+> On the **`full` track** (with `--context`: the story's `track` or its
+> `track_floor.minimum`, whichever is higher) every finding counts as
+> unresolved and the scan exits 1. The fix is in the test; there is no way
+> yet to record an answer to a finding, such as "intentional". On the
+> `lite` and `standard` tracks, and without the run's context, findings
+> are informational and the scan exits 0. Exit 1 blocks no gate and
+> approves nothing.
+>
 > The thin
 > gated runner shows this output inside the
 > Gate-4 brief, and an informational CI job posts it on PRs touching `tests/`.

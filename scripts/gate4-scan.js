@@ -40,9 +40,11 @@
 //   node scripts/gate4-scan.js [--context context.json] <file> [<file> ...]
 //   npm run scan:gate4 -- tests/STORY-1.spec.ts
 //
-// Exit codes: 0 scan ran (findings are INFORMATIONAL, never a failure) ·
-//   2 usage / unreadable file. It never exits non-zero on findings — flagging
-//   a brittle locator is not the script's call to block; the human decides.
+// Exit codes: 0 scan ran, findings informational · 1 a full-track story
+//   (--context, the higher of track and track_floor) has findings · 2 usage /
+//   unreadable file or context. Without --context, or on the lite or standard track,
+//   findings never fail the scan. Exit 1 blocks no gate and approves nothing:
+//   the human still decides Gate 4.
 
 import { readFileSync, existsSync } from 'node:fs';
 import { basename } from 'node:path';
@@ -50,6 +52,7 @@ import { argv, exit } from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 import { GATE4_JUDGMENT_QUESTIONS } from './gate-briefs.js';
+import { TRACK_ORDER, trackRank } from './track-floor.js';
 import { oracleFindings, uncoveredCases } from './lib/oracle-checks.js';
 import {
   TEST_ID_KINDS,
@@ -62,7 +65,8 @@ import {
  * What a traceability check reads, from loadGate4Artifacts.
  * @typedef {{ contextPath: string, storyId: string | null, testCases: any,
  *   testCasesPath: string | null, specText: string | null,
- *   specPath: string | null, criteria?: string[] | null }} Gate4Artifacts
+ *   specPath: string | null, criteria?: string[] | null,
+ *   track?: string }} Gate4Artifacts
  * @typedef {{ rule: string, line: number | null, test: string | null,
  *   excerpt: string, note: string }} Finding
  * @typedef {(rule: string, line: number | null, note: string,
@@ -371,6 +375,8 @@ export function loadGate4Artifacts(contextPath = 'context.json') {
   } catch {
     return null;
   }
+  if (!context || typeof context !== 'object' || Array.isArray(context))
+    return null;
   const paths = context.artifact_paths ?? {};
   const read = (/** @type {string | undefined} */ p) =>
     p && existsSync(p) ? readFileSync(p, 'utf8') : null;
@@ -390,7 +396,61 @@ export function loadGate4Artifacts(contextPath = 'context.json') {
     criteria: Array.isArray(context.acceptance_criteria)
       ? context.acceptance_criteria.map(String)
       : null,
+    track: storyTrack(context),
   };
+}
+
+/**
+ * The track the scan holds a story to: the declared track (absent means
+ * standard) or its floor, whichever is higher.
+ * @param {any} context parsed context.json
+ * @returns {string}
+ */
+export function storyTrack(context) {
+  const declared = TRACK_ORDER.includes(context?.track)
+    ? context.track
+    : 'standard';
+  const floor = context?.track_floor?.minimum;
+  return TRACK_ORDER.includes(floor) && trackRank(floor) > trackRank(declared)
+    ? floor
+    : declared;
+}
+
+/**
+ * Whether the findings block. On the full track every finding is unresolved
+ * until it is fixed (no way to answer a finding exists yet), so the scan
+ * exits non-zero; on any other track, or without the run's context, the
+ * findings are informational. Either way Gate 4 stays the reviewer's.
+ * @param {Gate4Artifacts | null | undefined} artifacts
+ * @param {number} count findings across the scanned files
+ * @returns {{ blocking: boolean, message: string }}
+ */
+export function scanVerdict(artifacts, count) {
+  if (!artifacts)
+    return {
+      blocking: false,
+      message:
+        'Informational (no run context, so the track is unknown). Gate 4 is the human reviewer (CLAUDE.md §3.5).',
+    };
+  const track = artifacts.track ?? 'standard';
+  if (track !== 'full')
+    return {
+      blocking: false,
+      message: `Informational (${track} track). Gate 4 is the human reviewer (CLAUDE.md §3.5).`,
+    };
+  return count === 0
+    ? {
+        blocking: false,
+        message:
+          'Full track: no finding is open. Gate 4 is still the human reviewer (CLAUDE.md §3.5).',
+      }
+    : {
+        blocking: true,
+        message:
+          `Full track: ${count} finding(s) unresolved; run on its own, the scan exits 1 for them. ` +
+          'Fix each one in the test; a recorded answer per finding does not exist yet. ' +
+          'This blocks nothing else and approves nothing: Gate 4 is the human reviewer (CLAUDE.md §3.5).',
+      };
 }
 
 /**
@@ -434,6 +494,18 @@ export function renderGate4Scan(filePath, result) {
   return lines.join('\n');
 }
 
+/**
+ * The scan block of the runner's Gate-4 brief: the findings, then whether
+ * they are informational or, on the full track, unresolved.
+ * @param {string} filePath
+ * @param {ReturnType<typeof gate4Findings>} result
+ * @param {Gate4Artifacts | null | undefined} artifacts
+ */
+export function renderGate4Brief(filePath, result, artifacts) {
+  const verdict = scanVerdict(artifacts, result.findings.length);
+  return `${renderGate4Scan(filePath, result)}\n  ${verdict.message}`;
+}
+
 // ----------------------------------------------------------------- CLI -----
 // Only when invoked directly (the module is also imported by the runner/tests).
 if (
@@ -459,6 +531,14 @@ if (
     exit(2);
   }
   const artifacts = contextPath ? loadGate4Artifacts(contextPath) : undefined;
+  // A context that cannot be read must not pass as "no context": the track
+  // it names would be lost and full-track findings would not block.
+  if (contextPath && !artifacts) {
+    console.error(
+      `--context ${contextPath} is not a readable context.json object`
+    );
+    exit(2);
+  }
   let total = 0;
   /** @type {Set<string>} */
   const named = new Set();
@@ -496,9 +576,9 @@ if (
       total += uncovered.length;
     } else console.log('Every approved E2E case is named by a scanned test.');
   }
+  const verdict = scanVerdict(artifacts, total);
   console.log(
-    `Scanned ${files.length} file(s); ${total} mechanical finding(s). ` +
-      'Informational — Gate 4 is the human reviewer (CLAUDE.md §3.5).'
+    `Scanned ${files.length} file(s); ${total} mechanical finding(s). ${verdict.message}`
   );
-  exit(0);
+  exit(verdict.blocking ? 1 : 0);
 }

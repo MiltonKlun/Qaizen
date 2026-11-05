@@ -383,7 +383,9 @@ documented here, not baked into the schema).
   Gates 3 and 4 stay **two distinct recorded decisions**. See
   `docs/review-gates.md`.
 - **`standard`** — the four gates as always.
-- **`full`** — everything, for the highest-risk features.
+- **`full`** — everything, for the highest-risk features. Today it also
+  makes the Gate 4 static scan exit 1 while a finding is open
+  (`docs/review-gates.md`, Gate 4).
 
 `track_floor` is the **lowest** track a story may use, computed by
 `scripts/track-floor.js` from the Healer Red taxonomy
