@@ -12,10 +12,10 @@ phase_active: 1+
 version: 3.1.10
 changed_in_run: null
 changelog: |
-  - 3.1.10: PATCH (no change to what the Analyst writes). The floor rule
-    says "at least standard" and notes that the runner computes the
-    binding floor itself, from story.md and context.json, holding a
-    Red-domain story to full; the recorded track_floor stays advisory.
+  - 3.1.10: PATCH (no change to what the Analyst writes). Notes that the
+    runner computes the binding floor itself, from story.md and
+    context.json, and raises a Red-domain story to full; the Analyst still
+    records standard for it, and the recorded track_floor stays advisory.
   - 3.1.9: PATCH (no output change). healer_attempts[] is written by
     scripts/run-healer.js only; the Analyst leaves it out.
   - 3.1.8: PATCH (no output change). A gate decision's record (the gate
@@ -217,9 +217,9 @@ record the `track_floor` it implies (`docs/context-json-guide.md`):
   any AC, or any risk touches a Red-taxonomy domain
   (`docs/healer-guardrails.md` §4 — business logic, permissions, security,
   pricing, payment, compliance, data integrity), or there are many ACs/risks,
-  or any risk is high-severity, the floor is at least `standard`; otherwise
-  `lite`. The runner computes the binding floor itself, from `story.md` and
-  this context, and holds a Red-domain story to `full`
+  or any risk is high-severity, record the floor as `standard`, as before;
+  otherwise `lite`. The runner computes the binding floor itself, from
+  `story.md` and this context, and raises a Red-domain story to `full`
   (`docs/review-gates.md`, "The full track"); what you record is advisory.
 - **Never propose a `track` below the floor.** A high-consequence story is
   never `lite`. When unsure, omit `track` (⇒ `standard`) — the safe default.

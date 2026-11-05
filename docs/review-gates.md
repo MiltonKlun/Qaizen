@@ -200,10 +200,10 @@ a team can also declare `full` for any story. The Gate 1 brief names the
 track, why, and what it requires. In force today:
 
 - the Gate 4 static scan exits 1 while any finding is open (Gate 4 below);
-- a failure analysis that lowers a Red failure, or a failure on a
-  high-severity or Red-domain risk, needs a person to confirm it
-  (`docs/healer-guardrails.md`). This holds on every track; on `full` it
-  covers the story's own risks by definition.
+- a failure analysis that lowers any failure's severity needs a person to
+  confirm it (`scripts/lib/analysis-overrides.js`). On every other track
+  only some downgrades need one: a lowered Red failure, or a failure on a
+  high-severity, Red-domain or untraced risk.
 
 Not built yet, and so not in force: more repeat runs of the generated test
 before Gate 4, and a recorded answer to each scan finding. The four gates

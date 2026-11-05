@@ -83,7 +83,7 @@ export const GATE_BRIEFS = {
     checklist: [
       'Requirements (Gate 1): ACs match the story, ambiguities explicit, risks meaningful, no invented rules',
       'Scope (Gate 2): every RISK-XXX covered or justified; automation_decision + a real reason on every TC',
-      'Lite is justified: this story carries no Red-taxonomy exposure and is genuinely routine (track_floor.minimum is lite)',
+      'Lite is justified: this story carries no Red-taxonomy exposure and is genuinely routine (the track line in the auto-checks shows floor lite)',
       'Not E2E-heavy; low-value cases marked manual/skip with a real reason',
     ],
     judgment: [

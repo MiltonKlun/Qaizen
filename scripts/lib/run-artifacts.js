@@ -32,6 +32,7 @@ import {
   newmanReportFiles,
 } from './execution-identity.js';
 import { releaseRuleProblems } from './report-checks.js';
+import { effectiveTrack } from '../track-floor.js';
 import {
   analysisCountProblems,
   releaseExecutionSummary,
@@ -417,11 +418,17 @@ export function downgradeStatus(context, root = '.') {
     typeof casesRel === 'string' && casesRel
       ? readJson(join(root, casesRel))
       : null;
+  // The track from the story file as well as the context, as everywhere.
+  const storyRel = context?.story?.path || 'story.md';
+  const storyText = existsSync(join(root, storyRel))
+    ? readFileSync(join(root, storyRel), 'utf8')
+    : null;
   const downgrades = downgradesOf({
     draft: draft.data,
     final: final.data,
     context,
     testCases: cases?.ok ? cases.data : { test_cases: [] },
+    track: effectiveTrack(context, storyText).track,
   });
   const sha256 = createHash('sha256').update(bytes).digest('hex');
   return {

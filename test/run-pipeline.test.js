@@ -369,6 +369,34 @@ test('runner REFUSES track:lite when only the story file names a red domain', ()
   }
 });
 
+test('runner REFUSES track:lite when the recorded floor is higher than the computed one', () => {
+  const dir = makeMiniRepo();
+  try {
+    const ctx = freshContext({
+      track: 'lite',
+      track_floor: { minimum: 'standard', reasons: ['recorded by hand'] },
+      story: {
+        id: 'STORY-001',
+        title: 'Footer shows the current year',
+        source: 'manual',
+        path: 'story.md',
+      },
+      acceptance_criteria: ['The footer shows the current four-digit year.'],
+    });
+    writeFileSync(join(dir, 'context.json'), JSON.stringify(ctx, null, 2));
+    writeFileSync(join(dir, 'story.md'), '# STORY-001\n\nFooter year.\n');
+    const r = runPipeline(dir, []);
+    assert.equal(r.code, 2, r.out);
+    assert.match(r.out, /floor for this story is "standard"/);
+    assert.match(
+      r.out,
+      /context\.json records track_floor\.minimum "standard"/
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('runner ALLOWS track:lite for a benign story (reaches the qa_scope gate)', () => {
   const dir = makeMiniRepo();
   try {

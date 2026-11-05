@@ -83,7 +83,7 @@ import {
   renderHistory,
   resolveGate,
 } from './lib/gate-history.js';
-import { trackAllowed } from './track-floor.js';
+import { effectiveTrack } from './track-floor.js';
 import {
   gate4Findings,
   loadGate4Artifacts,
@@ -2019,20 +2019,25 @@ async function main() {
   // advance, preserving the "a refusal writes nothing" guarantee.
   if (context && context.track === 'lite') {
     const storyFile = context.story?.path || 'story.md';
-    const { allowed, minimum, reasons } = trackAllowed(
+    // The same track the briefs show: a floor recorded above lite counts
+    // even when the computed one is lite.
+    const { track, minimum, reasons } = effectiveTrack(
       context,
-      'lite',
       existsSync(storyFile) ? readFileSync(storyFile, 'utf8') : null
     );
-    if (!allowed) {
+    if (track !== 'lite') {
       console.error(
-        `Refusing track "lite": the floor for this story is "${minimum}".`
+        `Refusing track "lite": the floor for this story is "${track}".`
       );
       console.error('Reasons the floor is higher than lite:');
       for (const r of reasons) console.error(`  - ${r}`);
+      if (track !== minimum)
+        console.error(
+          `  - context.json records track_floor.minimum "${track}"`
+        );
       console.error(
         'High-consequence or non-routine stories keep the four gates. Set\n' +
-          `\`track\` to "${minimum}" (or remove it) in context.json, then --resume.`
+          `\`track\` to "${track}" (or remove it) in context.json, then --resume.`
       );
       exit(2);
     }

@@ -6,7 +6,7 @@
 // assertions, permission/role, security, pricing, payment, compliance, data
 // integrity. Three checks ask whether a text touches one of them: the failure
 // classifier (scripts/lib/classify-failure.js: never Green), the lite-track
-// floor (scripts/track-floor.js: never lite) and the downgrade confirmation
+// floor (scripts/track-floor.js: held to full) and the downgrade confirmation
 // (scripts/lib/analysis-overrides.js: a person confirms).
 //
 // The keywords live in config/red-domains.json, per locale (English and

@@ -73,8 +73,9 @@ Be honest; don't force these through the machinery:
 
 ## "Which track for this story?"
 
-1. Touches a Red domain, or any high-severity risk, or many ACs/risks?
-   → **standard** (the floor forces it; `npm run pipeline` will refuse `lite`).
+1. Touches a Red domain? → **full** (the floor forces it, from the story
+   file as well as the context; `npm run pipeline` refuses `lite`).
+   Any high-severity risk, or many ACs/risks? → at least **standard**.
 2. Genuinely routine and low-risk (cosmetic, copy, a small isolated tweak)?
    → **lite** — propose `track: "lite"`; you still classify every case and keep
    traceability, just with less narrative.
@@ -83,8 +84,8 @@ Be honest; don't force these through the machinery:
    directly, knowing what you forfeit (above).
 
 The floor is **conservative**: a false "this looks red" only ever _adds_
-ceremony, never removes it. When in doubt it errs toward standard — which is
-the safe direction.
+ceremony, never removes it. When in doubt it errs toward more review, which
+is the safe direction.
 
 ## The honest cost
 

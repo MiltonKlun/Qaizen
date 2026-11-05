@@ -362,6 +362,21 @@ test('the scan is read-only and never records an approval', async () => {
     assert.match(r.stdout, /verified: TC ids against tc\.json/);
     assert.match(r.stdout, /never approves/);
     assert.equal(read(join(dir, 'context.json'), 'utf8'), before);
+
+    // Run from another folder: the context's paths are read from its own.
+    const { basename: base, dirname: up } = await import('node:path');
+    const away = spawnSync(
+      process.execPath,
+      [
+        join(process.cwd(), 'scripts', 'gate4-scan.js'),
+        '--context',
+        join(base(dir), 'context.json'),
+        join(base(dir), 't.spec.ts'),
+      ],
+      { cwd: up(dir), encoding: 'utf8' }
+    );
+    assert.equal(away.status, 0, away.stderr);
+    assert.match(away.stdout, /verified: TC ids against tc\.json/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

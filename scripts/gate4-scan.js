@@ -41,13 +41,15 @@
 //   npm run scan:gate4 -- tests/STORY-1.spec.ts
 //
 // Exit codes: 0 scan ran, findings informational · 1 a full-track story
-//   (--context, the higher of track and track_floor) has findings · 2 usage /
-//   unreadable file or context. Without --context, or on the lite or standard track,
-//   findings never fail the scan. Exit 1 blocks no gate and approves nothing:
+//   (--context; the highest of its track, the floor computed from its story
+//   file and context, and the recorded floor) has findings · 2 usage /
+//   unreadable file or context. Without --context, or on the lite or standard
+//   track, findings never fail the scan. Paths in the context are read from
+//   the context file's folder. Exit 1 blocks no gate and approves nothing:
 //   the human still decides Gate 4.
 
 import { readFileSync, existsSync } from 'node:fs';
-import { basename } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { argv, exit } from 'node:process';
 import { pathToFileURL } from 'node:url';
 
@@ -378,8 +380,11 @@ export function loadGate4Artifacts(contextPath = 'context.json') {
   if (!context || typeof context !== 'object' || Array.isArray(context))
     return null;
   const paths = context.artifact_paths ?? {};
+  // A run's paths are relative to its own folder, which is where its
+  // context.json is (the runner's is ./context.json, so nothing changes there).
+  const base = dirname(contextPath);
   const read = (/** @type {string | undefined} */ p) =>
-    p && existsSync(p) ? readFileSync(p, 'utf8') : null;
+    p && existsSync(join(base, p)) ? readFileSync(join(base, p), 'utf8') : null;
   let testCases = null;
   try {
     testCases = JSON.parse(read(paths.test_cases) ?? 'null');
