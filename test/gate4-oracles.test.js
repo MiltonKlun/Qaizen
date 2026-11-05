@@ -10,7 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { gate4Findings } from '../scripts/gate4-scan.js';
+import { gate4Findings, renderGate4Scan } from '../scripts/gate4-scan.js';
 
 const HDR = "import { test, expect } from '@playwright/test';";
 const ASSERT =
@@ -33,13 +33,13 @@ const ARTIFACTS = {
         test_case_id: 'TC-001',
         status: 'approved',
         automation_decision: 'automate_e2e',
-        expected_result: 'The cart total shows $43.18 for the two items.',
+        expected_results: ['The cart total shows $43.18 for the two items.'],
       },
       {
         test_case_id: 'TC-002',
         status: 'approved',
         automation_decision: 'automate_e2e',
-        expected_result: 'An empty cart shows no total.',
+        expected_results: ['An empty cart shows no total.'],
       },
     ],
   },
@@ -399,5 +399,244 @@ test('a number is traced by its exact digits; words by their words', () => {
         "  await expect(page.getByTestId('total')).toHaveText('The cart total shows $43.18!');",
       ])
     ).includes('untraced_expected_value')
+  );
+});
+
+// --- review regressions -------------------------------------------------------
+
+const assertTotal = (value) =>
+  `  await expect(page.getByTestId('total')).toHaveText('${value}');`;
+
+test('a value is traced only as whole numbers and words, never inside another', () => {
+  for (const v of ['$43.1', '$3.18', '$4', 'Pass', 'Approved', 'Expected']) {
+    assert.ok(
+      oracleRules(wrap([assertTotal(v)])).includes('untraced_expected_value'),
+      v
+    );
+  }
+  // Statuses, ids and field names are not approved text either.
+  assert.ok(
+    oracleRules(wrap([assertTotal('status approved automate_e2e')])).includes(
+      'untraced_expected_value'
+    )
+  );
+});
+
+test('the values a test may assert come from the cases it names', () => {
+  // TC-002's text does not make a value approved for the TC-001 test.
+  assert.ok(
+    oracleRules(wrap([assertTotal('An empty cart')])).includes(
+      'untraced_expected_value'
+    )
+  );
+});
+
+test('weak oracles reached through an in-file helper or a page-object method are reported', () => {
+  const helper = (body) => `${HDR}
+class Cart {
+  constructor(page) { this.page = page; }
+  async check(page) {
+${body}
+  }
+}
+// PW-001 SPEC-001
+test('cart total [TC-001]', async ({ page }) => {
+  await page.goto('/');
+  await new Cart(page).check(page);
+});
+`;
+  assert.ok(!oracleRules(helper(ASSERT)).includes('no_assertion'));
+  assert.ok(
+    oracleRules(
+      helper(
+        `  if (await page.getByTestId('total').isVisible()) {\n${ASSERT}\n  }`
+      )
+    ).includes('conditional_assertion')
+  );
+  assert.ok(
+    oracleRules(helper(`  try {\n${ASSERT}\n  } catch {}`)).includes(
+      'swallowed_assertion'
+    )
+  );
+  assert.ok(
+    oracleRules(
+      helper(
+        "  await expect.soft(page.getByTestId('total')).toHaveText('$43.18');"
+      )
+    ).includes('soft_only')
+  );
+  assert.ok(
+    oracleRules(helper(assertTotal('$39.98'))).includes(
+      'untraced_expected_value'
+    )
+  );
+});
+
+test('a .catch() or .then() handler that is not a rethrowing function swallows the failure', () => {
+  assert.ok(
+    oracleRules(
+      wrap([
+        "  await expect(page.getByTestId('total')).toHaveText('$43.18').catch(console.error);",
+      ])
+    ).includes('swallowed_assertion')
+  );
+  assert.ok(
+    oracleRules(
+      wrap(["  await page.getByTestId('add').click().catch(noop);", ASSERT])
+    ).includes('swallowed_failure')
+  );
+  assert.ok(
+    oracleRules(
+      wrap([
+        "  await page.getByTestId('add').click().then(undefined, () => {});",
+        ASSERT,
+      ])
+    ).includes('swallowed_failure')
+  );
+  assert.ok(
+    !oracleRules(
+      wrap([
+        "  await page.getByTestId('add').click().catch((e) => { throw e; });",
+        ASSERT,
+      ])
+    ).includes('swallowed_failure')
+  );
+});
+
+test('testInfo.setTimeout, an object key and a replaced setTimeout are not hard waits', () => {
+  const src = `${HDR}
+// PW-001 SPEC-001
+test('cart total [TC-001]', async ({ page }, testInfo) => {
+  testInfo.setTimeout(90000);
+  test.info().setTimeout(90000);
+  const timers = { setTimeout: 1 };
+  await page.addInitScript(() => { window.setTimeout = window.setTimeout; });
+  await page.goto('/');
+${ASSERT}
+});
+`;
+  assert.ok(!oracleRules(src).includes('hard_wait'));
+});
+
+test('a setTimeout imported from timers/promises under another name is a hard wait', () => {
+  assert.ok(
+    oracleRules(
+      wrap(
+        ['  await sleep(3000);', ASSERT],
+        "import { setTimeout as sleep } from 'node:timers/promises';"
+      )
+    ).includes('hard_wait')
+  );
+});
+
+test('toHaveAttribute is traced by its value, not the attribute name', () => {
+  const found = gate4Findings(
+    wrap([
+      "  await expect(page.getByTestId('total')).toHaveAttribute('aria-label', '$43.18');",
+    ]) + TC2,
+    { artifacts: ARTIFACTS }
+  ).findings.filter((f) => f.rule === 'untraced_expected_value');
+  assert.deepEqual(found, []);
+});
+
+test('a mocked value echoes only as a whole value or the same numbers', () => {
+  const mocked = (served, asserted) =>
+    oracleRules(
+      wrap([
+        `  await page.route('**/api', (r) => r.fulfill({ status: 200, body: ${served} }));`,
+        `  await expect(page.getByTestId('total')).toHaveText('${asserted}');`,
+      ])
+    ).includes('mocked_oracle');
+  assert.equal(mocked("'ok'", 'Booked'), false);
+  assert.equal(mocked("'x'", '$1200.00'), false); // status 200 is not served data
+  assert.equal(mocked("'n: 10'", '$100.00'), false);
+  assert.equal(mocked("'43.18'", '$43.18'), true);
+});
+
+test('timeouts and retries are read through constants, arithmetic and shorthand', () => {
+  const has = (body, top = '') => oracleRules(wrap(body, top));
+  assert.ok(
+    has([
+      "  await page.getByTestId('add').click({ timeout: 10 * 60_000 });",
+      ASSERT,
+    ]).includes('long_timeout')
+  );
+  assert.ok(
+    has(
+      ["  await page.getByTestId('add').click({ timeout: T });", ASSERT],
+      'const T = 600000;'
+    ).includes('long_timeout')
+  );
+  assert.ok(
+    has(['  test.setTimeout(NONE);', ASSERT], 'const NONE = 0;').includes(
+      'long_timeout'
+    )
+  );
+  assert.ok(
+    has(
+      [ASSERT],
+      'const retries = 3;\ntest.describe.configure({ retries });'
+    ).includes('retries_or_slow')
+  );
+});
+
+test('a timeout outside an action, navigation or expect is not an action timeout', () => {
+  const src = `${HDR}
+const cfg = { timeout: 60000 };
+// PW-001 SPEC-001
+test('cart total [TC-001]', { timeout: 60000 }, async ({ page, request }) => {
+  await request.get('/api/cart', { timeout: 45000 });
+  await page.waitForResponse('**/api/cart', { timeout: 60000 });
+  await page.goto('/');
+${ASSERT}
+});
+`;
+  assert.ok(!oracleRules(src).includes('long_timeout'));
+  // Test details use the test-timeout limit.
+  assert.ok(
+    oracleRules(
+      src.replace('{ timeout: 60000 }, async', '{ timeout: 600000 }, async')
+    ).includes('long_timeout')
+  );
+});
+
+test('a namespace import from another module does not make "it" a test', () => {
+  const src = `import * as path from 'node:path';
+${HDR}
+const it = [1, 2];
+it.forEach((n) => n);
+// PW-001 SPEC-001
+test('cart total [TC-001]', async ({ page }) => {
+  await page.goto(path.join('/', 'cart'));
+${ASSERT}
+});
+`;
+  const r = gate4Findings(src + TC2, { artifacts: ARTIFACTS });
+  assert.deepEqual(
+    r.findings.filter(
+      (f) => ORACLE_RULES.has(f.rule) || /traceability/.test(f.rule)
+    ),
+    []
+  );
+});
+
+test('a value compared with itself is weak; findings name their test when shown', () => {
+  const r = gate4Findings(
+    wrap(['  const t = await page.title();', '  expect(t).toEqual(t);']) + TC2,
+    { artifacts: ARTIFACTS }
+  );
+  const weak = r.findings.find((f) => f.rule === 'weak_assertion');
+  assert.equal(weak.test, 'cart total [TC-001]');
+  assert.match(
+    renderGate4Scan('t.spec.ts', r),
+    /\(in "cart total \[TC-001\]"\)/
+  );
+});
+
+test('nth= in a comment is not a fragile locator', () => {
+  assert.ok(
+    !oracleRules(wrap(['  // the old locator used >> nth=1', ASSERT])).includes(
+      'fragile_locator'
+    )
   );
 });

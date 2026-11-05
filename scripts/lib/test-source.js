@@ -96,7 +96,8 @@ export function testBindings(sourceFile) {
   for (const st of sourceFile.statements) {
     if (!ts.isImportDeclaration(st)) continue;
     const named = st.importClause?.namedBindings;
-    if (named && ts.isNamespaceImport(named)) namespace = true;
+    if (named && ts.isNamespaceImport(named) && isPlaywrightModule(st))
+      namespace = true;
     if (!named || !ts.isNamedImports(named)) continue;
     for (const el of named.elements) {
       const imported = (el.propertyName ?? el.name).text;
@@ -177,6 +178,18 @@ function rawChain(expr) {
   return { parts, root: e };
 }
 
+/**
+ * An import from a Playwright package (`@playwright/test`, a component-test
+ * package): only those provide the `test` object to a namespace import.
+ * @param {ts.ImportDeclaration} st
+ */
+function isPlaywrightModule(st) {
+  return (
+    ts.isStringLiteral(st.moduleSpecifier) &&
+    st.moduleSpecifier.text.startsWith('@playwright/')
+  );
+}
+
 /** @type {WeakMap<ts.SourceFile, Map<string, string[]>>} */
 const aliasCache = new WeakMap();
 
@@ -198,7 +211,12 @@ function testAliases(sourceFile) {
     const named = ts.isImportDeclaration(st)
       ? st.importClause?.namedBindings
       : undefined;
-    if (named && ts.isNamespaceImport(named)) aliases.set(named.name.text, []);
+    if (
+      named &&
+      ts.isNamespaceImport(named) &&
+      isPlaywrightModule(/** @type {ts.ImportDeclaration} */ (st))
+    )
+      aliases.set(named.name.text, []);
   }
   /** @type {ts.VariableDeclaration[]} */
   const decls = [];
@@ -221,6 +239,8 @@ function testAliases(sourceFile) {
             el.propertyName && ts.isIdentifier(el.propertyName)
               ? el.propertyName.text
               : el.name.text;
+          // `const { expect } = test` is the assertion API, not a test.
+          if (key === 'expect') continue;
           aliases.set(el.name.text, [...chain, key]);
           grew = true;
         }

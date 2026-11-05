@@ -14,8 +14,9 @@
 // the runner).
 //
 // Checks (all mechanical — a human still judges business correctness):
-//   - hard waits: waitForTimeout and setTimeout however reached (bracket
-//     access, a bound alias, globalThis), never in comments
+//   - hard waits: waitForTimeout and setTimeout, also through bracket
+//     access, a bound alias, globalThis or a timers/promises import; never
+//     in comments (docs/review-gates.md, Gate 4, lists what is followed)
 //   - fragile locators: :nth-child, nth=, .first() / .last() / .nth(),
 //     index XPath [n], long CSS chains
 //   - test suppression: .skip / .fixme / .only / .fail, from the parsed test
@@ -124,6 +125,8 @@ export function gate4Findings(
   };
 
   lines.forEach((line, i) => {
+    // A comment line describes code; it is not code.
+    if (/^\s*(\/\/|\/?\*)/.test(line)) return;
     for (const r of LINE_RULES) if (r.test(line)) add(r.rule, i + 1, r.note);
   });
 
@@ -419,7 +422,8 @@ export function renderGate4Scan(filePath, result) {
     lines.push(`  Findings: ${result.findings.length} to confirm:`);
     for (const f of result.findings) {
       const where = f.line === null ? '' : `:${f.line}`;
-      lines.push(`  [${f.rule}]${where} ${f.note}`);
+      const inTest = f.test ? ` (in "${f.test}")` : '';
+      lines.push(`  [${f.rule}]${where}${inTest} ${f.note}`);
       if (f.line !== null) lines.push(`      > ${f.excerpt}`);
     }
   }
@@ -458,6 +462,8 @@ if (
   let total = 0;
   /** @type {Set<string>} */
   const named = new Set();
+  /** @type {string[]} */
+  const unparsed = [];
   for (const f of files) {
     if (!existsSync(f)) {
       console.error(`File not found: ${f}`);
@@ -469,6 +475,8 @@ if (
       coverage: false,
     });
     for (const tc of namedCases(result.traceability)) named.add(tc);
+    if (result.findings.some((x) => x.rule === 'unsupported_source'))
+      unparsed.push(f);
     total += result.findings.length;
     console.log(renderGate4Scan(f, result));
     console.log('');
@@ -480,7 +488,10 @@ if (
     const uncovered = uncoveredCases(artifacts.testCases, named);
     if (uncovered.length) {
       console.log(
-        `Approved E2E cases no scanned test names: ${uncovered.join(', ')} [uncovered_case]`
+        `Approved E2E cases no scanned test names: ${uncovered.join(', ')} [uncovered_case]` +
+          (unparsed.length
+            ? ` (${unparsed.join(', ')} did not parse, so the cases its tests name are unknown)`
+            : '')
       );
       total += uncovered.length;
     } else console.log('Every approved E2E case is named by a scanned test.');
