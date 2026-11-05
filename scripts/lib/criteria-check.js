@@ -3,32 +3,42 @@
 //
 // The Analyst copies criteria verbatim (agents/analyst.md). This compares each
 // one with story.md token by token. Only formatting may differ: whitespace and
-// line wrapping, case, quote marks, code and emphasis marks, list markers and
-// sentence punctuation (. , : ; ! ? and brackets). Everything else counts,
-// including comparison signs (> < =), numbers with their decimal point, and
-// words. Where it is found matters too: a criterion found only under an "Out
-// of scope" heading, or only in a comment (an HTML comment or a "Comments"
-// section), is not a criterion of the story.
+// line wrapping, case, quote marks (a curly apostrophe is a straight one),
+// code and emphasis marks, list markers and labels such as "AC1:", table
+// pipes, dashes between words, the ellipsis, and the punctuation
+// . , : ; ! ? and brackets. Everything else counts, including comparison
+// signs (> < =), numbers with their sign and decimal point, currency signs
+// and words. Where it is found matters too: a criterion found only under an
+// "Out of scope" heading or label, or only in a comment (an HTML comment or a
+// "Comments" section), is not a criterion of the story.
+//
+// A criterion found in the story must be whole: it starts at the start of a
+// sentence, clause or list item, and ends at its end (. ! ? or the end of the
+// item). It may end at ; or : only when the next clause is another
+// criterion, as when a story lists its criteria in one sentence. Otherwise
+// it is reported as cut short, or as starting mid-sentence. One that runs
+// across two list items or paragraphs is reported too.
 //
 // For a criterion it cannot find, the closest passage of the story is named
-// and the difference classified: a changed comparison, a changed number, an
-// added or dropped negation, other rewording, or absent. A criterion that is
-// found but starts or stops mid-sentence is reported as cut short.
+// and the difference classified: a comparison, number or negation added,
+// dropped or changed, other rewording, or absent.
 //
 // Pure: no I/O. It informs the reviewer and never decides Gate 1.
 
 /**
- * @typedef {{ text: string, sig: boolean, stop: boolean,
+ * @typedef {{ text: string, sig: boolean, stop: 'hard' | 'soft' | null,
  *   kind: SectionKind, block: number }} Token
  * @typedef {'story' | 'out_of_scope' | 'comment'} SectionKind
  * @typedef {{ n: number, status: 'verbatim' | 'formatting' | 'issue',
  *   issues: string[] }} CriterionReport
  */
 
-// Characters that are formatting, not wording.
-const FORMATTING = new Set([...`'"\`‘’“”«»´*_~\\.,:;!?()[]{}—–…`]);
-// Punctuation that ends a sentence or a clause a criterion may end at.
-const STOPS = new Set([...'.;:!?']);
+// Characters that are formatting, not wording. A dash before a number is a
+// minus sign, read as part of the number (see TOKEN).
+const FORMATTING = new Set([...'\'"`‘’“”«»´*_~\\.,:;!?()[]{}|-‐‑–—−…']);
+// Punctuation that ends a sentence, and the kind that ends a clause.
+const HARD_STOPS = new Set([...'.!?']);
+const SOFT_STOPS = new Set([...';:']);
 
 const COMPARISON_WORDS = new Set([
   'more',
@@ -80,17 +90,37 @@ const NEGATIONS = new Set([
   'tampoco',
 ]);
 
-const OUT_OF_SCOPE =
-  /\b(out[- ]of[- ]scope|not in scope|non[- ]goals?|fuera de(l)? alcance)\b/i;
-const COMMENTS = /\b(comments?|comentarios?|discussion)\b/i;
+const OUT_OF_SCOPE_WORDS =
+  'out[- ]of[- ]scope|not in scope|not included|non[- ]goals?|fuera de(?:l)? alcance';
+// A heading that names an out-of-scope section anywhere in it.
+const OUT_OF_SCOPE_HEADING = new RegExp(`\\b(?:${OUT_OF_SCOPE_WORDS})\\b`, 'i');
+// A line that starts with an out-of-scope label, such as "**Out of scope:**".
+const OUT_OF_SCOPE_LABEL = new RegExp(
+  `^(?:\\*\\*|__)?(?:${OUT_OF_SCOPE_WORDS})(?:\\*\\*|__)?\\s*:(?:\\*\\*|__)?\\s*`,
+  'i'
+);
+// A heading that is a comments section, not a feature about comments:
+// "Comments", "Discussion", optionally with a note in brackets.
+const COMMENTS_HEADING =
+  /^(?:comments?|comentarios?|discussion|discusión)\s*(?:\(.*\))?\s*:?\s*$/i;
+// "AC1:", "**AC 2** -", "Criterion 3." at the start of a line.
+const AC_LABEL =
+  /^(?:\*\*|__)?(?:ac|criteri(?:on|a|o))[\s#-]*\d+(?:\*\*|__)?\s*[:.)\-–—]?(?:\*\*|__)?\s+/i;
+// List markers: "-", "*", "+", "1.", "1)", "a)", "a.", with an optional
+// task box; and blockquote markers before them.
+const LIST_MARKER =
+  /^\s*(?:>\s?)*(?:([-*+]|\d+[.)]|[a-z][.)])\s+(?:\[[ xX]\]\s+)?)?/;
+const CRITERIA_HEADING = /acceptance criteria|criterios de aceptaci[oó]n/i;
+const FENCE = /^\s*(```|~~~)/;
+const TABLE_SEPARATOR = /^\s*\|?\s*:?-{2,}/;
 
 const TOKEN =
-  /[\p{L}\p{N}](?:[\p{L}\p{M}\p{N}_]|['’](?=[\p{L}\p{N}])|[.,](?=\p{N}))*|\S/gu;
+  /(?<![\p{L}\p{N}])[-‐‑–−]\p{N}+(?:[.,]\p{N}+)*|[\p{L}\p{N}](?:[\p{L}\p{M}\p{N}_]|['’](?=[\p{L}\p{N}])|[.,](?=\p{N}))*|\S/gu;
 
 /** @param {string} t */
-const isNumber = (t) => /^\p{N}+(?:[.,]\p{N}+)*$/u.test(t);
+const isNumber = (t) => /^-?\p{N}+(?:[.,]\p{N}+)*$/u.test(t);
 /** @param {string} t */
-const isNegation = (t) => NEGATIONS.has(t) || /n['’]t$/.test(t);
+const isNegation = (t) => NEGATIONS.has(t) || /n't$/.test(t);
 /** @param {string} t */
 const isComparison = (t) => COMPARISON_WORDS.has(t) || COMPARISON_SIGNS.has(t);
 
@@ -102,63 +132,104 @@ const isComparison = (t) => COMPARISON_WORDS.has(t) || COMPARISON_SIGNS.has(t);
  * @returns {Token[]}
  */
 function tokensOf(text, kind, block) {
-  return [...text.matchAll(TOKEN)].map(([raw]) => {
-    const text = raw.toLowerCase();
-    return {
-      text,
-      sig: !FORMATTING.has(raw),
-      stop: STOPS.has(raw),
-      kind,
-      block,
-    };
-  });
+  return [...text.matchAll(TOKEN)].map(([raw]) => ({
+    text: raw
+      .toLowerCase()
+      .replace(/’/g, "'")
+      .replace(/^[‐‑–−]/, '-'),
+    sig: !FORMATTING.has(raw),
+    stop: HARD_STOPS.has(raw) ? 'hard' : SOFT_STOPS.has(raw) ? 'soft' : null,
+    kind,
+    block,
+  }));
 }
 
 /**
  * The story as tokens, each with the kind of section it is in and its block
- * (a paragraph, list item or heading).
+ * (a paragraph, list item, table cell, labelled line or heading).
  * @param {string} story
  * @returns {Token[]}
  */
 export function storyTokens(story) {
   /** @type {Token[]} */
   const out = [];
-  /** @type {{ level: number, kind: SectionKind }[]} */
+  /** @type {{ level: number, kind: SectionKind, criteria: boolean }[]} */
   const sections = [];
   let block = 0;
+  /** @type {SectionKind | null} a kind for the current block only */
+  let blockKind = null;
   let inComment = false;
+  let inFence = false;
+  const next = () => {
+    block += 1;
+    blockKind = null;
+  };
   const kindNow = () =>
-    /** @type {SectionKind} */ (sections.at(-1)?.kind ?? 'story');
+    blockKind ?? /** @type {SectionKind} */ (sections.at(-1)?.kind ?? 'story');
   for (const rawLine of story.split(/\r?\n/)) {
-    const heading = inComment ? null : /^(#{1,6})\s+(.*)$/.exec(rawLine);
+    if (!inComment && FENCE.test(rawLine)) {
+      inFence = !inFence;
+      next();
+      continue;
+    }
+    const heading =
+      inComment || inFence ? null : /^ {0,3}(#{1,6})\s+(.*)$/.exec(rawLine);
     if (heading) {
       const level = heading[1].length;
       while (sections.length && sections[sections.length - 1].level >= level)
         sections.pop();
-      const parent = kindNow();
+      const parent = /** @type {SectionKind} */ (
+        sections.at(-1)?.kind ?? 'story'
+      );
+      const title = heading[2].trim();
+      // Inside an acceptance-criteria section, a "Comments" heading names a
+      // feature's criteria, not a comments section.
+      const underCriteria = sections.some((x) => x.criteria);
       /** @type {SectionKind} */
-      const kind = OUT_OF_SCOPE.test(heading[2])
+      const kind = OUT_OF_SCOPE_HEADING.test(title)
         ? 'out_of_scope'
-        : COMMENTS.test(heading[2])
+        : COMMENTS_HEADING.test(title) && !underCriteria
           ? 'comment'
           : parent;
-      block += 1;
-      out.push(...tokensOf(heading[2], parent, block));
-      sections.push({ level, kind });
-      block += 1;
+      next();
+      out.push(...tokensOf(title, parent, block));
+      sections.push({ level, kind, criteria: CRITERIA_HEADING.test(title) });
+      next();
       continue;
     }
     if (!inComment && rawLine.trim() === '') {
-      block += 1;
+      next();
       continue;
     }
     let line = rawLine;
-    if (!inComment) {
+    if (!inComment && !inFence) {
       // A list item starts a block; its marker and a blockquote are formatting.
-      const marker =
-        /^\s*(?:>\s?)*(?:([-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?)?/.exec(line);
-      if (marker?.[1]) block += 1;
+      const marker = LIST_MARKER.exec(line);
+      if (marker?.[1]) next();
       line = line.slice(marker?.[0].length ?? 0);
+      // So does a labelled line ("AC1:"), whose label is formatting.
+      const label = AC_LABEL.exec(line);
+      if (label) {
+        next();
+        line = line.slice(label[0].length);
+      }
+      // An "Out of scope:" label puts its paragraph out of scope.
+      const oos = OUT_OF_SCOPE_LABEL.exec(line);
+      if (oos) {
+        next();
+        blockKind = 'out_of_scope';
+        line = line.slice(oos[0].length);
+      }
+      // Each table cell is its own block; the separator row is formatting.
+      if (/^\s*\|/.test(line)) {
+        if (TABLE_SEPARATOR.test(line)) continue;
+        for (const cell of line.split('|')) {
+          next();
+          out.push(...tokensOf(cell, kindNow(), block));
+        }
+        next();
+        continue;
+      }
     }
     // HTML comments, possibly spanning lines.
     let rest = line;
@@ -169,15 +240,15 @@ export function storyTokens(story) {
         out.push(...tokensOf(part, 'comment', block));
         if (end === -1) break;
         inComment = false;
-        block += 1;
+        next();
         rest = rest.slice(end + 3);
       } else {
-        const start = rest.indexOf('<!--');
+        const start = inFence ? -1 : rest.indexOf('<!--');
         const part = start === -1 ? rest : rest.slice(0, start);
         out.push(...tokensOf(part, kindNow(), block));
         if (start === -1) break;
         inComment = true;
-        block += 1;
+        next();
         rest = rest.slice(start + 4);
       }
     }
@@ -205,12 +276,14 @@ function occurrences(sig, needle) {
 }
 
 /**
- * Whether an occurrence starts and ends where a sentence or clause does: at
- * the edge of its block or next to a stop (. ; : ! ?).
+ * How an occurrence starts and ends. It starts well at the edge of its block
+ * or after any stop. It ends well at the edge of its block or before a hard
+ * stop (. ! ?); before a soft stop (; :) it ends `soft`, which is whole only
+ * when another criterion starts at `next`.
  * @param {Token[]} all every story token
  * @param {number} first index into `all` of the first matched token
  * @param {number} last index into `all` of the last matched token
- * @returns {{ start: boolean, end: boolean }}
+ * @returns {{ start: boolean, end: true | false | 'soft', next: number }}
  */
 function edges(all, first, last) {
   const block = all[first].block;
@@ -222,19 +295,28 @@ function edges(all, first, last) {
       break;
     }
   }
+  /** @type {true | false | 'soft'} */
   let end = true;
-  for (
-    let i = last + 1;
-    i < all.length && all[i].block === all[last].block;
-    i++
-  ) {
-    if (all[i].stop) break;
+  let next = -1;
+  for (let i = last + 1; i < all.length && all[i].block === block; i++) {
+    if (all[i].stop === 'hard') break;
+    if (all[i].stop === 'soft') {
+      end = 'soft';
+      for (let j = i + 1; j < all.length && all[j].block === block; j++)
+        if (all[j].sig) {
+          next = j;
+          break;
+        }
+      if (next === -1) end = true;
+      break;
+    }
     if (all[i].sig) {
       end = false;
+      next = i;
       break;
     }
   }
-  return { start, end };
+  return { start, end, next };
 }
 
 /**
@@ -252,7 +334,7 @@ function context(all, from, step) {
     i >= 0 && i < all.length && all[i].block === block && words.length < 8;
     i += step
   ) {
-    if (all[i].stop) break;
+    if (all[i].stop === 'hard' || (step === -1 && all[i].stop)) break;
     if (all[i].sig) words.push(all[i].text);
   }
   return step === 1 ? words.join(' ') : words.reverse().join(' ');
@@ -314,26 +396,50 @@ function classDiff(mine, theirs, pick) {
 const quote = (ts) => ts.map((t) => `"${t}"`).join(', ');
 
 /**
+ * One class of difference, as the brief says it.
+ * @param {string} what "comparison", "number" or "negation"
+ * @param {{ added: string[], dropped: string[] }} d
+ * @returns {string | null}
+ */
+function differs(what, d) {
+  if (d.added.length && d.dropped.length)
+    return `changes a ${what} (story: ${quote(d.dropped)}; criterion: ${quote(d.added)})`;
+  if (d.added.length) return `adds a ${what} (${quote(d.added)})`;
+  if (d.dropped.length) return `drops a ${what} (${quote(d.dropped)})`;
+  return null;
+}
+
+const WHERE = {
+  story: 'the story',
+  out_of_scope: 'an "Out of scope" section',
+  comment: 'a comment',
+};
+
+/**
  * Why a criterion that is not in the story differs from its closest passage.
  * @param {string[]} words the criterion's significant tokens
  * @param {Token[]} sig the story's significant tokens
  * @returns {string[]}
  */
 function diagnose(words, sig) {
-  /** @type {Map<number, string[]>} */
+  /** @type {Map<number, { kind: SectionKind, tokens: string[] }>} */
   const blocks = new Map();
   for (const t of sig) {
-    if (t.kind !== 'story') continue;
-    const b = blocks.get(t.block) ?? [];
-    b.push(t.text);
+    const b = blocks.get(t.block) ?? { kind: t.kind, tokens: [] };
+    b.tokens.push(t.text);
     blocks.set(t.block, b);
   }
-  let best = { score: 0, region: /** @type {string[]} */ ([]) };
-  for (const tokens of blocks.values()) {
+  let best = {
+    score: 0,
+    kind: /** @type {SectionKind} */ ('story'),
+    region: /** @type {string[]} */ ([]),
+  };
+  for (const { kind, tokens } of blocks.values()) {
     const pairs = lcs(words, tokens);
     if (!pairs.length) continue;
     const score = pairs.length / words.length;
-    if (score > best.score) {
+    // A passage of the story itself wins a tie.
+    if (score > best.score || (score === best.score && kind === 'story')) {
       // The matched stretch, widened by the criterion's unmatched words at
       // either end, so a changed first or last word is compared too.
       const lead = pairs[0][0];
@@ -342,31 +448,24 @@ function diagnose(words, sig) {
         Math.max(0, pairs[0][1] - lead),
         pairs[pairs.length - 1][1] + 1 + trail
       );
-      best = { score, region };
+      best = { score, kind, region };
     }
   }
   if (best.score < 0.5) return ['is not in the story'];
-  /** @type {string[]} */
-  const issues = [];
-  const cmp = classDiff(words, best.region, isComparison);
-  if (cmp.added.length || cmp.dropped.length)
-    issues.push(
-      `changes a comparison (story: ${quote(cmp.dropped) || 'none'}; criterion: ${quote(cmp.added) || 'none'})`
-    );
-  const num = classDiff(words, best.region, isNumber);
-  if (num.added.length || num.dropped.length)
-    issues.push(
-      `changes a number (story: ${quote(num.dropped) || 'none'}; criterion: ${quote(num.added) || 'none'})`
-    );
-  const neg = classDiff(words, best.region, isNegation);
-  if (neg.added.length) issues.push(`adds a negation (${quote(neg.added)})`);
-  if (neg.dropped.length)
-    issues.push(`drops a negation (${quote(neg.dropped)})`);
+  const issues = /** @type {string[]} */ (
+    [
+      differs('comparison', classDiff(words, best.region, isComparison)),
+      differs('number', classDiff(words, best.region, isNumber)),
+      differs('negation', classDiff(words, best.region, isNegation)),
+    ].filter(Boolean)
+  );
   if (!issues.length) {
     const near = best.region.slice(0, 12).join(' ');
     issues.push(
-      `is reworded (closest in the story: "${near}${best.region.length > 12 ? ' …' : ''}")`
+      `is reworded (closest in ${WHERE[best.kind]}: "${near}${best.region.length > 12 ? ' …' : ''}")`
     );
+  } else if (best.kind !== 'story') {
+    issues.push(`its closest passage is in ${WHERE[best.kind]}`);
   }
   return issues;
 }
@@ -390,22 +489,30 @@ export function compareCriteria(criteria, story) {
     }
   });
   const flat = story.replace(/\s+/g, ' ');
-  return criteria.map((criterion, i) => {
-    const n = i + 1;
-    const words = tokensOf(criterion, 'story', 0)
+  const found = criteria.map((criterion) => {
+    // A label the Analyst kept ("AC1: ...") is formatting, as in the story.
+    const words = tokensOf(criterion.trim().replace(AC_LABEL, ''), 'story', 0)
       .filter((t) => t.sig)
       .map((t) => t.text);
+    return { criterion, words, starts: occurrences(sig, words) };
+  });
+  // Where some criterion starts in the story, so one that ends at ; or : is
+  // whole when the next clause is another criterion.
+  const criterionStarts = new Set(
+    found.flatMap((f) => f.starts.map((s) => sigAt[s]))
+  );
+
+  return found.map(({ criterion, words, starts }, i) => {
+    const n = i + 1;
     if (!words.length) return { n, status: 'issue', issues: ['is empty'] };
-    const starts = occurrences(sig, words);
     if (!starts.length)
       return { n, status: 'issue', issues: diagnose(words, sig) };
+    const span = (/** @type {number} */ s) => sig.slice(s, s + words.length);
     const inStory = starts.filter((s) =>
-      sig.slice(s, s + words.length).every((t) => t.kind === 'story')
+      span(s).every((t) => t.kind === 'story')
     );
     if (!inStory.length) {
-      const kinds = new Set(
-        starts.flatMap((s) => sig.slice(s, s + words.length).map((t) => t.kind))
-      );
+      const kinds = new Set(starts.flatMap((s) => span(s).map((t) => t.kind)));
       return {
         n,
         status: 'issue',
@@ -416,25 +523,36 @@ export function compareCriteria(criteria, story) {
         ],
       };
     }
+    const oneBlock = inStory.filter((s) =>
+      span(s).every((t) => t.block === sig[s].block)
+    );
+    if (!oneBlock.length)
+      return {
+        n,
+        status: 'issue',
+        issues: [
+          'runs across two list items or paragraphs of the story; each is its own criterion',
+        ],
+      };
     // Found in the story: whole sentences, or cut short?
-    const whole = inStory.find((s) => {
-      const e = edges(all, sigAt[s], sigAt[s + words.length - 1]);
-      return e.start && e.end;
-    });
-    if (whole === undefined) {
-      const s = inStory[0];
+    const reading = oneBlock.map((s) => {
       const first = sigAt[s];
       const last = sigAt[s + words.length - 1];
       const e = edges(all, first, last);
+      const end = e.end === 'soft' ? criterionStarts.has(e.next) : e.end;
+      return { first, last, start: e.start, end };
+    });
+    if (!reading.some((r) => r.start && r.end)) {
+      const r = reading[0];
       /** @type {string[]} */
       const issues = [];
-      if (!e.end)
+      if (!r.end)
         issues.push(
-          `is cut short (the story continues: "${context(all, last, 1)} …")`
+          `is cut short (the story continues: "${context(all, r.last, 1)} …")`
         );
-      if (!e.start)
+      if (!r.start)
         issues.push(
-          `starts mid-sentence (the story has before it: "… ${context(all, first, -1)}")`
+          `starts mid-sentence (the story has before it: "… ${context(all, r.first, -1)}")`
         );
       return { n, status: 'issue', issues };
     }
@@ -461,7 +579,7 @@ export function criteriaLines(reports, storyPath) {
   return [
     `every acceptance criterion appears word for word in ${storyPath}` +
       (formatting.length
-        ? ` (${formatting.join(', ')} ${formatting.length === 1 ? 'differs' : 'differ'} only in formatting: case, quotes, code or bold marks, punctuation)`
+        ? ` (${formatting.join(', ')} ${formatting.length === 1 ? 'differs' : 'differ'} only in formatting: case, quotes, code or bold marks, labels, dashes, punctuation)`
         : ''),
   ];
 }

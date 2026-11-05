@@ -117,7 +117,7 @@ test('formatting may differ: case, quotes, code and bold marks, line wrapping, p
   assert.equal(verbatim.status, 'verbatim');
   assert.equal(formatting.status, 'formatting');
   assert.deepEqual(criteriaLines(compareCriteria([AC1], STORY), 'story.md'), [
-    'every acceptance criterion appears word for word in story.md (AC 1 differs only in formatting: case, quotes, code or bold marks, punctuation)',
+    'every acceptance criterion appears word for word in story.md (AC 1 differs only in formatting: case, quotes, code or bold marks, labels, dashes, punctuation)',
   ]);
   assert.deepEqual(
     criteriaLines(
@@ -167,4 +167,107 @@ test('every stored story still passes: the examples, the demo and the tracked ru
   }
   assert.ok(pairs.length >= 10, `only ${pairs.length} stories were checked`);
   assert.ok(criteria >= 30, `only ${criteria} criteria were checked`);
+});
+
+// Review regressions: each case below was wrong before the fix.
+/** @param {string} story @param {string} criterion */
+const one = (story, criterion) => compareCriteria([criterion], story)[0];
+
+test('a criterion may end at ; or : only when the next clause is another criterion', () => {
+  const story =
+    "# S\n\n- Access is denied for: guests and suspended users.\n- Users can delete posts; only admins can delete others' posts.\n";
+  assert.match(one(story, 'Access is denied for').issues[0], /^is cut short/);
+  assert.match(
+    one(story, 'Users can delete posts.').issues[0],
+    /^is cut short/
+  );
+  // A story that lists its criteria in one sentence, split by semicolons.
+  const listed =
+    '# S\n\nAcceptance criteria: user can enter a postal code; overview page shows items; finish shows a message.\n';
+  assert.deepEqual(
+    compareCriteria(
+      [
+        'user can enter a postal code',
+        'overview page shows items',
+        'finish shows a message.',
+      ],
+      listed
+    ).map((r) => r.status),
+    ['verbatim', 'verbatim', 'verbatim']
+  );
+});
+
+test('a story about comments keeps its criteria; only a Comments section is context', () => {
+  const story =
+    '# Blog\n\n## Acceptance criteria\n\n### Comments\n\n- A reader can post a comment.\n\n## Discussion threads\n\n- Threads lock after 30 days.\n\n## Comments (context only, never acceptance criteria)\n\n> Mods can pin threads.\n';
+  assert.equal(one(story, 'A reader can post a comment.').status, 'verbatim');
+  assert.equal(one(story, 'Threads lock after 30 days.').status, 'verbatim');
+  assert.match(
+    one(story, 'Mods can pin threads.').issues[0],
+    /only in a comment/
+  );
+});
+
+test('AC labels, table cells, lettered lists and curly apostrophes are formatting', () => {
+  const story =
+    '# S\n\nAC1: The user can log in with email\nAC2: The user can reset a password\n\n| Rule | Note |\n| --- | --- |\n| The cart keeps items for 7 days | x |\n\na) The user’s name is shown.\n';
+  for (const c of [
+    'The user can log in with email',
+    'AC1: The user can log in with email',
+    'The user can reset a password',
+    'The cart keeps items for 7 days',
+    "The user's name is shown.",
+  ])
+    assert.notEqual(one(story, c).status, 'issue', c);
+});
+
+test('a minus sign is part of its number, written as a hyphen, en dash or minus', () => {
+  for (const dash of ['-', '–', '−']) {
+    const story = `# S\n\n- The balance may go to ${dash}5 dollars.\n`;
+    assert.deepEqual(one(story, 'The balance may go to 5 dollars.').issues, [
+      'changes a number (story: "-5"; criterion: "5")',
+    ]);
+    assert.notEqual(
+      one(story, 'The balance may go to -5 dollars.').status,
+      'issue'
+    );
+  }
+});
+
+test('an out-of-scope label, a nested heading and an indented heading are out of scope', () => {
+  const story =
+    '# S\n\n## Acceptance criteria\n\n- Users log in.\n\n**Out of scope:** Exports run nightly.\n\nNot included: Imports run hourly.\n\n   ## Out of scope\n\n### Payments\n\n- Refunds are automatic.\n';
+  for (const c of [
+    'Exports run nightly.',
+    'Imports run hourly.',
+    'Refunds are automatic.',
+  ])
+    assert.deepEqual(one(story, c).issues, [
+      'is only in an "Out of scope" section',
+    ]);
+  assert.equal(one(story, 'Users log in.').status, 'verbatim');
+});
+
+test('a criterion across two list items, and one only a comment rewords, are named', () => {
+  const story =
+    '# S\n\n- Orders over $50 ship free.\n- Refunds are issued before shipping.\n\n## Comments\n\n> Admins must approve refunds over 100.\n';
+  assert.match(
+    one(story, 'Orders over $50 ship free. Refunds are issued before shipping.')
+      .issues[0],
+    /runs across two list items/
+  );
+  assert.match(
+    one(story, 'Admins approve refunds over 100.').issues[0],
+    /^is reworded \(closest in a comment:/
+  );
+  assert.deepEqual(one(story, 'Orders ship free.').issues, [
+    'drops a comparison ("over")',
+    'drops a number ("50")',
+  ]);
+});
+
+test('a heading inside a code fence starts no section', () => {
+  const story =
+    '# S\n\n```md\n## Comments\n```\n\n- The page shows a code sample.\n';
+  assert.equal(one(story, 'The page shows a code sample.').status, 'verbatim');
 });

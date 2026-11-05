@@ -267,19 +267,25 @@ agent or script written against the four-gate model breaks. See
 
 The runner's brief checks the first criterion mechanically
 (`scripts/lib/criteria-check.js`): it compares each acceptance criterion
-with `story.md`, where only formatting may differ (whitespace and line
-wrapping, case, quote marks, code and bold marks, list markers, and the
-punctuation `. , : ; ! ?` and brackets). Comparison signs such as `>` and
-`<`, numbers with their decimal point, and every word count. It names each
-criterion that:
+with `story.md`, where only formatting may differ: whitespace and line
+wrapping, case, quote marks (a curly apostrophe is a straight one), code and
+bold marks, list markers and labels such as `AC1:`, table pipes, dashes
+between words, the ellipsis, and the punctuation `. , : ; ! ?` and brackets.
+Comparison signs such as `>` and `<`, numbers with their sign and decimal
+point, currency signs and every word count. It names each criterion that:
 
-- changes a comparison, a number, or adds or drops a negation, against the
-  closest passage of the story (both values are shown);
+- adds, drops or changes a comparison, a number or a negation, against the
+  closest passage of the story (the values are shown);
 - is reworded, or is not in the story at all;
-- is cut short, or starts mid-sentence: found, but the story's sentence or
-  clause goes on (the words that follow are shown);
-- is only under an "Out of scope" heading, or only in a comment (an HTML
-  comment or a "Comments" section, which is context, never a criterion).
+- is cut short, or starts mid-sentence: found, but the story's sentence,
+  clause or list item goes on (the words that follow are shown). A
+  criterion may end at `;` or `:` only when the next clause is another
+  criterion, as when a story lists its criteria in one sentence;
+- runs across two list items or paragraphs of the story;
+- is only under an "Out of scope" heading or after an `Out of scope:` label,
+  or only in a comment: an HTML comment or a section headed just
+  "Comments" or "Discussion" (context, never a criterion). Inside an
+  acceptance-criteria section, a "Comments" heading is a feature's criteria.
 
 A criterion that differs only in formatting passes, and the brief says
 which ones did. One the check passes can still be the wrong criterion, so

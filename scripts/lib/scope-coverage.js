@@ -91,7 +91,9 @@ export function scopeCoverage(context, doc) {
   for (const c of cases) {
     for (const ref of c.acceptance_criteria_refs ?? [])
       if (!Number.isInteger(ref) || ref < 0 || ref >= acs.length)
-        cov.unknownRefs.push(`${c.test_case_id} → AC ${ref + 1}`);
+        cov.unknownRefs.push(
+          `${c.test_case_id} → AC ${ref + 1} (acceptance_criteria_refs index ${ref})`
+        );
     for (const id of c.risk_ids ?? [])
       if (!riskIds.has(id)) cov.unknownRefs.push(`${c.test_case_id} → ${id}`);
   }
@@ -106,7 +108,7 @@ export function scopeCoverage(context, doc) {
  */
 export function referenceErrors(cov) {
   if (!cov.unknownRefs.length) return '';
-  return `${cov.unknownRefs.join(', ')}: ${cov.unknownRefs.length === 1 ? 'a case references a criterion or risk' : 'cases reference criteria or risks'} the context does not have (acceptance_criteria_refs count from 0)`;
+  return `${cov.unknownRefs.join(', ')}: ${cov.unknownRefs.length === 1 ? 'a case references a criterion or risk' : 'cases reference criteria or risks'} the context does not have`;
 }
 
 /**

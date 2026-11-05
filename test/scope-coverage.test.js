@@ -109,15 +109,18 @@ test('a case that references a criterion or risk the context lacks is an error',
       tc('TC-003', [9], ['RISK-999'], { status: 'rejected' }),
     ],
   });
-  assert.deepEqual(cov.unknownRefs, ['TC-002 → AC 4', 'TC-002 → RISK-404']);
+  assert.deepEqual(cov.unknownRefs, [
+    'TC-002 → AC 4 (acceptance_criteria_refs index 3)',
+    'TC-002 → RISK-404',
+  ]);
   assert.equal(coverageGaps(cov), '');
   assert.equal(
     referenceErrors(cov),
-    'TC-002 → AC 4, TC-002 → RISK-404: cases reference criteria or risks the context does not have (acceptance_criteria_refs count from 0)'
+    'TC-002 → AC 4 (acceptance_criteria_refs index 3), TC-002 → RISK-404: cases reference criteria or risks the context does not have'
   );
   assert.match(
     coverageLine(cov),
-    /^ATTENTION: TC-002 → AC 4, TC-002 → RISK-404: /
+    /^ATTENTION: TC-002 → AC 4 \(acceptance_criteria_refs index 3\), TC-002 → RISK-404: /
   );
   assert.equal(referenceErrors(scopeCoverage(context, { test_cases: [] })), '');
 });
@@ -257,7 +260,7 @@ test('warn or block: a case pointing at a criterion that does not exist keeps Ga
     assert.equal(r.status, 2, mode + r.stdout + r.stderr);
     assert.match(
       r.stderr,
-      /traceability: TC-002 → AC 6: a case references a criterion or risk the context does not have/
+      /traceability: TC-002 → AC 6 \(acceptance_criteria_refs index 5\): a case references a criterion or risk the context does not have/
     );
     assert.doesNotMatch(r.stderr, /GATE PENDING/);
   }
