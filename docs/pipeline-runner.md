@@ -365,8 +365,11 @@ At each gate the runner prints a one-screen brief:
 At **Gate 4** the brief also embeds the pre-Gate-4 **static scan**
 (`scripts/gate4-scan.js`): the mechanical findings
 on the generated test (hard waits, `.skip`/`.only`, fragile locators, weak
-assertions, and each test's own PW/TC/SPEC ids, checked against the run's
-approved test cases and spec) plus the same judgment questions, printed
+assertions, weak oracles such as a test with no assertion or only soft,
+conditional or swallowed ones, expected values no approved case states,
+each test's own PW/TC/SPEC ids checked against the run's approved test
+cases and spec, and approved E2E cases no test names; the full list is in
+`docs/review-gates.md`, Gate 4) plus the same judgment questions, printed
 separately from the mechanical results. It is
 informational — it answers the mechanical half so you can spend your attention
 on business correctness; it never decides the gate.

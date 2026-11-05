@@ -99,7 +99,7 @@ test('each test needs its own PW, TC and SPEC; one id alone is not traceability'
   assert.ok(onlyPw, 'an only-PW test must be reported');
   assert.match(onlyPw.note, /no TC \/ SPEC id/);
 
-  const full = `// PW-003 SPEC-002\ntest('x [TC-001]', async ({ page }) => { await page.goto('/'); });`;
+  const full = `// PW-003 SPEC-002\ntest('x [TC-001]', async ({ page }) => { await page.goto('/'); await expect(page).toHaveTitle('Shop'); });`;
   assert.deepEqual(gate4Findings(full).findings, []);
 });
 
@@ -161,9 +161,9 @@ test('valid per-test annotations pass, and linkage is verified against artifacts
   const src =
     header +
     "test('adds to cart [TC-001]', { annotation: [{ type: 'PW', description: 'PW-001' }, { type: 'SPEC', description: 'SPEC-001' }] }, async ({ page }) => {\n" +
-    "  await page.goto('/');\n});\n" +
+    "  await page.goto('/');\n  await expect(page).toHaveTitle('Shop');\n});\n" +
     '// PW-002 SPEC-001\n' +
-    "test('removes from cart [TC-002]', async ({ page }) => {\n  await page.goto('/');\n});\n";
+    "test('removes from cart [TC-002]', async ({ page }) => {\n  await page.goto('/');\n  await expect(page).toHaveTitle('Shop');\n});\n";
   const artifacts = {
     contextPath: 'context.json',
     storyId: 'SK-7',
@@ -272,7 +272,7 @@ test('a TC outside the title is flagged: execution results could not link to it'
 test('dynamic registration needs manual verification; no ids are invented', () => {
   const src =
     header +
-    "for (const n of [1, 2]) {\n  test(`case ${n} [TC-001]`, async ({ page }) => { await page.goto('/'); });\n}\n";
+    "for (const n of [1, 2]) {\n  test(`case ${n} [TC-001]`, async ({ page }) => { await page.goto('/'); await expect(page).toHaveTitle('Shop'); });\n}\n";
   const r = gate4Findings(src);
   assert.deepEqual(
     r.findings.map((x) => x.rule),

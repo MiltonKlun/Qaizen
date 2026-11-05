@@ -507,13 +507,66 @@ the API branch — the two branches are reviewed independently.
 > **Pre-Gate-4 static scan (assist).**
 > `scripts/gate4-scan.js` (`npm run scan:gate4 -- <file>`) does the
 > _mechanical_ half of this checklist for the reviewer: it flags hard waits,
-> `.skip`/`.fixme`/`.only`/`.fail`, fragile locators (nth-child / `.nth()` /
-> index XPath / long CSS chains), weakened assertions (the Healer's
-> `WEAK_MATCHERS` — one source of truth), and per-test traceability: each
-> test's own `PW-`/`TC-`/`SPEC-` ids, checked against the approved test
-> cases and spec when the run's context is available
-> (`docs/traceability.md` §3.6). It states what it verified and against
-> which files; "references present" is not "linkage verified". The thin
+> `.skip`/`.fixme`/`.only`/`.fail`, fragile locators (nth-child / `nth=` /
+> `.first()` / `.last()` / `.nth()` / index XPath / long CSS chains),
+> weakened assertions (the Healer's `WEAK_MATCHERS` plus comparisons nothing
+> can fail, such as `toBeGreaterThanOrEqual(0)` and `not.toBeNull()`), and
+> per-test traceability: each test's own `PW-`/`TC-`/`SPEC-` ids, checked
+> against the approved test cases and spec when the run's context is
+> available (`docs/traceability.md` §3.6). It states what it verified and
+> against which files; "references present" is not "linkage verified".
+> Waits, suppression and assertions are also found when reached through
+> `page['waitForTimeout']`, a bound or destructured `waitForTimeout`,
+> `globalThis.setTimeout`, a `setTimeout` imported from `timers/promises`
+> under any name, `const t = test`, `test['skip']`, a namespace import of
+> `@playwright/test`, a destructured `skip`, or an `expect` alias. Other
+> indirections (a reassigned variable, `Reflect.get`, a computed key) are
+> not followed.
+>
+> It also reads each test for a **weak oracle**, a test that can pass
+> whatever the product does. Assertions count whether they are in the test
+> or in an in-file function or page-object method the test calls; a helper
+> imported from another file is not read (`no_assertion` says so).
+>
+> - `no_assertion`: nothing asserted in the test or the in-file helpers it
+>   calls;
+> - `soft_only`: every assertion the test runs is `expect.soft`;
+> - `conditional_assertion`: an assertion that runs only under an `if`, a
+>   ternary, `&&`/`||`/`??` or a `switch` case;
+> - `swallowed_assertion` and `swallowed_failure`: a `try/catch` that never
+>   rethrows, or a `.catch()` or `.then(ok, handler)` whose handler is not a
+>   function that throws (`console.error` and `() => {}` swallow);
+> - `absence_only`: the test only checks that something is hidden, absent or
+>   not there;
+> - `trivial_assertion` and `weak_assertion`: the subject of `expect` is a
+>   constant, or a value is compared with itself;
+> - `mocked_oracle`: an asserted value is also served by a `route.fulfill`
+>   in the same file (the whole value, or the same numbers; a response's
+>   status and headers are not served data), so the test may check its own
+>   mock;
+> - `untraced_expected_value`: with the run's context, a literal text or
+>   number a value matcher asserts that neither the approved cases the test
+>   names (all approved cases when it names none) nor the acceptance
+>   criteria state, in their title, description, preconditions, steps or
+>   expected results. A phrase is found word for word at word boundaries, or
+>   by its parts: every number as a whole number (0 to 12 also as a word,
+>   "two" for 2) and every word as a word. An absence check's 0 is not
+>   checked. The question is where the expected value comes from; a value
+>   observed in the real app (CLAUDE.md §3.8) is a fine answer, written
+>   down. Values in a regular expression or a variable are not checked;
+> - `retries_or_slow` and `long_timeout`: `test.slow()`,
+>   `describe.configure({ retries })`, a test timeout of 0 or above 120 s
+>   (`test.setTimeout`, test details, `describe.configure`), and an action,
+>   navigation or expect timeout of 0 or above 30 s (an action's or a
+>   matcher's options, `expect.configure`, `test.use`,
+>   `page.setDefaultTimeout`), read through constant arithmetic and `const`
+>   values in the file;
+> - `uncovered_case`: with the run's context, an approved E2E case that no
+>   scanned test names (with several files, checked across all of them).
+>
+> Each finding names its test.
+>
+> The thin
 > gated runner shows this output inside the
 > Gate-4 brief, and an informational CI job posts it on PRs touching `tests/`.
 > It is **confirm-or-dismiss input, never a verdict**: it informs, never

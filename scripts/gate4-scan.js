@@ -14,11 +14,21 @@
 // the runner).
 //
 // Checks (all mechanical — a human still judges business correctness):
-//   - hard waits: page.waitForTimeout(...) / bare setTimeout(...)
-//   - fragile locators: :nth-child, .nth(, index XPath [n], long CSS chains
+//   - hard waits: waitForTimeout and setTimeout, also through bracket
+//     access, a bound alias, globalThis or a timers/promises import; never
+//     in comments (docs/review-gates.md, Gate 4, lists what is followed)
+//   - fragile locators: :nth-child, nth=, .first() / .last() / .nth(),
+//     index XPath [n], long CSS chains
 //   - test suppression: .skip / .fixme / .only / .fail, from the parsed test
-//     registrations (aliases resolved, comments ignored)
+//     registrations (aliases, bracket access, namespace imports and
+//     destructured names resolved; comments ignored)
 //   - weak assertions: toBeTruthy / toBeDefined / toBeFalsy / .not.toThrow
+//     and comparisons nothing can fail; constant subjects
+//   - weak oracles, per test (scripts/lib/oracle-checks.js): no assertion,
+//     soft only, conditional or swallowed assertions, absence only, a value
+//     its own mock served, expected values no approved case or criterion
+//     states, retries, test.slow() and long timeouts
+//   - coverage: with --context, approved E2E cases no scanned test names
 //   - traceability, PER TEST: every generated
 //     test needs its own PW, TC and SPEC id (docs/traceability.md). A file
 //     header does not cover the tests below it. Missing, conflicting,
@@ -39,24 +49,20 @@ import { basename } from 'node:path';
 import { argv, exit } from 'node:process';
 import { pathToFileURL } from 'node:url';
 
-import { WEAK_MATCHERS } from './healer-guardrails.js';
 import { GATE4_JUDGMENT_QUESTIONS } from './gate-briefs.js';
+import { oracleFindings, uncoveredCases } from './lib/oracle-checks.js';
 import {
   TEST_ID_KINDS,
-  expectBindings,
-  lineOf,
   parseTestSource,
   testIdentities,
   testRegistrations,
-  ts,
-  visit,
 } from './lib/test-source.js';
 
 /**
  * What a traceability check reads, from loadGate4Artifacts.
  * @typedef {{ contextPath: string, storyId: string | null, testCases: any,
  *   testCasesPath: string | null, specText: string | null,
- *   specPath: string | null }} Gate4Artifacts
+ *   specPath: string | null, criteria?: string[] | null }} Gate4Artifacts
  * @typedef {{ rule: string, line: number | null, test: string | null,
  *   excerpt: string, note: string }} Finding
  * @typedef {(rule: string, line: number | null, note: string,
@@ -70,15 +76,10 @@ import {
 /** @type {{ rule: string, note: string, test: (line: string) => boolean }[]} */
 const LINE_RULES = [
   {
-    rule: 'hard_wait',
-    note: 'hard wait — needs a written justification or a deterministic wait (docs/review-gates.md Gate 4)',
-    test: (l) => /\.waitForTimeout\s*\(|(^|[^.\w])setTimeout\s*\(/.test(l),
-  },
-  {
     rule: 'fragile_locator',
-    note: 'fragile locator — nth-child / .nth() / index XPath / long CSS chain; prefer a stable hook or role',
+    note: 'fragile locator — nth-child / nth= / index XPath / long CSS chain; prefer a stable hook or role',
     test: (l) =>
-      /:nth-child\(|\.nth\(|\/\/[^'"`]*\[\d+\]/.test(l) ||
+      /:nth-child\(|\bnth=|\/\/[^'"`]*\[\d+\]/.test(l) ||
       // a CSS string with 3+ descendant combinators is a brittle chain
       /['"`][^'"`]*(?:\s+>?\s*[.#][\w-]+){3,}[^'"`]*['"`]/.test(l),
   },
@@ -104,12 +105,14 @@ function isSeedTest(fileName, identity) {
  * @param {object} [opts]
  * @param {string} [opts.fileName]
  * @param {Gate4Artifacts | null} [opts.artifacts] from loadGate4Artifacts
+ * @param {boolean} [opts.coverage] report approved E2E cases no test in this
+ *   source names (the CLI turns it off per file and checks all files at once)
  * @returns {{ findings: Finding[], traceability: Traceability,
  *   judgment: string[] }}
  */
 export function gate4Findings(
   source,
-  { fileName = 'test.spec.ts', artifacts } = {}
+  { fileName = 'test.spec.ts', artifacts, coverage = true } = {}
 ) {
   /** @type {Finding[]} */
   const findings = [];
@@ -122,6 +125,8 @@ export function gate4Findings(
   };
 
   lines.forEach((line, i) => {
+    // A comment line describes code; it is not code.
+    if (/^\s*(\/\/|\/?\*)/.test(line)) return;
     for (const r of LINE_RULES) if (r.test(line)) add(r.rule, i + 1, r.note);
   });
 
@@ -154,32 +159,20 @@ export function gate4Findings(
     }
   }
 
-  const expects = expectBindings(sf);
-  visit(sf, (n) => {
-    if (!ts.isCallExpression(n) || !ts.isPropertyAccessExpression(n.expression))
-      return;
-    const matcher = n.expression.name.text;
-    let root = n.expression.expression;
-    /** @type {string[]} */
-    const chain = [];
-    while (ts.isPropertyAccessExpression(root) || ts.isCallExpression(root)) {
-      if (ts.isPropertyAccessExpression(root)) chain.push(root.name.text);
-      root = root.expression;
-    }
-    if (!ts.isIdentifier(root) || !expects.has(root.text)) return;
-    const weak =
-      WEAK_MATCHERS.has(matcher) ||
-      (matcher === 'toThrow' && chain.includes('not'));
-    if (weak) {
-      add(
-        'weak_assertion',
-        lineOf(n),
-        'weakened assertion — trivially-true form; assert the business value'
-      );
-    }
-  });
+  oracleFindings(sf, { add, artifacts });
 
   const traceability = checkTraceability(sf, fileName, artifacts, add);
+  if (coverage && artifacts?.testCases?.story_id === artifacts?.storyId) {
+    for (const tc of uncoveredCases(
+      artifacts?.testCases,
+      namedCases(traceability)
+    ))
+      add(
+        'uncovered_case',
+        null,
+        `${tc} is an approved E2E case of ${artifacts?.storyId}, but no test in this file names it`
+      );
+  }
   return { findings, traceability, judgment: GATE4_JUDGMENT_QUESTIONS() };
 }
 
@@ -356,6 +349,16 @@ function checkTraceability(sf, fileName, artifacts, add) {
 }
 
 /**
+ * The TC ids the scanned tests declare (exempt seed tests excluded).
+ * @param {Traceability} traceability
+ */
+export function namedCases(traceability) {
+  return new Set(
+    traceability.tests.filter((t) => !t.exempt).flatMap((t) => t.ids.TC ?? [])
+  );
+}
+
+/**
  * Read the artifacts a traceability check needs, from a context file.
  * Missing files are left null; nothing is written.
  * @returns {Gate4Artifacts | null}
@@ -384,6 +387,9 @@ export function loadGate4Artifacts(contextPath = 'context.json') {
     testCasesPath: paths.test_cases ?? null,
     specText: read(paths.playwright_spec),
     specPath: paths.playwright_spec ?? null,
+    criteria: Array.isArray(context.acceptance_criteria)
+      ? context.acceptance_criteria.map(String)
+      : null,
   };
 }
 
@@ -409,12 +415,15 @@ export function renderGate4Scan(filePath, result) {
     lines.push(
       '  Findings: none (no hard waits, suppression, fragile locators,'
     );
-    lines.push('  weak assertions, or per-test traceability gaps)');
+    lines.push(
+      '  weak assertions, weak oracles, or per-test traceability gaps)'
+    );
   } else {
     lines.push(`  Findings: ${result.findings.length} to confirm:`);
     for (const f of result.findings) {
       const where = f.line === null ? '' : `:${f.line}`;
-      lines.push(`  [${f.rule}]${where} ${f.note}`);
+      const inTest = f.test ? ` (in "${f.test}")` : '';
+      lines.push(`  [${f.rule}]${where}${inTest} ${f.note}`);
       if (f.line !== null) lines.push(`      > ${f.excerpt}`);
     }
   }
@@ -451,6 +460,10 @@ if (
   }
   const artifacts = contextPath ? loadGate4Artifacts(contextPath) : undefined;
   let total = 0;
+  /** @type {Set<string>} */
+  const named = new Set();
+  /** @type {string[]} */
+  const unparsed = [];
   for (const f of files) {
     if (!existsSync(f)) {
       console.error(`File not found: ${f}`);
@@ -459,10 +472,29 @@ if (
     const result = gate4Findings(readFileSync(f, 'utf8'), {
       fileName: f,
       artifacts,
+      coverage: false,
     });
+    for (const tc of namedCases(result.traceability)) named.add(tc);
+    if (result.findings.some((x) => x.rule === 'unsupported_source'))
+      unparsed.push(f);
     total += result.findings.length;
     console.log(renderGate4Scan(f, result));
     console.log('');
+  }
+  if (
+    artifacts?.testCases &&
+    artifacts.testCases.story_id === artifacts.storyId
+  ) {
+    const uncovered = uncoveredCases(artifacts.testCases, named);
+    if (uncovered.length) {
+      console.log(
+        `Approved E2E cases no scanned test names: ${uncovered.join(', ')} [uncovered_case]` +
+          (unparsed.length
+            ? ` (${unparsed.join(', ')} did not parse, so the cases its tests name are unknown)`
+            : '')
+      );
+      total += uncovered.length;
+    } else console.log('Every approved E2E case is named by a scanned test.');
   }
   console.log(
     `Scanned ${files.length} file(s); ${total} mechanical finding(s). ` +

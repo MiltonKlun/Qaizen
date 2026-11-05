@@ -209,3 +209,16 @@ timeout still is.
 - `test/failure-classifier.test.js`: "the CLI still grants Green to a traced action timeout on a low risk in a mostly passing run"
 - `test/classifier-probes.test.js`: "an element that was found but could not be acted on is not Green"
 - `test/classifier-probes.test.js`: "the keyword config must define exactly the seven Red domains"
+
+## 21. A generated test that cannot fail
+
+The Gate 4 scan names each weak oracle with its test and line: no assertion,
+soft, conditional or swallowed assertions, an absence-only check, a constant
+or a mocked value asserted, an expected value no approved case states,
+retries and long timeouts, and an approved case no test names. It informs
+the reviewer; it never decides the gate.
+
+- `test/gate4-oracles.test.js`: "each of the five weak-oracle drafts produces its finding"
+- `test/gate4-oracles.test.js`: "every one of the 22 weakening patterns produces a finding"
+- `test/gate4-oracles.test.js`: "a firm, traced test raises no weak-oracle finding"
+- `test/gate4-oracles.test.js`: "assertions in a loop, in an in-file helper, or mixed soft and hard are not weak"

@@ -24,7 +24,7 @@ const escapeRe = (/** @type {string} */ s) =>
   s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 test('every scenario names at least one regression test', () => {
-  assert.equal(sections.length, 20, 'the matrix lists 20 acceptance scenarios');
+  assert.equal(sections.length, 21, 'the matrix lists 21 acceptance scenarios');
   for (const s of sections) {
     assert.ok(s.tests.length > 0, `${s.title} names no test`);
   }
