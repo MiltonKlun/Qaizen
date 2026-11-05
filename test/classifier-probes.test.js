@@ -9,6 +9,19 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { execPath } from 'node:process';
+import { pathToFileURL } from 'node:url';
 
 import {
   GREEN_ACTIONS,
@@ -17,7 +30,11 @@ import {
   valueBearing,
 } from '../scripts/lib/classify-failure.js';
 import { REPAIRABLE_ACTIONS } from '../scripts/lib/test-source.js';
-import { redDomainsInText, words } from '../scripts/red-domains.js';
+import {
+  RED_DOMAIN_IDS,
+  redDomainsInText,
+  words,
+} from '../scripts/red-domains.js';
 
 const DIM = (s) => `\u001b[2m${s}\u001b[22m`;
 const actionTimeout = (op, locator) =>
@@ -92,7 +109,7 @@ const PROBES = [
       )
     ),
     'yellow',
-    /locator\.waitFor reads or waits for something/,
+    /locator\.waitFor is not a locator action the Healer may repair/,
   ],
   [
     'C6',
@@ -136,7 +153,7 @@ const PROBES = [
       actionTimeout('locator.innerText', 'locator(\'[data-test="sum"]\')')
     ),
     'yellow',
-    /locator\.innerText reads or waits for something/,
+    /locator\.innerText is not a locator action the Healer may repair/,
   ],
   [
     'C11',
@@ -265,11 +282,65 @@ test('a locator that finds its element by text, a number or a price is not Green
     ["getByLabel('Quantity 3')", /a number/],
     ['locator(\'[data-price="$5"]\')', /a price/],
     ['locator(\'[title="€10"]\')', /a price/],
+    ["locator('.plan').filter({ hasText: 'Gold plan' })", /text content/],
+    ["locator('li').filter({ hasNotText: 'Sold out' })", /text content/],
+    ['locator(\'xpath=//td[text()="42"]\')', /text content/],
+    ["getByRole('button', { name: /\\d+ items/ })", /a number/],
+    ["getByRole('button', { name: /Remove 3/i })", /a number/],
+    ["locator('.row').filter({ hasText: /\\$\\d+/ })", /text content/],
+    ["getByRole('link', { name: /Total \\$/ })", /a price/],
   ]) {
     const c = classifyPlaywrightUnit(click('opens the help panel', locator));
     assert.equal(c.severity, 'yellow', locator);
     assert.match(c.reason, why, locator);
   }
+});
+
+test('an element that was found but could not be acted on is not Green', () => {
+  for (const log of [
+    'locator resolved to <button disabled data-testid="pay">Pay</button>\n  - element is not enabled',
+    'locator resolved to <input readonly/>\n  - element is not editable',
+    '<div class="modal-backdrop"></div> intercepts pointer events',
+    'element is not visible',
+    'element is outside of the viewport',
+  ]) {
+    const message =
+      'TimeoutError: locator.click: Timeout 1000ms exceeded.\nCall log:\n' +
+      `${DIM("  - waiting for getByTestId('help-toggle')")}\n${DIM(`  - ${log}`)}\n`;
+    const c = classifyPlaywrightUnit(unit('opens the help panel', message));
+    assert.equal(
+      `${c.severity}/${c.classification}`,
+      'yellow/unknown_needs_human_review',
+      log
+    );
+    assert.match(c.reason, /found but could not be acted on/, log);
+  }
+});
+
+test('every failed attempt must be a timed-out repairable action', () => {
+  const help = "getByTestId('help-toggle')";
+  // A click timeout, then a wait: the wait decides.
+  assert.equal(
+    verdict(
+      unit(
+        'opens the help panel',
+        actionTimeout('locator.click', help),
+        actionTimeout('locator.waitFor', help)
+      )
+    ),
+    'yellow/unknown_needs_human_review'
+  );
+  // A click timeout, then a closed page: not a timeout, so not proven.
+  assert.notEqual(
+    classifyPlaywrightUnit(
+      unit(
+        'opens the help panel',
+        actionTimeout('locator.click', help),
+        'Error: locator.click: Target page, context or browser has been closed'
+      )
+    ).severity,
+    'green'
+  );
 });
 
 test('a test id or a role name without numbers stays Green', () => {
@@ -314,32 +385,75 @@ test('a failure on a case linked to a high-severity or Red-domain risk is not Gr
     }),
     'green/locator_or_selector'
   );
+  // Risks the run cannot establish withhold Green with their reason.
+  const unknown = classifyPlaywrightUnit(u, {
+    risks: [],
+    riskProblem: 'TC-001 covers RISK-009, which context.json does not describe',
+  });
+  assert.equal(unknown.severity, 'yellow');
+  assert.match(
+    unknown.reason,
+    /RISK-009, which context\.json does not describe/
+  );
 });
 
-test('Green is refused when most of the run failed; one failure is never systemic', () => {
-  const pw = (outcome) => ({ identity: { kind: 'playwright' }, outcome });
+test('Green is refused when most of the run failed; counted per test, never for one or two', () => {
+  let n = 0;
+  const pw = (outcome, title = `t${n++}`, project = 'chromium') => ({
+    identity: {
+      kind: 'playwright',
+      file: 'a.spec.ts',
+      test_title: title,
+      project,
+    },
+    outcome,
+  });
   const nm = (outcome) => ({ identity: { kind: 'newman' }, outcome });
   assert.equal(systemicFailure([pw('failed')]), null);
-  assert.equal(systemicFailure([pw('failed'), pw('passed')]), null);
+  assert.equal(systemicFailure([pw('failed'), pw('failed')]), null);
   assert.equal(
-    systemicFailure([pw('failed'), pw('failed'), pw('passed'), pw('passed')]),
+    systemicFailure([pw('failed'), pw('blocked'), pw('passed')]),
     null
   );
   assert.deepEqual(
-    systemicFailure([pw('failed'), pw('blocked'), pw('passed')]),
-    { failed: 2, units: 3 }
+    systemicFailure([pw('failed'), pw('blocked'), pw('failed'), pw('passed')]),
+    { failed: 3, tests: 4 }
+  );
+  assert.equal(
+    systemicFailure([
+      pw('failed'),
+      pw('failed'),
+      pw('failed'),
+      pw('passed'),
+      pw('passed'),
+      pw('passed'),
+    ]),
+    null
+  );
+  // One test failing in three browsers is one failing test.
+  assert.equal(
+    systemicFailure(
+      ['chromium', 'firefox', 'webkit'].map((p) => pw('failed', 'same', p))
+    ),
+    null
   );
   // Newman units are not counted: the question is whether the UI moved.
   assert.equal(
-    systemicFailure([pw('failed'), pw('passed'), nm('failed'), nm('failed')]),
+    systemicFailure([
+      pw('failed'),
+      pw('passed'),
+      nm('failed'),
+      nm('failed'),
+      nm('failed'),
+    ]),
     null
   );
   const c = classifyPlaywrightUnit(
     click('opens the help panel', "getByTestId('help-toggle')"),
-    { systemic: { failed: 7, units: 9 } }
+    { systemic: { failed: 7, tests: 9 } }
   );
   assert.equal(c.severity, 'yellow');
-  assert.match(c.reason, /7 of 9 Playwright tests in this run failed/);
+  assert.match(c.reason, /7 of the run's 9 Playwright tests failed/);
 });
 
 // --- keywords ----------------------------------------------------------------
@@ -367,6 +481,15 @@ test('identifiers are split into words before keywords match', () => {
     ['precios', 'pricing'],
     ['2FA code', 'security'],
     ['personal data export', 'compliance'],
+    ['CVVInput', 'security'],
+    ['IBANField', 'payment'],
+    ['auth.setup.ts', 'security'],
+    ['step1Login', 'security'],
+    ['tc001Payment', 'payment'],
+    ['sesiones', 'security'],
+    ['administración', 'permission_role'],
+    ['the order was paid', 'payment'],
+    ['saved cards', 'payment'],
   ]) {
     assert.ok(redDomainsInText(text).includes(domain), `${text} -> ${domain}`);
   }
@@ -378,7 +501,73 @@ test('ordinary words stay outside the taxonomy', () => {
     'sort products by name',
     'the menu opens once rendered',
     'shows the tooltip',
+    'cifras de ventas',
+    'palabra clave',
+    'a cargo del equipo',
+    'points of interest',
+    'la página de inicio',
   ]) {
     assert.deepEqual(redDomainsInText(text), [], text);
   }
+});
+
+test('each locator value is matched on its own, so a phrase never spans two', () => {
+  // "log" and "In progress" side by side would read "log in".
+  assert.equal(
+    verdict(
+      click('shows the status', "getByRole('log', { name: 'In progress' })")
+    ),
+    'green/locator_or_selector'
+  );
+});
+
+test('the keyword config must define exactly the seven Red domains', () => {
+  assert.deepEqual([...RED_DOMAIN_IDS].sort(), [
+    'business_logic',
+    'compliance',
+    'data_integrity',
+    'payment',
+    'permission_role',
+    'pricing',
+    'security',
+  ]);
+  const load = (config) => {
+    const dir = mkdtempSync(join(tmpdir(), 'qz-red-'));
+    try {
+      mkdirSync(join(dir, 'scripts'));
+      mkdirSync(join(dir, 'config'));
+      copyFileSync(
+        'scripts/red-domains.js',
+        join(dir, 'scripts', 'red-domains.js')
+      );
+      if (config !== null)
+        writeFileSync(join(dir, 'config', 'red-domains.json'), config);
+      return spawnSync(
+        execPath,
+        [
+          '--input-type=module',
+          '-e',
+          `await import(${JSON.stringify(pathToFileURL(join(dir, 'scripts', 'red-domains.js')).href)})`,
+        ],
+        { encoding: 'utf8' }
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const full = JSON.parse(readFileSync('config/red-domains.json', 'utf8'));
+  assert.equal(load(JSON.stringify(full)).status, 0);
+  const noPayment = {
+    ...full,
+    domains: full.domains.filter((d) => d.id !== 'payment'),
+  };
+  const r = load(JSON.stringify(noPayment));
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /must define exactly the domains/);
+  const missing = load(null);
+  assert.notEqual(missing.status, 0);
+  assert.match(missing.stderr, /red-domains\.json could not be read/);
+  const broken = load('{ not json');
+  assert.notEqual(broken.status, 0);
+  assert.match(broken.stderr, /could not be read/);
 });

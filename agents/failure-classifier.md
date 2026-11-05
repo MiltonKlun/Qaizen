@@ -13,9 +13,8 @@ phase_active: 1+
 version: 2.4.2
 changed_in_run: null
 changelog: |
-  - 2.4.2: PATCH (no output change). The Red-domain keywords are in
-    config/red-domains.json, and what counts as semantic ambiguity for Green
-    is listed in docs/healer-guardrails.md section 2; the instruction is
+  - 2.4.2: PATCH (pointer only). The Red-domain keywords moved from
+    scripts/red-domains.js to config/red-domains.json; the instruction is
     unchanged.
   - 2.4.1: PATCH (no output change). States that an override lowering a Red
     failure, or a failure on a high-severity, Red-domain or untraceable risk,
@@ -290,10 +289,7 @@ The agent runs the `skills/analyzing-logs` skill. High-level steps:
      4. a proven locator failure during an ACTION (not an assertion) ->
         **Green** / `locator_or_selector`, only when no Red domain
         (keywords in `config/red-domains.json`) or semantic ambiguity is
-        involved; `docs/healer-guardrails.md` §2 lists what counts (a read
-        or a wait, a locator that finds its element by text or a price, a
-        high-severity or Red-domain risk on the case, most of the run
-        failing), and the draft's reason names each one that applied;
+        involved;
      5. anything else -> Yellow / `unknown_needs_human_review`.
         A message containing "locator", "getBy" or "timeout" is **not**
         evidence of Green: `expect(locator).toHaveText('$100.00')` against

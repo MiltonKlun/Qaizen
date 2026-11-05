@@ -18,8 +18,26 @@
 // "pay now" and "order total". Accents are removed and case is folded.
 
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
-const CONFIG_URL = new URL('../config/red-domains.json', import.meta.url);
+const CONFIG_PATH = fileURLToPath(
+  new URL('../config/red-domains.json', import.meta.url)
+);
+
+/**
+ * The seven domains of docs/healer-guardrails.md §4. The config must define
+ * exactly these: a domain removed from the file would quietly weaken the
+ * classifier, the track floor and the downgrade confirmation at once.
+ */
+export const RED_DOMAIN_IDS = [
+  'business_logic',
+  'permission_role',
+  'security',
+  'pricing',
+  'payment',
+  'compliance',
+  'data_integrity',
+];
 
 /**
  * @typedef {{ words: string[], prefix: boolean, text: string }} Keyword
@@ -28,8 +46,9 @@ const CONFIG_URL = new URL('../config/red-domains.json', import.meta.url);
 
 /**
  * Lowercase, accent-free words of a text. camelCase, PascalCase, kebab-case,
- * snake_case and punctuation all separate words; letters and digits that
- * touch stay together ("2fa").
+ * snake_case and punctuation all separate words. A letter followed by a
+ * digit is split ("step1" -> "step 1"); a digit followed by a letter is not
+ * ("2fa"), unless a capitalized word starts there ("1Payment").
  * @param {unknown} text
  * @returns {string[]}
  */
@@ -38,6 +57,8 @@ export function words(text) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/(\d)([A-Z][a-z])/g, '$1 $2')
+    .replace(/([A-Za-z])(\d)/g, '$1 $2')
     .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
     .toLowerCase()
     .split(/[^a-z0-9]+/)
@@ -53,39 +74,52 @@ function loadDomains() {
   /** @type {any} */
   let raw;
   try {
-    raw = JSON.parse(readFileSync(CONFIG_URL, 'utf8'));
+    raw = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
   } catch (e) {
     throw new Error(
-      `config/red-domains.json could not be read: ${/** @type {Error} */ (e).message}`
+      `${CONFIG_PATH} could not be read: ${/** @type {Error} */ (e).message}`
     );
   }
   if (!Array.isArray(raw?.domains) || raw.domains.length === 0)
     throw new Error(
       'config/red-domains.json: "domains" must be a non-empty list'
     );
-  return raw.domains.map((/** @type {any} */ d, /** @type {number} */ i) => {
-    const where = `config/red-domains.json domains[${i}]`;
-    if (typeof d?.id !== 'string' || typeof d.label !== 'string')
-      throw new Error(`${where}: "id" and "label" must be strings`);
-    if (!d.keywords || typeof d.keywords !== 'object')
-      throw new Error(`${where}: "keywords" must map locales to lists`);
-    /** @type {Keyword[]} */
-    const keywords = [];
-    for (const [locale, list] of Object.entries(d.keywords)) {
-      if (!Array.isArray(list) || list.length === 0)
-        throw new Error(`${where}.keywords.${locale} must be a non-empty list`);
-      for (const k of list) {
-        const prefix = typeof k === 'string' && k.endsWith('*');
-        const w = words(prefix ? k.slice(0, -1) : k);
-        if (typeof k !== 'string' || w.length === 0)
+  const domains = raw.domains.map(
+    (/** @type {any} */ d, /** @type {number} */ i) => {
+      const where = `config/red-domains.json domains[${i}]`;
+      if (typeof d?.id !== 'string' || typeof d.label !== 'string')
+        throw new Error(`${where}: "id" and "label" must be strings`);
+      if (!d.keywords || typeof d.keywords !== 'object')
+        throw new Error(`${where}: "keywords" must map locales to lists`);
+      /** @type {Keyword[]} */
+      const keywords = [];
+      for (const [locale, list] of Object.entries(d.keywords)) {
+        if (!Array.isArray(list) || list.length === 0)
           throw new Error(
-            `${where}.keywords.${locale}: ${JSON.stringify(k)} is not a keyword`
+            `${where}.keywords.${locale} must be a non-empty list`
           );
-        keywords.push({ words: w, prefix, text: k });
+        for (const k of list) {
+          const prefix = typeof k === 'string' && k.endsWith('*');
+          const w = words(prefix ? k.slice(0, -1) : k);
+          if (typeof k !== 'string' || w.length === 0)
+            throw new Error(
+              `${where}.keywords.${locale}: ${JSON.stringify(k)} is not a keyword`
+            );
+          keywords.push({ words: w, prefix, text: k });
+        }
       }
+      return { id: d.id, label: d.label, keywords };
     }
-    return { id: d.id, label: d.label, keywords };
-  });
+  );
+  const ids = domains.map((/** @type {RedDomain} */ d) => d.id);
+  if (
+    ids.length !== RED_DOMAIN_IDS.length ||
+    RED_DOMAIN_IDS.some((id) => !ids.includes(id))
+  )
+    throw new Error(
+      `${CONFIG_PATH} must define exactly the domains ${RED_DOMAIN_IDS.join(', ')}; it defines ${ids.join(', ')}`
+    );
+  return domains;
 }
 
 /** The Red domains and their keywords, from config/red-domains.json. */

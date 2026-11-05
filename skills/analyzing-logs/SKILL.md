@@ -136,10 +136,7 @@ hints, which silently defeated the old keyword rules. Apply in this order:
 4. **Proven locator failure during an action** → Green /
    `locator_or_selector` — only when no Red domain (keywords in
    `config/red-domains.json`) or semantic ambiguity is involved; otherwise
-   Yellow. `docs/healer-guardrails.md` §2 lists what counts as ambiguity: a
-   read or a wait instead of an action, a locator that finds its element by
-   text or a price, a high-severity or Red-domain risk on the case, or most
-   of the run failing.
+   Yellow.
 5. **Anything uncertain** → Yellow / `unknown_needs_human_review`. This
    includes an element missing during an assertion (stale locator, or the
    product never rendered it?) and a whole-test timeout.

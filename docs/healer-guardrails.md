@@ -78,34 +78,47 @@ Green in exactly one case: every failed attempt timed out on a locator
 `press`, `pressSequentially`, `check`, `uncheck`, `selectOption`, `hover`,
 `setInputFiles`), no assertion failed, and none of the following holds:
 
-- **The operation reads or waits.** A timeout on `waitFor`, `innerText`,
-  `textContent`, `inputValue`, `isVisible`, `count`, `getAttribute` or any
-  other operation that is not one of those actions may be the very outcome
-  the test checks (a confirmation that never appeared). It is Yellow
+- **The operation is not one of those actions.** A timeout on `waitFor`,
+  `innerText`, `textContent`, `inputValue`, `isVisible`, `count`,
+  `getAttribute`, `page.click` or any other operation may be the very
+  outcome the test checks (a confirmation that never appeared). Yellow
   `unknown_needs_human_review`.
+- **The element was found but could not be acted on**: the call log says
+  the locator resolved, or the element is disabled, not editable, not
+  visible, not stable, outside the viewport, or covered by another element.
+  That is a behavior or layout change (a disabled Pay button, a new modal),
+  not a stale locator. Yellow `unknown_needs_human_review`.
 - **The locator finds its element by what the page shows**: a text engine
-  (`text=`, `getByText`, `:has-text`, `:text`), a role name, label,
-  placeholder, alt text or title with a number in it, or any quoted value
-  with a currency sign. A missing `text=$29.99` may be a wrong price. Yellow
-  `unknown_needs_human_review`.
+  (`text=`, `getByText`, `:has-text`, `:text`, a `hasText` filter, XPath
+  `text()`), a role name, label, placeholder, alt text or title with a
+  number in it (a regular-expression name counts, `\d` included), or any
+  value with a currency sign. A missing `text=$29.99` may be a wrong price.
+  Yellow `unknown_needs_human_review`.
 - **A Red domain is in the test title or in what the locator looks for**
-  (its quoted values, not its method names: `getByRole` is not a
-  permission).
-- **The test case covers a high-severity risk, or a risk whose description
-  names a Red domain** (`context.json` risks, through the case's
-  `risk_ids`).
-- **Most of the run failed**: at least two Playwright tests failed or were
-  blocked, and they are more than half. That many at once points to the app
-  or the environment, not one locator.
+  (each quoted value and regular-expression name on its own, never its
+  method names: `getByRole` is not a permission). The title includes the
+  spec file's name, so every test in `checkout.spec.ts` is in the pricing
+  domain.
+- **The test case's risks are high or Red, or cannot be known**: a
+  high-severity risk, a risk whose description names a Red domain, a risk
+  id `context.json` does not describe, a case missing from the run's test
+  cases, a failure traced to no case, or a run whose test-cases file is not
+  named or cannot be read.
+- **Most of the run failed**: at least three Playwright tests failed or were
+  blocked, and they are more than half. A test is its file and title: one
+  test failing in three browsers is one. That many at once needs a person to
+  see whether the app, the environment or one shared element changed.
 
 The last three are Yellow `locator_or_selector`, with every reason that
-applied. Everything else it cannot prove is Yellow too, including a bare
-test timeout: one run cannot establish that a timeout is mere instability
-rather than a hang, so "wait unstable" and "timeout stabilization" become
-Green only when the Failure Classifier Agent or a human establishes it. The
-message text is still trusted: test code that throws its own error worded
-like an action timeout reads as one, and only its domain or its risk keeps
-it from Green.
+applied. The risk and run checks need the run, so they apply when
+`scripts/run-failure-classifier.js` classifies; a bare call to the
+classifier for one unit cannot know them. Everything else it cannot prove is
+Yellow too, including a bare test timeout: one run cannot establish that a
+timeout is mere instability rather than a hang, so "wait unstable" and
+"timeout stabilization" become Green only when the Failure Classifier Agent
+or a human establishes it. The message text is still trusted: test code that
+throws its own error worded like an action timeout reads as one, and only
+its domain or its risk keeps it from Green.
 
 It reads what the error says **failed**, never keywords. The review found
 `expect(locator).toHaveText('$100.00')` against an element showing `$1.00`

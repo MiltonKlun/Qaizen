@@ -13,6 +13,7 @@ import {
   MAX_LITE_ACS,
   MAX_LITE_RISKS,
 } from '../scripts/track-floor.js';
+import { redDomainLabel } from '../scripts/red-domains.js';
 
 function ctx({ title = 't', description = '', acs = ['AC'], risks = [] } = {}) {
   return {
@@ -141,4 +142,32 @@ test('trackRank orders lite < standard < full; unknown treated as standard', () 
   assert.ok(trackRank('lite') < trackRank('standard'));
   assert.ok(trackRank('standard') < trackRank('full'));
   assert.equal(trackRank('weird'), trackRank('standard'));
+});
+
+test('identifiers, inflections and Spanish keep a story off lite (config/red-domains.json)', () => {
+  for (const [title, domain] of [
+    ['Pagar con tarjeta guardada', 'payment'],
+    ['El subtotal se actualiza al quitar un producto', 'business_logic'],
+    ['The submitPayment button is shown on mobile', 'payment'],
+    ['Users can log in with a magic link', 'security'],
+    ['Apply a promo code at the basket', 'pricing'],
+    ['Iniciar sesión con correo', 'security'],
+  ]) {
+    const { minimum, reasons } = minimumTrack(ctx({ title }));
+    assert.notEqual(minimum, 'lite', title);
+    assert.ok(
+      reasons.some((r) => r.includes(redDomainLabel(domain))),
+      `${title}: ${reasons.join('; ')}`
+    );
+  }
+});
+
+test('ordinary Spanish and English stay lite-eligible', () => {
+  for (const title of [
+    'La página de inicio muestra las cifras de ventas',
+    'Sort products by name',
+    'Points of interest appear on the map',
+  ]) {
+    assert.equal(minimumTrack(ctx({ title })).minimum, 'lite', title);
+  }
 });
