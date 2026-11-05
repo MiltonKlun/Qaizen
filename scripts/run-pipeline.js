@@ -86,8 +86,7 @@ import { trackAllowed } from './track-floor.js';
 import {
   gate4Findings,
   loadGate4Artifacts,
-  renderGate4Scan,
-  scanVerdict,
+  renderGate4Brief,
 } from './gate4-scan.js';
 import {
   TRANSITION_FILE,
@@ -943,8 +942,8 @@ async function runGateInteractive(step, context) {
   // Gate 4: run the static pre-Gate-4 scan on the generated test and surface
   // its mechanical findings as the "auto-checks" half of the review, so the
   // human opens the gate with the mechanical questions pre-answered and can
-  // spend their attention on business correctness. Informational —
-  // it never decides the gate.
+  // spend their attention on business correctness. It never decides the
+  // gate; on the full track it names the open findings as unresolved.
   /** @type {string | null} */
   let scanText = null;
   if (step === 'gate4') {
@@ -958,9 +957,7 @@ async function runGateInteractive(step, context) {
         fileName: testPath,
         artifacts,
       });
-      // On the full track the open findings are named as blocking the scan;
-      // the decision below is still the reviewer's.
-      scanText = `${renderGate4Scan(testPath, scan)}\n  ${scanVerdict(artifacts, scan.findings.length).message}`;
+      scanText = renderGate4Brief(testPath, scan, artifacts);
       console.log(scanText);
     }
   }

@@ -1,13 +1,15 @@
 // Unit tests for the pre-Gate-4 static scanner.
 // Table-driven over crafted sources so each rule is exercised in isolation,
-// plus one real known-clean file. The scanner is INFORMATIONAL — these tests
-// assert it DETECTS the mechanical patterns, not that it judges or blocks.
+// plus one real known-clean file. These tests assert it DETECTS the
+// mechanical patterns, and that only a full-track story's findings make it
+// exit 1; it never judges or decides Gate 4.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   gate4Findings,
+  renderGate4Brief,
   renderGate4Scan,
   scanVerdict,
   storyTrack,
@@ -403,6 +405,20 @@ test('only full-track findings block, and blocking never approves', () => {
   assert.equal(full.blocking, true);
   assert.match(full.message, /2 finding\(s\) unresolved/);
   assert.match(full.message, /approves nothing/);
+
+  // The runner's Gate-4 brief ends with the same verdict.
+  const weak = gate4Findings(
+    "import { test } from '@playwright/test';\n// PW-001 SPEC-001\ntest('a [TC-001]', async ({ page }) => { await page.goto('/'); });\n"
+  );
+  assert.ok(weak.findings.length > 0);
+  assert.match(
+    renderGate4Brief('t.spec.ts', weak, at('full')).split('\n').at(-1),
+    /^ {2}Full track: \d+ finding\(s\) unresolved/
+  );
+  assert.match(
+    renderGate4Brief('t.spec.ts', weak, at('standard')).split('\n').at(-1),
+    /^ {2}Informational \(standard track\)/
+  );
 });
 
 test('the scan exits 1 on a full-track story with findings, and 0 otherwise', async () => {
@@ -476,6 +492,41 @@ test('the scan exits 1 on a full-track story with findings, and 0 otherwise', as
     const noContext = scan({ track: 'full' }, weak, false);
     assert.equal(noContext.status, 0, noContext.stdout + noContext.stderr);
     assert.match(noContext.stdout, /track is unknown/);
+
+    // An approved E2E case no test names is a finding of its own.
+    writeFileSync(
+      join(dir, 'tc.json'),
+      JSON.stringify({
+        story_id: 'SK-7',
+        test_cases: ['TC-001', 'TC-002'].map((id) => ({
+          test_case_id: id,
+          status: 'approved',
+          automation_decision: 'automate_e2e',
+          title: 'The shop title is Shop',
+        })),
+      })
+    );
+    const uncovered = scan({ track: 'full' }, clean);
+    assert.equal(uncovered.status, 1, uncovered.stdout + uncovered.stderr);
+    assert.match(uncovered.stdout, /TC-002 \[uncovered_case\]/);
+    assert.match(uncovered.stdout, /Full track: 1 finding\(s\) unresolved/);
+
+    // A context that cannot be read is a usage error, never "no context".
+    for (const bad of ['{"track":"full",', 'null', '[]', '"full"']) {
+      writeFileSync(join(dir, 'context.json'), bad);
+      const r = spawnSync(
+        process.execPath,
+        [
+          join(process.cwd(), 'scripts', 'gate4-scan.js'),
+          '--context',
+          'context.json',
+          't.spec.ts',
+        ],
+        { cwd: dir, encoding: 'utf8' }
+      );
+      assert.equal(r.status, 2, `${bad}: ${r.stdout}${r.stderr}`);
+      assert.match(r.stderr, /not a readable context\.json object/);
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

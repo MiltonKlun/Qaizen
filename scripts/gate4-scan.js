@@ -42,7 +42,7 @@
 //
 // Exit codes: 0 scan ran, findings informational · 1 a full-track story
 //   (--context, the higher of track and track_floor) has findings · 2 usage /
-//   unreadable file. Without --context, or on the lite or standard track,
+//   unreadable file or context. Without --context, or on the lite or standard track,
 //   findings never fail the scan. Exit 1 blocks no gate and approves nothing:
 //   the human still decides Gate 4.
 
@@ -375,6 +375,8 @@ export function loadGate4Artifacts(contextPath = 'context.json') {
   } catch {
     return null;
   }
+  if (!context || typeof context !== 'object' || Array.isArray(context))
+    return null;
   const paths = context.artifact_paths ?? {};
   const read = (/** @type {string | undefined} */ p) =>
     p && existsSync(p) ? readFileSync(p, 'utf8') : null;
@@ -428,7 +430,7 @@ export function scanVerdict(artifacts, count) {
     return {
       blocking: false,
       message:
-        'Informational (no --context, so the track is unknown). Gate 4 is the human reviewer (CLAUDE.md §3.5).',
+        'Informational (no run context, so the track is unknown). Gate 4 is the human reviewer (CLAUDE.md §3.5).',
     };
   const track = artifacts.track ?? 'standard';
   if (track !== 'full')
@@ -445,7 +447,7 @@ export function scanVerdict(artifacts, count) {
     : {
         blocking: true,
         message:
-          `Full track: ${count} finding(s) unresolved, so the scan exits 1. ` +
+          `Full track: ${count} finding(s) unresolved; run on its own, the scan exits 1 for them. ` +
           'Fix each one in the test; a recorded answer per finding does not exist yet. ' +
           'This blocks nothing else and approves nothing: Gate 4 is the human reviewer (CLAUDE.md §3.5).',
       };
@@ -492,6 +494,18 @@ export function renderGate4Scan(filePath, result) {
   return lines.join('\n');
 }
 
+/**
+ * The scan block of the runner's Gate-4 brief: the findings, then whether
+ * they are informational or, on the full track, unresolved.
+ * @param {string} filePath
+ * @param {ReturnType<typeof gate4Findings>} result
+ * @param {Gate4Artifacts | null | undefined} artifacts
+ */
+export function renderGate4Brief(filePath, result, artifacts) {
+  const verdict = scanVerdict(artifacts, result.findings.length);
+  return `${renderGate4Scan(filePath, result)}\n  ${verdict.message}`;
+}
+
 // ----------------------------------------------------------------- CLI -----
 // Only when invoked directly (the module is also imported by the runner/tests).
 if (
@@ -517,6 +531,14 @@ if (
     exit(2);
   }
   const artifacts = contextPath ? loadGate4Artifacts(contextPath) : undefined;
+  // A context that cannot be read must not pass as "no context": the track
+  // it names would be lost and full-track findings would not block.
+  if (contextPath && !artifacts) {
+    console.error(
+      `--context ${contextPath} is not a readable context.json object`
+    );
+    exit(2);
+  }
   let total = 0;
   /** @type {Set<string>} */
   const named = new Set();

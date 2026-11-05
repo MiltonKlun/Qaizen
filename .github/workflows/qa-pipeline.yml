@@ -180,6 +180,7 @@ jobs:
     # (CLAUDE.md §3.5). Findings are confirm-or-dismiss prompts, not failures.
     # The job passes no run context, so the scan cannot see a full-track
     # story and always exits 0 here; the exit-1 rule applies with --context.
+    # The comment step runs even when the scan step fails.
     if: github.event_name == 'pull_request'
     continue-on-error: true
     permissions:
@@ -210,7 +211,7 @@ jobs:
           echo "ran=true" >> "$GITHUB_OUTPUT"
           node scripts/gate4-scan.js "${files[@]}" | tee gate4-scan-output.txt
       - name: Post Gate-4 scan summary comment
-        if: steps.scan.outputs.ran == 'true'
+        if: always() && steps.scan.outputs.ran == 'true'
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
           script: |
