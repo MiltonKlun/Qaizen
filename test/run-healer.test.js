@@ -21,6 +21,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -31,6 +32,7 @@ import { removeTempDir } from './helpers/cleanup.js';
 import { buildLedger } from '../scripts/lib/build-ledger.js';
 import { approvedScopeDigest } from '../scripts/lib/execution-ledger.js';
 import { validateValue } from '../scripts/lib/artifact-io.js';
+import { keepHealerAttempts } from '../scripts/lib/healer-candidate.js';
 
 const REPO = process.cwd();
 const STORY = 'HEAL-1';
@@ -595,6 +597,302 @@ test('three submissions per test, persisted; an identical resubmission reuses it
       'FAIL-001.attempt-3.json',
     ]);
     liveUnchanged(dir);
+  } finally {
+    removeTempDir(dir);
+  }
+});
+
+const contextOf = (dir) =>
+  JSON.parse(readFileSync(join(dir, 'context.json'), 'utf8'));
+const writeContextOf = (dir, ctx) =>
+  writeFileSync(join(dir, 'context.json'), JSON.stringify(ctx, null, 2));
+const submit = (dir, name, text) =>
+  heal(dir, [
+    '--failure',
+    'FAIL-001',
+    '--candidate',
+    candidate(dir, name, text),
+    '--apply',
+  ]);
+const badCandidate = (n) =>
+  FIXED.replace("toHaveText('Products')", `toHaveText('Other ${n}')`);
+
+test('each submission is added to context.json healer_attempts[] with its record digest', () => {
+  const dir = project();
+  try {
+    const r = submit(dir, 'bad1', badCandidate(1));
+    assert.equal(r.code, 1, r.out);
+    const ctx = contextOf(dir);
+    const valid = validateValue(ctx, join(REPO, 'schemas/context.schema.json'));
+    assert.ok(valid.ok, JSON.stringify(valid.errors));
+    assert.equal(ctx.healer_attempts.length, 1);
+    const [entry] = ctx.healer_attempts;
+    const path = 'analysis/healer-validation/FAIL-001.attempt-1.json';
+    assert.deepEqual(
+      {
+        run_id: entry.run_id,
+        failure_id: entry.failure_id,
+        unit_id: entry.unit_id,
+        original_sha256: entry.original_sha256,
+        candidate_sha256: entry.candidate_sha256,
+        attempt: entry.attempt,
+        outcome: entry.outcome,
+        record: entry.record,
+      },
+      {
+        run_id: RUN,
+        failure_id: 'FAIL-001',
+        unit_id: UNIT.unit_id,
+        original_sha256: sha(ORIGINAL),
+        candidate_sha256: sha(badCandidate(1)),
+        attempt: 1,
+        outcome: 'rejected_static',
+        record: { path, sha256: sha(readFileSync(join(dir, path))) },
+      }
+    );
+    // The gate it ran under stays current: the attempts are not reviewed input.
+    const again = submit(dir, 'bad2', badCandidate(2));
+    assert.doesNotMatch(again.out, /Gate 4/, again.out);
+    assert.equal(contextOf(dir).healer_attempts.length, 2);
+  } finally {
+    removeTempDir(dir);
+  }
+});
+
+test('deleting the record files gives no attempt back', () => {
+  const dir = project();
+  try {
+    for (let n = 1; n <= 3; n++)
+      assert.equal(submit(dir, `bad${n}`, badCandidate(n)).code, 1);
+    rmSync(join(dir, 'analysis', 'healer-validation'), {
+      recursive: true,
+      force: true,
+    });
+
+    const fourth = submit(dir, 'fixed', FIXED);
+    assert.equal(fourth.code, 1, fourth.out);
+    assert.match(
+      fourth.out,
+      /All 3 submissions for this test in this run are used/
+    );
+    assert.match(fourth.out, /record of attempt 1 .* is missing/);
+    assert.deepEqual(fourth.calls, []);
+
+    // An identical resubmission still reuses its outcome from context.json.
+    const again = submit(dir, 'bad2', badCandidate(2));
+    assert.equal(again.code, 1, again.out);
+    assert.match(again.out, /already submitted \(attempt 2\): rejected_static/);
+    liveUnchanged(dir);
+  } finally {
+    removeTempDir(dir);
+  }
+});
+
+test('a record file counts without its context entry, and an edited one does not change the outcome', () => {
+  const dir = project();
+  try {
+    for (let n = 1; n <= 2; n++)
+      assert.equal(submit(dir, `bad${n}`, badCandidate(n)).code, 1);
+    // Attempt 1 leaves context.json (an edited context, or a record from
+    // before the context kept attempts); its record file still counts.
+    const ctx = contextOf(dir);
+    ctx.healer_attempts = ctx.healer_attempts.filter((e) => e.attempt !== 1);
+    writeContextOf(dir, ctx);
+    // Attempt 2's record is edited to claim it validated.
+    const p2 = join(
+      dir,
+      'analysis',
+      'healer-validation',
+      'FAIL-001.attempt-2.json'
+    );
+    writeFileSync(
+      p2,
+      JSON.stringify({ ...record(dir, 2), outcome: 'validated' }, null, 2)
+    );
+
+    const again = submit(dir, 'bad2', badCandidate(2));
+    assert.equal(again.code, 1, again.out);
+    // The record-only attempt is added to context.json before anything else.
+    assert.match(again.out, /Added 1 attempt\(s\) found only as record files/);
+    assert.deepEqual(
+      contextOf(dir)
+        .healer_attempts.map((e) => e.attempt)
+        .sort(),
+      [1, 2]
+    );
+    assert.match(again.out, /attempt-2\.json changed after attempt 2/);
+    assert.match(again.out, /already submitted \(attempt 2\): rejected_static/);
+
+    const third = submit(dir, 'bad3', badCandidate(3));
+    assert.equal(third.code, 1, third.out);
+    assert.equal(record(dir, 3).attempt, 3);
+    // Once added, deleting the records gives nothing back.
+    rmSync(join(dir, 'analysis', 'healer-validation'), {
+      recursive: true,
+      force: true,
+    });
+    const fourth = submit(dir, 'fixed', FIXED);
+    assert.match(
+      fourth.out,
+      /All 3 submissions for this test in this run are used/
+    );
+    assert.deepEqual(fourth.calls, []);
+  } finally {
+    removeTempDir(dir);
+  }
+});
+
+test('--apply refuses before anything runs when context.json does not validate', () => {
+  const dir = project();
+  try {
+    writeContextOf(dir, { ...contextOf(dir), not_a_context_field: true });
+    const r = submit(dir, 'fixed', FIXED);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /Refusing: the Healer records each attempt/);
+    assert.deepEqual(r.calls, []);
+    assert.deepEqual(records(dir), []);
+  } finally {
+    removeTempDir(dir);
+  }
+});
+
+test('a validated outcome is reused only while its record and patch back it', () => {
+  const dir = project();
+  try {
+    assert.equal(submit(dir, 'fixed', FIXED).code, 0);
+    const resubmit = () =>
+      heal(dir, [
+        '--failure',
+        'FAIL-001',
+        '--candidate',
+        'candidates/fixed.spec.ts',
+        '--apply',
+      ]);
+    assert.equal(resubmit().code, 0);
+
+    const patch = join(dir, record(dir, 1).patch.path);
+    writeFileSync(patch, readFileSync(patch, 'utf8') + '\n');
+    let r = resubmit();
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /patch .* changed after attempt 1/);
+
+    rmSync(join(dir, 'release'), { recursive: true, force: true });
+    r = resubmit();
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /patch of attempt 1 .* is missing/);
+
+    rmSync(join(dir, 'analysis', 'healer-validation'), {
+      recursive: true,
+      force: true,
+    });
+    const callsBefore = r.calls.length;
+    r = resubmit();
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /record of attempt 1 .* is missing/);
+    assert.equal(r.calls.length, callsBefore, 'nothing re-ran');
+  } finally {
+    removeTempDir(dir);
+  }
+});
+
+test('a context entry that disagrees with its intact record is reported and not reused as validated', () => {
+  const dir = project();
+  try {
+    assert.equal(submit(dir, 'bad1', badCandidate(1)).code, 1);
+    const ctx = contextOf(dir);
+    ctx.healer_attempts[0].outcome = 'validated';
+    writeContextOf(dir, ctx);
+    const r = submit(dir, 'bad1', badCandidate(1));
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /context\.json disagrees with .*attempt-1\.json/);
+    assert.match(r.out, /Not reported as validated/);
+  } finally {
+    removeTempDir(dir);
+  }
+});
+
+test('a record whose number does not match its file name is reported, and no number past the cap is used', () => {
+  const dir = project();
+  try {
+    assert.equal(submit(dir, 'bad1', badCandidate(1)).code, 1);
+    const ctx = contextOf(dir);
+    delete ctx.healer_attempts;
+    writeContextOf(dir, ctx);
+    const p1 = join(
+      dir,
+      'analysis',
+      'healer-validation',
+      'FAIL-001.attempt-1.json'
+    );
+    writeFileSync(p1, JSON.stringify({ ...record(dir, 1), attempt: 3 }));
+    const r = submit(dir, 'fixed', FIXED);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /attempt-1\.json says it is attempt 3/);
+    assert.match(r.out, /No attempt number up to 3 is left/);
+    assert.deepEqual(r.calls, []);
+    assert.ok(
+      existsSync(
+        join(dir, 'analysis', 'healer-validation', 'FAIL-001.exhausted.md')
+      )
+    );
+  } finally {
+    removeTempDir(dir);
+  }
+});
+
+test('the runner keeps healer attempts written while it held an older copy', () => {
+  const entry = (attempt, run_id = RUN) => ({
+    run_id,
+    unit_id: UNIT.unit_id,
+    original_sha256: sha(ORIGINAL),
+    attempt,
+  });
+  const held = { run_id: RUN, healer_attempts: [entry(1)] };
+  keepHealerAttempts(held, {
+    run_id: RUN,
+    healer_attempts: [entry(1), entry(2)],
+  });
+  assert.deepEqual(
+    held.healer_attempts.map((e) => e.attempt),
+    [1, 2]
+  );
+  const other = { run_id: 'a-new-run' };
+  keepHealerAttempts(other, { run_id: RUN, healer_attempts: [entry(1)] });
+  assert.equal(other.healer_attempts, undefined);
+  const none = { run_id: RUN };
+  keepHealerAttempts(none, null);
+  assert.equal(none.healer_attempts, undefined);
+});
+
+test('attempts recorded for another run or another original do not count', () => {
+  const dir = project();
+  try {
+    const ctx = contextOf(dir);
+    const other = {
+      failure_id: 'FAIL-001',
+      unit_id: UNIT.unit_id,
+      candidate_sha256: 'a'.repeat(64),
+      outcome: 'rejected_static',
+      reason: 'from elsewhere',
+      record: {
+        path: 'analysis/healer-validation/FAIL-001.attempt-1.json',
+        sha256: 'b'.repeat(64),
+      },
+      recorded_at: '2026-09-29T10:00:00.000Z',
+    };
+    ctx.healer_attempts = [1, 2, 3].flatMap((attempt) => [
+      {
+        ...other,
+        attempt,
+        run_id: 'an-earlier-run',
+        original_sha256: sha(ORIGINAL),
+      },
+      { ...other, attempt, run_id: RUN, original_sha256: 'c'.repeat(64) },
+    ]);
+    writeContextOf(dir, ctx);
+    const r = submit(dir, 'fixed', FIXED);
+    assert.equal(r.code, 0, r.out);
+    assert.match(r.out, /VALIDATED \(attempt 1 of 3\)/);
   } finally {
     removeTempDir(dir);
   }

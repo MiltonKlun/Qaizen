@@ -77,7 +77,8 @@ node scripts/run-healer.js --failure FAIL-XXX --candidate .healer-candidates/FAI
 `--apply` records the outcome in `analysis/healer-validation/` and, only when
 it validates, writes `release/healer-patches/FAIL-XXX.attempt-N.patch`
 (`docs/healer-guardrails.md` §2). Each test gets at most three submissions per
-run; an identical resubmission reuses its first result. A rejected or failed
+run, counted from `context.json` `healer_attempts[]` and the record files
+together; an identical resubmission reuses its first result. A rejected or failed
 candidate is not retried automatically: the next attempt is a human decision.
 
 ## 4. Human handoff

@@ -66,6 +66,7 @@ export const SCHEMA_CONTRACTS = {
     producers: [
       'agents/analyst.md',
       'scripts/run-pipeline.js (gate decisions, bindings, status, downgrade confirmations, execution identity)',
+      'scripts/run-healer.js (healer attempts)',
     ],
     consumers: [
       'every agent',
@@ -77,6 +78,7 @@ export const SCHEMA_CONTRACTS = {
       'examples/expected/login-success.expected-context.json',
       'examples/expected/downgrade-confirmed.expected-context.json',
       'examples/expected/execution-bound.expected-context.json',
+      'examples/expected/healer-attempts.expected-context.json',
     ],
     invalid: [
       {
