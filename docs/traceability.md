@@ -174,8 +174,11 @@ With the run's `context.json` (`--context`, and always in the runner's
 Gate-4 brief), each `TC-XXX` must be an approved case of the active
 story, and each `SPEC-XXX` must be declared in the run's spec. `PW-XXX`
 has no defining artifact, so only its presence and uniqueness are
-checked. Without the context, the scan says the references are present
-but the linkage is unverified.
+checked. The other direction is checked too: every approved E2E case of
+the story must be named by a scanned test (`uncovered_case`; across all
+files when several are scanned). Without the context, the scan says the
+references are present but the linkage is unverified, and checks no case
+for coverage.
 
 **The one exception** is the seed test: in `tests/seed.spec.ts`, a test
 inside a `test.describe('Seed: ...')` group is a documented

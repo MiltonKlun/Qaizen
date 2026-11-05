@@ -507,13 +507,46 @@ the API branch — the two branches are reviewed independently.
 > **Pre-Gate-4 static scan (assist).**
 > `scripts/gate4-scan.js` (`npm run scan:gate4 -- <file>`) does the
 > _mechanical_ half of this checklist for the reviewer: it flags hard waits,
-> `.skip`/`.fixme`/`.only`/`.fail`, fragile locators (nth-child / `.nth()` /
-> index XPath / long CSS chains), weakened assertions (the Healer's
-> `WEAK_MATCHERS` — one source of truth), and per-test traceability: each
-> test's own `PW-`/`TC-`/`SPEC-` ids, checked against the approved test
-> cases and spec when the run's context is available
-> (`docs/traceability.md` §3.6). It states what it verified and against
-> which files; "references present" is not "linkage verified". The thin
+> `.skip`/`.fixme`/`.only`/`.fail`, fragile locators (nth-child / `nth=` /
+> `.first()` / `.last()` / `.nth()` / index XPath / long CSS chains),
+> weakened assertions (the Healer's `WEAK_MATCHERS` plus comparisons nothing
+> can fail, such as `toBeGreaterThanOrEqual(0)` and `not.toBeNull()`), and
+> per-test traceability: each test's own `PW-`/`TC-`/`SPEC-` ids, checked
+> against the approved test cases and spec when the run's context is
+> available (`docs/traceability.md` §3.6). It states what it verified and
+> against which files; "references present" is not "linkage verified".
+> Waits, suppression and assertions are found however they are reached:
+> `page['waitForTimeout']`, a bound alias, `globalThis.setTimeout`,
+> `const t = test`, `test['skip']`, a namespace import, a destructured
+> `skip`, an `expect` alias.
+>
+> It also reads each test for a **weak oracle**, a test that can pass
+> whatever the product does:
+>
+> - `no_assertion`: nothing asserted in the test or the in-file helpers it
+>   calls (an imported helper may assert; the reviewer checks it);
+> - `soft_only`: every assertion is `expect.soft`;
+> - `conditional_assertion`: an assertion that runs only under an `if`, a
+>   ternary, `&&`/`||`/`??` or a `switch` case;
+> - `swallowed_assertion` and `swallowed_failure`: a `try/catch` that never
+>   rethrows, or a `.catch()` whose handler never throws;
+> - `absence_only`: the test only checks that something is hidden, absent or
+>   not there;
+> - `trivial_assertion`: the subject of `expect` is a constant;
+> - `mocked_oracle`: the asserted value is also served by a `route.fulfill`
+>   in the same file, so the test may check its own mock;
+> - `untraced_expected_value`: with the run's context, an asserted text or
+>   number that no approved test case or acceptance criterion states (every
+>   number exactly, every word as a word), the question being where the
+>   expected value comes from; a value observed in the real app (CLAUDE.md
+>   §3.8) is a fine answer, written down;
+> - `retries_or_slow` and `long_timeout`: `test.slow()`,
+>   `describe.configure({ retries })`, a test timeout of 0 or above 120 s,
+>   and an action, navigation or expect timeout of 0 or above 30 s;
+> - `uncovered_case`: with the run's context, an approved E2E case that no
+>   scanned test names (with several files, checked across all of them).
+>
+> The thin
 > gated runner shows this output inside the
 > Gate-4 brief, and an informational CI job posts it on PRs touching `tests/`.
 > It is **confirm-or-dismiss input, never a verdict**: it informs, never

@@ -92,18 +92,21 @@ export function lineOf(node) {
 export function testBindings(sourceFile) {
   /** @type {Set<string>} */
   const names = new Set();
+  let namespace = false;
   for (const st of sourceFile.statements) {
     if (!ts.isImportDeclaration(st)) continue;
     const named = st.importClause?.namedBindings;
+    if (named && ts.isNamespaceImport(named)) namespace = true;
     if (!named || !ts.isNamedImports(named)) continue;
     for (const el of named.elements) {
       const imported = (el.propertyName ?? el.name).text;
       if (imported === 'test' || imported === 'it') names.add(el.name.text);
     }
   }
-  // No import provides the test object (a fragment, or a global setup):
-  // fall back to the global names rather than miss a registration.
-  if (names.size === 0) {
+  // No import provides the test object (a fragment, or a global setup), or a
+  // namespace import provides it as `ns.test`: use the global names rather
+  // than miss a registration.
+  if (names.size === 0 || namespace) {
     names.add('test');
     names.add('it');
   }
@@ -143,20 +146,106 @@ function rootIdentifier(expr) {
 }
 
 /**
- * ['test', 'describe', 'only'] for `test.describe.only`, or null.
+ * The member names of `a.b['c']!.d` from the outside in, and the expression
+ * at its root. Element access with a string key reads like a property.
  * @param {ts.Expression} expr
+ * @returns {{ parts: string[], root: ts.Expression }}
  */
-function memberChain(expr) {
+function rawChain(expr) {
   /** @type {string[]} */
   const parts = [];
   let e = expr;
-  while (ts.isPropertyAccessExpression(e)) {
-    parts.unshift(e.name.text);
-    e = e.expression;
+  for (;;) {
+    if (ts.isPropertyAccessExpression(e)) {
+      parts.unshift(e.name.text);
+      e = e.expression;
+    } else if (
+      ts.isElementAccessExpression(e) &&
+      (ts.isStringLiteral(e.argumentExpression) ||
+        ts.isNoSubstitutionTemplateLiteral(e.argumentExpression))
+    ) {
+      parts.unshift(e.argumentExpression.text);
+      e = e.expression;
+    } else if (
+      ts.isParenthesizedExpression(e) ||
+      ts.isNonNullExpression(e) ||
+      ts.isAsExpression(e)
+    ) {
+      e = e.expression;
+    } else break;
   }
-  if (!ts.isIdentifier(e)) return null;
-  parts.unshift(e.text);
-  return parts;
+  return { parts, root: e };
+}
+
+/** @type {WeakMap<ts.SourceFile, Map<string, string[]>>} */
+const aliasCache = new WeakMap();
+
+/**
+ * Local names that stand for part of Playwright's `test` object, each mapped
+ * to the chain it stands for: `const t = test` -> ['test'],
+ * `const { skip } = test` -> ['test', 'skip'], and a namespace import
+ * `import * as pw` -> [] (so `pw.test.skip` reads ['test', 'skip']).
+ * @param {ts.SourceFile} sourceFile
+ */
+function testAliases(sourceFile) {
+  const cached = aliasCache.get(sourceFile);
+  if (cached) return cached;
+  /** @type {Map<string, string[]>} */
+  const aliases = new Map();
+  aliasCache.set(sourceFile, aliases);
+  const bindings = testBindings(sourceFile);
+  for (const st of sourceFile.statements) {
+    const named = ts.isImportDeclaration(st)
+      ? st.importClause?.namedBindings
+      : undefined;
+    if (named && ts.isNamespaceImport(named)) aliases.set(named.name.text, []);
+  }
+  /** @type {ts.VariableDeclaration[]} */
+  const decls = [];
+  visit(sourceFile, (n) => {
+    if (ts.isVariableDeclaration(n) && n.initializer) decls.push(n);
+  });
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const d of decls) {
+      const chain = memberChain(/** @type {ts.Expression} */ (d.initializer));
+      if (!chain || !chain.length || !bindings.has(chain[0])) continue;
+      if (ts.isIdentifier(d.name)) {
+        if (aliases.has(d.name.text) || bindings.has(d.name.text)) continue;
+        aliases.set(d.name.text, chain);
+        grew = true;
+      } else if (ts.isObjectBindingPattern(d.name)) {
+        for (const el of d.name.elements) {
+          if (!ts.isIdentifier(el.name) || aliases.has(el.name.text)) continue;
+          const key =
+            el.propertyName && ts.isIdentifier(el.propertyName)
+              ? el.propertyName.text
+              : el.name.text;
+          aliases.set(el.name.text, [...chain, key]);
+          grew = true;
+        }
+      }
+    }
+  }
+  return aliases;
+}
+
+/**
+ * ['test', 'describe', 'only'] for `test.describe.only`, or null. Aliases of
+ * the test object are resolved: `t.skip`, `test['skip']`, `pw.test.skip`
+ * and a destructured `skip` all read ['test', 'skip'].
+ * @param {ts.Expression} expr
+ * @returns {string[] | null}
+ */
+function memberChain(expr) {
+  const { parts, root } = rawChain(expr);
+  if (!ts.isIdentifier(root)) return null;
+  const alias = testAliases(root.getSourceFile()).get(root.text);
+  if (alias) {
+    const chain = [...alias, ...parts];
+    return chain.length ? chain : null;
+  }
+  return [root.text, ...parts];
 }
 
 const isFunctionArg = (/** @type {ts.Node} */ a) =>
@@ -721,7 +810,7 @@ function describePath(call, bindings) {
  *
  * @returns {{title: string|null, titlePath: string[], line: number,
  *   dynamic: boolean, ids: Record<string, {annotation: string[],
- *   title: string[], comment: string[]}>}[]}
+ *   title: string[], comment: string[]}>, node: ts.CallExpression}[]}
  * @param {ts.SourceFile} sourceFile
  */
 export function testIdentities(sourceFile) {
@@ -761,8 +850,22 @@ export function testIdentities(sourceFile) {
         line: r.line,
         dynamic: r.dynamic,
         ids,
+        node: call,
       };
     });
+}
+
+/**
+ * The chain a callee stands for on Playwright's `test` object, aliases
+ * resolved (`t.slow`, `test['describe'].configure`, `pw.test.setTimeout`), or
+ * null when it is not rooted at the test object.
+ * @param {ts.Expression} expr
+ * @returns {string[] | null}
+ */
+export function testChain(expr) {
+  const chain = memberChain(expr);
+  if (!chain) return null;
+  return testBindings(expr.getSourceFile()).has(chain[0]) ? chain : null;
 }
 
 export { ts };
