@@ -8,7 +8,8 @@
 // decide a gate; blocking on scope coverage, when configured, is the gate's
 // input check (config/gate-checks.json).
 //
-//   Gate 1   every acceptance criterion appears word for word in the story;
+//   Gate 1   every acceptance criterion is the story's own text, not cut
+//            short, out of scope or from a comment (criteria-check.js);
 //            the story has no hidden text; every risk is scored
 //            likelihood × impact
 //   Gate 2   every criterion and risk has an approved case; the mix of test
@@ -19,8 +20,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { criteriaNotInStory } from '../gate-briefs.js';
 import { readValidatedJson } from './artifact-io.js';
+import { compareCriteria, criteriaLines } from './criteria-check.js';
 import { techniqueLine, techniqueSummary } from './case-decisions.js';
 import { hiddenText, hiddenTextLine } from './hidden-text.js';
 import { coverageLine, scopeCoverage } from './scope-coverage.js';
@@ -43,19 +44,16 @@ export function briefChecks(step, context, root = '.') {
   const scope = step === 'gate2' || step === 'qa_scope';
 
   if (requirements) {
-    // The Analyst copies the acceptance criteria verbatim; say whether each
-    // one is in the story, so a reworded or invented one stands out.
+    // The Analyst copies the acceptance criteria verbatim; name each one
+    // that is not, and how it differs, so a changed rule stands out.
     const storyPath = context?.story?.path || 'story.md';
     if (existsSync(join(root, storyPath))) {
       const story = readFileSync(join(root, storyPath), 'utf8');
-      const missing = criteriaNotInStory(
-        context.acceptance_criteria ?? [],
-        story
-      );
       checks.push(
-        missing.length
-          ? `ATTENTION: ${missing.map((n) => `AC ${n}`).join(', ')} not found word for word in ${storyPath}; check ${missing.length === 1 ? 'it is' : 'they are'} not reworded or invented`
-          : `every acceptance criterion appears word for word in ${storyPath}`
+        ...criteriaLines(
+          compareCriteria(context.acceptance_criteria ?? [], story),
+          storyPath
+        )
       );
       // Text the rendered ticket hides, or that speaks to an AI: shown to
       // the reviewer, never removed (the story's digest is what Gate 1 binds).

@@ -343,7 +343,7 @@ test('runner REFUSES track:lite when the floor is higher (red domain)', () => {
 test('runner ALLOWS track:lite for a benign story (reaches the qa_scope gate)', () => {
   const dir = makeMiniRepo();
   try {
-    // Benign, routine story: no red keywords, one low AC, no risks.
+    // Benign, routine story: no red keywords, one AC, one low risk.
     const ctx = freshContext({
       track: 'lite',
       story: {
@@ -353,6 +353,14 @@ test('runner ALLOWS track:lite for a benign story (reaches the qa_scope gate)', 
         path: 'story.md',
       },
       acceptance_criteria: ['The footer shows the current four-digit year.'],
+      risks: [
+        {
+          risk_id: 'RISK-001',
+          description: 'The footer shows last year after New Year.',
+          severity: 'low',
+          related_acs: [0],
+        },
+      ],
       // cases already written so the next step is the consolidated gate
       artifact_paths: {
         test_cases: 'test-cases/STORY-001.json',
@@ -380,8 +388,14 @@ test('runner ALLOWS track:lite for a benign story (reaches the qa_scope gate)', 
       JSON.stringify({
         ...validTestCases('STORY-001', 'test-run'),
         // Per-case decisions are made BEFORE the scope approval.
+        // Each case points at this story's one criterion and risk.
         test_cases: validTestCases('STORY-001', 'test-run').test_cases.map(
-          (c) => ({ ...c, status: 'approved' })
+          (c) => ({
+            ...c,
+            status: 'approved',
+            acceptance_criteria_refs: [0],
+            risk_ids: ['RISK-001'],
+          })
         ),
       })
     );

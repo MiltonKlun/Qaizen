@@ -21,6 +21,7 @@ import {
   coverageGaps,
   coverageLine,
   coverageMode,
+  referenceErrors,
   scopeCoverage,
 } from '../scripts/lib/scope-coverage.js';
 
@@ -62,7 +63,7 @@ test('criteria and risks without an approved case are named; rejected cases do n
   );
 });
 
-test('a risk only skip cases address is covered, and shown as accepted without a test', () => {
+test('a criterion or risk only skip or manual cases cover is covered, and named as such', () => {
   const cov = scopeCoverage(context, {
     test_cases: [
       tc('TC-001', [0, 1], ['RISK-001']),
@@ -74,14 +75,54 @@ test('a risk only skip cases address is covered, and shown as accepted without a
   });
   assert.equal(coverageGaps(cov), '');
   assert.deepEqual(cov.skipOnlyRisks, ['RISK-002']);
+  // AC 3 and RISK-003 have a manual case beside the skip one.
+  assert.deepEqual(cov.manualOnlyAcs, [3]);
+  assert.deepEqual(cov.manualOnlyRisks, ['RISK-003']);
+  assert.deepEqual(cov.skipOnlyAcs, []);
   assert.equal(
     coverageLine(cov),
-    'every acceptance criterion (3) and risk (3) has at least one approved case; RISK-002 is accepted without a test (only skip cases)'
+    'every acceptance criterion (3) and risk (3) has at least one approved case; RISK-002 is accepted without a test (only skip cases); AC 3, RISK-003 are tested only by hand (only manual or skip cases)'
+  );
+  const skipAc = scopeCoverage(context, {
+    test_cases: [
+      tc('TC-001', [0, 1], ['RISK-001', 'RISK-002', 'RISK-003']),
+      tc('TC-002', [2], ['RISK-001'], { automation_decision: 'skip' }),
+    ],
+  });
+  assert.deepEqual(skipAc.skipOnlyAcs, [3]);
+  assert.match(
+    coverageLine(skipAc),
+    /; AC 3 is accepted without a test \(only skip cases\)$/
   );
   assert.equal(
     coverageGaps(scopeCoverage({ acceptance_criteria: ['x'] }, null)),
     'AC 1 has no approved test case'
   );
+});
+
+test('a case that references a criterion or risk the context lacks is an error', () => {
+  const cov = scopeCoverage(context, {
+    test_cases: [
+      tc('TC-001', [0, 1, 2], ['RISK-001', 'RISK-002', 'RISK-003']),
+      tc('TC-002', [3], ['RISK-001', 'RISK-404']),
+      // A rejected case is out of scope, so its references are not checked.
+      tc('TC-003', [9], ['RISK-999'], { status: 'rejected' }),
+    ],
+  });
+  assert.deepEqual(cov.unknownRefs, [
+    'TC-002 → AC 4 (acceptance_criteria_refs index 3)',
+    'TC-002 → RISK-404',
+  ]);
+  assert.equal(coverageGaps(cov), '');
+  assert.equal(
+    referenceErrors(cov),
+    'TC-002 → AC 4 (acceptance_criteria_refs index 3), TC-002 → RISK-404: cases reference criteria or risks the context does not have'
+  );
+  assert.match(
+    coverageLine(cov),
+    /^ATTENTION: TC-002 → AC 4 \(acceptance_criteria_refs index 3\), TC-002 → RISK-404: /
+  );
+  assert.equal(referenceErrors(scopeCoverage(context, { test_cases: [] })), '');
 });
 
 test('the repository examples cover their own stories', () => {
@@ -102,6 +143,7 @@ test('the repository examples cover their own stories', () => {
     }
     const doc = JSON.parse(readFileSync(join(dir, f), 'utf8'));
     assert.equal(coverageGaps(scopeCoverage(ctx, doc)), '', f);
+    assert.equal(referenceErrors(scopeCoverage(ctx, doc)), '', f);
     checked += 1;
   }
   assert.ok(checked >= 2, `only ${checked} example pairs were checked`);
@@ -130,7 +172,7 @@ test('the mode is warn unless config/gate-checks.json says block; a bad value is
  * A run waiting at Gate 2, in a copy of the scripts so its own
  * config/gate-checks.json applies. The scope leaves AC 2 and RISK-009 open.
  */
-function gate2Run(t, mode) {
+function gate2Run(t, mode, editCase = (c) => c) {
   const dir = mkdtempSync(join(REPO, '.tmp-coverage-run-'));
   t.after(() => removeTempDir(dir));
   for (const d of ['scripts', 'schemas', 'config']) {
@@ -164,11 +206,13 @@ function gate2Run(t, mode) {
     },
   ];
   const doc = scopeCases(story, run);
-  doc.test_cases = doc.test_cases.map((c) => ({
-    ...c,
-    acceptance_criteria_refs: [0],
-    risk_ids: ['RISK-001'],
-  }));
+  doc.test_cases = doc.test_cases.map((c) =>
+    editCase({
+      ...c,
+      acceptance_criteria_refs: [0],
+      risk_ids: ['RISK-001'],
+    })
+  );
   mkdirSync(join(dir, 'test-cases'));
   mkdirSync(join(dir, 'planner-input'));
   writeFileSync(join(dir, 'story.md'), '# COV-1\n\n1. first\n2. second\n');
@@ -206,4 +250,18 @@ test('block: the gate stays closed and says what is missing', (t) => {
     /scope coverage: AC 2, RISK-009 have no approved test case \(config\/gate-checks\.json scope_coverage is "block"\)/
   );
   assert.doesNotMatch(r.stderr, /GATE PENDING/);
+});
+
+test('warn or block: a case pointing at a criterion that does not exist keeps Gate 2 closed', (t) => {
+  for (const mode of ['warn', 'block']) {
+    const r = gate2Run(t, mode, (c) =>
+      c.test_case_id === 'TC-002' ? { ...c, acceptance_criteria_refs: [5] } : c
+    );
+    assert.equal(r.status, 2, mode + r.stdout + r.stderr);
+    assert.match(
+      r.stderr,
+      /traceability: TC-002 → AC 6 \(acceptance_criteria_refs index 5\): a case references a criterion or risk the context does not have/
+    );
+    assert.doesNotMatch(r.stderr, /GATE PENDING/);
+  }
 });
