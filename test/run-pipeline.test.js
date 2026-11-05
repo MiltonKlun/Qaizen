@@ -333,8 +333,37 @@ test('runner REFUSES track:lite when the floor is higher (red domain)', () => {
     const r = runPipeline(dir, []);
     assert.equal(r.code, 2, r.out);
     assert.match(r.out, /Refusing track "lite"/);
-    assert.match(r.out, /floor for this story is "standard"/);
+    assert.match(r.out, /floor for this story is "full"/);
+    assert.match(r.out, /`track` to "full" \(or remove it\)/);
     assert.match(r.out, /red-domain/i);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('runner REFUSES track:lite when only the story file names a red domain', () => {
+  const dir = makeMiniRepo();
+  try {
+    // The Analyst's context is benign; the story is not.
+    const ctx = freshContext({
+      track: 'lite',
+      story: {
+        id: 'STORY-001',
+        title: 'Footer shows the current year',
+        source: 'manual',
+        path: 'story.md',
+      },
+      acceptance_criteria: ['The footer shows the current four-digit year.'],
+    });
+    writeFileSync(join(dir, 'context.json'), JSON.stringify(ctx, null, 2));
+    writeFileSync(
+      join(dir, 'story.md'),
+      '# STORY-001\n\nEl pie muestra el año. Al pagar, el total se redondea.\n'
+    );
+    const r = runPipeline(dir, []);
+    assert.equal(r.code, 2, r.out);
+    assert.match(r.out, /floor for this story is "full"/);
+    assert.match(r.out, /red-domain: .+ \(in the story\)/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -71,7 +71,7 @@ registration, not mine.**
 
 | Story id (fixture)                               | Size (AC/risk)     | Red-domain? (floor)                          | Lite-eligible?       | Ground truth — _you supply_                                         | Why chosen                                                                                                                            |
 | ------------------------------------------------ | ------------------ | -------------------------------------------- | -------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `login-success` (STORY-001)                      | 3 AC / 2 risk      | **Yes** — security/auth                      | no (floor=standard)  | _e.g. a real post-ship auth bug or a login selector that broke_     | Canonical auth happy+negative path; high-severity session risk                                                                        |
+| `login-success` (STORY-001)                      | 3 AC / 2 risk      | **Yes** — security/auth                      | no (floor=full)      | _e.g. a real post-ship auth bug or a login selector that broke_     | Canonical auth happy+negative path; high-severity session risk                                                                        |
 | `cart-badge-count-bugfix` (STORY-003)            | 3 AC / 2 risk      | **Yes** — pricing                            | no                   | _the stale-badge bug this story fixed_                              | A real **bugfix** story — ground truth is the bug itself                                                                              |
 | `sort-products-enhancement` (STORY-004)          | 4 AC / 3 risk      | **Yes** — pricing                            | no                   | _e.g. sort-order regression / a `.nth()` selector that later broke_ | A mid-size **enhancement**; good selector-survival candidate                                                                          |
 | `checkout-expired-card` (QA-1042)                | 4 AC / 3 risk      | **Yes** — payment + pricing + business-logic | no                   | _expired-card handling bug / declined-payment edge_                 | The strongest **red-domain** case (money) — floor cites 3 domains                                                                     |
@@ -79,7 +79,7 @@ registration, not mine.**
 | **`STORY-010` (footer year) or YOUR lite story** | ≤2 AC / 1 low risk | **No**                                       | **YES** (floor=lite) | _trivial cosmetic change_                                           | **Required ≥1 lite-eligible** — the only lite candidate in-repo is the synthetic footer fixture; prefer a real routine story of yours |
 
 > **Honest gap (found while scaffolding this):** every _real_ example story in
-> this repo floors to `standard` — they're all SauceDemo commerce/auth stories,
+> this repo floors to `full` — they're all SauceDemo commerce/auth stories,
 > which legitimately touch pricing/security/payment. The repo has **no genuine
 > lite-eligible real story**; the only `lite` candidate is the synthetic
 > `STORY-010` footer-year fixture. The protocol requires **≥1 lite-eligible**

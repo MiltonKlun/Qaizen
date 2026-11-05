@@ -1,25 +1,26 @@
 // @ts-check
 // Track floor.
 //
-// The lite track lets a routine story skip ceremony it does not need.
-// But "lite" must be a principled choice, not a vibe: some stories are too
-// consequential to ever run with reduced ceremony. `minimumTrack(context)`
-// computes the LOWEST track a given story is allowed to use, with written
-// reasons — the analyst proposes a track, and the runner refuses to record one
-// below this floor (scripts/run-pipeline.js / scripts/pipeline-state.js).
+// Some stories are too consequential to run with less than the full review.
+// `minimumTrack(context, story)` computes the LOWEST track a story is allowed
+// to use, with written reasons, from two independent sources: the story file
+// itself and what the Analyst wrote (acceptance criteria, risks). The higher
+// of the two wins, so a risk or a Red domain the Analyst left out cannot lower
+// the floor.
 //
-// Two independent floor-raisers, both to `standard`:
-//   1. Red-taxonomy domains (scripts/red-domains.js) — a story touching
-//      business logic, permissions, security, pricing, payment, compliance, or
-//      data integrity is never `lite`. This is the same taxonomy the Healer
-//      uses to refuse auto-fixes (docs/healer-guardrails.md §4); the rationale
-//      is identical: high-consequence behavior gets the full review.
-//   2. Size — a large story (many ACs or many risks) is not "routine"; lite is
-//      for small, low-risk work.
+// Floor-raisers:
+//   1. Red-taxonomy domains (scripts/red-domains.js, config/red-domains.json)
+//      raise the floor to `full`: a story touching business logic,
+//      permissions, security, pricing, payment, compliance or data integrity
+//      gets everything `full` requires (docs/review-gates.md, "The full
+//      track"). This is the taxonomy the Healer uses to refuse auto-fixes
+//      (docs/healer-guardrails.md §4).
+//   2. Size (many criteria or risks) and a high-severity risk raise it to
+//      `standard`: such a story is not routine, so it is never `lite`.
 //
-// Lite never reaches `full`-only territory by floor; `full` is an explicit
-// human upgrade for the highest-risk features. The floor only ever raises lite
-// to standard; it never blocks standard or full.
+// `effectiveTrack` is the track a run is held to: the declared track (absent
+// means standard) or the floor, whichever is higher. The runner refuses a
+// declared `lite` below the floor; any other track below it is raised.
 //
 // Pure: no I/O, no side effects. Constants are at the top, documented.
 
@@ -46,9 +47,10 @@ export function trackRank(track) {
 /**
  * Compute the minimum allowable track for a run.
  * @param {import('./lib/approval-binding.js').Context | null} context  Parsed context.json.
+ * @param {string | null} [story] the story file's text, scanned on its own
  * @returns {{ minimum: Track, reasons: string[] }}
  */
-export function minimumTrack(context) {
+export function minimumTrack(context, story = null) {
   /** @type {string[]} */
   const reasons = [];
   /** @type {Track} */
@@ -60,11 +62,12 @@ export function minimumTrack(context) {
     if (trackRank(track) > trackRank(minimum)) minimum = track;
   };
 
-  // 1. Red-taxonomy scan over the story + ACs + risk descriptions.
-  const story = context?.story || {};
-  const texts = [
-    story.title,
-    story.description,
+  // 1. Red-taxonomy scan, over the story file and over what the Analyst wrote
+  // (title, description, criteria, risks), each named as a source.
+  const meta = context?.story || {};
+  const analyst = [
+    meta.title,
+    meta.description,
     ...(Array.isArray(context?.acceptance_criteria)
       ? context.acceptance_criteria
       : []),
@@ -72,12 +75,22 @@ export function minimumTrack(context) {
       ? context.risks.map((/** @type {any} */ r) => r && r.description)
       : []),
   ].filter((t) => typeof t === 'string' && t.length > 0);
-
-  const domainHits = new Set();
-  for (const t of texts)
-    for (const id of redDomainsInText(t)) domainHits.add(id);
-  for (const id of domainHits) {
-    raiseTo('standard', `red-domain: ${redDomainLabel(id)}`);
+  /** @type {Map<string, string[]>} domain id -> sources */
+  const domainHits = new Map();
+  const hit = (/** @type {string} */ text, /** @type {string} */ source) => {
+    for (const id of redDomainsInText(text)) {
+      const sources = domainHits.get(id) ?? [];
+      if (!sources.includes(source)) sources.push(source);
+      domainHits.set(id, sources);
+    }
+  };
+  if (typeof story === 'string') hit(story, 'the story');
+  for (const t of analyst) hit(t, "the Analyst's context");
+  for (const [id, sources] of domainHits) {
+    raiseTo(
+      'full',
+      `red-domain: ${redDomainLabel(id)} (in ${sources.join(' and ')})`
+    );
   }
 
   // 2. Size heuristics.
@@ -108,13 +121,45 @@ export function minimumTrack(context) {
  * floor is allowed; below it is refused.
  * @param {import('./lib/approval-binding.js').Context | null} context
  * @param {string} proposed
+ * @param {string | null} [story] the story file's text
  * @returns {{ allowed: boolean, minimum: string, reasons: string[] }}
  */
-export function trackAllowed(context, proposed) {
-  const { minimum, reasons } = minimumTrack(context);
+export function trackAllowed(context, proposed, story = null) {
+  const { minimum, reasons } = minimumTrack(context, story);
   return {
     allowed: trackRank(proposed) >= trackRank(minimum),
     minimum,
     reasons,
   };
 }
+
+/**
+ * The track a run is held to: the declared track (absent or unknown means
+ * standard), the floor computed now, or the floor the Analyst recorded,
+ * whichever is highest.
+ * @param {any} context parsed context.json
+ * @param {string | null} [story] the story file's text
+ * @returns {{ track: Track, declared: Track, minimum: Track, reasons: string[] }}
+ */
+export function effectiveTrack(context, story = null) {
+  /** @type {Track} */
+  const declared = TRACK_ORDER.includes(context?.track)
+    ? context.track
+    : 'standard';
+  const { minimum, reasons } = minimumTrack(context, story);
+  const recorded = context?.track_floor?.minimum;
+  /** @type {Track} */
+  let track = declared;
+  for (const t of [minimum, recorded])
+    if (TRACK_ORDER.includes(t) && trackRank(t) > trackRank(track)) track = t;
+  return { track, declared, minimum, reasons };
+}
+
+/**
+ * What the full track requires, and which of it is in force today. Shown in
+ * the Gate 1 brief and documented in docs/review-gates.md ("The full track").
+ */
+export const FULL_TRACK_REQUIREMENTS = [
+  'the Gate 4 static scan exits 1 while any finding is open',
+  'a lowered Red or Red-domain failure needs a person to confirm it',
+];

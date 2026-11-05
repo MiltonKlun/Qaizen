@@ -479,6 +479,13 @@ test('the scan exits 1 on a full-track story with findings, and 0 otherwise', as
     );
     assert.equal(floor.status, 1, floor.stdout + floor.stderr);
 
+    // The floor is computed from the story file too: a standard-track
+    // context whose story mentions a payment is held to full.
+    writeFileSync(join(dir, 'story.md'), '# SK-7\n\nThe shopper can pay.\n');
+    const fromStory = scan({ track: 'standard' }, weak);
+    assert.equal(fromStory.status, 1, fromStory.stdout + fromStory.stderr);
+    rmSync(join(dir, 'story.md'));
+
     const fullClean = scan({ track: 'full' }, clean);
     assert.equal(fullClean.status, 0, fullClean.stdout + fullClean.stderr);
     assert.match(fullClean.stdout, /0 mechanical finding\(s\)\. Full track/);

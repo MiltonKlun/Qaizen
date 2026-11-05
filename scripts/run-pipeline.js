@@ -2012,13 +2012,18 @@ async function main() {
   }
 
   // Track-floor enforcement (lite track). A story may not run `lite`
-  // when its floor is higher: Red-taxonomy exposure or size pushes it to
-  // standard (scripts/track-floor.js, docs/healer-guardrails.md §4). The floor
-  // is computed live and is read-only here — the runner never rewrites
-  // context.json just to advance, preserving the "a refusal writes nothing"
-  // guarantee. The analyst records track_floor in the manifest.
+  // when its floor is higher: size pushes it to standard, a Red-taxonomy
+  // domain to full (scripts/track-floor.js, docs/healer-guardrails.md §4). The
+  // floor is computed live, from the story file as well as the context, and
+  // is read-only here — the runner never rewrites context.json just to
+  // advance, preserving the "a refusal writes nothing" guarantee.
   if (context && context.track === 'lite') {
-    const { allowed, minimum, reasons } = trackAllowed(context, 'lite');
+    const storyFile = context.story?.path || 'story.md';
+    const { allowed, minimum, reasons } = trackAllowed(
+      context,
+      'lite',
+      existsSync(storyFile) ? readFileSync(storyFile, 'utf8') : null
+    );
     if (!allowed) {
       console.error(
         `Refusing track "lite": the floor for this story is "${minimum}".`
@@ -2027,7 +2032,7 @@ async function main() {
       for (const r of reasons) console.error(`  - ${r}`);
       console.error(
         'High-consequence or non-routine stories keep the four gates. Set\n' +
-          '`track` to "standard" (or remove it) in context.json, then --resume.'
+          `\`track\` to "${minimum}" (or remove it) in context.json, then --resume.`
       );
       exit(2);
     }

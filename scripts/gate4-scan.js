@@ -52,7 +52,7 @@ import { argv, exit } from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 import { GATE4_JUDGMENT_QUESTIONS } from './gate-briefs.js';
-import { TRACK_ORDER, trackRank } from './track-floor.js';
+import { effectiveTrack } from './track-floor.js';
 import { oracleFindings, uncoveredCases } from './lib/oracle-checks.js';
 import {
   TEST_ID_KINDS,
@@ -396,24 +396,21 @@ export function loadGate4Artifacts(contextPath = 'context.json') {
     criteria: Array.isArray(context.acceptance_criteria)
       ? context.acceptance_criteria.map(String)
       : null,
-    track: storyTrack(context),
+    track: storyTrack(context, read(context.story?.path || 'story.md')),
   };
 }
 
 /**
  * The track the scan holds a story to: the declared track (absent means
- * standard) or its floor, whichever is higher.
+ * standard) or the story's floor, whichever is higher. The floor is computed
+ * now from the story file and the context (scripts/track-floor.js), so a
+ * floor the Analyst recorded too low does not lower it.
  * @param {any} context parsed context.json
+ * @param {string | null} [story] the story file's text
  * @returns {string}
  */
-export function storyTrack(context) {
-  const declared = TRACK_ORDER.includes(context?.track)
-    ? context.track
-    : 'standard';
-  const floor = context?.track_floor?.minimum;
-  return TRACK_ORDER.includes(floor) && trackRank(floor) > trackRank(declared)
-    ? floor
-    : declared;
+export function storyTrack(context, story = null) {
+  return effectiveTrack(context, story).track;
 }
 
 /**

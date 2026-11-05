@@ -7,6 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  effectiveTrack,
   minimumTrack,
   trackAllowed,
   trackRank,
@@ -48,7 +49,7 @@ test('benign small story is lite-eligible (floor = lite)', () => {
   assert.deepEqual(reasons, []);
 });
 
-test('red domains each force at least standard', () => {
+test('red domains each floor a story to full', () => {
   const cases = [
     [
       'business logic',
@@ -68,7 +69,7 @@ test('red domains each force at least standard', () => {
   ];
   for (const [name, title] of cases) {
     const { minimum, reasons } = minimumTrack(ctx({ title }));
-    assert.equal(minimum, 'standard', `${name} must floor to standard`);
+    assert.equal(minimum, 'full', `${name} must floor to full`);
     assert.ok(
       reasons.some((r) => r.startsWith('red-domain:')),
       `${name} must cite a red-domain reason; got ${JSON.stringify(reasons)}`
@@ -83,7 +84,7 @@ test('a red keyword in an AC or risk (not just the title) still floors', () => {
       acs: ['The system applies the correct tax.'],
     })
   );
-  assert.equal(fromAc.minimum, 'standard');
+  assert.equal(fromAc.minimum, 'full');
 
   const fromRisk = minimumTrack(
     ctx({
@@ -93,7 +94,7 @@ test('a red keyword in an AC or risk (not just the title) still floors', () => {
       ],
     })
   );
-  assert.equal(fromRisk.minimum, 'standard');
+  assert.equal(fromRisk.minimum, 'full');
 });
 
 test('size heuristics: too many ACs or risks leaves lite', () => {
@@ -128,11 +129,14 @@ test('a high-severity risk alone leaves lite', () => {
   assert.ok(reasons.some((r) => /high-severity/.test(r)));
 });
 
-test('trackAllowed refuses lite below the floor, allows standard/full', () => {
+test('trackAllowed allows only a track at or above the floor', () => {
   const redCtx = ctx({ title: 'Process a refund payment' });
   assert.equal(trackAllowed(redCtx, 'lite').allowed, false);
-  assert.equal(trackAllowed(redCtx, 'standard').allowed, true);
+  assert.equal(trackAllowed(redCtx, 'standard').allowed, false);
   assert.equal(trackAllowed(redCtx, 'full').allowed, true);
+  const bigCtx = ctx({ title: 'Footer', acs: ['a', 'b', 'c', 'd', 'e'] });
+  assert.equal(trackAllowed(bigCtx, 'lite').allowed, false);
+  assert.equal(trackAllowed(bigCtx, 'standard').allowed, true);
 
   const benign = ctx({ title: 'Footer year', acs: ['shows year'] });
   assert.equal(trackAllowed(benign, 'lite').allowed, true);
@@ -170,4 +174,64 @@ test('ordinary Spanish and English stay lite-eligible', () => {
   ]) {
     assert.equal(minimumTrack(ctx({ title })).minimum, 'lite', title);
   }
+});
+
+test('the story file floors the story on its own: "pagar", "subtotal", submitPayment', () => {
+  const benign = ctx({ title: 'Footer year', acs: ['shows year'] });
+  assert.equal(minimumTrack(benign).minimum, 'lite');
+  for (const story of [
+    '# S\n\nEl cliente puede pagar con tarjeta.\n',
+    '# S\n\nThe cart shows the subtotal.\n',
+    '# S\n\nThe button calls `submitPayment`.\n',
+  ]) {
+    const { minimum, reasons } = minimumTrack(benign, story);
+    assert.equal(minimum, 'full', story);
+    assert.ok(
+      reasons.some((r) => /^red-domain: .+ \(in the story\)$/.test(r)),
+      JSON.stringify(reasons)
+    );
+  }
+});
+
+test('an Analyst omission no longer lowers the floor', () => {
+  // The Analyst wrote a benign context and recorded a lite floor; the story
+  // says otherwise.
+  const context = {
+    ...ctx({ title: 'Footer year', acs: ['shows year'] }),
+    track: 'lite',
+    track_floor: { minimum: 'lite', reasons: [] },
+  };
+  const story = '# S\n\nOnly an admin may refund an order.\n';
+  assert.equal(trackAllowed(context, 'lite', story).allowed, false);
+  const t = effectiveTrack(context, story);
+  assert.equal(t.declared, 'lite');
+  assert.equal(t.minimum, 'full');
+  assert.equal(t.track, 'full');
+  // Both sources are named when both mention a domain.
+  const both = minimumTrack(
+    ctx({ title: 'Refund a payment' }),
+    '# S\n\nRefund a payment.\n'
+  );
+  assert.ok(
+    both.reasons.some((r) =>
+      r.endsWith("(in the story and the Analyst's context)")
+    ),
+    JSON.stringify(both.reasons)
+  );
+});
+
+test('the effective track is the highest of declared, computed and recorded', () => {
+  const benign = ctx({ title: 'Footer year', acs: ['shows year'] });
+  assert.equal(effectiveTrack(benign).track, 'standard');
+  assert.equal(effectiveTrack({ ...benign, track: 'lite' }).track, 'lite');
+  assert.equal(effectiveTrack({ ...benign, track: 'full' }).track, 'full');
+  assert.equal(
+    effectiveTrack({
+      ...benign,
+      track: 'standard',
+      track_floor: { minimum: 'full', reasons: [] },
+    }).track,
+    'full'
+  );
+  assert.equal(effectiveTrack({ ...benign, track: 'bogus' }).track, 'standard');
 });

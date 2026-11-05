@@ -10,6 +10,7 @@
 //
 //   Gate 1   every acceptance criterion is the story's own text, not cut
 //            short, out of scope or from a comment (criteria-check.js);
+//            the track the run is held to and what it requires;
 //            the story has no hidden text; every risk is scored
 //            likelihood × impact
 //   Gate 2   every criterion and risk has an approved case; the mix of test
@@ -25,8 +26,25 @@ import { compareCriteria, criteriaLines } from './criteria-check.js';
 import { techniqueLine, techniqueSummary } from './case-decisions.js';
 import { hiddenText, hiddenTextLine } from './hidden-text.js';
 import { coverageLine, scopeCoverage } from './scope-coverage.js';
+import { FULL_TRACK_REQUIREMENTS, effectiveTrack } from '../track-floor.js';
 
 /** @typedef {import('./approval-binding.js').Context} Context */
+
+/**
+ * The brief line for the run's track.
+ * @param {ReturnType<typeof effectiveTrack>} t
+ * @returns {string}
+ */
+export function trackLine(t) {
+  const raised =
+    t.track !== t.declared ? `, raised from ${t.declared} by its floor` : '';
+  const why = t.reasons.length ? ` (${t.reasons.join('; ')})` : '';
+  const requires =
+    t.track === 'full'
+      ? `; full requires: ${FULL_TRACK_REQUIREMENTS.join('; ')}`
+      : '';
+  return `track: ${t.track}${raised}; floor ${t.minimum}${why}${requires}`;
+}
 
 const REPO_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const TEST_CASES_SCHEMA = join(REPO_DIR, 'schemas', 'test-cases.schema.json');
@@ -58,6 +76,9 @@ export function briefChecks(step, context, root = '.') {
       // Text the rendered ticket hides, or that speaks to an AI: shown to
       // the reviewer, never removed (the story's digest is what Gate 1 binds).
       checks.push(hiddenTextLine(storyPath, hiddenText(story)));
+      // The track the run is held to, from the story as well as the context,
+      // so the reviewer sees what it requires before approving.
+      checks.push(trackLine(effectiveTrack(context, story)));
     }
     // Every risk scored likelihood × impact (the schema already holds each
     // severity to its matrix cell).

@@ -176,10 +176,11 @@ Two rules make this a thinning of _ceremony_, never of _review_:
   reviewer may look at the spec and the code in one sitting, but they record
   `specs_reviewed` and `code_reviewed` separately (two `gate_decisions[]`
   events). Gate 4 is permanently its own human gate in every track.
-- **Lite is gated by the track floor.** A story may only run lite if
-  `track_floor.minimum` is `lite` — `scripts/track-floor.js` raises the floor
-  to `standard` whenever the story touches a Red-taxonomy domain
-  (`docs/healer-guardrails.md` §4) or is too large to be routine. So a
+- **Lite is gated by the track floor.** A story may only run lite if its
+  floor is `lite`. `scripts/track-floor.js` computes it from `story.md`
+  and the Analyst's context, taking the higher: a Red-taxonomy domain
+  (`docs/healer-guardrails.md` §4) raises it to `full`, a story too large
+  to be routine or with a high-severity risk to `standard`. So a
   consolidated lite sign-off can never apply to high-consequence behavior;
   those stories keep the four separate gates. The domain keywords are in
   `config/red-domains.json`, in English and Spanish, and the runner checks
@@ -190,6 +191,24 @@ Two rules make this a thinning of _ceremony_, never of _review_:
 Unlike the team-wide opt-in below, lite consolidation is a **per-story**
 choice the analyst proposes and the floor constrains — the two mechanisms
 share the same `qa_scope_approved` field but answer different questions.
+
+### The full track
+
+Every story that touches a Red-taxonomy domain is held to `full`, whatever
+it declares (`docs/context-json-guide.md`, `track` and `track_floor`);
+a team can also declare `full` for any story. The Gate 1 brief names the
+track, why, and what it requires. In force today:
+
+- the Gate 4 static scan exits 1 while any finding is open (Gate 4 below);
+- a failure analysis that lowers a Red failure, or a failure on a
+  high-severity or Red-domain risk, needs a person to confirm it
+  (`docs/healer-guardrails.md`). This holds on every track; on `full` it
+  covers the story's own risks by definition.
+
+Not built yet, and so not in force: more repeat runs of the generated test
+before Gate 4, and a recorded answer to each scan finding. The four gates
+are the same on `full` as on `standard`; `full` adds checks, never
+removes one.
 
 ### When it's worth consolidating (team-wide, all tracks)
 
@@ -589,8 +608,9 @@ the API branch — the two branches are reviewed independently.
 >
 > Each finding names its test.
 >
-> On the **`full` track** (with `--context`: the story's `track` or its
-> `track_floor.minimum`, whichever is higher) every finding counts as
+> On the **`full` track** (with `--context`: the highest of the story's
+> `track`, the floor computed from `story.md` and the context, and the
+> recorded `track_floor.minimum`) every finding counts as
 > unresolved and the scan exits 1. The fix is in the test; there is no way
 > yet to record an answer to a finding, such as "intentional". On the
 > `lite` and `standard` tracks, and without the run's context, findings
