@@ -62,7 +62,9 @@ jobs:
       - run: npm ci
       - name: Typecheck
         run: npm run typecheck
-      - name: Lint
+      # Lint fails on warnings too, so a skipped test or a hard wait in
+      # tests/ fails the job (runs/ archives are not linted).
+      - name: Lint (no warnings)
         run: npm run lint
       - name: Format check
         run: npm run format:check
@@ -176,6 +178,8 @@ jobs:
     # checks pre-answered. INFORMATIONAL (continue-on-error) — it NEVER blocks
     # merge, NEVER edits a test, and NEVER decides the gate; Gate 4 is the human
     # (CLAUDE.md §3.5). Findings are confirm-or-dismiss prompts, not failures.
+    # The job passes no run context, so the scan cannot see a full-track
+    # story and always exits 0 here; the exit-1 rule applies with --context.
     if: github.event_name == 'pull_request'
     continue-on-error: true
     permissions:

@@ -87,6 +87,7 @@ import {
   gate4Findings,
   loadGate4Artifacts,
   renderGate4Scan,
+  scanVerdict,
 } from './gate4-scan.js';
 import {
   TRANSITION_FILE,
@@ -952,11 +953,14 @@ async function runGateInteractive(step, context) {
       console.log('');
       // With the run's context, TC/SPEC ids are checked against the
       // approved test cases and the spec.
+      const artifacts = loadGate4Artifacts(CONTEXT_PATH) ?? undefined;
       const scan = gate4Findings(readFileSync(testPath, 'utf8'), {
         fileName: testPath,
-        artifacts: loadGate4Artifacts(CONTEXT_PATH) ?? undefined,
+        artifacts,
       });
-      scanText = renderGate4Scan(testPath, scan);
+      // On the full track the open findings are named as blocking the scan;
+      // the decision below is still the reviewer's.
+      scanText = `${renderGate4Scan(testPath, scan)}\n  ${scanVerdict(artifacts, scan.findings.length).message}`;
       console.log(scanText);
     }
   }

@@ -370,9 +370,11 @@ conditional or swallowed ones, expected values no approved case states,
 each test's own PW/TC/SPEC ids checked against the run's approved test
 cases and spec, and approved E2E cases no test names; the full list is in
 `docs/review-gates.md`, Gate 4) plus the same judgment questions, printed
-separately from the mechanical results. It is
-informational — it answers the mechanical half so you can spend your attention
-on business correctness; it never decides the gate.
+separately from the mechanical results. It answers the mechanical half so
+you can spend your attention on business correctness, and it never decides
+the gate. Its last line says whether the findings are informational or, on
+the `full` track, unresolved (the scan alone exits 1 for them); the decision
+is yours either way.
 
 Then it shows who is deciding and asks for the decision (`a`/`r`/`q`).
 The reviewer is settled once per session, not asked at every gate:

@@ -10,7 +10,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit && npm run typecheck:scripts",
     "typecheck:scripts": "tsc -p tsconfig.scripts.json && node scripts/typecheck-coverage.js",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "format:check": "prettier --check .",
     "format:write": "prettier --write .",

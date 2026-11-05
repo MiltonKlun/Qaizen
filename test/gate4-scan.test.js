@@ -6,7 +6,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { gate4Findings, renderGate4Scan } from '../scripts/gate4-scan.js';
+import {
+  gate4Findings,
+  renderGate4Scan,
+  scanVerdict,
+  storyTrack,
+} from '../scripts/gate4-scan.js';
 
 // Fragments are scanned for the mechanical rules; per-test traceability only
 // concerns test registrations, so a bare statement never trips it.
@@ -355,6 +360,122 @@ test('the scan is read-only and never records an approval', async () => {
     assert.match(r.stdout, /verified: TC ids against tc\.json/);
     assert.match(r.stdout, /never approves/);
     assert.equal(read(join(dir, 'context.json'), 'utf8'), before);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the track a story is scanned at is the higher of its track and its floor', () => {
+  assert.equal(storyTrack({}), 'standard');
+  assert.equal(storyTrack({ track: 'lite' }), 'lite');
+  assert.equal(storyTrack({ track: 'full' }), 'full');
+  assert.equal(storyTrack({ track: 'bogus' }), 'standard');
+  assert.equal(
+    storyTrack({ track: 'standard', track_floor: { minimum: 'full' } }),
+    'full'
+  );
+  assert.equal(
+    storyTrack({ track: 'full', track_floor: { minimum: 'standard' } }),
+    'full'
+  );
+  assert.equal(
+    storyTrack({ track: 'lite', track_floor: { minimum: 'bogus' } }),
+    'lite'
+  );
+});
+
+test('only full-track findings block, and blocking never approves', () => {
+  const at = (track) => ({
+    contextPath: 'c',
+    storyId: 'S',
+    testCases: null,
+    testCasesPath: null,
+    specText: null,
+    specPath: null,
+    track,
+  });
+  assert.equal(scanVerdict(undefined, 3).blocking, false);
+  assert.match(scanVerdict(undefined, 3).message, /track is unknown/);
+  assert.equal(scanVerdict(at('standard'), 3).blocking, false);
+  assert.equal(scanVerdict(at('lite'), 3).blocking, false);
+  assert.equal(scanVerdict(at('full'), 0).blocking, false);
+  const full = scanVerdict(at('full'), 2);
+  assert.equal(full.blocking, true);
+  assert.match(full.message, /2 finding\(s\) unresolved/);
+  assert.match(full.message, /approves nothing/);
+});
+
+test('the scan exits 1 on a full-track story with findings, and 0 otherwise', async () => {
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const { spawnSync } = await import('node:child_process');
+  const dir = mkdtempSync(join(tmpdir(), 'qaizen-gate4-track-'));
+  const clean =
+    "// PW-001 SPEC-001\ntest('a [TC-001]', async ({ page }) => { await page.goto('/'); await expect(page).toHaveTitle('Shop'); });\n";
+  // No assertion: one finding.
+  const weak =
+    "// PW-001 SPEC-001\ntest('a [TC-001]', async ({ page }) => { await page.goto('/'); });\n";
+  const scan = (extra, source, withContext = true) => {
+    writeFileSync(
+      join(dir, 'context.json'),
+      JSON.stringify({
+        story: { id: 'SK-7' },
+        acceptance_criteria: ['The shop title is Shop'],
+        artifact_paths: { test_cases: 'tc.json', playwright_spec: 'spec.md' },
+        ...extra,
+      })
+    );
+    writeFileSync(join(dir, 't.spec.ts'), header + source);
+    return spawnSync(
+      process.execPath,
+      [
+        join(process.cwd(), 'scripts', 'gate4-scan.js'),
+        ...(withContext ? ['--context', 'context.json'] : []),
+        't.spec.ts',
+      ],
+      { cwd: dir, encoding: 'utf8' }
+    );
+  };
+  try {
+    writeFileSync(
+      join(dir, 'tc.json'),
+      JSON.stringify({
+        story_id: 'SK-7',
+        test_cases: [
+          {
+            test_case_id: 'TC-001',
+            status: 'approved',
+            title: 'The shop title is Shop',
+          },
+        ],
+      })
+    );
+    writeFileSync(join(dir, 'spec.md'), 'SPEC-001');
+
+    const full = scan({ track: 'full' }, weak);
+    assert.equal(full.status, 1, full.stdout + full.stderr);
+    assert.match(full.stdout, /Full track: 1 finding\(s\) unresolved/);
+
+    const floor = scan(
+      { track: 'standard', track_floor: { minimum: 'full', reasons: [] } },
+      weak
+    );
+    assert.equal(floor.status, 1, floor.stdout + floor.stderr);
+
+    const fullClean = scan({ track: 'full' }, clean);
+    assert.equal(fullClean.status, 0, fullClean.stdout + fullClean.stderr);
+    assert.match(fullClean.stdout, /0 mechanical finding\(s\)\. Full track/);
+
+    for (const extra of [{ track: 'standard' }, { track: 'lite' }, {}]) {
+      const r = scan(extra, weak);
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      assert.match(r.stdout, /1 mechanical finding\(s\)\. Informational/);
+    }
+
+    const noContext = scan({ track: 'full' }, weak, false);
+    assert.equal(noContext.status, 0, noContext.stdout + noContext.stderr);
+    assert.match(noContext.stdout, /track is unknown/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
