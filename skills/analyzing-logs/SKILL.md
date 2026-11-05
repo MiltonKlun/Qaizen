@@ -134,8 +134,9 @@ hints, which silently defeated the old keyword rules. Apply in this order:
    TLS) → Yellow / `environment_issue`.
 3. **Retry-flaky outcome** → Yellow / `flaky`, unless any attempt meets 1.
 4. **Proven locator failure during an action** → Green /
-   `locator_or_selector` — only when no Red domain (`scripts/red-domains.js`)
-   or semantic ambiguity is involved; otherwise Yellow.
+   `locator_or_selector` — only when no Red domain (keywords in
+   `config/red-domains.json`) or semantic ambiguity is involved; otherwise
+   Yellow.
 5. **Anything uncertain** → Yellow / `unknown_needs_human_review`. This
    includes an element missing during an assertion (stale locator, or the
    product never rendered it?) and a whole-test timeout.

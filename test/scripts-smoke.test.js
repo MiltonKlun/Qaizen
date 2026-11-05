@@ -22,6 +22,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { copyRuntimeConfig } from './helpers/runtime-config.js';
 
 // Run a node script from the repo root; return { code, out }.
 function run(args) {
@@ -260,6 +261,7 @@ test('run-pipeline — non-TTY gate refusal (no CI job can approve a gate)', () 
       recursive: true,
     });
     cpSync('schemas', join(dir, 'schemas'), { recursive: true });
+    copyRuntimeConfig(dir);
     // A context sitting at Gate 1.
     writeFileSync(
       join(dir, 'context.json'),

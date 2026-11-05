@@ -55,7 +55,7 @@ import {
   externalSource,
   UNIT_OUTCOMES,
 } from './lib/execution-ledger.js';
-import { classifyUnit } from './lib/classify-failure.js';
+import { classifyUnit, systemicFailure } from './lib/classify-failure.js';
 import { DRAFT_PATH } from './lib/analysis-overrides.js';
 /** @typedef {import('./lib/execution-ledger.js').TestCase} TestCase */
 import { requireCurrentGate } from './lib/approval-binding.js';
@@ -88,6 +88,75 @@ function approvedDecisions() {
   } catch {
     return null;
   }
+}
+
+/**
+ * The risks each test case covers, as context.json describes them, read once.
+ * `problem` says why no case's risks can be known (no readable test-cases
+ * file); it then withholds Green from every failure, as an untraced failure
+ * needs a person in the downgrade confirmation too.
+ * @returns {{ byCase: Map<string, string[]> | null,
+ *   risks: Map<string, any>, problem: string | null }}
+ */
+function readCaseRisks() {
+  const p = context.artifact_paths?.test_cases;
+  /** @type {Map<string, any>} */
+  const risks = new Map(
+    (Array.isArray(context.risks) ? context.risks : []).map(
+      (/** @type {any} */ r) => [r.risk_id, r]
+    )
+  );
+  if (!p)
+    return {
+      byCase: null,
+      risks,
+      problem: 'the run names no test-cases file, so its risks are unknown',
+    };
+  try {
+    const doc = JSON.parse(readFileSync(p, 'utf8'));
+    /** @type {Map<string, string[]>} */
+    const byCase = new Map();
+    for (const c of Array.isArray(doc.test_cases) ? doc.test_cases : [])
+      byCase.set(c.test_case_id, Array.isArray(c.risk_ids) ? c.risk_ids : []);
+    return { byCase, risks, problem: null };
+  } catch (e) {
+    return {
+      byCase: null,
+      risks,
+      problem: `${p} could not be read (${/** @type {Error} */ (e).message.split('\n')[0]}), so its risks are unknown`,
+    };
+  }
+}
+
+/**
+ * What the run knows about one failing case's risks, for the classifier.
+ * Anything it cannot establish withholds Green with its reason.
+ * @param {ReturnType<typeof readCaseRisks>} known
+ * @param {string | null | undefined} caseId
+ */
+function riskContext(known, caseId) {
+  if (known.problem) return { risks: [], riskProblem: known.problem };
+  if (!caseId)
+    return {
+      risks: [],
+      riskProblem:
+        'the failure is not traced to a test case, so its risks are unknown',
+    };
+  const ids = known.byCase?.get(caseId);
+  if (!ids)
+    return {
+      risks: [],
+      riskProblem: `${caseId} is not in the run's test cases, so its risks are unknown`,
+    };
+  const missing = ids.filter((id) => !known.risks.has(id));
+  return {
+    risks: ids
+      .filter((id) => known.risks.has(id))
+      .map((id) => known.risks.get(id)),
+    riskProblem: missing.length
+      ? `${caseId} covers ${missing.join(', ')}, which context.json does not describe`
+      : null,
+  };
 }
 
 /** Units that belong in a failure analysis. Passes and skips do not. */
@@ -221,6 +290,9 @@ const analyzed = ledger.units
   .filter((u) => ANALYZED.has(u.outcome))
   .sort((a, b) => (a.unit_id < b.unit_id ? -1 : a.unit_id > b.unit_id ? 1 : 0));
 
+const caseRisks = readCaseRisks();
+const systemic = systemicFailure(ledger.units);
+
 const failures = analyzed.map((unit, i) => {
   const links = unit.domain_links || {};
   const isNewman = unit.identity.kind === 'newman';
@@ -231,7 +303,10 @@ const failures = analyzed.map((unit, i) => {
         severity: 'yellow',
         reason: `An imported ${unit.outcome} manual/component result: the pipeline did not run it, so whether it is a product bug is a human decision.`,
       }
-    : classifyUnit(unit);
+    : classifyUnit(unit, {
+        ...riskContext(caseRisks, links.test_case_id),
+        systemic,
+      });
   const caseId = links.test_case_id || links.api_test_case_id || null;
   const linkReason =
     links.unresolved_reason ||

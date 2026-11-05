@@ -25,22 +25,39 @@
 //   2. explicit infrastructure failure               -> yellow / environment_issue
 //   3. retry-flaky outcome (no stronger red cause)   -> yellow / flaky
 //   4. proven non-assertion locator failure          -> green  / locator_or_selector
-//        ...only when no Red-domain or semantic ambiguity; otherwise yellow
+//        ...only when every failed attempt timed out on an action the Healer
+//        may repair (click, fill, ...) without finding its element, the
+//        locator does not find its element by text, a number or a price, no
+//        Red domain is in the test or what its locator looks for, the test
+//        case's risks are known and neither high nor Red, and most of the
+//        run did not fail (docs/healer-guardrails.md §2); otherwise yellow
 //   5. anything uncertain                            -> yellow / unknown_needs_human_review
 //
 // Green is the only severity that grants healing eligibility
 // (docs/healer-guardrails.md), so it is the one that must be EARNED by
-// positive evidence. When in doubt, this escalates.
+// positive evidence. When in doubt, this escalates. The message text is
+// still trusted: test code that throws its own error worded like an action
+// timeout reads as one.
 
 import { redDomainsInText } from '../red-domains.js';
 
 /** @typedef {import('./execution-ledger.js').Unit} Unit */
 /**
+ * What the run knows about a unit beyond its own messages.
+ * @typedef {{
+ *   risks?: { risk_id: string, severity?: string, description?: string }[],
+ *   riskProblem?: string | null,
+ *   systemic?: { failed: number, tests: number } | null
+ * }} RunContext
+ */
+/**
  * @typedef {{
  *   kind: 'assertion'|'action'|'navigation'|'test_timeout'|'unknown',
  *   matcher: string|null, operation: string|null, locator: string|null,
+ *   target: string|null,
  *   expected: string|null, received: string|null,
- *   elementNotFound: boolean, network: string|null, timedOut: boolean
+ *   elementNotFound: boolean, foundButNotActionable: boolean,
+ *   network: string|null, timedOut: boolean
  * }} ErrorEvidence
  * @typedef {ErrorEvidence & { status: string }} AttemptEvidence
  * @typedef {{ classification: string, severity: 'red'|'yellow'|'green',
@@ -56,6 +73,96 @@ const ANSI = /\u001b\[[0-9;]*m/g;
  */
 export function stripAnsi(text) {
   return String(text ?? '').replace(ANSI, '');
+}
+
+/**
+ * The only locator operations whose timeout can be Green: the actions the
+ * Healer may repair (REPAIRABLE_ACTIONS in scripts/lib/test-source.js; a test
+ * keeps the two lists equal). Every other operation (waitFor, innerText,
+ * textContent, inputValue, isVisible, count, getAttribute, ...) reads or waits
+ * for something, and its timeout may be the outcome the test checks.
+ */
+export const GREEN_ACTIONS = new Set([
+  'click',
+  'dblclick',
+  'fill',
+  'press',
+  'pressSequentially',
+  'check',
+  'uncheck',
+  'selectOption',
+  'hover',
+  'setInputFiles',
+]);
+
+/**
+ * The quoted arguments of a locator chain: what it looks for, without its
+ * method names.
+ * @param {string | null} target
+ * @returns {string[]}
+ */
+function quotedValues(target) {
+  return [...String(target ?? '').matchAll(/(['"`])((?:\\.|(?!\1).)*)\1/g)].map(
+    (m) => m[2]
+  );
+}
+
+/**
+ * The regular-expression literals a locator chain passes as a name or a text
+ * (`{ name: /Confirm \$\d+/ }`, `filter({ hasText: /total/i })`).
+ * @param {string | null} target
+ * @returns {string[]}
+ */
+function regexBodies(target) {
+  return [
+    ...String(target ?? '').matchAll(
+      /(?:name|hasText|hasNotText):\s*\/((?:\\.|[^/\\\n])+)\/[a-z]*/g
+    ),
+  ].map((m) => m[1]);
+}
+
+/**
+ * What a locator chain looks for, each value on its own: its quoted values
+ * and its regular-expression names and texts, never its method names.
+ * @param {string | null} target
+ */
+function soughtValues(target) {
+  return [...quotedValues(target), ...regexBodies(target)];
+}
+
+/**
+ * Why a locator finds its element by what the page shows, or null. A text
+ * engine (text=, getByText, :has-text, :text, a `hasText` filter, XPath
+ * `text()`) finds an element by its content; a role name, label,
+ * placeholder, alt text or title with a number, and any value with a
+ * currency sign, finds it by a value. Either way a missing element may be a
+ * wrong value, not a stale locator.
+ * @param {string | null} target the failing locator chain
+ * @returns {string | null}
+ */
+export function valueBearing(target) {
+  if (!target) return null;
+  if (
+    /\btext=|getByText\(|internal:text=|internal:has-text=|:has-text\(|:has-not-text\(|:text(?:-is|-matches)?\(|\bhas(?:Not)?Text:|text\(\)/i.test(
+      target
+    )
+  )
+    return 'finds its element by text content';
+  const named = [
+    ...target.matchAll(/name:\s*(['"`])((?:\\.|(?!\1).)*)\1/g),
+    ...target.matchAll(
+      /getBy(?:Label|Placeholder|AltText|Title)\(\s*(['"`])((?:\\.|(?!\1).)*)\1/g
+    ),
+  ].map((m) => m[2]);
+  const patterns = regexBodies(target);
+  if (
+    named.some((t) => /\d/.test(t)) ||
+    patterns.some((t) => /\d|\\d|\[0-9/.test(t))
+  )
+    return 'finds its element by a number in its visible name';
+  if ([...quotedValues(target), ...patterns].some((t) => /[$€£¥₹¢]/.test(t)))
+    return 'finds its element by a price';
+  return null;
 }
 
 const NETWORK_CODE =
@@ -85,10 +192,15 @@ export function parsePlaywrightError(message) {
     matcher: null,
     operation: null,
     locator: null,
+    target: null,
     expected: field('Expected'),
     received: field('Received'),
     elementNotFound:
       /element\(s\) not found|no element(s)? (found|matching)/i.test(text),
+    foundButNotActionable:
+      /locator resolved to|element is not (?:enabled|editable|visible|stable)|intercepts pointer events|element is outside of the viewport/i.test(
+        text
+      ),
     network: null,
     timedOut: /Timeout \d+ms exceeded|Test timeout of \d+ms exceeded/i.test(
       text
@@ -105,6 +217,12 @@ export function parsePlaywrightError(message) {
     : waitingFor
       ? waitingFor[1]
       : null;
+  // The whole chain the operation waited for, not just its first call:
+  // `locator('#cart').getByText('$5')` matters past `locator('#cart')`.
+  const chain = text.match(
+    /waiting for ((?:get\w+|locator|frameLocator|internal:\w+)\(.*?)(?:\s+to be \w+)?\s*$/m
+  );
+  evidence.target = chain ? chain[1] : evidence.locator;
 
   // A matcher hint can sit below a custom message line
   // (`expect(total, 'order total')` puts "order total" on line 1).
@@ -134,6 +252,15 @@ export function parsePlaywrightError(message) {
 }
 
 /**
+ * A timeout on this operation may be Green: `locator.<repairable action>`.
+ * @param {string | null} operation e.g. `locator.click`
+ */
+function isGreenAction(operation) {
+  const [receiver, method] = String(operation ?? '').split('.');
+  return receiver === 'locator' && GREEN_ACTIONS.has(method);
+}
+
+/**
  * A real value was observed and it differs from what the test required.
  * @param {ErrorEvidence} ev
  */
@@ -151,9 +278,10 @@ function isValueMismatch(ev) {
  * attempt showed a wrong total carries a stronger (red) cause than its
  * eventual pass.
  * @param {Unit} unit
+ * @param {RunContext} [run] the unit's linked risks and the run's failure share
  * @returns {Classification}
  */
-export function classifyPlaywrightUnit(unit) {
+export function classifyPlaywrightUnit(unit, run = {}) {
   const attempts = (unit.attempts || []).filter(
     (a) => a.status !== 'passed' && a.status !== 'skipped'
   );
@@ -189,18 +317,70 @@ export function classifyPlaywrightUnit(unit) {
     ]);
   }
 
-  // 4. A locator that could not be found during an ACTION (click/fill/...).
+  // 4. A locator that could not be found during an ACTION (click/fill/...),
+  //    on every failed attempt.
   const locatorAction = evidence.find(
     (e) => e.kind === 'action' && e.timedOut && e.locator
   );
-  if (locatorAction && evidence.every((e) => e.kind === 'action')) {
-    const domains = redDomainsInText(`${title} ${locatorAction.locator}`);
-    if (domains.length) {
-      return result('locator_or_selector', 'yellow', evidence, [
-        `${locatorAction.operation} could not find ${locatorAction.locator}`,
-        `but the test touches Red domain(s): ${domains.join(', ')}; ` +
-          'healing requires human approval',
-      ]);
+  if (
+    locatorAction &&
+    evidence.every((e) => e.kind === 'action' && e.timedOut)
+  ) {
+    /** @type {string[]} */
+    const but = [];
+    const other = evidence.find((e) => !isGreenAction(e.operation));
+    if (other)
+      but.push(
+        `${other.operation} is not a locator action the Healer may repair; a read or a wait may be the outcome the test checks`
+      );
+    const found = evidence.find((e) => e.foundButNotActionable);
+    if (found)
+      but.push(
+        'the call log shows the element was found but could not be acted on (disabled, covered or not editable), which is a behavior or layout change, not a stale locator'
+      );
+    const valued = evidence
+      .map((e) => valueBearing(e.target))
+      .find((v) => v !== null);
+    if (valued)
+      but.push(`the locator ${valued}, so the value itself may be wrong`);
+    // Only what the locator looks for counts, each value on its own, and
+    // never its method names: `getByRole` is not a permission.
+    const domains = [
+      ...new Set(
+        [title, ...evidence.flatMap((e) => soughtValues(e.target))].flatMap(
+          (t) => redDomainsInText(t)
+        )
+      ),
+    ];
+    if (domains.length)
+      but.push(`the test touches Red domain(s): ${domains.join(', ')}`);
+    if (run.riskProblem) but.push(run.riskProblem);
+    for (const r of run.risks ?? []) {
+      if (r.severity === 'high')
+        but.push(`its test case covers high-severity ${r.risk_id}`);
+      const riskDomains = redDomainsInText(r.description ?? '');
+      if (riskDomains.length)
+        but.push(
+          `its test case covers ${r.risk_id}, a Red domain (${riskDomains.join(', ')})`
+        );
+    }
+    if (run.systemic)
+      but.push(
+        `${run.systemic.failed} of the run's ${run.systemic.tests} Playwright tests failed; ` +
+          'a person checks whether the app, the environment or one shared element changed'
+      );
+    if (but.length) {
+      return result(
+        other || found || valued
+          ? 'unknown_needs_human_review'
+          : 'locator_or_selector',
+        'yellow',
+        evidence,
+        [
+          `${locatorAction.operation} could not find ${locatorAction.locator}`,
+          `but ${but.join('; ')}; healing requires human approval`,
+        ]
+      );
     }
     return result('locator_or_selector', 'green', evidence, [
       `${locatorAction.operation} timed out waiting for ${locatorAction.locator}`,
@@ -292,11 +472,35 @@ export function classifyNewmanUnit(unit) {
 /**
  * Dispatch on runner kind.
  * @param {Unit} unit
+ * @param {RunContext} [run]
  */
-export function classifyUnit(unit) {
+export function classifyUnit(unit, run = {}) {
   return unit.identity?.kind === 'newman'
     ? classifyNewmanUnit(unit)
-    : classifyPlaywrightUnit(unit);
+    : classifyPlaywrightUnit(unit, run);
+}
+
+/**
+ * Whether most of the run's Playwright tests failed. A test is its file and
+ * title, whatever its project or repeat: one test failing in three browsers
+ * is one failing test. Systemic means at least three tests failed or were
+ * blocked, and they are more than half. Null when the run is not.
+ * @param {Unit[]} units every unit of the run
+ * @returns {{ failed: number, tests: number } | null}
+ */
+export function systemicFailure(units) {
+  /** @type {Map<string, boolean>} */
+  const tests = new Map();
+  for (const u of units) {
+    if (u.identity?.kind !== 'playwright') continue;
+    const id = JSON.stringify([u.identity.file ?? '', u.identity.test_title]);
+    const failed = u.outcome === 'failed' || u.outcome === 'blocked';
+    tests.set(id, (tests.get(id) ?? false) || failed);
+  }
+  const failed = [...tests.values()].filter(Boolean).length;
+  return failed >= 3 && failed * 2 > tests.size
+    ? { failed, tests: tests.size }
+    : null;
 }
 
 /**

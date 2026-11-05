@@ -36,6 +36,7 @@ import {
   TRANSITION_FILE,
 } from '../scripts/lib/run-lifecycle.js';
 import { runContext, writeCompletedRun } from './helpers/valid-run.js';
+import { copyRuntimeConfig } from './helpers/runtime-config.js';
 
 const REPO = process.cwd();
 
@@ -50,6 +51,7 @@ function repo({ run = {}, prefix = '.tmp-runner-life-' } = {}) {
   const dir = mkdtempSync(join(REPO, prefix));
   cpSync(join(REPO, 'scripts'), join(dir, 'scripts'), { recursive: true });
   cpSync(join(REPO, 'schemas'), join(dir, 'schemas'), { recursive: true });
+  copyRuntimeConfig(dir, REPO);
   writeCompletedRun(dir, run);
   writeFileSync(join(dir, 'new-story.md'), '# NEW-2\nA brand new story.\n');
   return dir;

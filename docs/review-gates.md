@@ -181,7 +181,11 @@ Two rules make this a thinning of _ceremony_, never of _review_:
   to `standard` whenever the story touches a Red-taxonomy domain
   (`docs/healer-guardrails.md` §4) or is too large to be routine. So a
   consolidated lite sign-off can never apply to high-consequence behavior;
-  those stories keep the four separate gates.
+  those stories keep the four separate gates. The domain keywords are in
+  `config/red-domains.json`, in English and Spanish, and the runner checks
+  the floor again on every resume: a lite run whose story mentions a word
+  added there (login, an order, a total, a promo code, "pagar") stops until
+  its track is raised.
 
 Unlike the team-wide opt-in below, lite consolidation is a **per-story**
 choice the analyst proposes and the floor constrains — the two mechanisms

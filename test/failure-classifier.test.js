@@ -658,3 +658,130 @@ test('a run-level error reaches the analysis without an invented test identity',
     false
   );
 });
+
+test('the CLI withholds Green when most of the run failed or the case covers a high risk', () => {
+  const w = workspace();
+  const p = join(w, 'context.json');
+  const ctx = JSON.parse(readFileSync(p, 'utf8'));
+  ctx.risks = [
+    { risk_id: 'RISK-001', severity: 'high', description: 'help is reachable' },
+  ];
+  ctx.artifact_paths = { ...ctx.artifact_paths, test_cases: 'cases.json' };
+  writeFileSync(
+    join(w, 'cases.json'),
+    JSON.stringify({
+      test_cases: [
+        {
+          test_case_id: 'TC-001',
+          risk_ids: ['RISK-001'],
+          status: 'approved',
+          automation_decision: 'automate_e2e',
+        },
+      ],
+    })
+  );
+  // The approvals are bound to what they reviewed: bind them again, as the
+  // runner would after a person re-approved.
+  let bound = ctx;
+  for (const gate of [
+    'code_reviewed',
+    'collection_reviewed',
+    'api_assertions_reviewed',
+  ])
+    bound = bindGate(bound, gate, w);
+  writeFileSync(p, JSON.stringify(bound));
+  writeFileSync(
+    join(w, 'mapping.json'),
+    JSON.stringify({
+      units: {
+        'pw:chromium:classify.spec.ts > opens the help panel': {
+          test_case_id: 'TC-001',
+        },
+      },
+    })
+  );
+  assert.equal(normalize(w, ['--mapping', 'mapping.json']).code, 0);
+  const r = run(w, 'run-failure-classifier.js');
+  assert.equal(r.code, 0, r.out);
+  const doc = JSON.parse(
+    readFileSync(join(w, 'analysis', 'failure-analysis.json'), 'utf8')
+  );
+  const help = doc.failures.find((f) => /opens the help panel/.test(f.unit_id));
+  assert.equal(help.severity, 'yellow');
+  assert.match(help.classification_reason, /covers high-severity RISK-001/);
+  assert.match(
+    help.classification_reason,
+    /7 of the run's 9 Playwright tests failed/
+  );
+  assert.ok(doc.failures.every((f) => f.severity !== 'green'));
+});
+
+test('the CLI still grants Green to a traced action timeout on a low risk in a mostly passing run', () => {
+  const w = workspace();
+  // Keep the help-panel failure and the two flaky tests: one failing test of
+  // three is not systemic.
+  const keep = new Set([
+    'opens the help panel',
+    'opens the settings menu once rendered',
+    'shows the cart total once settled',
+  ]);
+  const r0 = report();
+  (function prune(suites) {
+    for (const s of suites) {
+      s.specs = (s.specs || []).filter((sp) => keep.has(sp.title));
+      if (s.suites) prune(s.suites);
+    }
+  })(r0.suites);
+  writeFileSync(join(w, 'results.json'), JSON.stringify(r0));
+  const p = join(w, 'context.json');
+  const ctx = JSON.parse(readFileSync(p, 'utf8'));
+  ctx.risks = [
+    { risk_id: 'RISK-001', severity: 'low', description: 'help is reachable' },
+  ];
+  ctx.artifact_paths = { ...ctx.artifact_paths, test_cases: 'cases.json' };
+  writeFileSync(
+    join(w, 'cases.json'),
+    JSON.stringify({
+      test_cases: [
+        {
+          test_case_id: 'TC-001',
+          risk_ids: ['RISK-001'],
+          status: 'approved',
+          automation_decision: 'automate_e2e',
+        },
+      ],
+    })
+  );
+  let bound = ctx;
+  for (const gate of [
+    'code_reviewed',
+    'collection_reviewed',
+    'api_assertions_reviewed',
+  ])
+    bound = bindGate(bound, gate, w);
+  writeFileSync(p, JSON.stringify(bound));
+  writeFileSync(
+    join(w, 'mapping.json'),
+    JSON.stringify({
+      units: {
+        'pw:chromium:classify.spec.ts > opens the help panel': {
+          test_case_id: 'TC-001',
+        },
+      },
+    })
+  );
+  assert.equal(normalize(w, ['--mapping', 'mapping.json']).code, 0);
+  const r = run(w, 'run-failure-classifier.js');
+  assert.equal(r.code, 0, r.out);
+  const doc = JSON.parse(
+    readFileSync(join(w, 'analysis', 'failure-analysis.json'), 'utf8')
+  );
+  const help = doc.failures.find((f) => /opens the help panel/.test(f.unit_id));
+  assert.equal(
+    `${help.severity}/${help.classification}`,
+    'green/locator_or_selector',
+    help.classification_reason
+  );
+  // The untraced flaky test is Yellow anyway; nothing else turned Green.
+  assert.equal(doc.failures.filter((f) => f.severity === 'green').length, 1);
+});

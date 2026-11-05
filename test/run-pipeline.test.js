@@ -30,6 +30,7 @@ import { applyGateDecision } from '../scripts/run-pipeline.js';
 import { gatePassed } from '../scripts/pipeline-state.js';
 import { validTestCases } from './helpers/valid-run.js';
 import { bindingFor } from '../scripts/lib/approval-binding.js';
+import { copyRuntimeConfig } from './helpers/runtime-config.js';
 
 // ---------------------------------------------------------------- helpers --
 
@@ -91,6 +92,7 @@ function makeMiniRepo() {
     recursive: true,
   });
   cpSync('schemas', join(dir, 'schemas'), { recursive: true });
+  copyRuntimeConfig(dir);
   // Gate 1 reviews the story itself, and a gate no longer prompts when an
   // input it reviews is missing.
   writeFileSync(join(dir, 'story.md'), '# STORY-001\nThe story.\n');

@@ -390,7 +390,9 @@ documented here, not baked into the schema).
 (`docs/healer-guardrails.md` §4 — business logic, permissions, security,
 pricing, payment, compliance, data integrity) plus size heuristics. It is
 `{ minimum, reasons[] }`. The runner refuses to record a `track` below
-`minimum`. The floor is **conservative by design**: a keyword false positive
+`minimum`. The keywords are in `config/red-domains.json`, matched after
+identifiers are split into words and accents removed (`docs/healer-guardrails.md`
+§4). The floor is **conservative by design**: a keyword false positive
 only ever _adds_ ceremony (raises lite→standard), never removes it, so the
 safe failure mode is the default. A `lite` story carries
 `track_floor.minimum: "lite"` with empty `reasons`.

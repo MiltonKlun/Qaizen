@@ -242,7 +242,8 @@ test('a lowered Red, or a lowering on a high, Red-domain or untraced risk, needs
       failure_id: 'FAIL-002',
       from: 'yellow',
       to: 'green',
-      why: 'on high-severity RISK-001',
+      // "login" is a security keyword (config/red-domains.json).
+      why: 'on high-severity RISK-001; on RISK-001, a Red domain (security)',
     },
     {
       failure_id: 'FAIL-003',

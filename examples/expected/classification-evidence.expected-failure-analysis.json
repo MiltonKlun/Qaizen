@@ -189,8 +189,8 @@
       "source": "playwright",
       "playwright_test_id": null,
       "classification": "locator_or_selector",
-      "severity": "green",
-      "classification_reason": "locator.click timed out waiting for getByTestId('help-toggle'); no assertion failed and no Red domain is involved",
+      "severity": "yellow",
+      "classification_reason": "locator.click could not find getByTestId('help-toggle'); but the run names no test-cases file, so its risks are unknown; 7 of the run's 9 Playwright tests failed; a person checks whether the app, the environment or one shared element changed; healing requires human approval",
       "error_message": "TimeoutError: locator.click: Timeout 1000ms exceeded.\nCall log:\n  - waiting for getByTestId('help-toggle')\n\n\n  13 | test('opens the help panel', async ({ page }) => {\n  14 |   await page.setContent('<button data-testid=\"help\">Help</button>');\n> 15 |   await page.getByTestId('help-toggle').click({ timeout: 1000 });\n     |                                         ^\n  16 | });\n  17 |\n  18 | test('submits the payment', async ({ page }) => {\n    at <ROOT>\\tests\\classify.spec.ts:15:41",
       "evidence_paths": [
         "analysis/execution-ledger.json",

@@ -192,3 +192,20 @@ null.
 - `test/selector-survival.test.js`: "real locator semantics decide survival: named-role drift, strictness, scope, and non-text locators"
 - `test/selector-survival.test.js`: "a baseline probe that is not unique makes the measurement invalid, not a failure rate"
 - `test/selector-survival.test.js`: "one version only, repeated versions, or an invalid probe module never produce a rate"
+
+## 20. A Red-adjacent failure that looks like a locator problem
+
+A payment, login, price or outcome check that times out like a missing
+locator is never Green, so it never reaches the Healer; an ordinary action
+timeout still is.
+
+- `test/classifier-probes.test.js`: "a timeout on an operation that reads or waits is never Green"
+- `test/classifier-probes.test.js`: "a locator that finds its element by text, a number or a price is not Green"
+- `test/classifier-probes.test.js`: "a failure on a case linked to a high-severity or Red-domain risk is not Green"
+- `test/classifier-probes.test.js`: "Green is refused when most of the run failed; counted per test, never for one or two"
+- `test/classifier-probes.test.js`: "identifiers are split into words before keywords match"
+- `test/failure-classifier.test.js`: "the CLI withholds Green when most of the run failed or the case covers a high risk"
+- `test/failure-classifier.test.js`: "a locator that cannot be found during an ACTION is the only Green"
+- `test/failure-classifier.test.js`: "the CLI still grants Green to a traced action timeout on a low risk in a mostly passing run"
+- `test/classifier-probes.test.js`: "an element that was found but could not be acted on is not Green"
+- `test/classifier-probes.test.js`: "the keyword config must define exactly the seven Red domains"
