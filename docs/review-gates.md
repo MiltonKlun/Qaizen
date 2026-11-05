@@ -265,12 +265,25 @@ agent or script written against the four-gate model breaks. See
       that isn't traceable to the source story (or to a clearly
       labeled ambiguity) is removed before approval.
 
-The runner's brief checks the first criterion mechanically: it says whether
-every acceptance criterion appears word for word in `story.md` (the same
-words in the same order; case, punctuation, quote marks, Markdown and line
-wrapping do not count), and names any that do not. A criterion it names was
-reworded or invented; one it does not name can still have been copied from
-the wrong place, so the comparison stays yours.
+The runner's brief checks the first criterion mechanically
+(`scripts/lib/criteria-check.js`): it compares each acceptance criterion
+with `story.md`, where only formatting may differ (whitespace and line
+wrapping, case, quote marks, code and bold marks, list markers, and the
+punctuation `. , : ; ! ?` and brackets). Comparison signs such as `>` and
+`<`, numbers with their decimal point, and every word count. It names each
+criterion that:
+
+- changes a comparison, a number, or adds or drops a negation, against the
+  closest passage of the story (both values are shown);
+- is reworded, or is not in the story at all;
+- is cut short, or starts mid-sentence: found, but the story's sentence or
+  clause goes on (the words that follow are shown);
+- is only under an "Out of scope" heading, or only in a comment (an HTML
+  comment or a "Comments" section, which is context, never a criterion).
+
+A criterion that differs only in formatting passes, and the brief says
+which ones did. One the check passes can still be the wrong criterion, so
+the comparison stays yours.
 It also names any risk not scored likelihood × impact; the schema already
 rejects a severity that is not the cell of its likelihood and impact.
 
@@ -343,9 +356,13 @@ when domain detail is in question.
 The runner's brief checks coverage mechanically: it names every acceptance
 criterion and every risk that no approved case references (a rejected case
 does not count). A `skip` case counts, because its reason is the written
-decision not to test; a risk that only `skip` cases address is named as
-accepted without a test. Whether the cases are the right ones stays your
-judgment. `config/gate-checks.json` sets what a gap does: `"warn"` (the
+decision not to test; a criterion or risk that only `skip` cases address is
+named as accepted without a test, and one that only `manual` (and `skip`)
+cases address is named as tested only by hand. A case that references a
+criterion or risk the context does not have (`acceptance_criteria_refs`
+count from 0) is a broken traceability link: the brief names it and the
+gate stays closed until it is fixed, whatever `config/gate-checks.json`
+says. Whether the cases are the right ones stays your judgment. `config/gate-checks.json` sets what a gap does: `"warn"` (the
 default) names it in the brief; `"block"` keeps the gate closed until every
 criterion and risk has a case.
 

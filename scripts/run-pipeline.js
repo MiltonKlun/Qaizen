@@ -61,6 +61,7 @@ import {
 import {
   coverageGaps,
   coverageMode,
+  referenceErrors,
   scopeCoverage,
 } from './lib/scope-coverage.js';
 import {
@@ -1351,11 +1352,16 @@ function gateInputProblems(step, context) {
               '"rejected" in the test-cases file first — the per-case decisions are part of the scope you approve'
           );
         } else {
+          const coverage = scopeCoverage(context, r.data);
+          // A reference to a criterion or risk that does not exist is a
+          // broken link, so it refuses the gate in any mode.
+          const refs = referenceErrors(coverage);
+          if (refs) problems.push(`traceability: ${refs}`);
           // Scope coverage blocks the gate only when the team chose so.
           const mode = coverageMode();
           if (!mode.ok) problems.push(mode.message);
           else if (mode.mode === 'block') {
-            const gaps = coverageGaps(scopeCoverage(context, r.data));
+            const gaps = coverageGaps(coverage);
             if (gaps) {
               problems.push(
                 `scope coverage: ${gaps} (config/gate-checks.json scope_coverage is "block")`

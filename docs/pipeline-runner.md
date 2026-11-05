@@ -387,15 +387,20 @@ continues; on rejection it records the event, prints exactly what to redo (per `
 stops. Quitting (`q`) records nothing — the next invocation re-opens the
 gate with a fresh `opened_at` (accurate: the review restarted).
 
-Two gates ask a little more. Gate 1's brief says whether every acceptance
-criterion appears word for word in `story.md`, and names any that do not. It
+Two gates ask a little more. Gate 1's brief compares every acceptance
+criterion with `story.md` and names any that is reworded, absent, cut
+short, changes a comparison, number or negation, or comes only from an
+out-of-scope section or a comment (`docs/review-gates.md`, Gate 1). It
 also says whether the story hides text an agent could take as an instruction.
 Before Gate 2's brief, the runner asks you to approve or reject each draft
 test case, one at a time, and saves your decisions to the test-cases file;
 the gate then reviews the scope as you decided it, and its brief names any
-acceptance criterion or risk that no approved case covers. With
+acceptance criterion or risk that no approved case covers, and those only
+skip or manual cases cover. With
 `"scope_coverage": "block"` in `config/gate-checks.json`, such a gap keeps
-Gate 2 closed instead (the default, `"warn"`, only names it).
+Gate 2 closed instead (the default, `"warn"`, only names it). A case that
+references a criterion or risk the context does not have keeps Gate 2 closed
+in either mode.
 
 Each decision, approved or rejected, also leaves a **gate record** under
 `gates/`, numbered in the order the decisions were made:

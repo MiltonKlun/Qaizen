@@ -69,8 +69,12 @@ export function runContext({
 export function writeCompletedRun(dir, opts = {}, overrides = {}) {
   const { storyId = 'OLD-1', runId = 'old-run-1' } = opts;
   const ctx = runContext({ ...opts, storyId, runId });
-  // The one risk the test cases below reference. The ledger has TC-001
-  // passing and TC-002 failing, so the risk is covered and failing.
+  // The criteria and the one risk the test cases below reference. The
+  // ledger has TC-001 passing and TC-002 failing, so the risk is covered and
+  // failing.
+  ctx.acceptance_criteria = gold(
+    'examples/expected/login-success-audited.expected-context.json'
+  ).acceptance_criteria;
   ctx.risks = [
     gold('examples/expected/login-success-audited.expected-context.json')
       .risks[0],

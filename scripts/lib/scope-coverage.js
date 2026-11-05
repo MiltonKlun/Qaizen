@@ -5,13 +5,19 @@
 // every risk should be addressed by at least one case. A case the reviewer
 // rejected does not count. A `skip` case counts: it is the written, reviewed
 // decision not to test something (its automation_decision_reason says why),
-// which is how a risk is accepted without a test. A risk only `skip` cases
-// address is named, so the reviewer sees it was accepted, not tested.
+// which is how a risk is accepted without a test. A criterion or risk that
+// only `skip` cases cover is named, so the reviewer sees it was accepted, not
+// tested; one that only `manual` (and `skip`) cases cover is named too, so
+// the reviewer sees no automated test checks it.
+//
+// A case that references a criterion or risk the context does not have is a
+// broken traceability link (CLAUDE.md §3.4): it is named, and Gate 2's input
+// check refuses the gate until it is fixed.
 //
 // The check is mechanical; whether the cases are the RIGHT ones stays the
-// reviewer's judgment. `config/gate-checks.json` decides what a gap does:
-// `warn` (the default) names it in the brief, `block` keeps the gate closed
-// until the scope covers the story.
+// reviewer's judgment. `config/gate-checks.json` decides what a coverage gap
+// does: `warn` (the default) names it in the brief, `block` keeps the gate
+// closed until the scope covers the story.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -27,7 +33,9 @@ export const COVERAGE_MODES = ['warn', 'block'];
  *   automation_decision?: string, risk_ids?: string[],
  *   acceptance_criteria_refs?: number[] }} ScopeCase
  * @typedef {{ uncoveredAcs: number[], uncoveredRisks: string[],
- *   skipOnlyRisks: string[], acs: number, risks: number }} ScopeCoverage
+ *   skipOnlyAcs: number[], skipOnlyRisks: string[],
+ *   manualOnlyAcs: number[], manualOnlyRisks: string[],
+ *   unknownRefs: string[], acs: number, risks: number }} ScopeCoverage
  */
 
 /**
@@ -39,31 +47,66 @@ export function scopeCoverage(context, doc) {
   const cases = (doc?.test_cases ?? []).filter((c) => c.status !== 'rejected');
   const acs = context?.acceptance_criteria ?? [];
   const risks = context?.risks ?? [];
-  const uncoveredAcs = acs
-    .map((_, i) =>
-      cases.some((c) => (c.acceptance_criteria_refs ?? []).includes(i))
-        ? 0
-        : i + 1
-    )
-    .filter((n) => n > 0);
-  /** @type {string[]} */
-  const uncoveredRisks = [];
-  /** @type {string[]} */
-  const skipOnlyRisks = [];
-  for (const r of risks) {
-    const mine = cases.filter((c) => (c.risk_ids ?? []).includes(r.risk_id));
-    if (!mine.length) uncoveredRisks.push(r.risk_id);
-    else if (mine.every((c) => c.automation_decision === 'skip')) {
-      skipOnlyRisks.push(r.risk_id);
-    }
-  }
-  return {
-    uncoveredAcs,
-    uncoveredRisks,
-    skipOnlyRisks,
+  /** @type {(mine: ScopeCase[]) => 'none' | 'skip' | 'manual' | 'automated'} */
+  const reach = (mine) =>
+    !mine.length
+      ? 'none'
+      : mine.every((c) => c.automation_decision === 'skip')
+        ? 'skip'
+        : mine.every(
+              (c) =>
+                c.automation_decision === 'skip' ||
+                c.automation_decision === 'manual'
+            )
+          ? 'manual'
+          : 'automated';
+  const cov = {
+    uncoveredAcs: /** @type {number[]} */ ([]),
+    uncoveredRisks: /** @type {string[]} */ ([]),
+    skipOnlyAcs: /** @type {number[]} */ ([]),
+    skipOnlyRisks: /** @type {string[]} */ ([]),
+    manualOnlyAcs: /** @type {number[]} */ ([]),
+    manualOnlyRisks: /** @type {string[]} */ ([]),
+    unknownRefs: /** @type {string[]} */ ([]),
     acs: acs.length,
     risks: risks.length,
   };
+  acs.forEach((_, i) => {
+    const r = reach(
+      cases.filter((c) => (c.acceptance_criteria_refs ?? []).includes(i))
+    );
+    if (r === 'none') cov.uncoveredAcs.push(i + 1);
+    else if (r === 'skip') cov.skipOnlyAcs.push(i + 1);
+    else if (r === 'manual') cov.manualOnlyAcs.push(i + 1);
+  });
+  for (const risk of risks) {
+    const r = reach(
+      cases.filter((c) => (c.risk_ids ?? []).includes(risk.risk_id))
+    );
+    if (r === 'none') cov.uncoveredRisks.push(risk.risk_id);
+    else if (r === 'skip') cov.skipOnlyRisks.push(risk.risk_id);
+    else if (r === 'manual') cov.manualOnlyRisks.push(risk.risk_id);
+  }
+  const riskIds = new Set(risks.map((r) => r.risk_id));
+  for (const c of cases) {
+    for (const ref of c.acceptance_criteria_refs ?? [])
+      if (!Number.isInteger(ref) || ref < 0 || ref >= acs.length)
+        cov.unknownRefs.push(`${c.test_case_id} → AC ${ref + 1}`);
+    for (const id of c.risk_ids ?? [])
+      if (!riskIds.has(id)) cov.unknownRefs.push(`${c.test_case_id} → ${id}`);
+  }
+  return cov;
+}
+
+/**
+ * The references to nothing, in one sentence; empty when every reference
+ * resolves. Gate 2's input check refuses the gate on this, in any mode.
+ * @param {ScopeCoverage} cov
+ * @returns {string}
+ */
+export function referenceErrors(cov) {
+  if (!cov.unknownRefs.length) return '';
+  return `${cov.unknownRefs.join(', ')}: ${cov.unknownRefs.length === 1 ? 'a case references a criterion or risk' : 'cases reference criteria or risks'} the context does not have (acceptance_criteria_refs count from 0)`;
 }
 
 /**
@@ -86,13 +129,25 @@ export function coverageGaps(cov) {
  * @returns {string}
  */
 export function coverageLine(cov) {
+  const refs = referenceErrors(cov);
   const gaps = coverageGaps(cov);
-  const skipped = cov.skipOnlyRisks.length
-    ? `; ${cov.skipOnlyRisks.join(', ')} ${cov.skipOnlyRisks.length === 1 ? 'is' : 'are'} accepted without a test (only skip cases)`
-    : '';
-  return gaps
-    ? `ATTENTION: ${gaps}${skipped}`
-    : `every acceptance criterion (${cov.acs}) and risk (${cov.risks}) has at least one approved case${skipped}`;
+  /** @type {(items: (number | string)[], what: string) => string} */
+  const named = (items, what) =>
+    items.length
+      ? `; ${items.map((x) => (typeof x === 'number' ? `AC ${x}` : x)).join(', ')} ${items.length === 1 ? 'is' : 'are'} ${what}`
+      : '';
+  const notes =
+    named(
+      [...cov.skipOnlyAcs, ...cov.skipOnlyRisks],
+      'accepted without a test (only skip cases)'
+    ) +
+    named(
+      [...cov.manualOnlyAcs, ...cov.manualOnlyRisks],
+      'tested only by hand (only manual or skip cases)'
+    );
+  if (refs || gaps)
+    return `ATTENTION: ${[refs, gaps].filter(Boolean).join('; ')}${notes}`;
+  return `every acceptance criterion (${cov.acs}) and risk (${cov.risks}) has at least one approved case${notes}`;
 }
 
 /**

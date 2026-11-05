@@ -58,9 +58,9 @@ test('Gate 1 shows the word check, hidden text and the risk scoring', (t) => {
   ]);
   ctx.acceptance_criteria[1] = 'A wrong password is always refused.';
   const unscored = run(t, { scored: false });
-  assert.deepEqual(
-    briefChecks('gate1', ctx, dir)[0].slice(0, 22),
-    'ATTENTION: AC 2 not fo'
+  assert.equal(
+    briefChecks('gate1', ctx, dir)[0],
+    'ATTENTION: AC 2 is reworded (closest in the story: "a wrong password is refused") (story.md)'
   );
   assert.deepEqual(
     briefChecks('gate1', unscored.ctx, unscored.dir)[2],

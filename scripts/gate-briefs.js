@@ -12,6 +12,7 @@
 
 import { GATE_KEYS } from './pipeline-state.js';
 import { apiPaths, externalPaths } from './lib/approval-binding.js';
+import { compareCriteria } from './lib/criteria-check.js';
 
 // Per-gate brief data. `artifacts(ctx)` returns the paths the reviewer reads
 // (the things produced since the previous gate); `checklist` is the
@@ -232,25 +233,18 @@ export function GATE4_JUDGMENT_QUESTIONS() {
 }
 
 /**
- * Which acceptance criteria do not appear word for word in the story. The
- * Analyst copies them verbatim (agents/analyst.md); formatting is allowed to
- * change, wording is not. So only the words and their order must match:
- * case, punctuation, quote marks, Markdown and line wrapping are ignored. A
- * word added, dropped or changed is found.
+ * Which acceptance criteria are not the story's own text, by number. Only
+ * formatting may differ (scripts/lib/criteria-check.js says what counts): a
+ * changed word, comparison sign, number or negation, a criterion cut short,
+ * and one found only out of scope or in a comment are all named.
  * @param {string[]} criteria
  * @param {string} story
- * @returns {number[]} 1-based numbers of the criteria not found
+ * @returns {number[]} 1-based numbers of the criteria flagged
  */
 export function criteriaNotInStory(criteria, story) {
-  const norm = (/** @type {string} */ s) =>
-    ` ${s
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}]+/gu, ' ')
-      .trim()} `;
-  const text = norm(story);
-  return criteria
-    .map((ac, i) => (text.includes(norm(ac)) ? 0 : i + 1))
-    .filter((n) => n > 0);
+  return compareCriteria(criteria, story)
+    .filter((r) => r.status === 'issue')
+    .map((r) => r.n);
 }
 
 /** @param {ArtifactStatus} a */
