@@ -250,11 +250,12 @@ execute → classify → report`. Gates 3 and 4 are still **separate recorded
   decisions** (`docs/review-gates.md`).
 
 Lite is **constrained, not free**: `scripts/track-floor.js` computes a
-`track_floor` from the Healer Red taxonomy (`docs/healer-guardrails.md` §4)
-plus size heuristics, and the runner **refuses** to record `track: lite` when
-the floor is higher — high-consequence stories (business logic, permissions,
-security, pricing, payment, compliance, data integrity) always get the four
-gates. The floor only ever adds ceremony, never removes it. Lite thins
+`track_floor` from `story.md` and the Analyst's context, using the Healer
+Red taxonomy (`docs/healer-guardrails.md` §4) plus size heuristics, and the
+runner **refuses** to record `track: lite` when the floor is higher.
+High-consequence stories (business logic, permissions, security, pricing,
+payment, compliance, data integrity) are held to the `full` track
+(`docs/review-gates.md`, "The full track"). The floor only ever adds ceremony, never removes it. Lite thins
 **artifacts, not decisions**: schema validation, traceability, and the
 automation-decision requirement hold in every track.
 

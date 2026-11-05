@@ -362,6 +362,21 @@ test('the scan is read-only and never records an approval', async () => {
     assert.match(r.stdout, /verified: TC ids against tc\.json/);
     assert.match(r.stdout, /never approves/);
     assert.equal(read(join(dir, 'context.json'), 'utf8'), before);
+
+    // Run from another folder: the context's paths are read from its own.
+    const { basename: base, dirname: up } = await import('node:path');
+    const away = spawnSync(
+      process.execPath,
+      [
+        join(process.cwd(), 'scripts', 'gate4-scan.js'),
+        '--context',
+        join(base(dir), 'context.json'),
+        join(base(dir), 't.spec.ts'),
+      ],
+      { cwd: up(dir), encoding: 'utf8' }
+    );
+    assert.equal(away.status, 0, away.stderr);
+    assert.match(away.stdout, /verified: TC ids against tc\.json/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -478,6 +493,13 @@ test('the scan exits 1 on a full-track story with findings, and 0 otherwise', as
       weak
     );
     assert.equal(floor.status, 1, floor.stdout + floor.stderr);
+
+    // The floor is computed from the story file too: a standard-track
+    // context whose story mentions a payment is held to full.
+    writeFileSync(join(dir, 'story.md'), '# SK-7\n\nThe shopper can pay.\n');
+    const fromStory = scan({ track: 'standard' }, weak);
+    assert.equal(fromStory.status, 1, fromStory.stdout + fromStory.stderr);
+    rmSync(join(dir, 'story.md'));
 
     const fullClean = scan({ track: 'full' }, clean);
     assert.equal(fullClean.status, 0, fullClean.stdout + fullClean.stderr);

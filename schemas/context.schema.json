@@ -398,13 +398,13 @@
     },
     "track": {
       "type": "string",
-      "description": "OPTIONAL (lite track). How much ceremony this story needs. ABSENT => 'standard' (the four gates; the historical default — documented here, NOT schema-defaulted, so existing files behave unchanged). 'lite' thins ARTIFACTS, never decisions: schema validation, traceability, the automation-decision requirement, and auditable gate records all survive; Gates 1+2 consolidate via review_gates.qa_scope_approved while Gates 3 and 4 stay two distinct recorded decisions. 'full' is everything (highest-risk features). A story may NOT declare 'lite' below its track_floor.minimum (scripts/track-floor.js); see docs/review-gates.md and docs/pipeline-architecture.md.",
+      "description": "OPTIONAL (lite track). How much ceremony this story needs. ABSENT => 'standard' (the four gates; the historical default — documented here, NOT schema-defaulted, so existing files behave unchanged). 'lite' thins ARTIFACTS, never decisions: schema validation, traceability, the automation-decision requirement, and auditable gate records all survive; Gates 1+2 consolidate via review_gates.qa_scope_approved while Gates 3 and 4 stay two distinct recorded decisions. 'full' is everything (highest-risk features); every Red-domain story is held to it. A story may NOT declare 'lite' below its track floor (scripts/track-floor.js); see docs/review-gates.md and docs/pipeline-architecture.md.",
       "enum": ["lite", "standard", "full"]
     },
     "track_floor": {
       "type": "object",
       "additionalProperties": false,
-      "description": "OPTIONAL. The LOWEST track this story is allowed to use, computed by scripts/track-floor.js from the Red-taxonomy domains (docs/healer-guardrails.md §4) plus size heuristics. The runner refuses to record a `track` below `minimum`. Advisory metadata: absent on older runs and on runs that never considered lite.",
+      "description": "OPTIONAL. The LOWEST track this story is allowed to use, computed by scripts/track-floor.js from the Red-taxonomy domains (docs/healer-guardrails.md §4) plus size heuristics. The runner computes the floor again from story.md and this context, taking the higher, refuses a declared `lite` below it and holds any other track to at least it (a Red-domain story to full). Advisory metadata: absent on older runs and on runs that never considered lite.",
       "required": ["minimum", "reasons"],
       "properties": {
         "minimum": {

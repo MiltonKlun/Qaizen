@@ -145,6 +145,8 @@ const RANK = /** @type {Record<string, number>} */ ({
  * The severities a finalized analysis lowered that a person must confirm:
  * a Red failure lowered, or any failure lowered on a high-severity or
  * Red-domain risk (docs/healer-guardrails.md §4), or on no traceable risk.
+ * On the full track (scripts/track-floor.js) every lowered severity needs a
+ * person, whatever its risk.
  * @param {object} run
  * @param {{ failures?: Failure[] }} run.draft
  * @param {{ failures?: Failure[] }} run.final
@@ -152,9 +154,10 @@ const RANK = /** @type {Record<string, number>} */ ({
  *   description?: string }[] }} run.context
  * @param {{ test_cases?: { test_case_id: string, risk_ids?: string[] }[] }}
  *   run.testCases
+ * @param {string} [run.track] the track the run is held to
  * @returns {Downgrade[]}
  */
-export function downgradesOf({ draft, final, context, testCases }) {
+export function downgradesOf({ draft, final, context, testCases, track }) {
   const before = new Map((draft.failures ?? []).map((f) => [f.failure_id, f]));
   const riskBy = new Map((context?.risks ?? []).map((r) => [r.risk_id, r]));
   const risksOf = new Map(
@@ -187,6 +190,7 @@ export function downgradesOf({ draft, final, context, testCases }) {
     if (draftRisks.length === 0) {
       why.push("not traced to a test case's risk in the rule-based draft");
     }
+    if (track === 'full') why.push('on a full-track story');
     return why.length
       ? [{ failure_id: f.failure_id, from, to, why: why.join('; ') }]
       : [];

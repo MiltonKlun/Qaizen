@@ -41,18 +41,20 @@
 //   npm run scan:gate4 -- tests/STORY-1.spec.ts
 //
 // Exit codes: 0 scan ran, findings informational · 1 a full-track story
-//   (--context, the higher of track and track_floor) has findings · 2 usage /
-//   unreadable file or context. Without --context, or on the lite or standard track,
-//   findings never fail the scan. Exit 1 blocks no gate and approves nothing:
+//   (--context; the highest of its track, the floor computed from its story
+//   file and context, and the recorded floor) has findings · 2 usage /
+//   unreadable file or context. Without --context, or on the lite or standard
+//   track, findings never fail the scan. Paths in the context are read from
+//   the context file's folder. Exit 1 blocks no gate and approves nothing:
 //   the human still decides Gate 4.
 
 import { readFileSync, existsSync } from 'node:fs';
-import { basename } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { argv, exit } from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 import { GATE4_JUDGMENT_QUESTIONS } from './gate-briefs.js';
-import { TRACK_ORDER, trackRank } from './track-floor.js';
+import { effectiveTrack } from './track-floor.js';
 import { oracleFindings, uncoveredCases } from './lib/oracle-checks.js';
 import {
   TEST_ID_KINDS,
@@ -378,8 +380,11 @@ export function loadGate4Artifacts(contextPath = 'context.json') {
   if (!context || typeof context !== 'object' || Array.isArray(context))
     return null;
   const paths = context.artifact_paths ?? {};
+  // A run's paths are relative to its own folder, which is where its
+  // context.json is (the runner's is ./context.json, so nothing changes there).
+  const base = dirname(contextPath);
   const read = (/** @type {string | undefined} */ p) =>
-    p && existsSync(p) ? readFileSync(p, 'utf8') : null;
+    p && existsSync(join(base, p)) ? readFileSync(join(base, p), 'utf8') : null;
   let testCases = null;
   try {
     testCases = JSON.parse(read(paths.test_cases) ?? 'null');
@@ -396,24 +401,21 @@ export function loadGate4Artifacts(contextPath = 'context.json') {
     criteria: Array.isArray(context.acceptance_criteria)
       ? context.acceptance_criteria.map(String)
       : null,
-    track: storyTrack(context),
+    track: storyTrack(context, read(context.story?.path || 'story.md')),
   };
 }
 
 /**
  * The track the scan holds a story to: the declared track (absent means
- * standard) or its floor, whichever is higher.
+ * standard) or the story's floor, whichever is higher. The floor is computed
+ * now from the story file and the context (scripts/track-floor.js), so a
+ * floor the Analyst recorded too low does not lower it.
  * @param {any} context parsed context.json
+ * @param {string | null} [story] the story file's text
  * @returns {string}
  */
-export function storyTrack(context) {
-  const declared = TRACK_ORDER.includes(context?.track)
-    ? context.track
-    : 'standard';
-  const floor = context?.track_floor?.minimum;
-  return TRACK_ORDER.includes(floor) && trackRank(floor) > trackRank(declared)
-    ? floor
-    : declared;
+export function storyTrack(context, story = null) {
+  return effectiveTrack(context, story).track;
 }
 
 /**

@@ -264,6 +264,21 @@ test('a lowered Red, or a lowering on a high, Red-domain or untraced risk, needs
       why: "not traced to a test case's risk in the rule-based draft",
     },
   ]);
+  // On the full track every lowered severity needs a person, FAIL-004 (low,
+  // not a Red domain) included; a raised one still does not.
+  const full = downgradesOf({ ...run, draft, final, track: 'full' });
+  assert.deepEqual(
+    full.map((d) => d.failure_id),
+    ['FAIL-001', 'FAIL-002', 'FAIL-003', 'FAIL-004', 'FAIL-005', 'FAIL-007']
+  );
+  assert.equal(
+    full.find((d) => d.failure_id === 'FAIL-004')?.why,
+    'on a full-track story'
+  );
+  assert.deepEqual(
+    downgradesOf({ ...run, draft, final, track: 'standard' }),
+    downgradesOf({ ...run, draft, final })
+  );
 });
 
 test('a confirmation counts only for the same change and the same analysis bytes', () => {

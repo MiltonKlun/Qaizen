@@ -49,11 +49,16 @@ function run(t, { scored = true } = {}) {
   return { dir, ctx };
 }
 
-test('Gate 1 shows the word check, hidden text and the risk scoring', (t) => {
+// The fixture's story mentions a password (security), so its floor is full.
+const TRACK =
+  "track: full, raised from standard by its floor; floor full (red-domain: Security validation (input safety, tokens, auth) (in the story and the Analyst's context); at least one high-severity risk); full requires: the Gate 4 static scan exits 1 while any finding is open; every lowered failure severity needs a person to confirm it";
+
+test('Gate 1 shows the word check, hidden text, the track and the risk scoring', (t) => {
   const { dir, ctx } = run(t);
   assert.deepEqual(briefChecks('gate1', ctx, dir), [
     'every acceptance criterion appears word for word in story.md',
     'story.md has no hidden text (HTML comments, invisible or direction-control characters, text addressed to an AI)',
+    TRACK,
     'every risk (1) is scored likelihood × impact, with its severity on the matrix',
   ]);
   ctx.acceptance_criteria[1] = 'A wrong password is always refused.';
@@ -63,7 +68,7 @@ test('Gate 1 shows the word check, hidden text and the risk scoring', (t) => {
     'ATTENTION: AC 2 is reworded (closest in the story: "a wrong password is refused") (story.md)'
   );
   assert.deepEqual(
-    briefChecks('gate1', unscored.ctx, unscored.dir)[2],
+    briefChecks('gate1', unscored.ctx, unscored.dir)[3],
     'ATTENTION: RISK-001 has no likelihood × impact score (agents/analyst.md, the risk matrix)'
   );
 });
@@ -96,6 +101,7 @@ test('the lite gate shows them all; other gates show none', (t) => {
   assert.deepEqual(briefChecks('qa_scope', ctx, dir), [
     'every acceptance criterion appears word for word in story.md',
     'story.md has no hidden text (HTML comments, invisible or direction-control characters, text addressed to an AI)',
+    TRACK,
     'every risk (1) is scored likelihood × impact, with its severity on the matrix',
     'ATTENTION: AC 2 has no approved test case',
     'test design techniques: Use case 1, Equivalence partition 1, Checklist 1',

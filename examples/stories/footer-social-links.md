@@ -3,12 +3,11 @@
 > Manual-mode **lite-track** story. Targets the SauceDemo shopping demo
 > app (https://www.saucedemo.com). The Analyst should treat this as
 > `source: "manual"` and produce `context.json` with
-> `story.id = "STORY-021"` and propose `track: "lite"` — this is a
-> genuinely routine, low-risk cosmetic/informational change with no
-> Red-taxonomy exposure (no money, security, permissions, or data
-> integrity), so its track floor is `lite` (verified via
-> scripts/track-floor.js). It exists to exercise the lite track on a
-> REAL story rather than a synthetic fixture.
+> `story.id = "STORY-021"`. It was written as a routine, low-risk
+> cosmetic change to exercise the lite track, but scripts/track-floor.js
+> gives it floor `full`: "signed-in" in the first criterion reads as
+> security, and the floor is computed from this text too. Propose a track
+> no lower than that floor.
 
 ## Goal
 

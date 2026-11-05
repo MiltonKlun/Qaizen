@@ -297,9 +297,11 @@ around them.
 - Add the remaining slate stories (protocol §2) to move toward a real series;
   re-evaluate §5 thresholds once ≥5 stories are in. (Solo single-session runs,
   per §5a, give the cleanest timing.)
-- A lite-eligible story now exists (`examples/stories/footer-social-links.md`,
-  STORY-021, verified to floor to `lite`) — run it to exercise the lite track
-  and test the "raw wins for routine work" threshold.
+- A lite-eligible story is still needed. STORY-021
+  (`examples/stories/footer-social-links.md`) was written as one, but its
+  floor is `full`: "signed-in" in its first criterion reads as security, and
+  the floor is computed from the story text too. A real routine story would
+  exercise the lite track and test the "raw wins for routine work" threshold.
 - Consider whether §5b/§5c's finding warrants encoding a third `arm` value
   (schema change) now that a text-only raw arm has confirmed the distinction.
 

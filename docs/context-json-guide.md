@@ -383,20 +383,29 @@ documented here, not baked into the schema).
   Gates 3 and 4 stay **two distinct recorded decisions**. See
   `docs/review-gates.md`.
 - **`standard`** — the four gates as always.
-- **`full`** — everything, for the highest-risk features. Today it also
-  makes the Gate 4 static scan exit 1 while a finding is open
-  (`docs/review-gates.md`, Gate 4).
+- **`full`** — everything, for the highest-risk features; every Red-domain
+  story is held to it. What it requires is listed in `docs/review-gates.md`,
+  "The full track".
 
 `track_floor` is the **lowest** track a story may use, computed by
-`scripts/track-floor.js` from the Healer Red taxonomy
+`scripts/track-floor.js`. A story that touches a Healer Red taxonomy domain
 (`docs/healer-guardrails.md` §4 — business logic, permissions, security,
-pricing, payment, compliance, data integrity) plus size heuristics. It is
-`{ minimum, reasons[] }`. The runner refuses to record a `track` below
-`minimum`. The keywords are in `config/red-domains.json`, matched after
-identifiers are split into words and accents removed (`docs/healer-guardrails.md`
-§4). The floor is **conservative by design**: a keyword false positive
-only ever _adds_ ceremony (raises lite→standard), never removes it, so the
-safe failure mode is the default. A `lite` story carries
+pricing, payment, compliance, data integrity) has floor `full`; a large
+story or one with a high-severity risk has floor `standard`. It is
+`{ minimum, reasons[] }`. The keywords are in `config/red-domains.json`,
+matched after identifiers are split into words and accents removed
+(`docs/healer-guardrails.md` §4).
+
+The runner and the Gate 4 scan do not trust the recorded floor alone: they
+compute it again from `story.md` and from the Analyst's criteria and risks,
+taking the higher, so a Red domain the Analyst left out still counts. Each
+reason names where the domain was found (`in the story`, `in the
+Analyst's context`). The run is held to the highest of the declared
+`track`, that computed floor and the recorded one. A declared `lite` below
+the floor is refused; a declared `standard` below `full` is raised, and
+the Gate 1 brief says so. The floor is **conservative by design**: a keyword
+false positive only ever _adds_ ceremony, never removes it, so the safe
+failure mode is the default. A `lite` story carries
 `track_floor.minimum: "lite"` with empty `reasons`.
 
 ```json
