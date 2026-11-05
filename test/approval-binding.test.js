@@ -37,6 +37,7 @@ import {
   validTestCases,
   writeCompletedRun,
 } from './helpers/valid-run.js';
+import { copyRuntimeConfig } from './helpers/runtime-config.js';
 
 const REPO = process.cwd();
 
@@ -44,6 +45,7 @@ function repo() {
   const dir = mkdtempSync(join(REPO, '.tmp-runner-bind-'));
   cpSync(join(REPO, 'scripts'), join(dir, 'scripts'), { recursive: true });
   cpSync(join(REPO, 'schemas'), join(dir, 'schemas'), { recursive: true });
+  copyRuntimeConfig(dir, REPO);
   return dir;
 }
 

@@ -40,6 +40,7 @@ import {
   executionLine,
   progressGuard,
 } from '../scripts/run-pipeline.js';
+import { copyRuntimeConfig } from './helpers/runtime-config.js';
 
 const REPO = process.cwd();
 const PW_REPORT = readFileSync(
@@ -51,6 +52,7 @@ function repo(prefix = '.tmp-runner-tx-') {
   const dir = mkdtempSync(join(REPO, prefix));
   cpSync(join(REPO, 'scripts'), join(dir, 'scripts'), { recursive: true });
   cpSync(join(REPO, 'schemas'), join(dir, 'schemas'), { recursive: true });
+  copyRuntimeConfig(dir, REPO);
   return dir;
 }
 

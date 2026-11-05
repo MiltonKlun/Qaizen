@@ -55,7 +55,7 @@ import {
   externalSource,
   UNIT_OUTCOMES,
 } from './lib/execution-ledger.js';
-import { classifyUnit } from './lib/classify-failure.js';
+import { classifyUnit, systemicFailure } from './lib/classify-failure.js';
 import { DRAFT_PATH } from './lib/analysis-overrides.js';
 /** @typedef {import('./lib/execution-ledger.js').TestCase} TestCase */
 import { requireCurrentGate } from './lib/approval-binding.js';
@@ -88,6 +88,39 @@ function approvedDecisions() {
   } catch {
     return null;
   }
+}
+
+/**
+ * The risks each test case covers, as context.json describes them. A failure
+ * on a case that covers a high-severity or Red-domain risk is never Green.
+ * Empty when the run names no readable test cases.
+ * @returns {Map<string, { risk_id: string, severity?: string, description?: string }[]>}
+ */
+function risksByCase() {
+  const p = context.artifact_paths?.test_cases;
+  /** @type {Map<string, any>} */
+  const risks = new Map(
+    (Array.isArray(context.risks) ? context.risks : []).map(
+      (/** @type {any} */ r) => [r.risk_id, r]
+    )
+  );
+  /** @type {Map<string, any[]>} */
+  const out = new Map();
+  if (!p || !existsSync(p)) return out;
+  try {
+    const doc = JSON.parse(readFileSync(p, 'utf8'));
+    for (const c of doc.test_cases ?? []) {
+      const ids = Array.isArray(c.risk_ids) ? c.risk_ids : [];
+      out.set(
+        c.test_case_id,
+        ids.map((/** @type {string} */ id) => risks.get(id) ?? { risk_id: id })
+      );
+    }
+  } catch {
+    // An unreadable test-cases file links no risks; approvedDecisions() and
+    // the ledger's own checks report it.
+  }
+  return out;
 }
 
 /** Units that belong in a failure analysis. Passes and skips do not. */
@@ -221,6 +254,9 @@ const analyzed = ledger.units
   .filter((u) => ANALYZED.has(u.outcome))
   .sort((a, b) => (a.unit_id < b.unit_id ? -1 : a.unit_id > b.unit_id ? 1 : 0));
 
+const caseRisks = risksByCase();
+const systemic = systemicFailure(ledger.units);
+
 const failures = analyzed.map((unit, i) => {
   const links = unit.domain_links || {};
   const isNewman = unit.identity.kind === 'newman';
@@ -231,7 +267,10 @@ const failures = analyzed.map((unit, i) => {
         severity: 'yellow',
         reason: `An imported ${unit.outcome} manual/component result: the pipeline did not run it, so whether it is a product bug is a human decision.`,
       }
-    : classifyUnit(unit);
+    : classifyUnit(unit, {
+        risks: caseRisks.get(links.test_case_id ?? '') ?? [],
+        systemic,
+      });
   const caseId = links.test_case_id || links.api_test_case_id || null;
   const linkReason =
     links.unresolved_reason ||

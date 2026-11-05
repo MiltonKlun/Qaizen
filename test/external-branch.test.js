@@ -34,6 +34,7 @@ import {
   testCaseOutcome,
 } from '../scripts/lib/execution-ledger.js';
 import { validateValue } from '../scripts/lib/artifact-io.js';
+import { copyRuntimeConfig } from './helpers/runtime-config.js';
 
 const REPO = process.cwd();
 const STORY = 'SK-72';
@@ -66,6 +67,7 @@ function run(decisions) {
   const dir = mkdtempSync(join(REPO, '.tmp-runner-ext-'));
   for (const d of ['scripts', 'schemas'])
     cpSync(join(REPO, d), join(dir, d), { recursive: true });
+  copyRuntimeConfig(dir, REPO);
   const tc = scopeCases(STORY, RUN);
   decisions.forEach((d, i) => {
     tc.test_cases[i].automation_decision = d;

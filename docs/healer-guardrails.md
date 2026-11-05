@@ -73,14 +73,39 @@ business behavior.
 ### How Green is granted automatically
 
 The rule-based pre-classifier (`scripts/lib/classify-failure.js`) grants
-Green in exactly one case: a locator that could not be found during an
-**action** (`locator.click`, `fill`, …) — no assertion failed — in a test
-that touches no Red domain (`scripts/red-domains.js`). The same failure in a
-payment or permission test is Yellow. Everything else it cannot prove is
-Yellow, including a bare test timeout: one run cannot establish that a
-timeout is mere instability rather than a hang, so "wait unstable" and
-"timeout stabilization" become Green only when the Failure Classifier Agent
-or a human establishes it.
+Green in exactly one case: every failed attempt timed out on a locator
+**action** the Healer may repair (`locator.click`, `dblclick`, `fill`,
+`press`, `pressSequentially`, `check`, `uncheck`, `selectOption`, `hover`,
+`setInputFiles`), no assertion failed, and none of the following holds:
+
+- **The operation reads or waits.** A timeout on `waitFor`, `innerText`,
+  `textContent`, `inputValue`, `isVisible`, `count`, `getAttribute` or any
+  other operation that is not one of those actions may be the very outcome
+  the test checks (a confirmation that never appeared). It is Yellow
+  `unknown_needs_human_review`.
+- **The locator finds its element by what the page shows**: a text engine
+  (`text=`, `getByText`, `:has-text`, `:text`), a role name, label,
+  placeholder, alt text or title with a number in it, or any quoted value
+  with a currency sign. A missing `text=$29.99` may be a wrong price. Yellow
+  `unknown_needs_human_review`.
+- **A Red domain is in the test title or in what the locator looks for**
+  (its quoted values, not its method names: `getByRole` is not a
+  permission).
+- **The test case covers a high-severity risk, or a risk whose description
+  names a Red domain** (`context.json` risks, through the case's
+  `risk_ids`).
+- **Most of the run failed**: at least two Playwright tests failed or were
+  blocked, and they are more than half. That many at once points to the app
+  or the environment, not one locator.
+
+The last three are Yellow `locator_or_selector`, with every reason that
+applied. Everything else it cannot prove is Yellow too, including a bare
+test timeout: one run cannot establish that a timeout is mere instability
+rather than a hang, so "wait unstable" and "timeout stabilization" become
+Green only when the Failure Classifier Agent or a human establishes it. The
+message text is still trusted: test code that throws its own error worded
+like an action timeout reads as one, and only its domain or its risk keeps
+it from Green.
 
 It reads what the error says **failed**, never keywords. The review found
 `expect(locator).toHaveText('$100.00')` against an element showing `$1.00`
@@ -291,6 +316,17 @@ re-run the test. The suggestion is for the human to decide on.
 
 Red failures mean **the test caught a real business problem**, or are
 in a category where touching the test would compromise safety.
+
+The domains below are also matched as keywords, in `config/red-domains.json`
+(English and Spanish today; one list per locale, all matched on every text).
+Text is split into words first: camelCase, kebab-case, snake_case and
+punctuation separate words, case is folded and accents are removed, so
+`submitPayment`, `pay-now` and `PAGO` match "payment", "pay" and "pago". A
+keyword is a word or a phrase of consecutive words, and a trailing `*`
+matches any word that starts with it. The failure classifier (§2), the
+lite-track floor and the downgrade confirmation all read that one list. A
+false positive only adds review; a missing keyword is the risk, so add one
+when a story's vocabulary is not there yet.
 
 ### What qualifies
 

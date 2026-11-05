@@ -1,0 +1,274 @@
+{
+  "description": "The Red taxonomy's keywords (docs/healer-guardrails.md section 4), read by scripts/red-domains.js for the failure classifier, the lite-track floor and the downgrade confirmation. Text is split into words first: camelCase, kebab-case, snake_case and punctuation all separate words, letters are lowercased and accents removed, so 'submitPayment', 'pay-now' and 'PAGO' read as 'submit payment', 'pay now' and 'pago'. A keyword is one or more words matched as consecutive words; a trailing * matches any word that starts with it. Every locale is matched on every text. A false positive only adds ceremony or human review; a missing keyword is the risk to avoid.",
+  "domains": [
+    {
+      "id": "business_logic",
+      "label": "Business-logic assertion (a computed business outcome)",
+      "keywords": {
+        "en": [
+          "calculat*",
+          "total",
+          "totals",
+          "subtotal",
+          "subtotals",
+          "balance",
+          "discount*",
+          "tax",
+          "taxes",
+          "taxable",
+          "taxation",
+          "interest",
+          "quota",
+          "eligib*",
+          "amount",
+          "amounts",
+          "fee",
+          "fees",
+          "cost",
+          "costs"
+        ],
+        "es": [
+          "calcul*",
+          "total",
+          "totales",
+          "subtotal",
+          "saldo",
+          "descuento*",
+          "impuesto*",
+          "iva",
+          "interes",
+          "intereses",
+          "cuota",
+          "elegib*",
+          "monto",
+          "montos",
+          "importe",
+          "comision",
+          "comisiones",
+          "costo",
+          "costos",
+          "coste"
+        ]
+      }
+    },
+    {
+      "id": "permission_role",
+      "label": "Permission / role behavior (who may do what)",
+      "keywords": {
+        "en": [
+          "permission*",
+          "role",
+          "roles",
+          "role based",
+          "access control",
+          "authoriz*",
+          "rbac",
+          "privilege*",
+          "admin",
+          "administrator",
+          "forbidden",
+          "unauthor*"
+        ],
+        "es": [
+          "permiso*",
+          "rol",
+          "roles",
+          "control de acceso",
+          "autoriz*",
+          "privilegio*",
+          "administrador*",
+          "prohibido",
+          "no autorizado"
+        ]
+      }
+    },
+    {
+      "id": "security",
+      "label": "Security validation (input safety, tokens, auth)",
+      "keywords": {
+        "en": [
+          "security",
+          "xss",
+          "csrf",
+          "sql injection",
+          "sanitiz*",
+          "authentic*",
+          "credential*",
+          "password",
+          "passwords",
+          "session",
+          "token",
+          "encrypt*",
+          "login",
+          "log in",
+          "logged in",
+          "sign in",
+          "signin",
+          "logout",
+          "log out",
+          "sign out",
+          "mfa",
+          "2fa",
+          "otp",
+          "two factor"
+        ],
+        "es": [
+          "seguridad",
+          "inyeccion sql",
+          "autentic*",
+          "credencial*",
+          "contraseña",
+          "contraseñas",
+          "clave",
+          "sesion",
+          "iniciar sesion",
+          "cerrar sesion",
+          "token",
+          "cifr*",
+          "encript*",
+          "doble factor"
+        ]
+      }
+    },
+    {
+      "id": "pricing",
+      "label": "Pricing calculation (anything on a customer invoice)",
+      "keywords": {
+        "en": [
+          "price",
+          "prices",
+          "pricing",
+          "invoice*",
+          "checkout",
+          "billing",
+          "subscription",
+          "currency",
+          "refund*",
+          "coupon*",
+          "promo*",
+          "voucher*",
+          "purchase*",
+          "buy",
+          "buy now",
+          "place order",
+          "order confirmation",
+          "order summary",
+          "order total",
+          "order history",
+          "orders"
+        ],
+        "es": [
+          "precio*",
+          "factura*",
+          "facturacion",
+          "suscripcion",
+          "moneda",
+          "reembolso*",
+          "cupon*",
+          "codigo promocional",
+          "promocion*",
+          "compra",
+          "compras",
+          "comprar",
+          "pedido*"
+        ]
+      }
+    },
+    {
+      "id": "payment",
+      "label": "Payment flow (anywhere money moves)",
+      "keywords": {
+        "en": [
+          "payment*",
+          "pay",
+          "pay now",
+          "paynow",
+          "card",
+          "credit card",
+          "charge",
+          "charged",
+          "charges",
+          "payout*",
+          "transaction*",
+          "wallet",
+          "transfer*",
+          "withdraw*",
+          "deposit*"
+        ],
+        "es": [
+          "pago",
+          "pagos",
+          "pagar",
+          "tarjeta*",
+          "cobro*",
+          "cobrar",
+          "cargo",
+          "transaccion*",
+          "billetera",
+          "transferencia*",
+          "transferir",
+          "retiro*",
+          "retirar",
+          "deposito*",
+          "depositar"
+        ]
+      }
+    },
+    {
+      "id": "compliance",
+      "label": "Compliance behavior (audit, retention, consent)",
+      "keywords": {
+        "en": [
+          "compliance",
+          "audit",
+          "retention",
+          "consent",
+          "gdpr",
+          "hipaa",
+          "pci",
+          "regulat*",
+          "privacy",
+          "personal data"
+        ],
+        "es": [
+          "cumplimiento",
+          "auditoria",
+          "retencion",
+          "consentimiento",
+          "regulac*",
+          "privacidad",
+          "datos personales"
+        ]
+      }
+    },
+    {
+      "id": "data_integrity",
+      "label": "Data integrity (records written correctly / not lost)",
+      "keywords": {
+        "en": [
+          "data integrity",
+          "persist*",
+          "corrupt*",
+          "idempoten*",
+          "data loss",
+          "overwrit*",
+          "migration",
+          "delete account",
+          "close account",
+          "account deletion"
+        ],
+        "es": [
+          "integridad de datos",
+          "persist*",
+          "corrup*",
+          "perdida de datos",
+          "sobrescrib*",
+          "migracion",
+          "eliminar cuenta",
+          "borrar cuenta",
+          "cerrar cuenta"
+        ]
+      }
+    }
+  ]
+}

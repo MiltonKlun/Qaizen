@@ -33,6 +33,7 @@ import { buildLedger } from '../scripts/lib/build-ledger.js';
 import { approvedScopeDigest } from '../scripts/lib/execution-ledger.js';
 import { validateValue } from '../scripts/lib/artifact-io.js';
 import { keepHealerAttempts } from '../scripts/lib/healer-candidate.js';
+import { copyRuntimeConfig } from './helpers/runtime-config.js';
 
 const REPO = process.cwd();
 const STORY = 'HEAL-1';
@@ -118,6 +119,7 @@ function project({ original = ORIGINAL, failure = {} } = {}) {
   const dir = mkdtempSync(join(REPO, '.tmp-runner-heal-'));
   for (const d of ['scripts', 'schemas'])
     cpSync(join(REPO, d), join(dir, d), { recursive: true });
+  copyRuntimeConfig(dir, REPO);
   mkdirSync(join(dir, 'tests'));
   mkdirSync(join(dir, 'test-cases'));
   mkdirSync(join(dir, 'analysis'));

@@ -22,7 +22,11 @@ than guessed. It classifies from what Playwright says actually **failed** (the
 operation and its `Expected:` / `Received:` values), not from keywords: a
 wrong business value such as `$1.00` where `$100.00` was required is Red even
 though the message mentions a locator, and Green is granted only to a locator
-that could not be found during an action, outside the Red domains.
+that could not be found during a repairable action (click, fill, ...): not a
+read or a wait, not a locator that finds its element by text or a price,
+outside the Red domains (`config/red-domains.json`), on a test case with no
+high-severity or Red-domain risk, and in a run where most tests did not fail
+(`docs/healer-guardrails.md` §2).
 
 It writes a **draft**. It creates no bug drafts and finalizes nothing: the
 Failure Classifier Agent (or a human) confirms each call, writes a bug draft

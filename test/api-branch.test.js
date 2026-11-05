@@ -31,6 +31,7 @@ import {
   scopeCases,
   writeCompletedRun,
 } from './helpers/valid-run.js';
+import { copyRuntimeConfig } from './helpers/runtime-config.js';
 
 const REPO = process.cwd();
 const STORY = 'SK-40';
@@ -62,6 +63,7 @@ function run(cases, { keepE2E = false } = {}) {
   const dir = mkdtempSync(join(REPO, '.tmp-runner-api-'));
   for (const d of ['scripts', 'schemas'])
     cpSync(join(REPO, d), join(dir, d), { recursive: true });
+  copyRuntimeConfig(dir, REPO);
   const tc = scopeCases(STORY, RUN);
   cases.forEach(([decision, status], i) => {
     tc.test_cases[i].automation_decision = decision;
