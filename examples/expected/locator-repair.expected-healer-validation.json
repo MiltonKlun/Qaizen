@@ -21,7 +21,7 @@
   },
   "attempt": 1,
   "outcome": "validated",
-  "reason": "eligible under static checks, and the failing test passed with it in isolation",
+  "reason": "eligible under static checks; the original failed 3 of 3 runs at tests/DEMO-1.spec.ts:9:46, and passed 5 of 5 with the candidate, in isolation",
   "static_check": {
     "eligible": true,
     "violations": [],
@@ -35,16 +35,24 @@
   },
   "baseline": {
     "status": "failed",
-    "tests_executed": 1,
-    "command": "playwright test tests/DEMO-1.spec.ts --config playwright.config.ts --grep logs in and sees the products [TC-001]$ --repeat-each 1 --retries 0 --workers 1 --reporter json",
+    "tests_executed": 3,
+    "command": "playwright test tests/DEMO-1.spec.ts --config playwright.config.ts --grep logs in and sees the products [TC-001]$ --repeat-each 3 --retries 0 --workers 1 --reporter json",
     "exit_code": 1,
-    "error_excerpt": "locator.click: Timeout 2000ms exceeded. waiting for locator('#missing-button')"
+    "error_excerpt": "locator.click: Timeout 2000ms exceeded. waiting for locator('#missing-button')",
+    "runs": 3,
+    "passed": 0,
+    "failed": 3,
+    "failure_locations": ["tests/DEMO-1.spec.ts:9:46"]
   },
   "rerun": {
     "status": "passed",
-    "tests_executed": 1,
-    "command": "playwright test tests/DEMO-1.spec.ts --config playwright.config.ts --grep logs in and sees the products [TC-001]$ --repeat-each 1 --retries 0 --workers 1 --reporter json",
-    "exit_code": 0
+    "tests_executed": 5,
+    "command": "playwright test tests/DEMO-1.spec.ts --config playwright.config.ts --grep logs in and sees the products [TC-001]$ --repeat-each 5 --retries 0 --workers 1 --reporter json",
+    "exit_code": 0,
+    "runs": 5,
+    "passed": 5,
+    "failed": 0,
+    "failure_locations": []
   },
   "patch": {
     "path": "release/healer-patches/FAIL-001.attempt-1.patch",

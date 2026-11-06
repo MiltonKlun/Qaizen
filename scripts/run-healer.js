@@ -19,9 +19,10 @@
 //        eligible;
 //      - with --apply: the needed sources are copied into a task-owned
 //        workspace (.healer-workspace/, gitignored); the unchanged original
-//        must still fail there; then the SAME single test runs with the
-//        candidate (one project, no repeats, no retries, no snapshot updates)
-//        and must pass;
+//        must fail there 3 of 3 times, at the same place (a test that fails
+//        only sometimes is flaky, not a broken locator); then the SAME single
+//        test runs 5 times with the candidate (one project, no retries, no
+//        snapshot updates) and must pass every time;
 //      - only then is a unified patch written to release/healer-patches/,
 //        proven by applying it to a copy of the original.
 //    Every submission with --apply is recorded in analysis/healer-validation/
@@ -76,6 +77,8 @@ import {
   removeWorkspace,
   resolveTarget,
   runSingleTest,
+  BASELINE_RUNS,
+  CANDIDATE_RUNS,
   sha256,
 } from './lib/healer-candidate.js';
 import { ELIGIBILITY_NOTE, checkCandidate } from './healer-guardrails.js';
@@ -435,7 +438,7 @@ async function processCandidate(failureId, candidatePath) {
     sources.files
   );
   try {
-    const run = (/** @type {string} */ label) =>
+    const run = (/** @type {string} */ label, /** @type {number} */ repeat) =>
       runSingleTest({
         workspace,
         configPath,
@@ -444,23 +447,43 @@ async function processCandidate(failureId, candidatePath) {
         label,
         env,
         timeoutMs,
+        repeat,
       });
 
     console.log(`\nIsolated copy: ${workspace}`);
-    const baseline = run('baseline');
-    console.log(`  Baseline (original): ${baseline.status}`);
-    if (baseline.status !== 'failed') {
+    // The original must fail every time, at the same place: a test that
+    // passes on some runs, or fails in different places, is flaky or broken
+    // in a way a locator change does not fix.
+    const baseline = run('baseline', BASELINE_RUNS);
+    console.log(
+      `  Baseline (original): ${baseline.status}, failed ${baseline.failed ?? 0} of ${BASELINE_RUNS}` +
+        (baseline.failure_locations?.length
+          ? ` at ${baseline.failure_locations.join(', ')}`
+          : '')
+    );
+    const consistent =
+      baseline.status === 'failed' &&
+      baseline.failed === BASELINE_RUNS &&
+      baseline.failure_locations?.length === 1;
+    if (!consistent) {
+      const why =
+        baseline.status === 'failed' && baseline.failed === BASELINE_RUNS
+          ? `it failed in ${baseline.failure_locations?.length ? `${baseline.failure_locations.length} different places (${baseline.failure_locations.join(', ')})` : 'no place the report names'}`
+          : `${baseline.status}, failed ${baseline.failed ?? 0} of ${BASELINE_RUNS}` +
+            (baseline.error_excerpt ? `: ${baseline.error_excerpt}` : '');
       console.error(
-        `The unchanged original did not fail in the isolated copy (${baseline.status}` +
-          `${baseline.error_excerpt ? `: ${baseline.error_excerpt}` : ''}). ` +
-          'There is nothing to validate the candidate against; no attempt was used.'
+        `The unchanged original did not fail ${BASELINE_RUNS} of ${BASELINE_RUNS} times at the same place in the isolated copy (${why}). ` +
+          'A test that fails only sometimes, or in different places, is not a broken locator; ' +
+          'there is nothing to validate the candidate against; no attempt was used.'
       );
       return 1;
     }
 
     writeFileSync(join(workspace, testPath), candidate);
-    const rerun = run('candidate');
-    console.log(`  Re-run (candidate): ${rerun.status}`);
+    const rerun = run('candidate', CANDIDATE_RUNS);
+    console.log(
+      `  Re-run (candidate): ${rerun.status}, passed ${rerun.passed ?? 0} of ${CANDIDATE_RUNS}`
+    );
 
     if (sha256(readFileSync(testPath, 'utf8')) !== originalDigest) {
       console.error(
@@ -469,12 +492,16 @@ async function processCandidate(failureId, candidatePath) {
       return 1;
     }
 
-    if (rerun.status !== 'passed' || rerun.tests_executed !== 1) {
+    if (
+      rerun.status !== 'passed' ||
+      rerun.passed !== CANDIDATE_RUNS ||
+      rerun.tests_executed !== CANDIDATE_RUNS
+    ) {
       return save({
         ...base,
         outcome: 'validation_failed',
         reason:
-          `the test ${rerun.status} with the candidate${rerun.error_excerpt ? `: ${rerun.error_excerpt}` : ''}`.slice(
+          `the test ${rerun.status} with the candidate, passing ${rerun.passed ?? 0} of ${CANDIDATE_RUNS} runs${rerun.error_excerpt ? `: ${rerun.error_excerpt}` : ''}`.slice(
             0,
             500
           ),
@@ -510,8 +537,7 @@ async function processCandidate(failureId, candidatePath) {
       {
         ...base,
         outcome: 'validated',
-        reason:
-          'eligible under static checks, and the failing test passed with it in isolation',
+        reason: `eligible under static checks; the original failed ${BASELINE_RUNS} of ${BASELINE_RUNS} runs at ${baseline.failure_locations?.[0]}, and passed ${CANDIDATE_RUNS} of ${CANDIDATE_RUNS} with the candidate, in isolation`,
         baseline,
         rerun,
         patch: {

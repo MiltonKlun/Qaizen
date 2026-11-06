@@ -25,9 +25,10 @@ human review still required".
 **Candidate processing.** `scripts/run-healer.js --failure FAIL-XXX
 --candidate <file> --apply` takes one Green failure of the current run and:
 
-1. confirms the unchanged original still fails in an isolated copy;
-2. runs the same single test with the candidate (no retries, no repeats, no
-   snapshot updates) and requires it to pass;
+1. confirms the unchanged original fails 3 of 3 runs in an isolated copy, at
+   the same place (a flaky test is refused, and uses no attempt);
+2. runs the same single test 5 times with the candidate (no retries, no
+   snapshot updates) and requires every run to pass;
 3. writes a unified patch, proven by applying it to a copy of the original;
 4. records every submission (`schemas/healer-validation.schema.json`), at most
    three per test and run.

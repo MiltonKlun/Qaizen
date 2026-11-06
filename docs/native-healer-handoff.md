@@ -70,7 +70,7 @@ candidate is a complete copy of the test file with the one locator changed.
 # Static check only — nothing runs, nothing is written:
 node scripts/run-healer.js --failure FAIL-XXX --candidate .healer-candidates/FAIL-XXX/<story>.spec.ts
 
-# Validate: the original must still fail in an isolated copy, the candidate must pass there:
+# Validate: the original must fail 3 of 3 runs at the same place in an isolated copy, the candidate must pass 5 of 5 there:
 node scripts/run-healer.js --failure FAIL-XXX --candidate .healer-candidates/FAIL-XXX/<story>.spec.ts --apply
 ```
 

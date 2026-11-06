@@ -289,19 +289,17 @@ test('a validated candidate yields a patch that reproduces it, plus evidence; th
 
     // Baseline then candidate: the same single test, pinned options.
     assert.equal(r.calls.length, 2);
+    // The original runs 3 times, the candidate 5.
+    assert.deepEqual(
+      r.calls.map((args) => args[args.indexOf('--repeat-each') + 1]),
+      ['3', '5']
+    );
     for (const args of r.calls) {
       assert.equal(args[0], 'test');
       assert.equal(args[1], TEST_REL);
       assert.deepEqual(
         args.slice(args.indexOf('--retries'), args.indexOf('--retries') + 2),
         ['--retries', '0']
-      );
-      assert.deepEqual(
-        args.slice(
-          args.indexOf('--repeat-each'),
-          args.indexOf('--repeat-each') + 2
-        ),
-        ['--repeat-each', '1']
       );
       assert.ok(
         !args.some((a) => /update-snapshots|^-u$/.test(a)),
@@ -314,7 +312,13 @@ test('a validated candidate yields a patch that reproduces it, plus evidence; th
     assert.equal(rec.human_review, 'required');
     assert.equal(rec.baseline.status, 'failed');
     assert.equal(rec.rerun.status, 'passed');
-    assert.equal(rec.rerun.tests_executed, 1);
+    assert.equal(rec.rerun.tests_executed, 5);
+    assert.deepEqual(
+      [rec.baseline.runs, rec.baseline.failed, rec.baseline.failure_locations],
+      [3, 3, [`${TEST_REL}:8:5`]]
+    );
+    assert.deepEqual([rec.rerun.runs, rec.rerun.passed], [5, 5]);
+    assert.match(rec.reason, /failed 3 of 3 runs at .*:8:5, and passed 5 of 5/);
     assert.deepEqual(rec.static_check.repairs, [
       { line: 8, from: '#missing-button', to: '[data-test="login-button"]' },
     ]);
@@ -449,7 +453,7 @@ test('a baseline that no longer fails validates nothing and uses no attempt', ()
     assert.equal(r.code, 1, r.out);
     assert.match(
       r.out,
-      /unchanged original did not fail in the isolated copy \(passed/
+      /unchanged original did not fail 3 of 3 times at the same place in the isolated copy \(passed, failed 0 of 3/
     );
     assert.match(r.out, /no attempt was used/);
     assert.equal(r.calls.length, 1, 'only the baseline ran');
@@ -967,6 +971,88 @@ test('real Playwright: a broken locator is healed against the demo app', async (
     noWorkspaceLeft(dir);
   } finally {
     server.kill();
+    removeTempDir(dir);
+  }
+});
+
+/** The original with a marker comment, and its locator-fixed candidate. */
+const marked = (marker) => {
+  const original = ORIGINAL.replace(
+    '// PW-001 SPEC-001',
+    `// PW-001 SPEC-001\n// ${marker}`
+  );
+  return {
+    original,
+    fixed: original.replace(
+      "page.locator('#missing-button')",
+      'page.locator(\'[data-test="login-button"]\')'
+    ),
+  };
+};
+
+test('a flaky original "fixed" by a locator change is refused: it does not fail 3 of 3 times', () => {
+  const { original, fixed } = marked('FAKE_FLAKY');
+  const dir = project({ original });
+  try {
+    const r = heal(dir, [
+      '--failure',
+      'FAIL-001',
+      '--candidate',
+      candidate(dir, 'c', fixed),
+      '--apply',
+    ]);
+    assert.equal(r.code, 1, r.out);
+    assert.match(
+      r.out,
+      /did not fail 3 of 3 times at the same place in the isolated copy \(flaky, failed 2 of 3/
+    );
+    assert.match(r.out, /is not a broken locator/);
+    assert.match(r.out, /no attempt was used/);
+    assert.equal(r.calls.length, 1, 'only the baseline ran');
+    assert.deepEqual(records(dir), []);
+    noWorkspaceLeft(dir);
+  } finally {
+    removeTempDir(dir);
+  }
+});
+
+test('an original that fails in different places is refused', () => {
+  const { original, fixed } = marked('FAKE_ELSEWHERE');
+  const dir = project({ original });
+  try {
+    const r = heal(dir, [
+      '--failure',
+      'FAIL-001',
+      '--candidate',
+      candidate(dir, 'c', fixed),
+      '--apply',
+    ]);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /it failed in 2 different places/);
+    assert.deepEqual(records(dir), []);
+  } finally {
+    removeTempDir(dir);
+  }
+});
+
+test('a candidate that passes 4 of 5 runs is not validated', () => {
+  const { original, fixed } = marked('FAKE_SOMETIMES');
+  const dir = project({ original });
+  try {
+    const r = heal(dir, [
+      '--failure',
+      'FAIL-001',
+      '--candidate',
+      candidate(dir, 'c', fixed),
+      '--apply',
+    ]);
+    assert.equal(r.code, 1, r.out);
+    const rec = record(dir, 1);
+    assert.equal(rec.outcome, 'validation_failed');
+    assert.match(rec.reason, /flaky with the candidate, passing 4 of 5 runs/);
+    assert.deepEqual([rec.baseline.failed, rec.rerun.passed], [3, 4]);
+    assert.equal(rec.patch, null);
+  } finally {
     removeTempDir(dir);
   }
 });
