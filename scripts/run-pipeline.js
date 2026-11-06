@@ -85,10 +85,9 @@ import {
 } from './lib/gate-history.js';
 import { effectiveTrack } from './track-floor.js';
 import {
-  DISPOSITIONS,
-  DISPOSITION_KEYS,
   approvalAllowed,
   needsReason,
+  parseAnswer,
   recordDispositions,
 } from './lib/finding-dispositions.js';
 import {
@@ -842,9 +841,8 @@ async function askDispositions(rl, context, findings) {
         console.log('No decision recorded; the gate stays as it was.');
         exit(1);
       }
-      disposition =
-        /** @type {Record<string, string>} */ (DISPOSITION_KEYS)[a] ??
-        (DISPOSITIONS.includes(a) ? a : '');
+      disposition = parseAnswer(a) ?? '';
+      if (!disposition) console.log('Type f, w, i or r (or q to quit).');
     }
     let reason = '';
     if (needsReason(disposition, redDomain))
@@ -1094,6 +1092,10 @@ async function runGateInteractive(step, context) {
         decision = 'approved';
       else if (a === 'r' || a === 'reject' || a === 'rejected')
         decision = 'rejected';
+      else if (!canApprove && (a === 'a' || a === 'approve'))
+        console.log(
+          'Approval is not possible while a finding is answered "fixed".'
+        );
     }
 
     // An approval asks nothing more. A rejection needs its reason: it is

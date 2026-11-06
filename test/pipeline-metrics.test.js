@@ -637,9 +637,10 @@ test('the CLI: duplicate archives count once, real records are schema-checked, a
 });
 
 test('metrics report each scan check’s answers and precision on fixture runs', () => {
+  let line = 0;
   const answer = (rule, disposition) => ({
     rule,
-    line: 3,
+    line: (line += 1),
     test: 't [TC-001]',
     note: 'n',
     disposition,

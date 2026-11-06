@@ -615,8 +615,9 @@ the API branch — the two branches are reviewed independently.
 > `track`, the floor computed from `story.md` and the context, and the
 > recorded `track_floor.minimum`) every open finding makes the scan exit 1.
 > A finding is closed by fixing the test, or by an answer recorded at the
-> current Gate 4 approval (below) while the finding is unchanged: same rule,
-> test, line and line text. On the `lite` and `standard` tracks, and
+> Gate 4 approval (below) while that approval still matches what it
+> reviewed, for the generated test it reviewed, and while the finding is
+> unchanged: same rule, test, line and line text. On the `lite` and `standard` tracks, and
 > without the run's context, findings are informational and the scan exits 0. Exit 1 blocks no gate and approves nothing.
 >
 > **Every finding gets an answer.** Before the Gate 4 decision, the runner
@@ -632,7 +633,8 @@ the API branch — the two branches are reviewed independently.
 > **intentional** need a short reason. The answers go into the gate record
 > and into `context.json` (`gate_decisions[].finding_dispositions`), and
 > `npm run metrics` reports each check's answers and its precision (the
-> share not answered **wrong**). Answering is part of the interactive gate
+> share not answered **wrong**; a finding answered again at a re-review
+> counts once per run, with its last answer). Answering is part of the interactive gate
 > prompt, so it needs a terminal like the decision, and it decides nothing:
 > the decision is still yours. Gate 3 has no scan findings to answer yet.
 >

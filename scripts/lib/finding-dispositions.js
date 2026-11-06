@@ -60,6 +60,19 @@ export function findingKey(f) {
 }
 
 /**
+ * The answer a typed key or word stands for, or null.
+ * @param {string} input what the reviewer typed
+ * @returns {Disposition | null}
+ */
+export function parseAnswer(input) {
+  const a = input.trim().toLowerCase();
+  const d =
+    /** @type {Record<string, string>} */ (DISPOSITION_KEYS)[a] ??
+    (DISPOSITIONS.includes(a) ? a : null);
+  return /** @type {Disposition | null} */ (d);
+}
+
+/**
  * Whether an answer needs a reason.
  * @param {string} disposition
  * @param {boolean} redDomain the story touches a Red-taxonomy domain
@@ -176,7 +189,8 @@ export function dispositionSection(dispositions) {
 /**
  * Answer rates per check across runs: how often each rule's findings were
  * right. A check's precision is the share of its answered findings that were
- * not "wrong". Every decision that recorded answers counts.
+ * not "wrong". Within a run, a finding answered at several decisions (a
+ * rejection, then a re-review) counts once, with its last answer.
  * @param {any[]} contexts parsed context.json of each run
  * @returns {{ runs_with_dispositions: number, answered: number,
  *   by_rule: Record<string, { fixed: number, wrong: number,
@@ -196,21 +210,24 @@ export function dispositionMetrics(contexts) {
       .filter((/** @type {any} */ x) => Array.isArray(x) && x.length);
     if (!events.length) continue;
     runs += 1;
+    /** @type {Map<string, any>} the last answer to each finding */
+    const last = new Map();
     for (const list of events)
-      for (const d of list) {
-        if (!DISPOSITIONS.includes(d?.disposition)) continue;
-        const r = (byRule[d.rule] ??= {
-          fixed: 0,
-          wrong: 0,
-          intentional: 0,
-          irrelevant: 0,
-          total: 0,
-          precision: null,
-        });
-        r[/** @type {Disposition} */ (d.disposition)] += 1;
-        r.total += 1;
-        answered += 1;
-      }
+      for (const d of list)
+        if (DISPOSITIONS.includes(d?.disposition)) last.set(findingKey(d), d);
+    for (const d of last.values()) {
+      const r = (byRule[d.rule] ??= {
+        fixed: 0,
+        wrong: 0,
+        intentional: 0,
+        irrelevant: 0,
+        total: 0,
+        precision: null,
+      });
+      r[/** @type {Disposition} */ (d.disposition)] += 1;
+      r.total += 1;
+      answered += 1;
+    }
   }
   for (const r of Object.values(byRule))
     r.precision = r.total ? (r.total - r.wrong) / r.total : null;

@@ -16,6 +16,7 @@ import {
   dispositionSection,
   findingKey,
   needsReason,
+  parseAnswer,
   recordDispositions,
 } from '../scripts/lib/finding-dispositions.js';
 import { validateValue } from '../scripts/lib/artifact-io.js';
@@ -225,9 +226,9 @@ test('metrics give each check its answer counts and precision', () => {
       {
         gate: 'code_reviewed',
         decision: 'approved',
-        finding_dispositions: answers.map(([rule, disposition]) => ({
+        finding_dispositions: answers.map(([rule, disposition], k) => ({
           rule,
-          line: 1,
+          line: k + 1,
           test: 't',
           note: 'n',
           disposition,
@@ -268,4 +269,45 @@ test('metrics give each check its answer counts and precision', () => {
     dispositionLines(dispositionMetrics([]), 3)[0],
     /No run records an answer to a scan finding yet \(0\/3 run\(s\)\)/
   );
+});
+
+test('a finding answered at a rejection and again at the re-review counts once, with its last answer', () => {
+  const d = (disposition) => ({
+    rule: 'hard_wait',
+    line: 4,
+    test: null,
+    excerpt: 'await page.waitForTimeout(500);',
+    note: 'hard wait',
+    disposition,
+  });
+  const m = dispositionMetrics([
+    {
+      gate_decisions: [
+        {
+          gate: 'code_reviewed',
+          decision: 'rejected',
+          finding_dispositions: [d('wrong')],
+        },
+        {
+          gate: 'code_reviewed',
+          decision: 'approved',
+          finding_dispositions: [d('intentional')],
+        },
+      ],
+    },
+  ]);
+  assert.equal(m.answered, 1);
+  assert.deepEqual(
+    [m.by_rule.hard_wait.wrong, m.by_rule.hard_wait.intentional],
+    [0, 1]
+  );
+});
+
+test('typed answers: a key or the word, nothing else', () => {
+  assert.equal(parseAnswer('f'), 'fixed');
+  assert.equal(parseAnswer(' W '), 'wrong');
+  assert.equal(parseAnswer('intentional'), 'intentional');
+  assert.equal(parseAnswer('r'), 'irrelevant');
+  assert.equal(parseAnswer('x'), null);
+  assert.equal(parseAnswer(''), null);
 });

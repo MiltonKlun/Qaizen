@@ -42,19 +42,20 @@
 //
 // Exit codes: 0 scan ran, findings informational · 1 a full-track story
 //   (--context; the highest of its track, the floor computed from its story
-//   file and context, and the recorded floor) has findings · 2 usage /
+//   file and context, and the recorded floor) has open findings · 2 usage /
 //   unreadable file or context. Without --context, or on the lite or standard
 //   track, findings never fail the scan. Paths in the context are read from
 //   the context file's folder. Exit 1 blocks no gate and approves nothing:
 //   the human still decides Gate 4.
 
 import { readFileSync, existsSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { argv, exit } from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 import { GATE4_JUDGMENT_QUESTIONS } from './gate-briefs.js';
 import { effectiveTrack } from './track-floor.js';
+import { bindingState } from './lib/approval-binding.js';
 import { answeredFindings, findingKey } from './lib/finding-dispositions.js';
 import { oracleFindings, uncoveredCases } from './lib/oracle-checks.js';
 import {
@@ -69,7 +70,8 @@ import {
  * @typedef {{ contextPath: string, storyId: string | null, testCases: any,
  *   testCasesPath: string | null, specText: string | null,
  *   specPath: string | null, criteria?: string[] | null,
- *   track?: string, answered?: Set<string> }} Gate4Artifacts
+ *   track?: string, answered?: Set<string>,
+ *   answeredFile?: string | null }} Gate4Artifacts
  * @typedef {{ rule: string, line: number | null, test: string | null,
  *   excerpt: string, note: string }} Finding
  * @typedef {(rule: string, line: number | null, note: string,
@@ -403,7 +405,16 @@ export function loadGate4Artifacts(contextPath = 'context.json') {
       ? context.acceptance_criteria.map(String)
       : null,
     track: storyTrack(context, read(context.story?.path || 'story.md')),
-    answered: answeredFindings(context),
+    // Answers count only while the Gate 4 approval still matches what it
+    // reviewed, and only for the generated test it reviewed.
+    ...(bindingState('code_reviewed', context, base).state === 'current'
+      ? {
+          answered: answeredFindings(context),
+          answeredFile: paths.generated_test
+            ? resolve(base, paths.generated_test)
+            : null,
+        }
+      : { answered: new Set(), answeredFile: null }),
   };
 }
 
@@ -421,9 +432,8 @@ export function storyTrack(context, story = null) {
 }
 
 /**
- * Whether the findings block. On the full track every finding is unresolved
- * until it is fixed (no way to answer a finding exists yet), so the scan
- * exits non-zero; on any other track, or without the run's context, the
+ * Whether the findings block. On the full track every open finding (one not
+ * answered at the current Gate 4 approval) keeps the scan exiting non-zero; on any other track, or without the run's context, the
  * findings are informational. Either way Gate 4 stays the reviewer's.
  * @param {Gate4Artifacts | null | undefined} artifacts
  * @param {number} count findings across the scanned files
@@ -548,6 +558,10 @@ if (
   let answered = 0;
   const isAnswered = (/** @type {Finding} */ x) =>
     artifacts?.answered?.has(findingKey(x)) ?? false;
+  // An answer is for the generated test the approval reviewed: the same
+  // line in another file is a different finding.
+  const reviewedFile = (/** @type {string} */ f) =>
+    !!artifacts?.answeredFile && resolve(f) === artifacts.answeredFile;
   /** @type {Set<string>} */
   const named = new Set();
   /** @type {string[]} */
@@ -566,7 +580,7 @@ if (
     if (result.findings.some((x) => x.rule === 'unsupported_source'))
       unparsed.push(f);
     total += result.findings.length;
-    answered += result.findings.filter(isAnswered).length;
+    if (reviewedFile(f)) answered += result.findings.filter(isAnswered).length;
     console.log(renderGate4Scan(f, result));
     console.log('');
   }
