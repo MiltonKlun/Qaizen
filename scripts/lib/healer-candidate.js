@@ -445,7 +445,11 @@ export function failureLocations(report, workspace) {
     for (const spec of suite?.specs ?? [])
       for (const t of spec.tests ?? [])
         for (const r of t.results ?? []) {
-          const loc = r.error?.location ?? r.errors?.[0]?.location;
+          // A test timeout has no error of its own; the action it was
+          // waiting on, if any, carries the location.
+          const loc =
+            r.error?.location ??
+            r.errors?.find((/** @type {any} */ e) => e?.location)?.location;
           if (!loc?.file) continue;
           const where = `${posix(relative(workspace, loc.file))}:${loc.line}:${loc.column}`;
           if (!out.includes(where)) out.push(where);
@@ -469,7 +473,7 @@ export function failureLocations(report, workspace) {
  * @param {TargetUnit} args.unit
  * @param {string} args.label
  * @param {Record<string, string | undefined>} [args.env]
- * @param {number} [args.timeoutMs]
+ * @param {number} [args.timeoutMs] per run (QAIZEN_HEALER_TIMEOUT_MS)
  * @param {number} [args.repeat] how many times to run it (default 1)
  * @returns {{status: string, tests_executed: number, command: string,
  *   exit_code: number|null, error_excerpt?: string, runs?: number,
@@ -511,7 +515,8 @@ export function runSingleTest({
     env: { ...env, PLAYWRIGHT_JSON_OUTPUT_NAME: reportPath },
     encoding: 'utf8',
     shell: false,
-    timeout: timeoutMs,
+    // The timeout is per run, so N runs get N times it.
+    timeout: timeoutMs * repeat,
   });
   const base = { command, exit_code: r.status };
   if (r.error) {

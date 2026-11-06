@@ -491,6 +491,10 @@ test('the healer rate is validated over unique submissions; notes are never succ
             '# FAIL-006 validated patch (old free-form note)'
           ),
           file('FAIL-007.attempt-1.json', '{not json'),
+          file(
+            'FAIL-008.inconsistent.md',
+            '# FAIL-008 — the original fails inconsistently'
+          ),
         ],
       },
       // The same run's evidence archived a second time.
@@ -504,6 +508,7 @@ test('the healer rate is validated over unique submissions; notes are never succ
   assert.equal(m.duplicate_records, 1);
   assert.equal(m.yellow_suggestions, 1);
   assert.equal(m.exhausted_notices, 1);
+  assert.equal(m.inconsistent_baselines, 1);
   assert.equal(m.legacy_markdown_notes, 1);
   assert.equal(m.invalid_records, 1);
 });

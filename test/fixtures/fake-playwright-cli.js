@@ -77,14 +77,13 @@ const result = (s, line) => {
     retry: 0,
   };
 };
-const testEntry = (s, line, i) => ({
+const testEntry = (s, line) => ({
   projectName: project,
   expectedStatus: 'passed',
   status:
     s === 'failed' ? 'unexpected' : s === 'skipped' ? 'skipped' : 'expected',
   results: [result(s, line)],
   annotations: [],
-  repeatEachIndex: i,
 });
 const spec = (t, i) => {
   const [s, line] = outcome(i);
@@ -92,7 +91,7 @@ const spec = (t, i) => {
     title: t,
     ok: s !== 'failed',
     tags: [],
-    tests: [testEntry(s, line, i)],
+    tests: [testEntry(s, line)],
     file: basename(file),
     line: 3,
     column: 1,

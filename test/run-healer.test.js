@@ -32,7 +32,10 @@ import { removeTempDir } from './helpers/cleanup.js';
 import { buildLedger } from '../scripts/lib/build-ledger.js';
 import { approvedScopeDigest } from '../scripts/lib/execution-ledger.js';
 import { validateValue } from '../scripts/lib/artifact-io.js';
-import { keepHealerAttempts } from '../scripts/lib/healer-candidate.js';
+import {
+  failureLocations,
+  keepHealerAttempts,
+} from '../scripts/lib/healer-candidate.js';
 import { copyRuntimeConfig } from './helpers/runtime-config.js';
 
 const REPO = process.cwd();
@@ -453,7 +456,7 @@ test('a baseline that no longer fails validates nothing and uses no attempt', ()
     assert.equal(r.code, 1, r.out);
     assert.match(
       r.out,
-      /unchanged original did not fail 3 of 3 times at the same place in the isolated copy \(passed, failed 0 of 3/
+      /unchanged original did not fail 3 of 3 times at the same place in the isolated copy \(passed, failed 0, passed 3 of 3/
     );
     assert.match(r.out, /no attempt was used/);
     assert.equal(r.calls.length, 1, 'only the baseline ran');
@@ -1004,13 +1007,39 @@ test('a flaky original "fixed" by a locator change is refused: it does not fail 
     assert.equal(r.code, 1, r.out);
     assert.match(
       r.out,
-      /did not fail 3 of 3 times at the same place in the isolated copy \(flaky, failed 2 of 3/
+      /did not fail 3 of 3 times at the same place in the isolated copy \(flaky, failed 2, passed 1 of 3/
     );
     assert.match(r.out, /is not a broken locator/);
     assert.match(r.out, /no attempt was used/);
+    assert.match(r.out, /It goes to a human: reclassify the failure/);
     assert.equal(r.calls.length, 1, 'only the baseline ran');
     assert.deepEqual(records(dir), []);
     noWorkspaceLeft(dir);
+    // Asking again does not reroll the baseline until it happens to fail
+    // 3 of 3: the failure is refused for the rest of the run.
+    const notice = join(
+      dir,
+      'analysis',
+      'healer-validation',
+      'FAIL-001.inconsistent.md'
+    );
+    assert.ok(existsSync(notice));
+    assert.match(readFileSync(notice, 'utf8'), /- run: /);
+    const again = heal(dir, [
+      '--failure',
+      'FAIL-001',
+      '--candidate',
+      candidate(
+        dir,
+        'd',
+        fixed.replace('// FAKE_FLAKY', '// FAKE_FLAKY again')
+      ),
+      '--apply',
+    ]);
+    assert.equal(again.code, 1, again.out);
+    assert.match(again.out, /already seen failing inconsistently in this run/);
+    assert.equal(again.calls.length, 1, 'nothing ran the second time');
+    assert.deepEqual(records(dir), []);
   } finally {
     removeTempDir(dir);
   }
@@ -1055,4 +1084,42 @@ test('a candidate that passes 4 of 5 runs is not validated', () => {
   } finally {
     removeTempDir(dir);
   }
+});
+
+test('a failing run is placed by its error, or by the action a test timeout was waiting on', () => {
+  const ws = join(REPO, '.healer-workspace', 'x');
+  const at = (line) => ({
+    file: join(ws, 'tests', 'a.spec.ts'),
+    line,
+    column: 5,
+  });
+  const report = {
+    suites: [
+      {
+        specs: [
+          { tests: [{ results: [{ error: { location: at(8) } }] }] },
+          // A test timeout: no error of its own; the waiting action is placed.
+          {
+            tests: [
+              {
+                results: [
+                  {
+                    errors: [{ message: 'Test timeout' }, { location: at(8) }],
+                  },
+                ],
+              },
+            ],
+          },
+          { tests: [{ results: [{ error: { location: at(12) } }] }] },
+          // A failure the report places nowhere adds nothing.
+          { tests: [{ results: [{ errors: [{ message: 'boom' }] }] }] },
+        ],
+      },
+    ],
+  };
+  assert.deepEqual(failureLocations(report, ws), [
+    'tests/a.spec.ts:8:5',
+    'tests/a.spec.ts:12:5',
+  ]);
+  assert.deepEqual(failureLocations(null, ws), []);
 });

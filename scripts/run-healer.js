@@ -89,6 +89,9 @@ const FA = 'analysis/failure-analysis.json';
 const LEDGER = 'analysis/execution-ledger.json';
 const ANALYSIS_SCHEMA = 'schemas/failure-analysis.schema.json';
 const RECORD_SCHEMA = 'schemas/healer-validation.schema.json';
+// Where a failure the healer will not touch goes next.
+const HUMAN_NEXT =
+  'It goes to a human: reclassify the failure as flaky or unknown_needs_human_review in the failure analysis, and fix the test or the app by hand.';
 
 const APPLY = argv.includes('--apply');
 const flag = (/** @type {string} */ name) => {
@@ -353,6 +356,24 @@ async function processCandidate(failureId, candidatePath) {
     }
     return 0;
   }
+  // An original already seen failing inconsistently in this run is not
+  // validated again: rerunning it until it happens to fail 3 of 3 would let
+  // a flaky test through. It uses no attempt; it goes to a human.
+  const inconsistentPath = join(VALIDATION_DIR, `${failureId}.inconsistent.md`);
+  const seen = existsSync(inconsistentPath)
+    ? readFileSync(inconsistentPath, 'utf8')
+    : '';
+  if (
+    seen.includes(`- run: ${context.run_id}\n`) &&
+    seen.includes(`- original: ${originalDigest}\n`)
+  ) {
+    console.error(
+      `
+The unchanged original of ${failureId} was already seen failing inconsistently in this run (${inconsistentPath}). ` +
+        HUMAN_NEXT
+    );
+    return 1;
+  }
   const attempt = Math.max(0, ...prior.map((r) => r.attempt)) + 1;
   if (prior.length >= MAX_ATTEMPTS || attempt > MAX_ATTEMPTS) {
     const used = prior.map((r) => `#${r.attempt} ${r.outcome}`).join(', ');
@@ -455,8 +476,14 @@ async function processCandidate(failureId, candidatePath) {
     // passes on some runs, or fails in different places, is flaky or broken
     // in a way a locator change does not fix.
     const baseline = run('baseline', BASELINE_RUNS);
+    const tally = (/** @type {typeof baseline} */ b, /** @type {number} */ n) =>
+      `failed ${b.failed ?? 0}, passed ${b.passed ?? 0}` +
+      (n - (b.failed ?? 0) - (b.passed ?? 0) > 0
+        ? `, neither ${n - (b.failed ?? 0) - (b.passed ?? 0)}`
+        : '') +
+      ` of ${n}`;
     console.log(
-      `  Baseline (original): ${baseline.status}, failed ${baseline.failed ?? 0} of ${BASELINE_RUNS}` +
+      `  Baseline (original): ${tally(baseline, BASELINE_RUNS)}` +
         (baseline.failure_locations?.length
           ? ` at ${baseline.failure_locations.join(', ')}`
           : '')
@@ -469,13 +496,33 @@ async function processCandidate(failureId, candidatePath) {
       const why =
         baseline.status === 'failed' && baseline.failed === BASELINE_RUNS
           ? `it failed in ${baseline.failure_locations?.length ? `${baseline.failure_locations.length} different places (${baseline.failure_locations.join(', ')})` : 'no place the report names'}`
-          : `${baseline.status}, failed ${baseline.failed ?? 0} of ${BASELINE_RUNS}` +
+          : `${baseline.status}, ${tally(baseline, BASELINE_RUNS)}` +
             (baseline.error_excerpt ? `: ${baseline.error_excerpt}` : '');
-      console.error(
+      const msg =
         `The unchanged original did not fail ${BASELINE_RUNS} of ${BASELINE_RUNS} times at the same place in the isolated copy (${why}). ` +
-          'A test that fails only sometimes, or in different places, is not a broken locator; ' +
-          'there is nothing to validate the candidate against; no attempt was used.'
-      );
+        'A test that fails only sometimes, or in different places, is not a broken locator; ' +
+        'there is nothing to validate the candidate against; no attempt was used.';
+      console.error(`${msg} ${HUMAN_NEXT}`);
+      // A runner error is not a sign of flakiness; anything else is kept,
+      // so this run cannot be asked again until it happens to fail 3 of 3.
+      if (baseline.status !== 'runner_error')
+        writeTextAtomic(
+          inconsistentPath,
+          [
+            `# ${failureId} — the original fails inconsistently`,
+            '',
+            msg,
+            '',
+            `- run: ${context.run_id}`,
+            `- original: ${originalDigest}`,
+            `- unit: ${unit.unit_id}`,
+            '',
+            HUMAN_NEXT,
+            '',
+            'This is not a validation result. The healer refuses this failure for the rest of the run.',
+            '',
+          ].join('\n')
+        );
       return 1;
     }
 
