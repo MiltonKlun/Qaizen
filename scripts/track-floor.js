@@ -162,4 +162,5 @@ export function effectiveTrack(context, story = null) {
 export const FULL_TRACK_REQUIREMENTS = [
   'the Gate 4 static scan exits 1 while any finding is open',
   'every lowered failure severity needs a person to confirm it',
+  'on a Red-domain story, a scan finding answered wrong or intentional needs a reason',
 ];

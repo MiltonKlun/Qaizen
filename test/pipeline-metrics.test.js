@@ -635,3 +635,58 @@ test('the CLI: duplicate archives count once, real records are schema-checked, a
     rmSync(empty, { recursive: true, force: true });
   }
 });
+
+test('metrics report each scan check’s answers and precision on fixture runs', () => {
+  let line = 0;
+  const answer = (rule, disposition) => ({
+    rule,
+    line: (line += 1),
+    test: 't [TC-001]',
+    note: 'n',
+    disposition,
+  });
+  const withAnswers = (i, answers) => {
+    const r = run(i);
+    const last = r.context.gate_decisions.at(-1);
+    last.finding_dispositions = answers;
+    return r;
+  };
+  const dir = workspace([
+    withAnswers(1, [
+      answer('hard_wait', 'wrong'),
+      answer('hard_wait', 'fixed'),
+    ]),
+    withAnswers(2, [
+      answer('hard_wait', 'intentional'),
+      answer('no_assertion', 'irrelevant'),
+    ]),
+    run(3),
+    { ...withAnswers(4, [answer('hard_wait', 'wrong')]), demo: true },
+  ]);
+  try {
+    const r = node(dir, 'pipeline-metrics.js');
+    assert.equal(r.status, 0, r.stderr);
+    const json = JSON.parse(
+      readFileSync(join(dir, 'metrics', 'pipeline-metrics.json'), 'utf8')
+    );
+    const fd = json.finding_dispositions;
+    // The demo run is not counted.
+    assert.equal(fd.runs_with_dispositions, 2);
+    assert.equal(fd.answered, 4);
+    assert.equal(fd.by_rule.hard_wait.total, 3);
+    assert.equal(fd.by_rule.hard_wait.wrong, 1);
+    assert.equal(fd.by_rule.hard_wait.precision, 2 / 3);
+    assert.equal(fd.by_rule.no_assertion.precision, 1);
+    const md = readFileSync(
+      join(dir, 'metrics', 'pipeline-metrics.md'),
+      'utf8'
+    );
+    assert.match(md, /## Gate 4 scan findings answered/);
+    assert.match(
+      md,
+      /- hard_wait: 3 answered, precision 67% \(fixed 1, wrong 1, intentional 1, irrelevant 0\)/
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -9,9 +9,12 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 3.1.10
+version: 3.1.11
 changed_in_run: null
 changelog: |
+  - 3.1.11: PATCH (no output change). gate_decisions[].finding_dispositions,
+    the answers to the Gate 4 scan findings, is written by the runner only,
+    like the rest of gate_decisions[].
   - 3.1.10: PATCH (no change to what the Analyst writes). Notes that the
     runner computes the binding floor itself, from story.md and
     context.json, and raises a Red-domain story to full; the Analyst still
@@ -390,7 +393,7 @@ validate:context`). Fix and re-validate until the script exits 0.
   them.
 - Setting `status: "completed"`. The runner sets it once every gate has
   passed and every artifact of the run validates.
-- Writing `gate_decisions[]`, `gate_invalidations[]`,
+- Writing `gate_decisions[]` (with its `finding_dispositions`), `gate_invalidations[]`,
   `downgrade_confirmations[]` or `execution_identity` (Playwright or
   Newman). The runner records them at a person's decision or an execution;
   the Analyst leaves them out.

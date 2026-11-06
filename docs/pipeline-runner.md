@@ -376,6 +376,12 @@ the gate. Its last line says whether the findings are informational or, on
 the `full` track, unresolved (the scan alone exits 1 for them); the decision
 is yours either way.
 
+Before the Gate 4 decision it asks you to answer each finding: `f` fixed
+(the test must change, so you can then only reject or quit), `w` wrong (a
+false alarm), `i` intentional, `r` irrelevant. On a Red-domain story,
+wrong and intentional ask why. The answers are saved with the decision
+(`docs/review-gates.md`, Gate 4).
+
 Then it shows who is deciding and asks for the decision (`a`/`r`/`q`).
 The reviewer is settled once per session, not asked at every gate:
 `QAIZEN_REVIEWER` if it is set, otherwise `git config user.name`, and the

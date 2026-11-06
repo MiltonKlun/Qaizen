@@ -9,11 +9,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   gate4Findings,
+  loadGate4Artifacts,
   renderGate4Brief,
   renderGate4Scan,
   scanVerdict,
   storyTrack,
 } from '../scripts/gate4-scan.js';
+import { recordDispositions } from '../scripts/lib/finding-dispositions.js';
+import { bindGate } from './helpers/valid-run.js';
 
 // Fragments are scanned for the mechanical rules; per-test traceability only
 // concerns test registrations, so a bare statement never trips it.
@@ -504,6 +507,76 @@ test('the scan exits 1 on a full-track story with findings, and 0 otherwise', as
     const fullClean = scan({ track: 'full' }, clean);
     assert.equal(fullClean.status, 0, fullClean.stdout + fullClean.stderr);
     assert.match(fullClean.stdout, /0 mechanical finding\(s\)\. Full track/);
+
+    // A finding answered at the current Gate 4 approval is not open; one
+    // answered "fixed", or at an approval no longer current, still is.
+    scan({ track: 'full' }, weak);
+    const findings = gate4Findings(header + weak, {
+      fileName: 't.spec.ts',
+      artifacts: loadGate4Artifacts(join(dir, 'context.json')),
+      coverage: false,
+    }).findings;
+    assert.equal(findings.length, 1);
+    // An approval bound to what it reviewed, as the runner records it.
+    const answeredAs = (disposition, { approved = true } = {}) => {
+      const rec = recordDispositions(findings, [{ disposition }], {
+        redDomain: false,
+      });
+      const ctx = {
+        story: { id: 'SK-7' },
+        acceptance_criteria: ['The shop title is Shop'],
+        track: 'full',
+        artifact_paths: {
+          test_cases: 'tc.json',
+          playwright_spec: 'spec.md',
+          generated_test: 't.spec.ts',
+        },
+        review_gates: {},
+        gate_decisions: [
+          {
+            gate: 'code_reviewed',
+            decision: 'approved',
+            decided_at: '2026-11-06T00:00:00Z',
+            finding_dispositions: rec.ok ? rec.dispositions : [],
+          },
+        ],
+      };
+      bindGate(ctx, 'code_reviewed', dir);
+      if (!approved) ctx.review_gates.code_reviewed.status = false;
+      writeFileSync(join(dir, 'context.json'), JSON.stringify(ctx));
+    };
+    const scanFiles = (...files) =>
+      spawnSync(
+        process.execPath,
+        [
+          join(process.cwd(), 'scripts', 'gate4-scan.js'),
+          '--context',
+          'context.json',
+          ...files,
+        ],
+        { cwd: dir, encoding: 'utf8' }
+      );
+    writeFileSync(join(dir, 't.spec.ts'), header + weak);
+    answeredAs('intentional');
+    const intentional = scanFiles('t.spec.ts');
+    assert.equal(intentional.status, 0, intentional.stdout);
+    assert.match(
+      intentional.stdout,
+      /1 mechanical finding\(s\) \(1 answered at the current Gate 4 approval, so 0 open\)\. Full track: no finding is open/
+    );
+    // The same line in another file is not the reviewed test's finding.
+    writeFileSync(join(dir, 'u.spec.ts'), header + weak);
+    assert.equal(scanFiles('t.spec.ts', 'u.spec.ts').status, 1);
+    rmSync(join(dir, 'u.spec.ts'));
+    answeredAs('fixed');
+    assert.equal(scanFiles('t.spec.ts').status, 1);
+    answeredAs('intentional', { approved: false });
+    assert.equal(scanFiles('t.spec.ts').status, 1);
+    // The test changed after the approval: it no longer matches what was
+    // reviewed, so its answers do not hold, even for an unchanged line.
+    answeredAs('intentional');
+    writeFileSync(join(dir, 't.spec.ts'), header + weak + '// edited\n');
+    assert.equal(scanFiles('t.spec.ts').status, 1);
 
     for (const extra of [{ track: 'standard' }, { track: 'lite' }, {}]) {
       const r = scan(extra, weak);

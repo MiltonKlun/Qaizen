@@ -354,6 +354,15 @@ It makes gate cost measurable (`reviewed_at − opened_at` here;
 `docs/review-gates.md` ("Gate telemetry"). Backward-compatible: absent on
 older runs, never required.
 
+**Scan findings answered (`finding_dispositions`, optional — Gate 4).** A
+`code_reviewed` event in `gate_decisions[]` carries the reviewer's answer
+to each Gate 4 static scan finding: `{ rule, line, test, excerpt, note,
+disposition, reason }`, where `disposition` is `fixed`, `wrong`,
+`intentional` or `irrelevant` and `reason` is required on a Red-domain
+story for wrong and intentional. Written only by the runner, at the
+person's decision; absent when the scan found nothing and on older runs
+(`docs/review-gates.md`, Gate 4).
+
 ### `status`
 
 One of `"draft"` / `"in_progress"` / `"completed"` / `"blocked"`.

@@ -51,7 +51,7 @@ function run(t, { scored = true } = {}) {
 
 // The fixture's story mentions a password (security), so its floor is full.
 const TRACK =
-  "track: full, raised from standard by its floor; floor full (red-domain: Security validation (input safety, tokens, auth) (in the story and the Analyst's context); at least one high-severity risk); full requires: the Gate 4 static scan exits 1 while any finding is open; every lowered failure severity needs a person to confirm it";
+  "track: full, raised from standard by its floor; floor full (red-domain: Security validation (input safety, tokens, auth) (in the story and the Analyst's context); at least one high-severity risk); full requires: the Gate 4 static scan exits 1 while any finding is open; every lowered failure severity needs a person to confirm it; on a Red-domain story, a scan finding answered wrong or intentional needs a reason";
 
 test('Gate 1 shows the word check, hidden text, the track and the risk scoring', (t) => {
   const { dir, ctx } = run(t);

@@ -32,6 +32,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 
 import { gateFiles } from './approval-binding.js';
 import { writeTextAtomic } from './artifact-io.js';
+import { dispositionSection } from './finding-dispositions.js';
 import { GATE_KEYS } from '../pipeline-state.js';
 
 /** @typedef {import('./approval-binding.js').Context} Context */
@@ -407,6 +408,7 @@ const short = (/** @type {string | null | undefined} */ d) =>
  *   captured: CapturedFile[],
  *   brief: string,
  *   scan?: string | null,
+ *   dispositions?: import('./finding-dispositions.js').DispositionRecord[],
  *   title?: string,
  * }} args
  * @returns {PreparedRecord}
@@ -424,6 +426,7 @@ export function prepareGateRecord({
   captured,
   brief,
   scan = null,
+  dispositions = [],
   title,
 }) {
   const step = GATE_STEP[gate];
@@ -540,6 +543,7 @@ export function prepareGateRecord({
       ''
     );
   }
+  lines.push(...dispositionSection(dispositions));
   lines.push('## Brief as shown', '', '```text', brief.trimEnd(), '```', '');
   if (scan) {
     lines.push(

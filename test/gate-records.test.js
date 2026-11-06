@@ -215,6 +215,35 @@ test('Gate 4 keeps the scan; repository and outside files keep only their digest
   assert.equal(cap.note, 'outside the run folder; digest only');
 });
 
+test('Gate 4 stores each scan finding’s answer in the record and in context.json', (t) => {
+  const { dir, ctx } = project(t);
+  const dispositions = [
+    {
+      rule: 'hard_wait',
+      line: 4,
+      test: 'x [TC-001]',
+      excerpt: 'await page.waitForTimeout(500);',
+      note: 'hard wait',
+      disposition: 'intentional',
+      reason: 'waits for the animation the story asks for',
+    },
+  ];
+  const r = decide(dir, ctx, 'gate4', 'code_reviewed', 'approved', {
+    scan: 'Gate-4 static scan — 1 finding',
+    dispositions,
+  });
+  assert.equal(r.ok, true, r.message);
+  assert.match(
+    read(dir, r.record),
+    /## Scan findings answered\n[\s\S]*\| \[hard_wait\]:4 \| x \[TC-001\] \| intentional \| waits for the animation the story asks for \|/
+  );
+  const saved = JSON.parse(read(dir, 'context.json'));
+  assert.deepEqual(
+    saved.gate_decisions.at(-1).finding_dispositions,
+    dispositions
+  );
+});
+
 test('the lite track records its consolidated gate under its own step name', (t) => {
   const { dir, ctx } = project(t);
   ctx.track = 'lite';
