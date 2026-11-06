@@ -715,3 +715,109 @@ test('the progress guard refuses the same step on unchanged state', () => {
     'a new step is progress'
   );
 });
+
+/**
+ * A stand-in Playwright CLI for the repeat check: it logs its arguments and
+ * writes a JSON report where one test passes in some runs and fails in others
+ * (or, with `stable`, passes in all of them).
+ */
+function fakeRepeat(dir, mode) {
+  const bin = join(dir, '.fakebin');
+  mkdirSync(bin, { recursive: true });
+  const js = join(bin, 'fake-repeat.mjs');
+  writeFileSync(
+    js,
+    `import { appendFileSync, writeFileSync } from 'node:fs';
+const args = process.argv.slice(2);
+appendFileSync('repeat-args.log', JSON.stringify(args) + '\\n');
+const n = Number(args[args.indexOf('--repeat-each') + 1]);
+const specs = Array.from({ length: n }, (_, i) => ({
+  title: 'checkout [TC-001]',
+  file: 'tests/OLD-1.spec.ts',
+  line: 3,
+  column: 1,
+  tests: [{ projectName: '', status: ${JSON.stringify(mode)} === 'stable' || i % 2 === 0 ? 'expected' : 'unexpected' }],
+}));
+writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE, JSON.stringify({ suites: [{ file: 'tests/OLD-1.spec.ts', specs }], errors: [] }));
+process.exit(1);
+`
+  );
+  return { ...process.env, QAIZEN_PLAYWRIGHT_CLI: js };
+}
+
+test('a flaky generated test stops the run before Gate 4, and Gate 4 will not open on it', () => {
+  const dir = repo();
+  try {
+    writeCompletedRun(dir, { status: 'in_progress' });
+    const ctxPath = join(dir, 'context.json');
+    const ctx = JSON.parse(readFileSync(ctxPath, 'utf8'));
+    ctx.review_gates.code_reviewed = false;
+    delete ctx.repeat_check;
+    writeFileSync(ctxPath, JSON.stringify(ctx, null, 2));
+
+    let r = pipeline(dir, ['--status']);
+    assert.match(r.out, /Next step: repeat/);
+
+    r = pipeline(dir, [], fakeRepeat(dir, 'flaky'));
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /The generated test is flaky/);
+    const args = JSON.parse(
+      readFileSync(join(dir, 'repeat-args.log'), 'utf8').trim()
+    );
+    // The fixture's criteria are about login (security), so the story is
+    // held to the full track: 20 runs.
+    assert.deepEqual(
+      args.slice(
+        args.indexOf('--repeat-each'),
+        args.indexOf('--repeat-each') + 2
+      ),
+      ['--repeat-each', '20']
+    );
+    assert.deepEqual(
+      args.slice(args.indexOf('--workers'), args.indexOf('--workers') + 2),
+      ['--workers', '2']
+    );
+    assert.deepEqual(
+      args.slice(
+        args.indexOf('--update-snapshots'),
+        args.indexOf('--update-snapshots') + 2
+      ),
+      ['--update-snapshots', 'none']
+    );
+    const saved = JSON.parse(readFileSync(ctxPath, 'utf8')).repeat_check;
+    assert.equal(saved.outcome, 'flaky');
+    assert.equal(saved.units[0].passed, 10);
+    assert.equal(saved.units[0].failed, 10);
+
+    // The record is current, so the run is at Gate 4, which refuses it.
+    r = pipeline(dir, ['--status']);
+    assert.match(r.out, /Next step: gate4/);
+    r = pipeline(dir, []);
+    assert.equal(r.code, 2, r.out);
+    assert.match(
+      r.out,
+      /repeat check: the generated test is flaky in the repeat check/
+    );
+    assert.doesNotMatch(r.out, /GATE PENDING/);
+
+    // A stable re-run lets Gate 4 open (pending here: no terminal).
+    r = pipeline(dir, ['--resume'], fakeRepeat(dir, 'stable'));
+    assert.match(
+      r.out,
+      /GATE PENDING: code_reviewed|Next step: gate4|cannot be reviewed yet/
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a run past Gate 4 never meets the repeat step', () => {
+  const dir = repo();
+  try {
+    writeCompletedRun(dir);
+    const r = pipeline(dir, ['--status']);
+    assert.doesNotMatch(r.out, /Next step: repeat/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

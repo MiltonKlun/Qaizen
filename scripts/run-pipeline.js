@@ -1553,8 +1553,9 @@ export function runRepeatCheck({
   const args = [
     ...pwArgs,
     // Playwright reads a file argument as a regular expression, so it is
-    // given relative to where Playwright runs, with forward slashes.
-    escapeRegExp(relative(cwd, resolve(testPath)).split(sep).join('/')),
+    // given relative to where Playwright runs, with forward slashes, and
+    // anchored so it names this file only.
+    `(^|/)${escapeRegExp(relative(cwd, resolve(testPath)).split(sep).join('/'))}$`,
     '--repeat-each',
     String(repeatEach),
     '--workers',
@@ -1563,6 +1564,10 @@ export function runRepeatCheck({
     'json',
     '--output',
     outputDir,
+    // A missing snapshot is a failure here, never a new baseline written
+    // into the Generator's tests/ (CLAUDE.md §3.2, §3.6).
+    '--update-snapshots',
+    'none',
   ];
   const run = spawnSync(process.execPath, [playwrightCli(runEnv), ...args], {
     cwd,
@@ -1585,7 +1590,9 @@ export function runRepeatCheck({
   if (!report || !summary.units.length)
     return {
       ok: false,
-      reason: `the repeat run exited ${run.status ?? `by signal ${run.signal}`} without a report of any test (${reportPath})`,
+      reason:
+        `the repeat run exited ${run.status ?? `by signal ${run.signal}`} without a report of any test (${reportPath})` +
+        (summary.errors.length ? `: ${summary.errors.join('; ')}` : ''),
     };
   return { ok: true, summary };
 }
@@ -1655,6 +1662,7 @@ function repeatStep(context) {
     report: REPEAT_REPORT,
     outcome: summary.outcome,
     units: summary.units,
+    ...(summary.errors.length ? { errors: summary.errors } : {}),
   };
   context.repeat_check = record;
   writeContext(context);

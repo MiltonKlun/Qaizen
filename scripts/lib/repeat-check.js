@@ -35,7 +35,7 @@ export const REPEAT_REPORT = 'reports/repeat/results.json';
  * @typedef {'stable' | 'failing' | 'flaky'} RepeatOutcome
  * @typedef {{ input_digest: string, track: string, repeat_each: number,
  *   workers: number, ran_at: string, report: string, outcome: RepeatOutcome,
- *   units: RepeatUnit[] }} RepeatRecord
+ *   units: RepeatUnit[], errors?: string[] }} RepeatRecord
  */
 
 /**
@@ -51,21 +51,33 @@ export function repeatCount(track) {
 
 /**
  * What happened to each test across the repetitions of one Playwright JSON
- * report, and the outcome for the whole run.
+ * report, and the outcome for the whole run. A test is named by its describe
+ * blocks and its own title, and told apart by where it is declared, so two
+ * tests with the same name in different blocks stay two tests. The report's
+ * own errors (a file that does not load, a global setup that fails) are kept.
  * @param {any} report parsed Playwright JSON report
- * @returns {{ units: RepeatUnit[], outcome: RepeatOutcome }}
+ * @returns {{ units: RepeatUnit[], outcome: RepeatOutcome, errors: string[] }}
  */
 export function summarizeRepeat(report) {
   /** @type {Map<string, RepeatUnit>} */
   const units = new Map();
-  /** @param {any} suite */
-  const walk = (suite) => {
+  /**
+   * @param {any} suite
+   * @param {string[]} titles the describe blocks around it
+   */
+  const walk = (suite, titles) => {
     for (const spec of suite?.specs ?? [])
       for (const t of spec.tests ?? []) {
         const file = String(spec.file ?? suite.file ?? '');
-        const title = String(spec.title ?? '');
+        const title = [...titles, String(spec.title ?? '')].join(' › ');
         const project = String(t.projectName ?? '');
-        const key = JSON.stringify([file, title, project]);
+        const key = JSON.stringify([
+          file,
+          title,
+          project,
+          spec.line ?? null,
+          spec.column ?? null,
+        ]);
         const u = units.get(key) ?? {
           file,
           title,
@@ -83,9 +95,11 @@ export function summarizeRepeat(report) {
         else u.skipped += 1;
         units.set(key, u);
       }
-    for (const child of suite?.suites ?? []) walk(child);
+    for (const child of suite?.suites ?? [])
+      walk(child, [...titles, String(child.title ?? '')]);
   };
-  for (const s of report?.suites ?? []) walk(s);
+  // A top-level suite is the file; its title is the file name, not a block.
+  for (const s of report?.suites ?? []) walk(s, []);
   const list = [...units.values()].sort(
     (a, b) => a.file.localeCompare(b.file) || a.title.localeCompare(b.title)
   );
@@ -97,7 +111,18 @@ export function summarizeRepeat(report) {
     : list.some((u) => u.failed > 0)
       ? 'failing'
       : 'stable';
-  return { units: list, outcome };
+  const errors = (Array.isArray(report?.errors) ? report.errors : [])
+    .map((/** @type {any} */ e) =>
+      String(e?.message ?? e ?? '')
+        // Playwright colours its error text; the ANSI escape is the match.
+        // eslint-disable-next-line no-control-regex
+        .replace(/\u001b\[[0-9;]*m/g, '')
+        .split(/\r?\n/)[0]
+        .trim()
+    )
+    .filter(Boolean)
+    .slice(0, 5);
+  return { units: list, outcome, errors };
 }
 
 /**
@@ -160,7 +185,25 @@ export function repeatBriefLine(s) {
     s.record.outcome === 'failing'
       ? ' (a test that fails every run points at the app or at the test: judge which)'
       : '';
-  return `${stale}${lines[0]}${failing}${lines.length > 1 ? `\n${lines.slice(1).join('\n')}` : ''}`;
+  // A test skipped every run, or an error Playwright reported, is said
+  // even when every test that ran passed.
+  const warnings = [
+    ...s.record.units
+      .filter((u) => u.passed + u.failed + u.flaky === 0)
+      .map(
+        (u) =>
+          `ATTENTION: ${u.title} was skipped in every run, so the check says nothing about it`
+      ),
+    ...(s.record.errors ?? []).map(
+      (e) => `ATTENTION: Playwright reported an error in the repeat run: ${e}`
+    ),
+  ];
+  const head = !stale && warnings.length ? 'ATTENTION: ' : stale;
+  return [
+    `${head}${lines[0]}${failing}`,
+    ...lines.slice(1),
+    ...warnings.map((w) => `  ${w}`),
+  ].join('\n');
 }
 
 /**

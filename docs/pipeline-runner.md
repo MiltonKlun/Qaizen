@@ -165,7 +165,7 @@ finishes or undoes it before doing anything else, deterministically:
 | **Guide**   | analyst, test-designer, planner, api, external-plan, generator, external-results, no-executable-scope, finalize, report | **You + the agent.** The runner prints the exact instruction and exits; it never fakes an LLM step.                                                                                                               |
 | **Gate**    | gate1, gate2, gate3, gate4, gate3-api, gate4-api, gate3-ext, gate4-ext                                                  | **You, interactively.** Brief rendered, decision captured, audit + telemetry written.                                                                                                                             |
 | **Confirm** | confirm-downgrades                                                                                                      | **You, interactively.** Each severity the analysis lowered is shown with its reason; a confirmation is recorded in `downgrade_confirmations[]`, bound to the analysis. Not a fifth gate (`docs/review-gates.md`). |
-| **Exec**    | execute, execute-api, classify                                                                                          | **The runner.** Deterministic: `npx playwright test`, `run-newman.js`, then `normalize-results.js` → the classifier.                                                                                              |
+| **Exec**    | repeat, execute, execute-api, classify                                                                                  | **The runner.** Deterministic: the repeat check before Gate 4 (`playwright test --repeat-each`), `npx playwright test`, `run-newman.js`, then `normalize-results.js` → the classifier.                            |
 
 ### Each agent step runs with only its MCP servers
 
@@ -570,7 +570,9 @@ demo fails CI.
 > `PIPELINE_PW_CONFIG` is refused anywhere but a demo workspace (one holding a
 > `DEMO_RUN` marker): in a real run another config would be another execution. The
 > marker is a convention, not a lock; whichever config runs is recorded, with
-> its digest, in `execution_identity` and the ledger.
+> its digest, in `execution_identity` and the ledger. `QAIZEN_REPEAT_EACH`
+> lowers the repeat check's run count (the demo uses 3), and is refused
+> anywhere but a demo workspace too.
 
 ## 8. References
 

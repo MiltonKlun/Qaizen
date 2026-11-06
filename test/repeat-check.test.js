@@ -3,7 +3,7 @@
 // fails in another is flaky, which stops the run before Gate 4.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { removeTempDir } from './helpers/cleanup.js';
@@ -93,7 +93,11 @@ test('each test is judged across its repetitions: stable, failing or flaky', () 
     ).outcome,
     'flaky'
   );
-  assert.deepEqual(summarizeRepeat(null), { units: [], outcome: 'stable' });
+  assert.deepEqual(summarizeRepeat(null), {
+    units: [],
+    outcome: 'stable',
+    errors: [],
+  });
 });
 
 const record = (outcome, digest = 'a'.repeat(64)) => ({
@@ -206,4 +210,132 @@ test('a deliberately flaky test is caught by a real repeat run; a stable one is 
     JSON.parse(readFileSync(join(dir, 'out', 'flaky.spec.ts.json'), 'utf8'))
       .suites.length
   );
+});
+
+test('tests with the same name in different describe blocks stay two tests', () => {
+  const r = summarizeRepeat({
+    suites: [
+      {
+        title: 'a.spec.ts',
+        file: 'a.spec.ts',
+        suites: ['A', 'B'].flatMap((block, k) => [
+          {
+            title: block,
+            file: 'a.spec.ts',
+            specs: [1, 2].map(() => ({
+              title: 'works',
+              file: 'a.spec.ts',
+              line: 3 + k * 5,
+              column: 3,
+              tests: [
+                {
+                  projectName: '',
+                  status: k === 0 ? 'expected' : 'unexpected',
+                },
+              ],
+            })),
+          },
+        ]),
+      },
+    ],
+  });
+  assert.deepEqual(
+    r.units.map((u) => [u.title, u.passed, u.failed]),
+    [
+      ['A › works', 2, 0],
+      ['B › works', 0, 2],
+    ]
+  );
+  assert.equal(r.outcome, 'failing');
+});
+
+test('a test skipped every run and an error Playwright reported are said in the brief', () => {
+  const r = summarizeRepeat({
+    errors: [
+      {
+        message:
+          '\u001b[31mError: global setup failed\u001b[39m\n    at setup.ts:3',
+      },
+    ],
+    suites: [
+      {
+        file: 'a.spec.ts',
+        specs: [
+          {
+            title: 'skipped',
+            file: 'a.spec.ts',
+            tests: [{ status: 'skipped' }],
+          },
+          { title: 'ok', file: 'a.spec.ts', tests: [{ status: 'expected' }] },
+        ],
+      },
+    ],
+  });
+  assert.deepEqual(r.errors, ['Error: global setup failed']);
+  const line = repeatBriefLine(
+    repeatState(
+      {
+        repeat_check: {
+          ...record('stable'),
+          units: r.units,
+          outcome: r.outcome,
+          errors: r.errors,
+        },
+      },
+      'a'.repeat(64)
+    )
+  );
+  assert.match(line, /^ATTENTION: repeat check: .*: stable/);
+  assert.match(line, /ATTENTION: skipped was skipped in every run/);
+  assert.match(
+    line,
+    /ATTENTION: Playwright reported an error in the repeat run: Error: global setup failed/
+  );
+});
+
+test('a missing snapshot fails the repeat run and writes no baseline into the test folder', (t) => {
+  const dir = mkdtempSync(join(REPO, '.tmp-repeat-snap-'));
+  t.after(() => removeTempDir(dir));
+  writeFileSync(
+    join(dir, 'pw.config.ts'),
+    "import { defineConfig } from '@playwright/test';\nexport default defineConfig({ testDir: '.' });\n"
+  );
+  writeFileSync(
+    join(dir, 'snap.spec.ts'),
+    "import { test, expect } from '@playwright/test';\ntest('snap [TC-001]', async () => {\n  expect('value').toMatchSnapshot('v.txt');\n});\n"
+  );
+  const r = runRepeatCheck({
+    cwd: REPO,
+    pwArgs: ['test', '--config', join(dir, 'pw.config.ts')],
+    testPath: join(dir, 'snap.spec.ts'),
+    repeatEach: 3,
+    reportPath: join(dir, 'out', 'r.json'),
+    outputDir: join(dir, 'out', 'test-results'),
+  });
+  assert.ok(r.ok, !r.ok ? r.reason : '');
+  assert.equal(r.ok && r.summary.outcome, 'failing');
+  assert.equal(existsSync(join(dir, 'snap.spec.ts-snapshots')), false);
+});
+
+test('a file that does not load is an execution error that names the cause', (t) => {
+  const dir = mkdtempSync(join(REPO, '.tmp-repeat-err-'));
+  t.after(() => removeTempDir(dir));
+  writeFileSync(
+    join(dir, 'pw.config.ts'),
+    "import { defineConfig } from '@playwright/test';\nexport default defineConfig({ testDir: '.' });\n"
+  );
+  writeFileSync(
+    join(dir, 'broken.spec.ts'),
+    "import { test } from '@playwright/test';\ntest('x', async () => {\n"
+  );
+  const r = runRepeatCheck({
+    cwd: REPO,
+    pwArgs: ['test', '--config', join(dir, 'pw.config.ts')],
+    testPath: join(dir, 'broken.spec.ts'),
+    repeatEach: 2,
+    reportPath: join(dir, 'out', 'r.json'),
+    outputDir: join(dir, 'out', 'test-results'),
+  });
+  assert.equal(r.ok, false);
+  assert.match(!r.ok ? r.reason : '', /without a report of any test .*: .+/);
 });

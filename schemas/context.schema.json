@@ -651,6 +651,12 @@
         "ran_at": { "type": "string" },
         "report": { "type": "string" },
         "outcome": { "type": "string", "enum": ["stable", "failing", "flaky"] },
+        "errors": {
+          "type": "array",
+          "description": "OPTIONAL. The first line of each error Playwright reported for the run as a whole (a file that did not load, a failing global setup), at most five.",
+          "maxItems": 5,
+          "items": { "type": "string" }
+        },
         "units": {
           "type": "array",
           "items": {
