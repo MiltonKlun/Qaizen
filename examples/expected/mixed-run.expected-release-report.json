@@ -140,7 +140,7 @@
   ],
   "evidence_paths": [
     "reports/html",
-    "reports/traces",
+    "reports/test-results",
     "analysis/failure-analysis.json"
   ],
   "open_questions": [

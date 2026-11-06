@@ -17,16 +17,17 @@ context exists is recorded here as **Proposed**, with a `blocking` flag, and
 work that depends on it stops until the maintainer decides. Once decided, the
 record moves to **Accepted** and states the decision.
 
-| ID  | Decision                                                          | Status   |
-| --- | ----------------------------------------------------------------- | -------- |
-| D1  | Playwright agent definitions are regenerated, not versioned       | Accepted |
-| D2  | The Native Agents use the `playwright-test` MCP server            | Accepted |
-| D3  | The API branch targets reqres.in                                  | Accepted |
-| D4  | The Postman MCP package is `@postman/postman-mcp-server`          | Accepted |
-| D5  | reqres.in requests carry an API key from the environment          | Accepted |
-| D6  | Test management is a port with adapters, not a hardcoded TestLink | Accepted |
-| D7  | TestLink sync runs through XML-RPC, not the TestLink MCP bridge   | Accepted |
-| D8  | No n8n: the repository and GitHub Actions orchestrate             | Accepted |
+| ID  | Decision                                                          | Status                  |
+| --- | ----------------------------------------------------------------- | ----------------------- |
+| D1  | Playwright agent definitions are regenerated, not versioned       | Accepted                |
+| D2  | The Native Agents use the `playwright-test` MCP server            | Accepted                |
+| D3  | The API branch targets reqres.in                                  | Accepted                |
+| D4  | The Postman MCP package is `@postman/postman-mcp-server`          | Accepted                |
+| D5  | reqres.in requests carry an API key from the environment          | Accepted                |
+| D6  | Test management is a port with adapters, not a hardcoded TestLink | Accepted                |
+| D7  | TestLink sync runs through XML-RPC, not the TestLink MCP bridge   | Accepted                |
+| D8  | No n8n: the repository and GitHub Actions orchestrate             | Accepted                |
+| D9  | CI keeps traces on the runner instead of masking them             | Proposed (not blocking) |
 
 ---
 
@@ -208,3 +209,28 @@ dashboard, a database or a queue requires explicit human approval
 service. Reconsider only if the pipeline must notify across teams (Slack to
 product, email to stakeholders, CRM sync), expose its workflows as tools to
 non-technical systems, or let non-developers edit the flow visually.
+
+---
+
+## D9 — CI keeps traces on the runner instead of masking them
+
+**Status.** Proposed, not blocking: the behavior below is in place, and the
+maintainer accepts it or chooses otherwise.
+
+**Context.** In CI a failing test keeps its traces, its retry included
+(`trace: 'retain-on-failure-and-retries'`), so a CI failure can be
+debugged. A trace holds what the test typed. The intent was to keep such
+traces with sensitive values masked. Playwright 1.60 has no option to mask
+values in a trace: the trace option takes only `mode`, `snapshots`,
+`screenshots`, `sources` and `attachments`, and the automatic failure
+screenshot cannot be masked either. The HTML report copies every trace into
+its own folder.
+
+**Decision.** CI uploads `reports/results.json` only, which names
+attachments by path without their contents. Traces, failure screenshots and
+the HTML report stay on the runner (`docs/security-and-data-safety.md` §4).
+
+**Consequences.** Nothing a test typed leaves CI. Debugging a CI-only
+failure needs a local reproduction or a deliberate, restricted upload.
+Reconsider when Playwright can mask trace values, or if a sanitizer that
+scrubs trace archives before upload is worth building.

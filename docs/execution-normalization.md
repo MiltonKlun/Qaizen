@@ -125,6 +125,16 @@ Approved-case coverage is tracked separately from unit totals:
 `unit_pass_rate` is `null` for zero units. Not `0`, not `1` — "we ran nothing"
 is not a pass rate.
 
+### The repeat check beside the execution
+
+When the run recorded a repeat check before Gate 4 (`context.json`
+`repeat_check`, `docs/review-gates.md`), the runner passes it with
+`--repeat-check`, next to the Playwright identity, and the ledger keeps it as
+`repeat_check`. It is refused unless its `input_digest` is the Gate 4
+approval digest the execution ran under, so a ledger never pairs one
+execution with another code's repeat check. A test stable over ten repeats
+can still flake later; the ledger shows both.
+
 ### What the reports downstream carry
 
 The failure analysis (2.x) and the release report (2.0) keep the flat

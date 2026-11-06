@@ -44,8 +44,8 @@ export function runContext({
       generated_test: `tests/${storyId}.spec.ts`,
       execution_results: 'reports/results.json',
       html_report: 'reports/html',
-      traces: 'reports/traces',
-      screenshots: 'reports/screenshots',
+      traces: 'reports/test-results',
+      screenshots: 'reports/test-results',
       failure_analysis: 'analysis/failure-analysis.json',
       release_report_md: 'release/release-report.md',
       release_report_json: 'release/release-report.json',
@@ -214,6 +214,12 @@ export function writeCompletedRun(dir, opts = {}, overrides = {}) {
         (/** @type {any} */ s) => s.runner === 'playwright'
       );
       if (pw) pw.config_identity = identity;
+      // The repeat check ran against this run's Gate 4 approval, or not at all.
+      if (ledger.repeat_check) {
+        if (identity.gate_digest)
+          ledger.repeat_check.input_digest = identity.gate_digest;
+        else delete ledger.repeat_check;
+      }
       write('analysis/execution-ledger.json', JSON.stringify(ledger));
     }
   }

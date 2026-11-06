@@ -370,6 +370,68 @@ test('the ledger keeps the identity the execute step recorded for the Playwright
   assert.match(r.out, /is not the report its identity names/);
 });
 
+test('the ledger keeps the repeat check that ran against the executed Gate 4 approval', () => {
+  const w = workspace();
+  const gate = 'c'.repeat(64);
+  const identity = {
+    execution_id: 'exec-pw-0a1b2c3d',
+    recorded_at: '2026-11-02T10:00:00Z',
+    report_path: 'results.json',
+    report_sha256: createHash('sha256')
+      .update(readFileSync(join(w, 'results.json')))
+      .digest('hex'),
+    config_path: 'playwright.config.ts',
+    config_sha256: null,
+    base_url: 'http://127.0.0.1:4173',
+    app_build: 'unknown',
+    gate_digest: gate,
+  };
+  const repeat = {
+    input_digest: gate,
+    track: 'standard',
+    repeat_each: 10,
+    workers: 2,
+    ran_at: '2026-11-02T09:50:00Z',
+    report: 'reports/repeat/results.json',
+    outcome: 'stable',
+    units: [
+      {
+        file: 'tests/STORY-042.spec.ts',
+        title: 'checkout [TC-001]',
+        project: 'chromium',
+        runs: 10,
+        passed: 10,
+        failed: 0,
+        flaky: 0,
+        skipped: 0,
+      },
+    ],
+  };
+  const args = (r) => [
+    '--playwright-identity',
+    JSON.stringify(identity),
+    '--repeat-check',
+    JSON.stringify(r),
+  ];
+  assert.equal(normalize(w, args(repeat)).code, 0);
+  const ledger = JSON.parse(
+    readFileSync(join(w, 'analysis', 'execution-ledger.json'), 'utf8')
+  );
+  assert.deepEqual(ledger.repeat_check, repeat);
+
+  // Another code's repeat check is refused, not recorded.
+  const other = normalize(w, args({ ...repeat, input_digest: 'd'.repeat(64) }));
+  assert.equal(other.code, 2);
+  assert.match(other.out, /ran against other inputs than the Gate 4 approval/);
+  // And it needs the identity it is checked against.
+  const alone = normalize(w, ['--repeat-check', JSON.stringify(repeat)]);
+  assert.equal(alone.code, 2);
+  assert.match(
+    alone.out,
+    /--repeat-check goes with --playwright and --playwright-identity/
+  );
+});
+
 test('the CLI writes a schema-valid v2 DRAFT with every failure preserved', () => {
   const w = workspace();
   assert.equal(normalize(w).code, 0);
