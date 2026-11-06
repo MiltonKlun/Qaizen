@@ -20,6 +20,9 @@
 // Usage:
 //   node scripts/normalize-results.js --story QA-1042 \
 //     [--playwright reports/results.json] \
+//     [--playwright-identity <json>]  what the execute step recorded
+//     [--repeat-check <json>]        the repeat check before Gate 4 (needs
+//                                    the identity, and must match its Gate 4)
 //     [--execution <execution-id>]   every Newman report for this story in
 //                                    that execution
 //     [--newman <report.json> ...]   repeatable; explicit reports
@@ -266,7 +269,8 @@ function usage(message) {
   if (message) console.error(`Error: ${message}`);
   console.error(
     'Usage: node scripts/normalize-results.js --story <STORY-ID> ' +
-      '[--playwright <report.json>] [--execution <id>] [--newman <report.json> ...] ' +
+      '[--playwright <report.json> [--playwright-identity <json> [--repeat-check <json>]]] ' +
+      '[--execution <id>] [--newman <report.json> ...] ' +
       '[--out <ledger.json>] [--run-id <id>] [--mapping <file>] [--test-cases <file>] ' +
       '[--external-plan <file>] [--external-results <file>]'
   );
@@ -418,6 +422,30 @@ export function main(args = argv.slice(2)) {
     if (actual !== pwIdentity?.report_sha256) {
       console.error(
         `Error: ${pwPath} is not the report its identity names (digest mismatch); re-run the execute step.`
+      );
+      return 2;
+    }
+  }
+
+  // The repeat check the runner ran before Gate 4
+  // (scripts/lib/repeat-check.js): kept in the ledger beside the execution.
+  // It must have run against the inputs the executed Gate 4 approval bound.
+  /** @type {any} */
+  let repeatCheck = null;
+  if (flags['repeat-check']) {
+    try {
+      repeatCheck = JSON.parse(flags['repeat-check']);
+    } catch {
+      usage('--repeat-check is not valid JSON');
+      return 2;
+    }
+    if (!pwIdentity) {
+      usage('--repeat-check goes with --playwright and --playwright-identity');
+      return 2;
+    }
+    if (repeatCheck?.input_digest !== pwIdentity.gate_digest) {
+      console.error(
+        'Error: the repeat check ran against other inputs than the Gate 4 approval this execution ran under; re-run the repeat check.'
       );
       return 2;
     }
@@ -597,6 +625,7 @@ export function main(args = argv.slice(2)) {
     approvedCaseIds,
     mapping,
     approvedScopeDigest: scopeDigest,
+    repeatCheck,
   });
 
   const inv = ledgerInvariants(ledger);

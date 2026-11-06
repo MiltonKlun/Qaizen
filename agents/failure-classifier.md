@@ -10,9 +10,12 @@ description: |
   does not own that path.
 phase_introduced: 1
 phase_active: 1+
-version: 2.4.2
+version: 2.4.3
 changed_in_run: null
 changelog: |
+  - 2.4.3: PATCH (no output change). The execution ledger may carry
+    repeat_check, the repeat run before Gate 4; classification does not
+    read it.
   - 2.4.2: PATCH (pointer only). The Red-domain keywords moved from
     scripts/red-domains.js to config/red-domains.json; the instruction is
     unchanged.

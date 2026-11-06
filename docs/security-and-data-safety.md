@@ -80,16 +80,30 @@ testing, traceable to no real person.
 
 ## 4. Traces, screenshots, and video
 
-Playwright capture is configured conservatively in `playwright.config.ts`:
+Playwright capture is configured in `playwright.config.ts`, and differs in
+CI:
 
 ```ts
+outputDir: 'reports/test-results',
+retries: CI ? 1 : 0,
+failOnFlakyTests: CI,
 use: {
-  trace: 'on-first-retry',
+  trace: CI ? 'retain-on-failure-and-retries' : 'on-first-retry',
   screenshot: 'only-on-failure',
 }
 ```
 
-So nothing is captured on a green run, and traces only on a retry. But **a
+Locally nothing is captured on a green run, and traces only on a retry. In
+CI every attempt is traced and the traces of a failing test are kept, its
+retry included, so a CI failure can be debugged; a test that passes only on
+its retry fails the run (`failOnFlakyTests`). Traces and failure screenshots
+land in `reports/test-results/`, the path the runner records as
+`artifact_paths.traces` and `.screenshots`.
+
+**Traces are never published.** Playwright 1.60 has no option to mask typed
+values in a trace (masking exists only for screenshot assertions), so CI keeps
+the risk on the runner: it uploads `reports/results.json` only, never
+`reports/test-results/` or the HTML report, which embeds the traces. But **a
 trace or screenshot of a login flow records the credentials that were typed** —
 even synthetic ones, and certainly any real one if the rules above were
 violated. Treat every captured artifact as sensitive:
@@ -98,10 +112,9 @@ violated. Treat every captured artifact as sensitive:
   gitignored (and `runs/**/reports|traces|screenshots/` for archived runs).
   They live as CI artifacts with a retention window, not in history.
 - **They are secret-bearing in CI.** A trace uploaded as a build artifact is
-  downloadable by anyone with repo access. Because we drive synthetic logins,
-  this is acceptable for the demo target — but if the pipeline is pointed at an
-  app where the typed values are sensitive, **mask the inputs or restrict the
-  artifact**.
+  downloadable by anyone with repo access, which is why CI uploads none. If
+  you change the workflow to upload them for debugging, do it only for a
+  target whose typed values are synthetic, or restrict the artifact.
 - **Reducing what gets captured:**
   - Lower capture: `trace: 'off'` / `screenshot: 'off'` for a suite that drives
     a sensitive app, accepting the loss of debug evidence.

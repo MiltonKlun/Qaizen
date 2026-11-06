@@ -541,7 +541,10 @@ records both the classification and the severity:
   "classification": "product_bug",
   "severity": "red",
   "error_message": "expected 40, got 42",
-  "evidence_paths": ["reports/traces/...zip", "reports/screenshots/..."],
+  "evidence_paths": [
+    "reports/test-results/.../trace.zip",
+    "reports/test-results/.../test-failed-1.png",
+  ],
   "bug_draft_path": "release/bug-drafts/BUG-001.md",
 }
 ```

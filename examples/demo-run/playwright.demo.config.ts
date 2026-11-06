@@ -21,6 +21,9 @@ const reportDir = process.env.PIPELINE_REPORT_DIR || join(here, 'reports');
 
 export default defineConfig({
   testDir: join(here, 'tests'),
+  // Traces and failure screenshots: the workspace's reports/test-results,
+  // the path the runner records, as with the root config.
+  outputDir: join(reportDir, 'test-results'),
   // One worker + no retries: deterministic order, deterministic FAIL-001.
   workers: 1,
   retries: 0,

@@ -667,8 +667,8 @@ fixture, config or lock runs it again, and Gate 4 does not open on a
 missing, outdated or flaky record. The brief shows it, with any test skipped
 in every run and any error Playwright reported. The run passes
 `--update-snapshots none`, so a missing snapshot is a failure, never a new
-baseline. The result is in `context.json` only for now; the execution
-ledger and the trace and screenshot paths do not carry it yet.
+baseline. The execution ledger carries the result too
+(`docs/execution-normalization.md`).
 
 **Inputs the reviewer reads:**
 

@@ -226,6 +226,47 @@
       "reason": "request never executed; zero business assertions"
     }
   ],
+  "repeat_check": {
+    "input_digest": "9a8b7c6d5e4f30211203f4e5d6c7b8a99a8b7c6d5e4f30211203f4e5d6c7b8a9",
+    "track": "standard",
+    "repeat_each": 10,
+    "workers": 2,
+    "ran_at": "2026-09-21T09:40:00.000Z",
+    "report": "reports/repeat/results.json",
+    "outcome": "stable",
+    "units": [
+      {
+        "file": "e2e/STORY-020.spec.ts",
+        "title": "cart badge clears after finish",
+        "project": "chromium",
+        "runs": 10,
+        "passed": 10,
+        "failed": 0,
+        "flaky": 0,
+        "skipped": 0
+      },
+      {
+        "file": "e2e/STORY-020.spec.ts",
+        "title": "checkout overview shows the correct item total",
+        "project": "chromium",
+        "runs": 10,
+        "passed": 10,
+        "failed": 0,
+        "flaky": 0,
+        "skipped": 0
+      },
+      {
+        "file": "e2e/STORY-020.spec.ts",
+        "title": "total equals item total plus tax",
+        "project": "chromium",
+        "runs": 10,
+        "passed": 10,
+        "failed": 0,
+        "flaky": 0,
+        "skipped": 0
+      }
+    ]
+  },
   "totals": {
     "units": 6,
     "passed": 2,

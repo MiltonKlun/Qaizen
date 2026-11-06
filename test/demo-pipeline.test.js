@@ -214,6 +214,16 @@ test('the demo completes: real run, finalized Red analysis, BUG-001, a 2.0 repor
   assert.equal(repeat.repeat_each, 3);
   assert.equal(repeat.workers, 2);
   assert.ok(repeat.units.every((u) => u.runs === 3));
+  // The ledger keeps it beside the execution it ran before, and the recorded
+  // trace and screenshot path is where Playwright writes them.
+  assert.deepEqual(
+    readJson(join(ws, 'analysis', 'execution-ledger.json')).repeat_check,
+    repeat
+  );
+  const paths = readJson(join(ws, 'context.json')).artifact_paths;
+  assert.equal(paths.traces, 'reports/test-results');
+  assert.equal(paths.screenshots, 'reports/test-results');
+  assert.ok(existsSync(join(ws, 'reports', 'test-results')));
 
   const fa = readJson(join(ws, 'analysis', 'failure-analysis.json'));
   assert.equal(fa.status, 'finalized');

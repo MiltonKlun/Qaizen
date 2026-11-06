@@ -89,7 +89,7 @@ const UNTRUSTWORTHY = new Set(['errored', 'interrupted', 'not_started']);
  * @typedef {{ schema_version: string, run_id: string, story_id: string,
  *   generated_at: string, approved_scope_digest?: string | null,
  *   source_executions: SourceExecution[], units: Unit[],
- *   case_outcomes?: CaseOutcome[], totals: Totals }} Ledger
+ *   case_outcomes?: CaseOutcome[], totals: Totals, repeat_check?: any }} Ledger
  * @typedef {{ test_case_id: string, automation_decision: string,
  *   status: string, [field: string]: any }} TestCase
  * @typedef {{ story_id: string, test_cases?: TestCase[] }} TestCasesDoc
