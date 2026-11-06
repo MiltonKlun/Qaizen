@@ -16,12 +16,16 @@
 //   Gate 2   every criterion and risk has an approved case; the mix of test
 //            design techniques behind the cases
 //   lite     both (the consolidated gate reviews Gates 1 and 2 together)
+//   Gate 4   the repeat check: how each test fared over N runs of the same
+//            code (repeat-check.js)
 
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { readValidatedJson } from './artifact-io.js';
+import { gateDigest } from './approval-binding.js';
+import { repeatBriefLine, repeatState } from './repeat-check.js';
 import { compareCriteria, criteriaLines } from './criteria-check.js';
 import { techniqueLine, techniqueSummary } from './case-decisions.js';
 import { hiddenText, hiddenTextLine } from './hidden-text.js';
@@ -105,6 +109,13 @@ export function briefChecks(step, context, root = '.') {
         checks.push(techniqueLine(techniqueSummary(read.data)));
       }
     }
+  }
+  if (step === 'gate4') {
+    checks.push(
+      repeatBriefLine(
+        repeatState(context, gateDigest('code_reviewed', context, root))
+      )
+    );
   }
   return checks;
 }

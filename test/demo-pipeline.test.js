@@ -142,6 +142,7 @@ test('the demo completes: real run, finalized Red analysis, BUG-001, a 2.0 repor
     ...process.env,
     BASE_URL: `http://127.0.0.1:${port}`,
     PIPELINE_PW_CONFIG: join(DEMO_FIXTURES, 'playwright.demo.config.ts'),
+    QAIZEN_REPEAT_EACH: '3',
   };
   const run = (arg) =>
     spawnSync(execPath, [RUNNER, arg], {
@@ -205,6 +206,14 @@ test('the demo completes: real run, finalized Red analysis, BUG-001, a 2.0 repor
 
   const done = run('--resume');
   assert.equal(done.status, 0, done.stdout + done.stderr);
+
+  // The repeat check ran before Gate 4, as an exec step right after the
+  // generator: the demo's planted bug fails every run, which is not flaky.
+  const repeat = readJson(join(ws, 'context.json')).repeat_check;
+  assert.equal(repeat.outcome, 'failing');
+  assert.equal(repeat.repeat_each, 3);
+  assert.equal(repeat.workers, 2);
+  assert.ok(repeat.units.every((u) => u.runs === 3));
 
   const fa = readJson(join(ws, 'analysis', 'failure-analysis.json'));
   assert.equal(fa.status, 'finalized');

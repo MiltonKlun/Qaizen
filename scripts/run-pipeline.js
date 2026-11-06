@@ -37,12 +37,12 @@
 // Exit codes: 0 ok / step instruction printed · 1 gate pending (non-TTY),
 //   gate rejected, or blocked · 2 usage/validation/safety error
 
-import { readFileSync, existsSync, rmSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
 import { argv, env, exit, stdin, stdout } from 'node:process';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { createHash } from 'node:crypto';
 import {
   nextStep,
@@ -84,6 +84,15 @@ import {
   resolveGate,
 } from './lib/gate-history.js';
 import { effectiveTrack } from './track-floor.js';
+import {
+  REPEAT_REPORT,
+  REPEAT_WORKERS,
+  repeatCount,
+  repeatLines,
+  repeatProblem,
+  repeatState,
+  summarizeRepeat,
+} from './lib/repeat-check.js';
 import {
   approvalAllowed,
   needsReason,
@@ -388,6 +397,15 @@ function gatherHints(context) {
   if (paths.playwright_spec) hints.specExists = check('playwright_spec').ok;
   if (paths.generated_test)
     hints.generatedTestExists = check('generated_test').ok;
+  // Before Gate 4, the generated test is run many times; the record holds
+  // only while the Gate 4 inputs are what it ran against.
+  if (
+    hints.generatedTestExists &&
+    !gatePassed(context.review_gates?.code_reviewed)
+  )
+    hints.repeatCurrent =
+      repeatState(context, gateDigest('code_reviewed', context, '.')).state ===
+      'current';
   if (paths.execution_results)
     hints.executionResultsExist = check('execution_results').ok;
 
@@ -1470,7 +1488,185 @@ function gateInputProblems(step, context) {
       }
     }
   }
+  // Gate 4 opens only on a repeat check that ran against exactly these
+  // inputs and found no flaky test (scripts/lib/repeat-check.js).
+  if (step === 'gate4') {
+    const p = repeatProblem(
+      repeatState(context, gateDigest('code_reviewed', context, '.'))
+    );
+    if (p) problems.push(`repeat check: ${p}`);
+  }
   return problems;
+}
+
+/**
+ * The Playwright config a run may use, and where Playwright runs. Only the
+ * demo, in its own workspace marked by the DEMO_RUN sentinel
+ * (scripts/demo-pipeline.js), may point Playwright elsewhere; in a real run
+ * another config would let evidence of other tests stand for the approved
+ * ones. Exits on a refused config.
+ * @returns {{ pwArgs: string[], customConfig: string | undefined, cwd: string,
+ *   reportDir: string }}
+ */
+function playwrightSetup() {
+  const pwArgs = ['test'];
+  const customConfig = env.PIPELINE_PW_CONFIG;
+  if (customConfig && !existsSync(DEMO_RUN_SENTINEL)) {
+    console.error(
+      'PIPELINE_PW_CONFIG is honoured only in the demo workspace (marked by a DEMO_RUN file). ' +
+        'Unset it and run again; the run executes with playwright.config.ts.'
+    );
+    exit(2);
+  }
+  if (customConfig) pwArgs.push('--config', customConfig);
+  // Playwright resolves @playwright/test from its cwd upward, so a custom
+  // config runs from the repository and writes its reports back here.
+  const cwd = customConfig ? REPO_DIR : process.cwd();
+  const reportDir = customConfig ? join(process.cwd(), 'reports') : 'reports';
+  return { pwArgs, customConfig, cwd, reportDir };
+}
+
+/** @param {string} s */
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Run one test file repeatEach times on REPEAT_WORKERS workers with
+ * Playwright's JSON reporter, and summarize each test across the runs. It
+ * writes only the report and Playwright's output folder, and never exits.
+ * @param {{ cwd: string, pwArgs: string[], testPath: string,
+ *   repeatEach: number, reportPath: string, outputDir: string,
+ *   runEnv?: NodeJS.ProcessEnv }} args
+ * @returns {{ ok: true, summary: ReturnType<typeof summarizeRepeat> } |
+ *   { ok: false, reason: string }}
+ */
+export function runRepeatCheck({
+  cwd,
+  pwArgs,
+  testPath,
+  repeatEach,
+  reportPath,
+  outputDir,
+  runEnv = env,
+}) {
+  rmSync(reportPath, { force: true });
+  mkdirSync(dirname(reportPath), { recursive: true });
+  const args = [
+    ...pwArgs,
+    // Playwright reads a file argument as a regular expression, so it is
+    // given relative to where Playwright runs, with forward slashes.
+    escapeRegExp(relative(cwd, resolve(testPath)).split(sep).join('/')),
+    '--repeat-each',
+    String(repeatEach),
+    '--workers',
+    String(REPEAT_WORKERS),
+    '--reporter',
+    'json',
+    '--output',
+    outputDir,
+  ];
+  const run = spawnSync(process.execPath, [playwrightCli(runEnv), ...args], {
+    cwd,
+    stdio: ['ignore', 'ignore', 'inherit'],
+    env: { ...runEnv, PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath },
+  });
+  if (run.error)
+    return {
+      ok: false,
+      reason: `could not launch the test runner (${run.error.message})`,
+    };
+  /** @type {any} */
+  let report = null;
+  try {
+    report = JSON.parse(readFileSync(reportPath, 'utf8'));
+  } catch {
+    report = null;
+  }
+  const summary = summarizeRepeat(report);
+  if (!report || !summary.units.length)
+    return {
+      ok: false,
+      reason: `the repeat run exited ${run.status ?? `by signal ${run.signal}`} without a report of any test (${reportPath})`,
+    };
+  return { ok: true, summary };
+}
+
+/**
+ * Run the generated test N times before Gate 4 and record what happened
+ * (scripts/lib/repeat-check.js). A flaky result stops the run.
+ * @param {Context} context
+ * @returns {boolean} handled
+ */
+function repeatStep(context) {
+  const { pwArgs, cwd } = playwrightSetup();
+  const storyFile = context.story?.path || 'story.md';
+  const { track } = effectiveTrack(
+    context,
+    existsSync(storyFile) ? readFileSync(storyFile, 'utf8') : null
+  );
+  let repeatEach = repeatCount(track);
+  // The demo may run fewer repetitions, in its own workspace only.
+  const demoCount = Number(env.QAIZEN_REPEAT_EACH);
+  if (env.QAIZEN_REPEAT_EACH !== undefined) {
+    if (
+      !existsSync(DEMO_RUN_SENTINEL) ||
+      !Number.isInteger(demoCount) ||
+      demoCount < 2
+    ) {
+      console.error(
+        'QAIZEN_REPEAT_EACH is honoured only in the demo workspace (marked by a DEMO_RUN file), as a whole number of at least 2. Unset it and run again.'
+      );
+      exit(2);
+    }
+    repeatEach = demoCount;
+  }
+  const testPath = context.artifact_paths?.generated_test;
+  if (!testPath || !existsSync(testPath)) {
+    console.error(
+      `The generated test ${testPath ?? '(none)'} does not exist; stopping.`
+    );
+    exit(2);
+  }
+  const inputDigest = gateDigest('code_reviewed', context, '.');
+  console.log(
+    `Repeat check: ${testPath}, ${repeatEach} run(s) of each test on ${REPEAT_WORKERS} workers (${track} track).`
+  );
+  const ran = runRepeatCheck({
+    cwd,
+    pwArgs,
+    testPath,
+    repeatEach,
+    reportPath: resolve(REPEAT_REPORT),
+    outputDir: resolve('reports/repeat/test-results'),
+  });
+  if (!ran.ok) {
+    console.error(
+      `${ran.reason}; this is an execution error, not a result. Stopping.`
+    );
+    exit(2);
+  }
+  const summary = ran.summary;
+  /** @type {import('./lib/repeat-check.js').RepeatRecord} */
+  const record = {
+    input_digest: inputDigest,
+    track,
+    repeat_each: repeatEach,
+    workers: REPEAT_WORKERS,
+    ran_at: new Date().toISOString(),
+    report: REPEAT_REPORT,
+    outcome: summary.outcome,
+    units: summary.units,
+  };
+  context.repeat_check = record;
+  writeContext(context);
+  for (const line of repeatLines(record)) console.log(line);
+  if (record.outcome === 'flaky') {
+    console.error(
+      '\nThe generated test is flaky: it passed and failed across runs of the same code. ' +
+        'Fix the test (re-run the Playwright Generator, or edit it by hand), then --resume; the repeat check runs again.'
+    );
+    exit(1);
+  }
+  return true;
 }
 
 /**
@@ -1478,6 +1674,7 @@ function gateInputProblems(step, context) {
  * @param {Context} context
  */
 function execStep(step, context) {
+  if (step === 'repeat') return repeatStep(context);
   if (step === 'execute') {
     // PIPELINE_PW_CONFIG lets a caller point Playwright at a non-root config
     // (the demo uses examples/demo-run/playwright.demo.config.ts so its specs
@@ -1489,22 +1686,7 @@ function execStep(step, context) {
     // (the demo, driven from a workspace), we run Playwright with cwd=repo and
     // tell the config where to write reports via PIPELINE_REPORT_DIR — so the
     // report lands in the workspace the classifier then reads.
-    const pwArgs = ['test'];
-    const customConfig = env.PIPELINE_PW_CONFIG;
-    // Another config is a different execution. Only the demo, in its own
-    // workspace marked by the DEMO_RUN sentinel (scripts/demo-pipeline.js),
-    // may point Playwright elsewhere; in a real run it would let evidence of
-    // other tests stand for the approved ones.
-    if (customConfig && !existsSync(DEMO_RUN_SENTINEL)) {
-      console.error(
-        'PIPELINE_PW_CONFIG is honoured only in the demo workspace (marked by a DEMO_RUN file). ' +
-          'Unset it and run again; the run executes with playwright.config.ts.'
-      );
-      exit(2);
-    }
-    if (customConfig) pwArgs.push('--config', customConfig);
-    const cwd = customConfig ? REPO_DIR : process.cwd();
-    const reportDir = customConfig ? join(process.cwd(), 'reports') : 'reports';
+    const { pwArgs, customConfig, cwd, reportDir } = playwrightSetup();
     console.log(
       `Executing: playwright ${pwArgs.join(' ')}  (failures are DATA for the`
     );

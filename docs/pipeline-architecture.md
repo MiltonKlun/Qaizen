@@ -245,7 +245,7 @@ The state machine is **track-aware**:
   gates in the chain above — Gate 1 → Gate 2 → Gate 3 → Gate 4.
 - **`lite`** consolidates Gates 1+2 into a single `qa_scope_approved` decision,
   then runs Gate 3 and Gate 4 as usual:
-  `analyst → qa_scope_approved → planner/api → gate3 → generator → gate4 →
+  `analyst → qa_scope_approved → planner/api → gate3 → generator → repeat → gate4 →
 execute → classify → report`. Gates 3 and 4 are still **separate recorded
   decisions** (`docs/review-gates.md`).
 

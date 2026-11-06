@@ -59,7 +59,8 @@ A full loop looks like:
 ```
 --story → [analyst step: you run the agent] → --resume → GATE 1 (interactive)
 → [test-designer step] → --resume → GATE 2
-→ E2E branch (approved automate_e2e cases): [planner] → GATE 3 → [generator] → GATE 4
+→ E2E branch (approved automate_e2e cases): [planner] → GATE 3 → [generator]
+    → repeat (runner runs the generated test 10 or 20 times; a flaky test stops here) → GATE 4
 → API branch (approved automate_api cases): [api] → GATE 3' → GATE 4'
 → external branch (approved manual / automate_component / skip cases):
     [external-plan] → EXTERNAL GATE 3
@@ -69,8 +70,9 @@ A full loop looks like:
     → EXTERNAL GATE 4 (external branch)
 → classify (runner normalizes, then runs the rule-based pre-classifier)
 → [finalize step: the Failure Classifier agent] → --resume
-→ confirm-downgrades (only when the analysis lowered a Red failure, or a failure
-   on a high-severity, Red-domain or untraceable risk: you confirm at the terminal)
+→ confirm-downgrades (when the analysis lowered a Red failure, or a failure on a
+   high-severity, Red-domain or untraceable risk, or any failure on the full
+   track: you confirm at the terminal)
 → [reporter step] → --resume → done (the runner marks the run completed)
 ```
 

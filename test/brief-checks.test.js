@@ -106,7 +106,7 @@ test('the lite gate shows them all; other gates show none', (t) => {
     'ATTENTION: AC 2 has no approved test case',
     'test design techniques: Use case 1, Equivalence partition 1, Checklist 1',
   ]);
-  for (const step of ['gate3', 'gate4', 'gate3-api', 'gate4-ext']) {
+  for (const step of ['gate3', 'gate3-api', 'gate4-ext']) {
     assert.deepEqual(briefChecks(step, ctx, dir), [], step);
   }
 });

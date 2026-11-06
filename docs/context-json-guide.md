@@ -363,6 +363,15 @@ story for wrong and intentional. Written only by the runner, at the
 person's decision; absent when the scan found nothing and on older runs
 (`docs/review-gates.md`, Gate 4).
 
+### `repeat_check` (optional — written by the runner)
+
+What the repeat check before Gate 4 found: `{ input_digest, track,
+repeat_each, workers, ran_at, report, outcome, units[] }`, where `outcome`
+is `stable`, `failing` or `flaky` and each unit counts one test's runs,
+passes, failures, retry-only passes and skips. `input_digest` is the Gate 4
+input digest it ran against; the record holds only while it is current.
+Written only by the runner (`docs/review-gates.md`, Gate 4).
+
 ### `status`
 
 One of `"draft"` / `"in_progress"` / `"completed"` / `"blocked"`.

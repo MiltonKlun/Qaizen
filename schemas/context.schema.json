@@ -629,6 +629,57 @@
       "type": "string",
       "enum": ["draft", "in_progress", "completed", "blocked"]
     },
+    "repeat_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "OPTIONAL. The repeat check the runner ran before Gate 4 (scripts/lib/repeat-check.js): the generated test run repeat_each times on workers workers, and what happened to each test. input_digest is the Gate 4 input digest it ran against; the record holds only while that digest is current, so a changed test, fixture, config or lock runs it again. outcome flaky stops the run before Gate 4. Absent on runs that reached Gate 4 before the check existed. Written only by the runner.",
+      "required": [
+        "input_digest",
+        "track",
+        "repeat_each",
+        "workers",
+        "ran_at",
+        "report",
+        "outcome",
+        "units"
+      ],
+      "properties": {
+        "input_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "track": { "type": "string", "enum": ["lite", "standard", "full"] },
+        "repeat_each": { "type": "integer", "minimum": 2 },
+        "workers": { "type": "integer", "minimum": 2 },
+        "ran_at": { "type": "string" },
+        "report": { "type": "string" },
+        "outcome": { "type": "string", "enum": ["stable", "failing", "flaky"] },
+        "units": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "file",
+              "title",
+              "project",
+              "runs",
+              "passed",
+              "failed",
+              "flaky",
+              "skipped"
+            ],
+            "properties": {
+              "file": { "type": "string" },
+              "title": { "type": "string" },
+              "project": { "type": "string" },
+              "runs": { "type": "integer", "minimum": 0 },
+              "passed": { "type": "integer", "minimum": 0 },
+              "failed": { "type": "integer", "minimum": 0 },
+              "flaky": { "type": "integer", "minimum": 0 },
+              "skipped": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
     "execution_identity": {
       "description": "OPTIONAL. Written only by the runner's execute step: what the Playwright execution was (scripts/lib/execution-identity.js). The report is accepted as this run's evidence only while its digest, its config's digest and the Gate 4 approval digest still match. app_build is QAIZEN_APP_BUILD, or \"unknown\". No agent writes this.",
       "type": "object",

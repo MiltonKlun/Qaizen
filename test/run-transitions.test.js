@@ -339,8 +339,9 @@ test('a report dropped in after execution, or run under another config, is not t
       r.out,
       /was produced with playwright\.config\.ts, which has changed since/
     );
-    // Gate 4 reviewed that config too, so the run goes back to Gate 4 first.
-    assert.match(r.out, /Next step: gate4/);
+    // Gate 4 reviewed that config too, so the run goes back to Gate 4 first,
+    // through the repeat check, which runs again on the changed inputs.
+    assert.match(r.out, /Next step: repeat/);
     rmSync(join(dir, 'playwright.config.ts'));
 
     // A report with no recorded identity was not produced by this run's

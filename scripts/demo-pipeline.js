@@ -92,6 +92,11 @@ const STAGES = [
   { step: 'gate3', label: 'GATE 3 — Specs Review (you decide)' },
   { step: 'generator', label: 'Generator → tests (replayed fixtures)' },
   {
+    step: 'repeat',
+    label:
+      'Repeat check → each generated test 3 times on 2 workers (REAL, demo config)',
+  },
+  {
     step: 'gate4',
     label: 'GATE 4 — Code Review (human sign-off, always)',
   },
@@ -214,6 +219,9 @@ const ENV = {
   ...process.env,
   BASE_URL: baseURL,
   PIPELINE_PW_CONFIG: PW_CONFIG,
+  // The repeat check before Gate 4 runs each test this many times here, not
+  // the 10 or 20 a real run uses, to keep the demo short.
+  QAIZEN_REPEAT_EACH: '3',
   ...(REVIEWER ? { QAIZEN_REVIEWER: REVIEWER } : {}),
 };
 
