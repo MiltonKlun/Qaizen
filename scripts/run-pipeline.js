@@ -85,6 +85,13 @@ import {
 } from './lib/gate-history.js';
 import { effectiveTrack } from './track-floor.js';
 import {
+  DISPOSITIONS,
+  DISPOSITION_KEYS,
+  approvalAllowed,
+  needsReason,
+  recordDispositions,
+} from './lib/finding-dispositions.js';
+import {
   gate4Findings,
   loadGate4Artifacts,
   renderGate4Brief,
@@ -605,12 +612,21 @@ function withConventionalPaths(context) {
  * @param {string} gateKey
  * @param {{ decision: string, reviewer?: string | null,
  *   notes?: string | null, openedAt: string, decidedAt: string,
- *   bindings?: Record<string, object> }} decision
+ *   bindings?: Record<string, object>,
+ *   dispositions?: import('./lib/finding-dispositions.js').DispositionRecord[] }} decision
  */
 export function applyGateDecision(
   context,
   gateKey,
-  { decision, reviewer, notes, openedAt, decidedAt, bindings = {} }
+  {
+    decision,
+    reviewer,
+    notes,
+    openedAt,
+    decidedAt,
+    bindings = {},
+    dispositions = [],
+  }
 ) {
   const approved = decision === 'approved';
   // `bindings` is computed by the I/O code at the moment of the human
@@ -648,6 +664,9 @@ export function applyGateDecision(
     decided_at: decidedAt,
     reviewer: reviewer || null,
     notes: notes || null,
+    // The reviewer's answer to each Gate 4 scan finding, given before this
+    // decision (scripts/lib/finding-dispositions.js).
+    ...(dispositions.length ? { finding_dispositions: dispositions } : {}),
   });
   // Gate 1 approval moves the run out of draft (docs/context-json-guide.md §2).
   if (
@@ -694,7 +713,8 @@ const REDO_AFTER_REJECT = {
  *   decision: 'approved' | 'rejected', reviewer: string | null,
  *   notes: string | null, openedAt: string, decidedAt: string,
  *   bindings: Record<string, ReturnType<typeof bindingFor>>,
- *   brief: string, scan?: string | null }} args
+ *   brief: string, scan?: string | null,
+ *   dispositions?: import('./lib/finding-dispositions.js').DispositionRecord[] }} args
  * @returns {{ ok: true, record: string, dir: string } |
  *   { ok: false, stage: 'context' | 'record', message: string }}
  */
@@ -711,6 +731,7 @@ export function recordGateDecision({
   bindings,
   brief,
   scan = null,
+  dispositions = [],
 }) {
   const captured = captureGateFiles(gateKey, context, root);
   applyGateDecision(context, gateKey, {
@@ -720,6 +741,7 @@ export function recordGateDecision({
     openedAt,
     decidedAt,
     bindings,
+    dispositions,
   });
   // The record is built before anything is written, so the decision can
   // name it by digest: an edited or deleted record is then visible in the
@@ -740,6 +762,7 @@ export function recordGateDecision({
       captured,
       brief,
       scan,
+      dispositions,
       title: GATE_BRIEFS[step]?.name,
     });
   } catch (e) {
@@ -777,6 +800,63 @@ export function recordGateDecision({
           : `; context.json still names ${prepared.record}, so the trail check reports it missing`),
     };
   }
+}
+
+/**
+ * Ask the reviewer to answer each Gate 4 scan finding: fixed, wrong,
+ * intentional or irrelevant, with a reason for wrong and intentional on a
+ * Red-domain story. Quitting records nothing.
+ * @param {import('node:readline/promises').Interface} rl
+ * @param {Context} context
+ * @param {import('./lib/finding-dispositions.js').Finding[]} findings
+ * @returns {Promise<import('./lib/finding-dispositions.js').DispositionRecord[]>}
+ */
+async function askDispositions(rl, context, findings) {
+  if (!findings.length) return [];
+  const storyFile = context?.story?.path || 'story.md';
+  const { reasons } = effectiveTrack(
+    context,
+    existsSync(storyFile) ? readFileSync(storyFile, 'utf8') : null
+  );
+  const redDomain = reasons.some((r) => r.startsWith('red-domain:'));
+  console.log(
+    `\nAnswer each of the ${findings.length} scan finding(s) before deciding: [f]ixed (right; the test must change), [w]rong (a false alarm), [i]ntentional (right, on purpose), i[r]relevant (right, does not matter here).` +
+      (redDomain
+        ? ' This story touches a Red domain, so "wrong" and "intentional" need a reason.'
+        : '')
+  );
+  /** @type {{ disposition: string, reason: string | null }[]} */
+  const answers = [];
+  for (const [i, f] of findings.entries()) {
+    const where = f.line === null ? '' : `:${f.line}`;
+    const inTest = f.test ? ` (in "${f.test}")` : '';
+    console.log(
+      `\n[${i + 1}/${findings.length}] [${f.rule}]${where}${inTest} ${f.note}`
+    );
+    let disposition = '';
+    while (!disposition) {
+      const a = (await rl.question('Answer — [f]/[w]/[i]/[r] or [q]uit: '))
+        .trim()
+        .toLowerCase();
+      if (a === 'q' || a === 'quit') {
+        console.log('No decision recorded; the gate stays as it was.');
+        exit(1);
+      }
+      disposition =
+        /** @type {Record<string, string>} */ (DISPOSITION_KEYS)[a] ??
+        (DISPOSITIONS.includes(a) ? a : '');
+    }
+    let reason = '';
+    if (needsReason(disposition, redDomain))
+      while (!reason) reason = (await rl.question('Why? ')).trim();
+    answers.push({ disposition, reason: reason || null });
+  }
+  const done = recordDispositions(findings, answers, { redDomain });
+  if (!done.ok) {
+    console.error(`Answers not recorded: ${done.problems.join('; ')}`);
+    exit(1);
+  }
+  return done.dispositions;
 }
 
 /**
@@ -947,6 +1027,8 @@ async function runGateInteractive(step, context) {
   // gate; on the full track it names the open findings as unresolved.
   /** @type {string | null} */
   let scanText = null;
+  /** @type {import('./lib/finding-dispositions.js').Finding[]} */
+  let scanFindings = [];
   if (step === 'gate4') {
     const testPath = context.artifact_paths?.generated_test;
     if (testPath && existsSync(testPath)) {
@@ -959,6 +1041,7 @@ async function runGateInteractive(step, context) {
         artifacts,
       });
       scanText = renderGate4Brief(testPath, scan, artifacts);
+      scanFindings = scan.findings;
       console.log(scanText);
     }
   }
@@ -984,10 +1067,22 @@ async function runGateInteractive(step, context) {
       reviewer =
         (await rl.question('Reviewer name for this session: ')).trim() || null;
     }
+    // Every scan finding gets an answer before the decision
+    // (scripts/lib/finding-dispositions.js).
+    const dispositions = await askDispositions(rl, context, scanFindings);
+    const canApprove = approvalAllowed(dispositions);
+    if (!canApprove)
+      console.log(
+        'A finding answered "fixed" means the test changes first, so this review can only be rejected (or quit).'
+      );
     let decision = '';
     while (decision === '') {
       const a = (
-        await rl.question('Decision — [a]pprove / [r]eject / [q]uit: ')
+        await rl.question(
+          canApprove
+            ? 'Decision — [a]pprove / [r]eject / [q]uit: '
+            : 'Decision — [r]eject / [q]uit: '
+        )
       )
         .trim()
         .toLowerCase();
@@ -995,7 +1090,7 @@ async function runGateInteractive(step, context) {
         console.log('No decision recorded; the gate stays as it was.');
         exit(1);
       }
-      if (a === 'a' || a === 'approve' || a === 'approved')
+      if (canApprove && (a === 'a' || a === 'approve' || a === 'approved'))
         decision = 'approved';
       else if (a === 'r' || a === 'reject' || a === 'rejected')
         decision = 'rejected';
@@ -1033,6 +1128,7 @@ async function runGateInteractive(step, context) {
       bindings,
       brief: briefText,
       scan: scanText,
+      dispositions,
     });
     if (!done.ok) {
       console.error(

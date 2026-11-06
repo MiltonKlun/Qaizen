@@ -600,6 +600,27 @@
                 "pattern": "^[a-f0-9]{64}$"
               }
             }
+          },
+          "finding_dispositions": {
+            "type": "array",
+            "description": "OPTIONAL (Gate 4 only). The reviewer's answer to each Gate 4 static scan finding, given before this decision (scripts/lib/finding-dispositions.js): fixed (the test must change, so the decision is a rejection), wrong (a false alarm), intentional or irrelevant. On a Red-domain story, wrong and intentional carry a reason. A later scan treats a finding answered at the current approval as resolved while the finding is unchanged. Absent on decisions with no scan findings and on older runs. Written only by the runner.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["rule", "line", "test", "note", "disposition"],
+              "properties": {
+                "rule": { "type": "string", "minLength": 1 },
+                "line": { "type": ["integer", "null"], "minimum": 1 },
+                "test": { "type": ["string", "null"] },
+                "excerpt": { "type": ["string", "null"], "maxLength": 200 },
+                "note": { "type": "string" },
+                "disposition": {
+                  "type": "string",
+                  "enum": ["fixed", "wrong", "intentional", "irrelevant"]
+                },
+                "reason": { "type": ["string", "null"] }
+              }
+            }
           }
         }
       }

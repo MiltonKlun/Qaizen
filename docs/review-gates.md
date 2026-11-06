@@ -200,13 +200,16 @@ a team can also declare `full` for any story. The Gate 1 brief names the
 track, why, and what it requires. In force today:
 
 - the Gate 4 static scan exits 1 while any finding is open (Gate 4 below);
+- every scan finding is answered before the Gate 4 decision (on every
+  track); on a Red-domain story, an answer of wrong or intentional needs a
+  reason;
 - a failure analysis that lowers any failure's severity needs a person to
   confirm it (`scripts/lib/analysis-overrides.js`). On every other track
   only some downgrades need one: a lowered Red failure, or a failure on a
   high-severity, Red-domain or untraced risk.
 
 Not built yet, and so not in force: more repeat runs of the generated test
-before Gate 4, and a recorded answer to each scan finding. The four gates
+before Gate 4. The four gates
 are the same on `full` as on `standard`; `full` adds checks, never
 removes one.
 
@@ -610,12 +613,28 @@ the API branch — the two branches are reviewed independently.
 >
 > On the **`full` track** (with `--context`: the highest of the story's
 > `track`, the floor computed from `story.md` and the context, and the
-> recorded `track_floor.minimum`) every finding counts as
-> unresolved and the scan exits 1. The fix is in the test; there is no way
-> yet to record an answer to a finding, such as "intentional". On the
-> `lite` and `standard` tracks, and without the run's context, findings
-> are informational and the scan exits 0. Exit 1 blocks no gate and
-> approves nothing.
+> recorded `track_floor.minimum`) every open finding makes the scan exit 1.
+> A finding is closed by fixing the test, or by an answer recorded at the
+> current Gate 4 approval (below) while the finding is unchanged: same rule,
+> test, line and line text. On the `lite` and `standard` tracks, and
+> without the run's context, findings are informational and the scan exits 0. Exit 1 blocks no gate and approves nothing.
+>
+> **Every finding gets an answer.** Before the Gate 4 decision, the runner
+> shows each finding and asks what it is (`scripts/lib/finding-dispositions.js`):
+>
+> - **fixed**: right, and the test must change. The review can then only be
+>   rejected or left undecided, never approved as it is;
+> - **wrong**: a false alarm, the scan misread the test;
+> - **intentional**: right, and the test does it on purpose;
+> - **irrelevant**: right, and it does not matter for this test.
+>
+> On a story that touches a Red-taxonomy domain, **wrong** and
+> **intentional** need a short reason. The answers go into the gate record
+> and into `context.json` (`gate_decisions[].finding_dispositions`), and
+> `npm run metrics` reports each check's answers and its precision (the
+> share not answered **wrong**). Answering is part of the interactive gate
+> prompt, so it needs a terminal like the decision, and it decides nothing:
+> the decision is still yours. Gate 3 has no scan findings to answer yet.
 >
 > The thin
 > gated runner shows this output inside the

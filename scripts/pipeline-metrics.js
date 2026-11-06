@@ -33,6 +33,10 @@ import { fileURLToPath } from 'node:url';
 import { validateValue } from './lib/artifact-io.js';
 import { failureMetrics, healerMetrics } from './lib/run-metrics.js';
 import {
+  dispositionLines,
+  dispositionMetrics,
+} from './lib/finding-dispositions.js';
+import {
   GATE3_KEYS,
   GATE4_KEYS,
   promptStability,
@@ -276,6 +280,11 @@ const metrics = {
 // Prompt stability: one result, per
 // prompt-version cohort, that the JSON, the Markdown and /evolve all read.
 metrics.prompt_stability = promptStability(stabilityRuns);
+// How often each Gate 4 scan check was right, from the reviewers' answers
+// (scripts/lib/finding-dispositions.js).
+metrics.finding_dispositions = dispositionMetrics(
+  stabilityRuns.filter((r) => !r.demo).map((r) => r.context)
+);
 metrics.runs_with_prompt_versions = runsWithPromptVersions;
 
 // ---- markdown ------------------------------------------------------------
@@ -356,6 +365,10 @@ const md = [
         '- No run records gate_decisions yet — record them (a rejection event when a gate is sent back) to make this real. 0 here means "unrecorded", not "never happened".',
       ]
     : []),
+  '',
+  '## Gate 4 scan findings answered',
+  '',
+  ...dispositionLines(metrics.finding_dispositions, totalRuns),
   '',
   '## Prompt stability',
   '',

@@ -9,11 +9,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   gate4Findings,
+  loadGate4Artifacts,
   renderGate4Brief,
   renderGate4Scan,
   scanVerdict,
   storyTrack,
 } from '../scripts/gate4-scan.js';
+import { recordDispositions } from '../scripts/lib/finding-dispositions.js';
 
 // Fragments are scanned for the mechanical rules; per-test traceability only
 // concerns test registrations, so a bare statement never trips it.
@@ -504,6 +506,41 @@ test('the scan exits 1 on a full-track story with findings, and 0 otherwise', as
     const fullClean = scan({ track: 'full' }, clean);
     assert.equal(fullClean.status, 0, fullClean.stdout + fullClean.stderr);
     assert.match(fullClean.stdout, /0 mechanical finding\(s\)\. Full track/);
+
+    // A finding answered at the current Gate 4 approval is not open; one
+    // answered "fixed", or at an approval no longer current, still is.
+    scan({ track: 'full' }, weak);
+    const findings = gate4Findings(header + weak, {
+      fileName: 't.spec.ts',
+      artifacts: loadGate4Artifacts(join(dir, 'context.json')),
+      coverage: false,
+    }).findings;
+    assert.equal(findings.length, 1);
+    const answeredAs = (disposition, approved = true) => {
+      const rec = recordDispositions(findings, [{ disposition }], {
+        redDomain: false,
+      });
+      return {
+        track: 'full',
+        review_gates: { code_reviewed: { status: approved } },
+        gate_decisions: [
+          {
+            gate: 'code_reviewed',
+            decision: 'approved',
+            decided_at: '2026-11-06T00:00:00Z',
+            finding_dispositions: rec.ok ? rec.dispositions : [],
+          },
+        ],
+      };
+    };
+    const intentional = scan(answeredAs('intentional'), weak);
+    assert.equal(intentional.status, 0, intentional.stdout);
+    assert.match(
+      intentional.stdout,
+      /1 mechanical finding\(s\) \(1 answered at the current Gate 4 approval, so 0 open\)\. Full track: no finding is open/
+    );
+    assert.equal(scan(answeredAs('fixed'), weak).status, 1);
+    assert.equal(scan(answeredAs('intentional', false), weak).status, 1);
 
     for (const extra of [{ track: 'standard' }, { track: 'lite' }, {}]) {
       const r = scan(extra, weak);

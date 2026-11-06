@@ -65,7 +65,7 @@ export const SCHEMA_CONTRACTS = {
     artifact: 'context.json',
     producers: [
       'agents/analyst.md',
-      'scripts/run-pipeline.js (gate decisions, bindings, status, downgrade confirmations, execution identity)',
+      'scripts/run-pipeline.js (gate decisions and the answers to Gate 4 scan findings, bindings, status, downgrade confirmations, execution identity)',
       'scripts/run-healer.js (healer attempts)',
     ],
     consumers: [
@@ -79,6 +79,7 @@ export const SCHEMA_CONTRACTS = {
       'examples/expected/downgrade-confirmed.expected-context.json',
       'examples/expected/execution-bound.expected-context.json',
       'examples/expected/healer-attempts.expected-context.json',
+      'examples/expected/finding-dispositions.expected-context.json',
     ],
     invalid: [
       {

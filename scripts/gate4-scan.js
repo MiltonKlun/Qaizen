@@ -55,6 +55,7 @@ import { pathToFileURL } from 'node:url';
 
 import { GATE4_JUDGMENT_QUESTIONS } from './gate-briefs.js';
 import { effectiveTrack } from './track-floor.js';
+import { answeredFindings, findingKey } from './lib/finding-dispositions.js';
 import { oracleFindings, uncoveredCases } from './lib/oracle-checks.js';
 import {
   TEST_ID_KINDS,
@@ -68,7 +69,7 @@ import {
  * @typedef {{ contextPath: string, storyId: string | null, testCases: any,
  *   testCasesPath: string | null, specText: string | null,
  *   specPath: string | null, criteria?: string[] | null,
- *   track?: string }} Gate4Artifacts
+ *   track?: string, answered?: Set<string> }} Gate4Artifacts
  * @typedef {{ rule: string, line: number | null, test: string | null,
  *   excerpt: string, note: string }} Finding
  * @typedef {(rule: string, line: number | null, note: string,
@@ -402,6 +403,7 @@ export function loadGate4Artifacts(contextPath = 'context.json') {
       ? context.acceptance_criteria.map(String)
       : null,
     track: storyTrack(context, read(context.story?.path || 'story.md')),
+    answered: answeredFindings(context),
   };
 }
 
@@ -450,7 +452,7 @@ export function scanVerdict(artifacts, count) {
         blocking: true,
         message:
           `Full track: ${count} finding(s) unresolved; run on its own, the scan exits 1 for them. ` +
-          'Fix each one in the test; a recorded answer per finding does not exist yet. ' +
+          'Fix each one in the test, or answer it at the Gate 4 decision (npm run pipeline). ' +
           'This blocks nothing else and approves nothing: Gate 4 is the human reviewer (CLAUDE.md §3.5).',
       };
 }
@@ -542,6 +544,10 @@ if (
     exit(2);
   }
   let total = 0;
+  // Findings answered at the current Gate 4 approval are not open.
+  let answered = 0;
+  const isAnswered = (/** @type {Finding} */ x) =>
+    artifacts?.answered?.has(findingKey(x)) ?? false;
   /** @type {Set<string>} */
   const named = new Set();
   /** @type {string[]} */
@@ -560,6 +566,7 @@ if (
     if (result.findings.some((x) => x.rule === 'unsupported_source'))
       unparsed.push(f);
     total += result.findings.length;
+    answered += result.findings.filter(isAnswered).length;
     console.log(renderGate4Scan(f, result));
     console.log('');
   }
@@ -576,11 +583,24 @@ if (
             : '')
       );
       total += uncovered.length;
+      answered += uncovered.filter((tc) =>
+        isAnswered({
+          rule: 'uncovered_case',
+          line: null,
+          test: null,
+          excerpt: '(whole file)',
+          note: `${tc} is an approved E2E case of ${artifacts?.storyId}, but no test in this file names it`,
+        })
+      ).length;
     } else console.log('Every approved E2E case is named by a scanned test.');
   }
-  const verdict = scanVerdict(artifacts, total);
+  const verdict = scanVerdict(artifacts, total - answered);
   console.log(
-    `Scanned ${files.length} file(s); ${total} mechanical finding(s). ${verdict.message}`
+    `Scanned ${files.length} file(s); ${total} mechanical finding(s)` +
+      (answered
+        ? ` (${answered} answered at the current Gate 4 approval, so ${total - answered} open)`
+        : '') +
+      `. ${verdict.message}`
   );
   exit(verdict.blocking ? 1 : 0);
 }
