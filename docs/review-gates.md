@@ -167,7 +167,7 @@ lite run's gate path is:
 
 ```
 Analyst → qa_scope_approved (Gates 1+2 in one decision) → Planner/API
-        → Gate 3 (specs_reviewed) → Generator → Gate 4 (code_reviewed) → ...
+        → Gate 3 (specs_reviewed) → Generator → repeat check → Gate 4 (code_reviewed) → ...
 ```
 
 Two rules make this a thinning of _ceremony_, never of _review_:
@@ -647,11 +647,33 @@ the API branch — the two branches are reviewed independently.
 > environmental `test.skip` with a written reason) — the reviewer decides.
 
 **When it runs:** After the Playwright Generator Native Agent
-produces `tests/[story-id].spec.ts`.
+produces `tests/[story-id].spec.ts`, and after the repeat check.
+
+**The repeat check runs first.** The runner runs the generated test 10
+times on the `lite` and `standard` tracks and 20 times on `full`
+(`--repeat-each`, on two workers), and records how each test fared in
+`context.json` `repeat_check` (`scripts/lib/repeat-check.js`):
+
+- **stable**: every test passed every run;
+- **failing**: some test failed every run, which points at the app or at the
+  test; Gate 4 is where you judge which;
+- **flaky**: some test passed in one run and failed in another, or passed
+  only on a retry. The run stops before Gate 4, and the test is fixed first.
+
+Playwright counts each repetition as its own test, so it never calls a test
+flaky when its repetitions disagree; the comparison is the runner's. The
+record is bound to the Gate 4 input digest it ran against: a changed test,
+fixture, config or lock runs it again, and Gate 4 does not open on a
+missing, outdated or flaky record. The brief shows it, with any test skipped
+in every run and any error Playwright reported. The run passes
+`--update-snapshots none`, so a missing snapshot is a failure, never a new
+baseline. The result is in `context.json` only for now; the execution
+ledger and the trace and screenshot paths do not carry it yet.
 
 **Inputs the reviewer reads:**
 
 - `tests/[story-id].spec.ts`.
+- The repeat check line in the brief.
 - `specs/[story-id].md` (to compare intent vs realization).
 - `test-cases/[story-id].json` (for the `expected_results` to
   cross-check assertions).

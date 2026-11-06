@@ -9,9 +9,11 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 3.1.11
+version: 3.1.12
 changed_in_run: null
 changelog: |
+  - 3.1.12: PATCH (no output change). repeat_check, the repeat run before
+    Gate 4, is written by the runner only.
   - 3.1.11: PATCH (no output change). gate_decisions[].finding_dispositions,
     the answers to the Gate 4 scan findings, is written by the runner only,
     like the rest of gate_decisions[].
@@ -394,8 +396,8 @@ validate:context`). Fix and re-validate until the script exits 0.
 - Setting `status: "completed"`. The runner sets it once every gate has
   passed and every artifact of the run validates.
 - Writing `gate_decisions[]` (with its `finding_dispositions`), `gate_invalidations[]`,
-  `downgrade_confirmations[]` or `execution_identity` (Playwright or
-  Newman). The runner records them at a person's decision or an execution;
+  `downgrade_confirmations[]`, `repeat_check` or `execution_identity`
+  (Playwright or Newman). The runner records them at a person's decision or an execution;
   the Analyst leaves them out.
 - Writing `healer_attempts[]`. `scripts/run-healer.js` records each candidate
   fix submitted with `--apply`; the Analyst leaves it out.

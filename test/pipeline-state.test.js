@@ -188,6 +188,45 @@ test('nextStep — sequencing table', () => {
       'gate4',
     ],
     [
+      'generated test, no current repeat check: repeat before gate4',
+      ctx({
+        gates: {
+          requirements_reviewed: true,
+          test_scope_reviewed: true,
+          specs_reviewed: true,
+        },
+        paths: { ...ALL_PATHS },
+      }),
+      { repeatCurrent: false },
+      'repeat',
+    ],
+    [
+      'a current repeat check: gate4',
+      ctx({
+        gates: {
+          requirements_reviewed: true,
+          test_scope_reviewed: true,
+          specs_reviewed: true,
+        },
+        paths: { ...ALL_PATHS },
+      }),
+      { repeatCurrent: true },
+      'gate4',
+    ],
+    [
+      'gate4 already passed: no repeat step, whatever the record',
+      ctx({
+        gates: ALL_GATES,
+        paths: {
+          test_cases: ALL_PATHS.test_cases,
+          playwright_spec: ALL_PATHS.playwright_spec,
+          generated_test: ALL_PATHS.generated_test,
+        },
+      }),
+      { repeatCurrent: false },
+      'execute',
+    ],
+    [
       'gate4 passed, nothing executed yet',
       ctx({
         gates: ALL_GATES,

@@ -190,7 +190,7 @@ A run is complete when one story has produced this full traceability chain.
 
 The chain above splits into a **design half** (Analyst → Gate 1 → Test
 Designer → Gate 2 — no code needed) and an **execution half** (Planner →
-Gate 3 → Generator → Gate 4 → execute → report — needs code). The design
+Gate 3 → Generator → repeat check → Gate 4 → execute → report — needs code). The design
 half may be run at **refinement** (before code exists) to produce draft
 test cases as a shared acceptance contract, or at **ready-for-QA** (the
 default). Cases designed at refinement carry `design_stage:
@@ -245,7 +245,7 @@ The state machine is **track-aware**:
   gates in the chain above — Gate 1 → Gate 2 → Gate 3 → Gate 4.
 - **`lite`** consolidates Gates 1+2 into a single `qa_scope_approved` decision,
   then runs Gate 3 and Gate 4 as usual:
-  `analyst → qa_scope_approved → planner/api → gate3 → generator → gate4 →
+  `analyst → qa_scope_approved → planner/api → gate3 → generator → repeat → gate4 →
 execute → classify → report`. Gates 3 and 4 are still **separate recorded
   decisions** (`docs/review-gates.md`).
 

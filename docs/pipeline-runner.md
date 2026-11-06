@@ -59,7 +59,8 @@ A full loop looks like:
 ```
 --story → [analyst step: you run the agent] → --resume → GATE 1 (interactive)
 → [test-designer step] → --resume → GATE 2
-→ E2E branch (approved automate_e2e cases): [planner] → GATE 3 → [generator] → GATE 4
+→ E2E branch (approved automate_e2e cases): [planner] → GATE 3 → [generator]
+    → repeat (runner runs the generated test 10 or 20 times; a flaky test stops here) → GATE 4
 → API branch (approved automate_api cases): [api] → GATE 3' → GATE 4'
 → external branch (approved manual / automate_component / skip cases):
     [external-plan] → EXTERNAL GATE 3
@@ -69,8 +70,9 @@ A full loop looks like:
     → EXTERNAL GATE 4 (external branch)
 → classify (runner normalizes, then runs the rule-based pre-classifier)
 → [finalize step: the Failure Classifier agent] → --resume
-→ confirm-downgrades (only when the analysis lowered a Red failure, or a failure
-   on a high-severity, Red-domain or untraceable risk: you confirm at the terminal)
+→ confirm-downgrades (when the analysis lowered a Red failure, or a failure on a
+   high-severity, Red-domain or untraceable risk, or any failure on the full
+   track: you confirm at the terminal)
 → [reporter step] → --resume → done (the runner marks the run completed)
 ```
 
@@ -163,7 +165,7 @@ finishes or undoes it before doing anything else, deterministically:
 | **Guide**   | analyst, test-designer, planner, api, external-plan, generator, external-results, no-executable-scope, finalize, report | **You + the agent.** The runner prints the exact instruction and exits; it never fakes an LLM step.                                                                                                               |
 | **Gate**    | gate1, gate2, gate3, gate4, gate3-api, gate4-api, gate3-ext, gate4-ext                                                  | **You, interactively.** Brief rendered, decision captured, audit + telemetry written.                                                                                                                             |
 | **Confirm** | confirm-downgrades                                                                                                      | **You, interactively.** Each severity the analysis lowered is shown with its reason; a confirmation is recorded in `downgrade_confirmations[]`, bound to the analysis. Not a fifth gate (`docs/review-gates.md`). |
-| **Exec**    | execute, execute-api, classify                                                                                          | **The runner.** Deterministic: `npx playwright test`, `run-newman.js`, then `normalize-results.js` → the classifier.                                                                                              |
+| **Exec**    | repeat, execute, execute-api, classify                                                                                  | **The runner.** Deterministic: the repeat check before Gate 4 (`playwright test --repeat-each`), `npx playwright test`, `run-newman.js`, then `normalize-results.js` → the classifier.                            |
 
 ### Each agent step runs with only its MCP servers
 
@@ -568,7 +570,9 @@ demo fails CI.
 > `PIPELINE_PW_CONFIG` is refused anywhere but a demo workspace (one holding a
 > `DEMO_RUN` marker): in a real run another config would be another execution. The
 > marker is a convention, not a lock; whichever config runs is recorded, with
-> its digest, in `execution_identity` and the ledger.
+> its digest, in `execution_identity` and the ledger. `QAIZEN_REPEAT_EACH`
+> lowers the repeat check's run count (the demo uses 3), and is refused
+> anywhere but a demo workspace too.
 
 ## 8. References
 

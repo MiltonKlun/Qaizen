@@ -1,0 +1,123 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-06T13-00-00Z-repeat",
+  "story": {
+    "id": "STORY-001",
+    "title": "Login — Successful sign-in (repeat check before Gate 4)",
+    "source": "manual",
+    "path": "story.md",
+    "description": "Same login slice, showing repeat_check: before Gate 4 the runner ran the generated test 20 times on 2 workers (login is a Red-domain story, so the full track) and every test passed every run. input_digest is the Gate 4 input digest it ran against. Written only by the runner."
+  },
+  "acceptance_criteria": [
+    "Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",
+    "Given an invalid password, when the user submits the form, then they remain on the login page and an error message explains the credentials were not accepted. No partial session is created.",
+    "Given a locked user, when they submit valid credentials, then they remain on the login page and an error message explains the account is locked. No session is created."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "A partial session is created on failed login, leaving the user in an ambiguous authenticated state.",
+      "severity": "high",
+      "related_acs": [1, 2]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "Locked-account check is enforced only in the UI, allowing API-level bypass.",
+      "severity": "high",
+      "related_acs": [2]
+    }
+  ],
+  "artifact_paths": {
+    "test_cases": "test-cases/STORY-001.json",
+    "planner_brief": "planner-input/STORY-001.planner-brief.md",
+    "playwright_spec": "specs/STORY-001.md",
+    "generated_test": "tests/STORY-001.spec.ts",
+    "execution_results": "reports/results.json",
+    "html_report": "reports/html",
+    "traces": "reports/traces",
+    "screenshots": "reports/screenshots",
+    "failure_analysis": "analysis/failure-analysis.json",
+    "release_report_md": "release/release-report.md",
+    "release_report_json": "release/release-report.json",
+    "bug_drafts_dir": "release/bug-drafts"
+  },
+  "review_gates": {
+    "requirements_reviewed": true,
+    "test_scope_reviewed": true,
+    "specs_reviewed": true,
+    "code_reviewed": true
+  },
+  "gate_decisions": [
+    {
+      "gate": "requirements_reviewed",
+      "decision": "approved",
+      "decided_at": "2026-06-06T13-05-00Z",
+      "reviewer": "alice@example.com",
+      "notes": "AC accurate; both high-severity risks captured."
+    },
+    {
+      "gate": "test_scope_reviewed",
+      "decision": "approved",
+      "decided_at": "2026-06-06T13-15-00Z",
+      "reviewer": "alice@example.com",
+      "notes": null
+    },
+    {
+      "gate": "specs_reviewed",
+      "decision": "rejected",
+      "opened_at": "2026-06-06T13-22-00Z",
+      "decided_at": "2026-06-06T13-30-00Z",
+      "reviewer": "bob@example.com",
+      "notes": "Planner explored the password-reset flow, not the login flow. Fix the planner brief and re-run."
+    },
+    {
+      "gate": "specs_reviewed",
+      "decision": "approved",
+      "opened_at": "2026-06-06T13-44-00Z",
+      "decided_at": "2026-06-06T13-50-00Z",
+      "reviewer": "bob@example.com",
+      "notes": "Re-run after brief fix; spec now matches the approved scope."
+    },
+    {
+      "gate": "code_reviewed",
+      "decision": "approved",
+      "decided_at": "2026-06-06T14-10-00Z",
+      "reviewer": "bob@example.com",
+      "notes": "Locators stable + semantic; assertions test the right behavior."
+    }
+  ],
+  "status": "completed",
+  "track": "standard",
+  "repeat_check": {
+    "input_digest": "9dd3dab87fd555ed4317b9886a947d2cccd5b9e4c3561f7ec6a14352794f6017",
+    "track": "full",
+    "repeat_each": 20,
+    "workers": 2,
+    "ran_at": "2026-06-06T14-02-00Z",
+    "report": "reports/repeat/results.json",
+    "outcome": "stable",
+    "units": [
+      {
+        "file": "tests/STORY-001.spec.ts",
+        "title": "valid credentials reach the inventory [TC-001]",
+        "project": "chromium",
+        "runs": 20,
+        "passed": 20,
+        "failed": 0,
+        "flaky": 0,
+        "skipped": 0
+      },
+      {
+        "file": "tests/STORY-001.spec.ts",
+        "title": "a wrong password shows the error [TC-002]",
+        "project": "chromium",
+        "runs": 20,
+        "passed": 20,
+        "failed": 0,
+        "flaky": 0,
+        "skipped": 0
+      }
+    ]
+  }
+}
