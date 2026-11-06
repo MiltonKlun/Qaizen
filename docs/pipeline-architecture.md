@@ -435,8 +435,9 @@ suites stabilize over the first runs (flake, environment, timing). A
 freshly generated suite that is occasionally red should not block every
 unrelated PR. So `playwright-full` and `newman-api` carry
 `continue-on-error: true` and are **not** listed as required checks in
-branch protection. They still upload full reports as artifacts, and
-`ci-summary` surfaces the tally on the PR.
+branch protection. They still upload their reports as artifacts (for
+Playwright, `results.json` only: traces stay on the runner,
+`docs/design-decisions.md` D9), and `ci-summary` surfaces the tally on the PR.
 
 **Smoke vs regression subsets.** Generated tests are tagged `@smoke`
 (critical "is it alive" paths) and/or `@regression` (the full safety net) —

@@ -657,8 +657,9 @@ times on the `lite` and `standard` tracks and 20 times on `full`
 - **stable**: every test passed every run;
 - **failing**: some test failed every run, which points at the app or at the
   test; Gate 4 is where you judge which;
-- **flaky**: some test passed in one run and failed in another, or passed
-  only on a retry. The run stops before Gate 4, and the test is fixed first.
+- **flaky**: some test passed in one run and failed in another. Each run is
+  one attempt (`--retries 0`, in CI too), so a retry cannot hide a failed
+  run. The run stops before Gate 4, and the test is fixed first.
 
 Playwright counts each repetition as its own test, so it never calls a test
 flaky when its repetitions disagree; the comparison is the runner's. The
@@ -668,7 +669,8 @@ missing, outdated or flaky record. The brief shows it, with any test skipped
 in every run and any error Playwright reported. The run passes
 `--update-snapshots none`, so a missing snapshot is a failure, never a new
 baseline. The execution ledger carries the result too
-(`docs/execution-normalization.md`).
+(`docs/execution-normalization.md`). The repeat run's own output
+(`reports/repeat/`) is a working folder: nothing records its path.
 
 **Inputs the reviewer reads:**
 

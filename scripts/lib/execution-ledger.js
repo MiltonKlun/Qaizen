@@ -137,6 +137,20 @@ export function ledgerInvariants(ledger) {
     );
   }
 
+  // --- the repeat check belongs to the executed code -------------------------
+  // It is kept only beside a Playwright execution whose identity names the
+  // same Gate 4 approval digest it ran against (normalize-results.js).
+  if (ledger.repeat_check) {
+    const gates = (ledger.source_executions || [])
+      .filter((s) => s.runner === 'playwright')
+      .map((s) => /** @type {any} */ (s).config_identity?.gate_digest);
+    if (!gates.includes(ledger.repeat_check.input_digest)) {
+      v.push(
+        'repeat_check ran against other inputs than the Gate 4 approval of any Playwright execution in this ledger'
+      );
+    }
+  }
+
   // --- pass rate ------------------------------------------------------------
   const passing = units.filter((u) => PASSING.has(u.outcome)).length;
   if (units.length === 0) {

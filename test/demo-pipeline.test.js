@@ -16,6 +16,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -223,7 +224,13 @@ test('the demo completes: real run, finalized Red analysis, BUG-001, a 2.0 repor
   const paths = readJson(join(ws, 'context.json')).artifact_paths;
   assert.equal(paths.traces, 'reports/test-results');
   assert.equal(paths.screenshots, 'reports/test-results');
-  assert.ok(existsSync(join(ws, 'reports', 'test-results')));
+  // FAIL-001's failure screenshot is where the path says.
+  assert.ok(
+    readdirSync(join(ws, 'reports', 'test-results'), { recursive: true })
+      .map(String)
+      .some((f) => f.endsWith('.png')),
+    'no failure screenshot under reports/test-results'
+  );
 
   const fa = readJson(join(ws, 'analysis', 'failure-analysis.json'));
   assert.equal(fa.status, 'finalized');

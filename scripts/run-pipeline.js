@@ -1568,6 +1568,10 @@ export function runRepeatCheck({
     // into the Generator's tests/ (CLAUDE.md §3.2, §3.6).
     '--update-snapshots',
     'none',
+    // One attempt per run, in CI as locally: a repetition that fails is a
+    // failed run, not a retry that hides it.
+    '--retries',
+    '0',
   ];
   const run = spawnSync(process.execPath, [playwrightCli(runEnv), ...args], {
     cwd,
@@ -1767,8 +1771,12 @@ function execStep(step, context) {
     if (!p.html_report) p.html_report = 'reports/html';
     // Playwright writes both into its output folder (playwright.config.ts
     // outputDir), so that is the path recorded for each.
-    if (!p.traces) p.traces = 'reports/test-results';
-    if (!p.screenshots) p.screenshots = 'reports/test-results';
+    // A path from before this was fixed (reports/traces, reports/screenshots)
+    // was never written, so it is replaced.
+    if (!p.traces || p.traces === 'reports/traces')
+      p.traces = 'reports/test-results';
+    if (!p.screenshots || p.screenshots === 'reports/screenshots')
+      p.screenshots = 'reports/test-results';
     writeContext(context);
     return true;
   }

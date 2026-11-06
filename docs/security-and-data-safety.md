@@ -93,7 +93,8 @@ use: {
 }
 ```
 
-Locally nothing is captured on a green run, and traces only on a retry. In
+Locally a run is one attempt, so nothing is traced, and a screenshot is taken
+only when a test fails. In
 CI every attempt is traced and the traces of a failing test are kept, its
 retry included, so a CI failure can be debugged; a test that passes only on
 its retry fails the run (`failOnFlakyTests`). Traces and failure screenshots
@@ -101,7 +102,8 @@ land in `reports/test-results/`, the path the runner records as
 `artifact_paths.traces` and `.screenshots`.
 
 **Traces are never published.** Playwright 1.60 has no option to mask typed
-values in a trace (masking exists only for screenshot assertions), so CI keeps
+values in a trace, nor in the automatic failure screenshot (masking exists
+only for screenshots a test takes or asserts itself), so CI keeps
 the risk on the runner: it uploads `reports/results.json` only, never
 `reports/test-results/` or the HTML report, which embeds the traces. But **a
 trace or screenshot of a login flow records the credentials that were typed** —
@@ -110,7 +112,7 @@ violated. Treat every captured artifact as sensitive:
 
 - **Keep them out of git.** `reports/`, `traces/`, and `screenshots/` are
   gitignored (and `runs/**/reports|traces|screenshots/` for archived runs).
-  They live as CI artifacts with a retention window, not in history.
+  CI keeps them on the runner and uploads none (`docs/design-decisions.md` D9).
 - **They are secret-bearing in CI.** A trace uploaded as a build artifact is
   downloadable by anyone with repo access, which is why CI uploads none. If
   you change the workflow to upload them for debugging, do it only for a

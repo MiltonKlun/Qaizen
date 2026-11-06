@@ -443,6 +443,12 @@ export function main(args = argv.slice(2)) {
       usage('--repeat-check goes with --playwright and --playwright-identity');
       return 2;
     }
+    if (!pwIdentity.gate_digest) {
+      console.error(
+        'Error: the Playwright execution names no Gate 4 approval digest (an approval from before approvals were bound), so its repeat check cannot be matched to it; leave --repeat-check out.'
+      );
+      return 2;
+    }
     if (repeatCheck?.input_digest !== pwIdentity.gate_digest) {
       console.error(
         'Error: the repeat check ran against other inputs than the Gate 4 approval this execution ran under; re-run the repeat check.'

@@ -288,3 +288,17 @@ test('the schema rejects an out-of-range pass rate', () => {
   l.totals.unit_pass_rate = 1.5;
   assert.equal(validateValue(l, LEDGER_SCHEMA).ok, false);
 });
+
+test('a repeat check is kept only beside the Playwright execution of the same Gate 4 approval', () => {
+  const l = gold();
+  assert.equal(ledgerInvariants(l).ok, true);
+  l.repeat_check.input_digest = 'e'.repeat(64);
+  const inv = ledgerInvariants(l);
+  assert.equal(inv.ok, false);
+  assert.match(
+    inv.ok ? '' : inv.violations.join('\n'),
+    /repeat_check ran against other inputs than the Gate 4 approval/
+  );
+  delete l.repeat_check;
+  assert.equal(ledgerInvariants(l).ok, true);
+});
