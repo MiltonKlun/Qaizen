@@ -63,3 +63,12 @@ export function launchLine(step) {
     : 'no MCP server';
   return `  Start a fresh session with ${what}:\n    ${command}\n`;
 }
+
+/**
+ * The way out, said with every step whose agent may find its task cannot be
+ * done within the rules: a stop is a correct outcome, a workaround is not.
+ */
+export const IMPOSSIBLE_LINE =
+  '  Tell it: if this cannot be done within the rules (the app or the endpoint does\n' +
+  '  not do what the spec or the cases describe, a step cannot be performed), write\n' +
+  '  nothing, reply "IMPOSSIBLE: <why>" and stop. Then fix the spec or the scope.\n';

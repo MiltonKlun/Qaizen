@@ -52,7 +52,7 @@ import {
 } from './pipeline-state.js';
 import { GATE_BRIEFS, renderGateBrief } from './gate-briefs.js';
 import { briefChecks } from './lib/brief-checks.js';
-import { launchLine } from './lib/step-mcp.js';
+import { IMPOSSIBLE_LINE, launchLine } from './lib/step-mcp.js';
 import { applyCaseDecisions, draftCases } from './lib/case-decisions.js';
 import {
   coverageGaps,
@@ -1410,6 +1410,7 @@ const GUIDE_STEPS = {
     launchLine('api') +
     `  It writes api-tests/collections/${storyId(ctx)}.postman_collection.json (+ environment),\n` +
     '  verifying endpoint shapes via Postman MCP / OpenAPI — never invented.\n' +
+    IMPOSSIBLE_LINE +
     "  Then: npm run pipeline -- --resume   (the collection goes to Gate 3' and Gate 4')",
   'no-executable-scope': (ctx) =>
     `The approved scope of ${storyId(ctx)} has no approved test case, so there is\n` +
@@ -1433,6 +1434,7 @@ const GUIDE_STEPS = {
     `Run the PLAYWRIGHT GENERATOR native agent on specs/${storyId(ctx)}.md.\n` +
     launchLine('generator') +
     `  It writes tests/${storyId(ctx)}.spec.ts; fill artifact_paths.generated_test.\n` +
+    IMPOSSIBLE_LINE +
     '  Then: npm run pipeline -- --resume',
   finalize: (ctx) =>
     `Run the FAILURE CLASSIFIER: agents/failure-classifier.md for ${storyId(ctx)}.\n` +

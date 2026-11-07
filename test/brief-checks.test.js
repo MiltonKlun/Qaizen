@@ -9,7 +9,12 @@ import { join } from 'node:path';
 
 import { removeTempDir } from './helpers/cleanup.js';
 import { runContext, scopeCases } from './helpers/valid-run.js';
-import { briefChecks } from '../scripts/lib/brief-checks.js';
+import {
+  briefChecks,
+  REJECTION_ADVICE_AT,
+  rejectionCount,
+  rejectionLine,
+} from '../scripts/lib/brief-checks.js';
 
 function run(t, { scored = true } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'qaizen-brief-'));
@@ -139,4 +144,53 @@ test('a missing story or test-cases file skips its check, never guesses', (t) =>
   assert.deepEqual(briefChecks('qa_scope', ctx, dir), [
     'every risk (1) is scored likelihood × impact, with its severity on the matrix',
   ]);
+});
+
+test('rejections are counted per gate per run, and from the third the brief advises revisiting the story or scope', (t) => {
+  const { dir, ctx } = run(t);
+  const reject = (/** @type {string} */ gate) => ({
+    gate,
+    decision: 'rejected',
+    reviewer: 'r',
+    decided_at: '2026-11-07T10:00:00.000Z',
+  });
+  assert.equal(rejectionCount(ctx, 'specs_reviewed'), 0);
+  assert.equal(rejectionLine(ctx, 'specs_reviewed'), null);
+
+  ctx.gate_decisions = [
+    reject('specs_reviewed'),
+    reject('requirements_reviewed'),
+    { ...reject('specs_reviewed'), decision: 'approved' },
+    reject('specs_reviewed'),
+  ];
+  assert.equal(rejectionCount(ctx, 'specs_reviewed'), 2);
+  assert.deepEqual(briefChecks('gate3', ctx, dir), [
+    'this gate was rejected 2 times before in this run',
+  ]);
+  // Another gate's rejections are its own.
+  assert.equal(
+    briefChecks('gate1', ctx, dir).at(-1),
+    'this gate was rejected 1 time before in this run'
+  );
+
+  ctx.gate_decisions.push(reject('specs_reviewed'));
+  assert.equal(REJECTION_ADVICE_AT, 3);
+  const line = briefChecks('gate3', ctx, dir)[0];
+  assert.match(
+    line,
+    /^ATTENTION: this gate has been rejected 3 times in this run/
+  );
+  assert.match(line, /revisiting the approved scope \(Gate 2\) or the story/);
+  assert.match(line, /Advisory: nothing is blocked/);
+
+  ctx.gate_decisions = [1, 2, 3].map(() => reject('test_scope_reviewed'));
+  assert.match(
+    briefChecks('gate2', ctx, dir).at(-1) ?? '',
+    /revisiting the story or its interpretation: reopen Gate 1/
+  );
+  ctx.gate_decisions = [1, 2, 3, 4].map(() => reject('requirements_reviewed'));
+  assert.match(
+    briefChecks('gate1', ctx, dir).at(-1) ?? '',
+    /rejected 4 times.*agree it with its owner/
+  );
 });

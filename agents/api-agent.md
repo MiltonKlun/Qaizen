@@ -10,9 +10,12 @@ description: |
   agent only authors it.
 phase_introduced: 1.5
 phase_active: 1.5+
-version: 1.3.3
+version: 1.3.4
 changed_in_run: null
 changelog: |
+  - 1.3.4: PATCH (no output change). Says how to stop when the task cannot
+    be done within the rules: no collection, a final "IMPOSSIBLE: <why>"
+    and no retry. The stop conditions themselves are unchanged.
   - 1.3.3: PATCH (no output change). Build-phase labels are replaced by
     what each step does today; the instructions are unchanged.
   - 1.3.2: PATCH (no output change). Pointers to unpublished planning notes are
@@ -337,6 +340,13 @@ Stop and surface to the human when:
 - The run needs to persist a collection path in `context.json` but the
   schema has no key for it. Propose the schema change; don't invent a
   key.
+
+**The way out.** When the task cannot be done within these rules, for one
+of the reasons above or any other, write no collection (leave an existing
+one as it is), reply `IMPOSSIBLE: <what is missing or contradicts what>` as
+your final message, and stop. Do not retry, and do not work around a rule
+to produce something: an honest stop is a correct outcome; a collection
+that guesses a shape or weakens an assertion is not.
 
 ---
 

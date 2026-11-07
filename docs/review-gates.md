@@ -1041,6 +1041,27 @@ Gate 2 problem is the entire downstream chain getting re-run. The
 gates exist precisely to make catching it earlier cheaper than
 catching it later.
 
+**Loops have an end.**
+
+- **Repeated rejections.** Every gate brief counts how often that gate was
+  rejected in the run (`gate_decisions[]`). From the third rejection on it
+  says that another round is unlikely to converge and names what to revisit:
+  the story with its owner for Gate 1, the story or Gate 1 for Gate 2, the
+  approved scope or the story for Gates 3 and 4
+  (`scripts/lib/brief-checks.js`). It is advice: nothing is blocked, and the
+  decision stays yours.
+- **The agents' way out.** The Generator, the API Agent and the native Healer
+  are told that when their task cannot be done within the rules they write
+  nothing, reply `IMPOSSIBLE: <why>` and stop (the runner's step
+  instructions, `agents/api-agent.md` §10, `docs/native-healer-handoff.md`).
+  An honest stop is a correct outcome; a test, collection or patch that
+  works around a rule to exist is not. The answer to an `IMPOSSIBLE` is to
+  fix the spec, the scope or the story, never to push the agent again.
+- **AI review rounds.** Any loop in which an AI reviews an artifact (none
+  exists yet) is capped at 3 rounds, and after the first round it reviews
+  only the diff since the round before. An AI reviewer stays advisory and
+  has no field it can use to approve (`CLAUDE.md` §3.5).
+
 ---
 
 ## References

@@ -18,6 +18,9 @@
 //   lite     both (the consolidated gate reviews Gates 1 and 2 together)
 //   Gate 4   the repeat check: how each test fared over N runs of the same
 //            code (repeat-check.js)
+//   every    how often this gate was rejected in this run; from the third
+//            rejection on, an advice to revisit the story or the scope
+//            instead of another round (advisory: it blocks nothing)
 
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -30,6 +33,7 @@ import { compareCriteria, criteriaLines } from './criteria-check.js';
 import { techniqueLine, techniqueSummary } from './case-decisions.js';
 import { hiddenText, hiddenTextLine } from './hidden-text.js';
 import { coverageLine, scopeCoverage } from './scope-coverage.js';
+import { GATE_KEYS } from '../pipeline-state.js';
 import { FULL_TRACK_REQUIREMENTS, effectiveTrack } from '../track-floor.js';
 
 /** @typedef {import('./approval-binding.js').Context} Context */
@@ -48,6 +52,49 @@ export function trackLine(t) {
       ? `; full requires: ${FULL_TRACK_REQUIREMENTS.join('; ')}`
       : '';
   return `track: ${t.track}${raised}; floor ${t.minimum}${why}${requires}`;
+}
+
+/** Rejections of one gate in one run after which the brief advises a change of course. */
+export const REJECTION_ADVICE_AT = 3;
+
+/** Where repeated rejections of a gate usually point. */
+const REVISIT = {
+  requirements_reviewed:
+    'the story itself: agree it with its owner (product owner or ticket author) before asking the Analyst again',
+  qa_scope_approved:
+    'the story itself: agree it with its owner before asking the Analyst and the Test Designer again',
+  test_scope_reviewed:
+    'the story or its interpretation: reopen Gate 1, or agree the scope with the story owner, before another Test Designer round',
+};
+
+/**
+ * How many times a gate was rejected in this run.
+ * @param {Context} context
+ * @param {string} gateKey
+ */
+export function rejectionCount(context, gateKey) {
+  return (
+    Array.isArray(context?.gate_decisions) ? context.gate_decisions : []
+  ).filter((d) => d?.gate === gateKey && d?.decision === 'rejected').length;
+}
+
+/**
+ * The brief line for a gate's rejections in this run, or null when it has
+ * none. Advisory: a loop that keeps rejecting is a sign the inputs upstream
+ * are wrong, and the human decides what to do about it.
+ * @param {Context} context
+ * @param {string} gateKey
+ * @returns {string | null}
+ */
+export function rejectionLine(context, gateKey) {
+  const n = rejectionCount(context, gateKey);
+  if (!n) return null;
+  if (n < REJECTION_ADVICE_AT)
+    return `this gate was rejected ${n} time${n === 1 ? '' : 's'} before in this run`;
+  const where =
+    /** @type {Record<string, string>} */ (REVISIT)[gateKey] ??
+    'the approved scope (Gate 2) or the story: when the spec or the code keeps being rejected, the scope or the story is usually what is wrong';
+  return `ATTENTION: this gate has been rejected ${n} times in this run. Another round is unlikely to converge; consider revisiting ${where}. (Advisory: nothing is blocked.)`;
 }
 
 const REPO_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -117,5 +164,8 @@ export function briefChecks(step, context, root = '.') {
       )
     );
   }
+  const gateKey = /** @type {Record<string, string>} */ (GATE_KEYS)[step];
+  const rejections = gateKey ? rejectionLine(context, gateKey) : null;
+  if (rejections) checks.push(rejections);
   return checks;
 }
