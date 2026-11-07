@@ -335,7 +335,7 @@ test('a Gate 4 record keeps the page object its test imports, and a restore puts
   put('pages/cart.ts', 'export class Cart {}\n');
   approveAll(dir);
   const record = listGateRecords(dir).pop();
-  assert.match(read(dir, record.record), /^\| Binding version \| 2 \|$/m);
+  assert.match(read(dir, record.record), /^\| Binding version \| 3 \|$/m);
   assert.equal(
     read(dir, `${record.dir}/pages/cart.ts`),
     'export class Cart {}\n'

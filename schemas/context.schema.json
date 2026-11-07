@@ -629,6 +629,59 @@
       "type": "string",
       "enum": ["draft", "in_progress", "completed", "blocked"]
     },
+    "provenance": {
+      "type": "object",
+      "description": "OPTIONAL. What produced each agent step's output (scripts/lib/provenance.js): the SHA-256 of every prompt file the step uses (its agent prompt and skills, or the generated .claude/agents/ definition; null when the file does not exist), the model id and harness version the operator declared (QAIZEN_MODEL, QAIZEN_HARNESS; unknown when undeclared, since the runner cannot see which model ran), the output it describes, and when it was recorded. Recorded the first time the runner sees the output, and again when the output changes. Absent on older runs, which show as unknown; nothing is backfilled. Written only by the runner.",
+      "propertyNames": {
+        "enum": [
+          "analyst",
+          "test-designer",
+          "planner",
+          "generator",
+          "api",
+          "external-plan",
+          "finalize",
+          "report"
+        ]
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["prompts", "model", "harness", "output", "recorded_at"],
+        "properties": {
+          "prompts": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "sha256"],
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "sha256": {
+                  "oneOf": [
+                    { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                    { "type": "null" }
+                  ]
+                }
+              }
+            }
+          },
+          "model": { "type": "string", "minLength": 1 },
+          "harness": { "type": "string", "minLength": 1 },
+          "output": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+            }
+          },
+          "recorded_at": { "type": "string" }
+        }
+      }
+    },
     "repeat_check": {
       "type": "object",
       "additionalProperties": false,
@@ -950,12 +1003,12 @@
             "binding_version": {
               "type": "integer",
               "minimum": 1,
-              "description": "OPTIONAL. The binding scheme input_digest was computed under (scripts/lib/approval-binding.js BINDING_VERSION); absent means 1. An approval is always checked against its own scheme's inputs, so approvals recorded before a scheme change keep verifying. Version 2 widens Gate 4 to every file under the Playwright testDir and tests/fixtures, tests/fixtures.ts, their relative-import closure (page objects, helpers), tsconfig.json and package.json. Written only by the runner at a human decision."
+              "description": "OPTIONAL. The binding scheme input_digest was computed under (scripts/lib/approval-binding.js BINDING_VERSION); absent means 1. An approval is always checked against its own scheme's inputs, so approvals recorded before a scheme change keep verifying. Version 2 widens Gate 4 to every file under the Playwright testDir and tests/fixtures, tests/fixtures.ts, their relative-import closure (page objects, helpers), tsconfig.json and package.json. Written only by the runner at a human decision. Version 3 binds Gate 3 to the digests of the Planner's and the Generator's prompt files instead of their declared versions."
             },
             "input_digest": {
               "type": "string",
               "pattern": "^[a-f0-9]{64}$",
-              "description": "OPTIONAL. SHA-256 over the inputs this gate reviewed, taken at the moment of human approval (scripts/lib/approval-binding.js): Gate 1 = story + interpreted ACs/risks/ambiguities/track; Gate 2 = Gate-1 digest + semantic test cases + planner brief; Gate 3 = Gate-2 digest + spec + planner/generator prompt versions; Gate 4 = Gate-3 digest + generated test + the testDir, tests/fixtures and their relative-import closure + Playwright config + tsconfig.json + package.json + dependency lock (binding_version 2; version 1 bound only the generated test, tests/fixtures, the config and the lock); qa_scope_approved = Gate-1 + Gate-2 inputs; collection_reviewed (Gate 3') = Gate-2 digest + collection requests/variables (no assertion scripts) + environment variable names (never values) + endpoint contract; api_assertions_reviewed (Gate 4') = Gate-3' digest + assertion scripts + Newman runner + dependency lock; external_plan_reviewed = Gate-2 digest + external plan; external_evidence_reviewed = external-plan digest + imported results (with evidence digests). When today's inputs no longer match, the approval is stale and the runner returns the gate to pending. An approved gate WITHOUT this field is a legacy approval and needs re-review before the run advances. Written only by the runner at a human decision; never by an agent."
+              "description": "OPTIONAL. SHA-256 over the inputs this gate reviewed, taken at the moment of human approval (scripts/lib/approval-binding.js): Gate 1 = story + interpreted ACs/risks/ambiguities/track; Gate 2 = Gate-1 digest + semantic test cases + planner brief; Gate 3 = Gate-2 digest + spec + the digests of the Planner's and the Generator's prompt files (binding_version 3; before it, their declared prompt_versions); Gate 4 = Gate-3 digest + generated test + the testDir, tests/fixtures and their relative-import closure + Playwright config + tsconfig.json + package.json + dependency lock (binding_version 2; version 1 bound only the generated test, tests/fixtures, the config and the lock); qa_scope_approved = Gate-1 + Gate-2 inputs; collection_reviewed (Gate 3') = Gate-2 digest + collection requests/variables (no assertion scripts) + environment variable names (never values) + endpoint contract; api_assertions_reviewed (Gate 4') = Gate-3' digest + assertion scripts + Newman runner + dependency lock; external_plan_reviewed = Gate-2 digest + external plan; external_evidence_reviewed = external-plan digest + imported results (with evidence digests). When today's inputs no longer match, the approval is stale and the runner returns the gate to pending. An approved gate WITHOUT this field is a legacy approval and needs re-review before the run advances. Written only by the runner at a human decision; never by an agent."
             },
             "inputs": {
               "type": "object",

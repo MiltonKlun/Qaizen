@@ -215,12 +215,12 @@ test('Gate 4 binds page objects, the seed spec, fixtures.ts, tsconfig.json and p
   }
 });
 
-test('an approval records binding version 2 and never binds an environment file', () => {
+test('an approval records binding version 3 and never binds an environment file', () => {
   const dir = repo();
   try {
     writeCompletedRun(dir, {}, CODE_FILES);
     const g4 = ctxOf(dir).review_gates.code_reviewed;
-    assert.equal(g4.binding_version, 2);
+    assert.equal(g4.binding_version, 3);
     assert.ok('pages/login.page.ts' in g4.inputs);
     assert.ok('tests/seed.spec.ts' in g4.inputs);
     assert.ok(!Object.keys(g4.inputs).some((k) => k.includes('.env')));
