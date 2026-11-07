@@ -7,6 +7,7 @@
 ## Running a trial
 
 Run the Test Designer (`agents/test-designer.md`) on `context.json` and `story.md`, as after an approved Gate 1, and keep the test cases it writes. Do not run the gates.
+
 Trial output: `test-cases.json` (the `test-cases/<story-id>.json` the agent wrote).
 
 Checks: `test_cases_valid`, `automated_case_for_criterion`, `automated_case_for_criterion` (`scripts/lib/regression-checks.js`).

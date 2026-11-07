@@ -20,12 +20,18 @@
   "definitions": {
     "interval": {
       "oneOf": [
-        { "type": "null" },
+        {
+          "type": "null"
+        },
         {
           "type": "array",
           "minItems": 2,
           "maxItems": 2,
-          "items": { "type": "number", "minimum": 0, "maximum": 1 }
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
         }
       ]
     },
@@ -35,11 +41,19 @@
       "properties": {
         "value": {
           "oneOf": [
-            { "type": "null" },
-            { "type": "number", "minimum": 0, "maximum": 1 }
+            {
+              "type": "null"
+            },
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
           ]
         },
-        "wilson_95": { "$ref": "#/definitions/interval" }
+        "wilson_95": {
+          "$ref": "#/definitions/interval"
+        }
       }
     },
     "promptDigest": {
@@ -47,20 +61,34 @@
       "additionalProperties": false,
       "required": ["path", "sha256"],
       "properties": {
-        "path": { "type": "string" },
+        "path": {
+          "type": "string"
+        },
         "sha256": {
           "oneOf": [
-            { "type": "null" },
-            { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
           ]
         }
       }
     }
   },
   "properties": {
-    "kind": { "const": "regression-evaluation" },
-    "schema_version": { "const": "1.0" },
-    "generated_at": { "type": "string", "format": "date-time" },
+    "kind": {
+      "const": "regression-evaluation"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
     "scope": {
       "type": "object",
       "additionalProperties": false,
@@ -69,16 +97,28 @@
         "agent": {
           "description": "The --agent the run was limited to, or null for every agent.",
           "oneOf": [
-            { "type": "null" },
-            { "enum": ["analyst", "test-designer", "healer"] }
+            {
+              "type": "null"
+            },
+            {
+              "enum": ["analyst", "test-designer", "healer"]
+            }
           ]
         },
         "agents": {
           "type": "array",
-          "items": { "enum": ["analyst", "test-designer", "healer"] }
+          "items": {
+            "enum": ["analyst", "test-designer", "healer"]
+          }
         },
-        "cases": { "type": "integer", "minimum": 1 },
-        "trials": { "type": "integer", "minimum": 1 }
+        "cases": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "trials": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     },
     "decision_rule": {
@@ -87,16 +127,28 @@
         "statement",
         "block_when_a_case_fails_every_trial",
         "block_below_previous_lower_bound",
-        "sha256"
+        "sha256",
+        "set_tree"
       ],
       "properties": {
-        "statement": { "type": "string" },
-        "block_when_a_case_fails_every_trial": { "type": "boolean" },
-        "block_below_previous_lower_bound": { "type": "boolean" },
+        "statement": {
+          "type": "string"
+        },
+        "block_when_a_case_fails_every_trial": {
+          "type": "boolean"
+        },
+        "block_below_previous_lower_bound": {
+          "type": "boolean"
+        },
         "sha256": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$",
           "description": "SHA-256 of the committed manifest (line endings normalized): the rule, the trial count and the cases together."
+        },
+        "set_tree": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40,64}$",
+          "description": "The git tree of examples/evaluation/regressions at HEAD when the evaluation ran: the cases, their inputs and the rule exactly as committed."
         }
       }
     },
@@ -107,15 +159,21 @@
       "properties": {
         "model": {
           "type": "string",
-          "description": "QAIZEN_MODEL when the evaluation ran, otherwise unknown."
+          "description": "QAIZEN_MODEL when the evaluation ran; the evaluator refuses to run without it."
         },
-        "harness": { "type": "string" },
+        "harness": {
+          "type": "string"
+        },
         "prompts": {
           "type": "object",
-          "propertyNames": { "enum": ["analyst", "test-designer", "healer"] },
+          "propertyNames": {
+            "enum": ["analyst", "test-designer", "healer"]
+          },
           "additionalProperties": {
             "type": "array",
-            "items": { "$ref": "#/definitions/promptDigest" }
+            "items": {
+              "$ref": "#/definitions/promptDigest"
+            }
           }
         }
       }
@@ -126,26 +184,42 @@
       "properties": {
         "pass_k": {
           "allOf": [
-            { "$ref": "#/definitions/rate" },
+            {
+              "$ref": "#/definitions/rate"
+            },
             {
               "type": "object",
               "required": ["cases", "passed"],
               "properties": {
-                "cases": { "type": "integer", "minimum": 1 },
-                "passed": { "type": "integer", "minimum": 0 }
+                "cases": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "passed": {
+                  "type": "integer",
+                  "minimum": 0
+                }
               }
             }
           ]
         },
         "per_trial": {
           "allOf": [
-            { "$ref": "#/definitions/rate" },
+            {
+              "$ref": "#/definitions/rate"
+            },
             {
               "type": "object",
               "required": ["trials", "passed"],
               "properties": {
-                "trials": { "type": "integer", "minimum": 1 },
-                "passed": { "type": "integer", "minimum": 0 }
+                "trials": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "passed": {
+                  "type": "integer",
+                  "minimum": 0
+                }
               }
             }
           ]
@@ -154,7 +228,9 @@
     },
     "previous": {
       "oneOf": [
-        { "type": "null" },
+        {
+          "type": "null"
+        },
         {
           "type": "object",
           "additionalProperties": false,
@@ -163,16 +239,44 @@
             "pass_k",
             "cases_added",
             "cases_removed",
-            "set_changed"
+            "set_changed",
+            "compared"
           ],
           "properties": {
-            "source": { "type": "string" },
-            "pass_k": {
-              "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/rate" }]
+            "source": {
+              "type": "string",
+              "description": "The committed results this run is compared with, as HEAD:<path>."
             },
-            "cases_added": { "type": "array", "items": { "type": "string" } },
-            "cases_removed": { "type": "array", "items": { "type": "string" } },
-            "set_changed": { "type": "boolean" }
+            "pass_k": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/definitions/rate"
+                }
+              ]
+            },
+            "cases_added": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "cases_removed": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "set_changed": {
+              "type": "boolean",
+              "description": "The set's git tree differs from the one the previous results were scored on."
+            },
+            "compared": {
+              "type": "boolean",
+              "description": "Whether the lower-bound rule compared with these results: only for the same set and the same cases."
+            }
           }
         }
       ]
@@ -182,8 +286,15 @@
       "additionalProperties": false,
       "required": ["verdict", "reasons"],
       "properties": {
-        "verdict": { "enum": ["pass", "block"] },
-        "reasons": { "type": "array", "items": { "type": "string" } }
+        "verdict": {
+          "enum": ["pass", "block"]
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "cases": {
@@ -204,8 +315,13 @@
           "trial_results"
         ],
         "properties": {
-          "id": { "type": "string", "pattern": "^REG-[0-9]{3}$" },
-          "agent": { "enum": ["analyst", "test-designer", "healer"] },
+          "id": {
+            "type": "string",
+            "pattern": "^REG-[0-9]{3}$"
+          },
+          "agent": {
+            "enum": ["analyst", "test-designer", "healer"]
+          },
           "source": {
             "enum": [
               "audit-probe",
@@ -214,14 +330,24 @@
               "escaped-defect"
             ]
           },
-          "expected": { "type": "string" },
-          "trials": { "type": "integer", "minimum": 1 },
-          "passed": { "type": "integer", "minimum": 0 },
+          "expected": {
+            "type": "string"
+          },
+          "trials": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "passed": {
+            "type": "integer",
+            "minimum": 0
+          },
           "pass_k": {
             "type": "boolean",
             "description": "Every one of the k trials passed."
           },
-          "pass_rate": { "$ref": "#/definitions/rate" },
+          "pass_rate": {
+            "$ref": "#/definitions/rate"
+          },
           "trial_results": {
             "type": "array",
             "items": {
@@ -229,14 +355,17 @@
               "additionalProperties": false,
               "required": ["trial", "output_sha256", "pass", "failed"],
               "properties": {
-                "trial": { "type": "integer", "minimum": 1 },
-                "output_sha256": {
-                  "oneOf": [
-                    { "type": "null" },
-                    { "type": "string", "pattern": "^[0-9a-f]{64}$" }
-                  ]
+                "trial": {
+                  "type": "integer",
+                  "minimum": 1
                 },
-                "pass": { "type": "boolean" },
+                "output_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "pass": {
+                  "type": "boolean"
+                },
                 "failed": {
                   "type": "array",
                   "items": {
@@ -244,8 +373,12 @@
                     "additionalProperties": false,
                     "required": ["check", "detail"],
                     "properties": {
-                      "check": { "type": "string" },
-                      "detail": { "type": "string" }
+                      "check": {
+                        "type": "string"
+                      },
+                      "detail": {
+                        "type": "string"
+                      }
                     }
                   }
                 }

@@ -38,11 +38,13 @@ The evaluator never runs an agent. For every case of the agent whose prompt
   REG-001/trial-1/context.json
   REG-001/trial-2/context.json
   REG-001/trial-3/context.json
-  REG-008/trial-1/candidate.spec.ts   # absent when the Healer declined
+  REG-008/trial-1/candidate.spec.ts   # unchanged when the Healer declined
   ...
 ```
 
-Then, with the model declared as for a run:
+Then score them from the same checkout that produced them (the prompt-file
+digests recorded are the ones on disk when scoring), with the model declared;
+the evaluator refuses to run without it:
 
 ```powershell
 $env:QAIZEN_MODEL = '<model id>'
@@ -52,21 +54,28 @@ node scripts/evaluate-agents.js --regressions <trials-dir> --agent analyst
 Each trial passes when every check of its case passes. The report gives per
 case the trials passed out of k, pass^k (every trial passed) and a Wilson 95%
 interval on its pass rate; then the share of cases passing every trial, and of
-trials passing, each with its interval; and the decision. A missing trial is
-missing work (exit 2), never a smaller denominator.
+trials passing, each with its interval; and the decision. A missing trial, or a
+trial without its output file, is missing work (exit 2), never a smaller
+denominator.
 
 The results go to `evidence/regressions/<agent>.json` (or `all.json` without
-`--agent`) and are committed with the change. What is already there is the
-previous result the rule compares with. A re-run that measures the same thing
-(same outputs, prompts, model, set) leaves the file as it is.
+`--agent`) and are committed with the change. The previous result the rule
+compares with is the committed version of that file (`HEAD`), never the working
+copy, so re-running a blocked change does not turn it into its own baseline. A
+re-run that measures the same thing (same outputs, prompts, model, set) leaves
+the file as it is.
 
 ## The decision rule
 
 Written in `manifest.json` before the run. Today: block the change when any
 case fails all 3 of its trials, or when the share of cases passing every trial
 falls below the lower bound of the previous results' interval. The evaluator
-refuses to run while this folder has uncommitted changes, so the rule and the
-cases that judged a change are in history before the results they produced.
+refuses to run while this folder has uncommitted changes and records its git
+tree in the results, so the rule and the cases that judged a change are in
+history before the results they produced. The lower bound is compared only
+with results scored on the same tree: a case added, removed or edited makes
+the old aggregate a measure of something else, and the report says it was not
+compared.
 
 A block is the documented "needs rework" outcome, not a gate: the human reads
 the failed trials and decides. Small sets detect only large regressions (a
@@ -77,8 +86,10 @@ are worth more than more trials.
 ## What the checks cannot see
 
 The checks are mechanical (`scripts/lib/regression-checks.js`): criteria
-compared with the story as Gate 1 compares them, the declared track, links to
-real risks and criteria, an automated case for a named criterion, whether the
-Healer changed the test and whether the guardrails accept the change. Whether
+compared with the story as Gate 1 compares them and with its criteria list,
+the track floor from what the Analyst wrote, links to real risks and
+criteria, an automated case for a named criterion, whether the Healer changed
+the test's code, whether the guardrails accept the change and which test ids
+its code names. Whether a repaired test passes on the app is not run. Whether
 a risk is the right risk, or a case tests the right thing, is still read
 against the gate rubrics (`docs/review-gates.md`).

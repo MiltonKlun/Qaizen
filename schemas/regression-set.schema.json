@@ -7,7 +7,9 @@
   "additionalProperties": false,
   "required": ["schema_version", "trials", "decision_rule", "cases"],
   "properties": {
-    "schema_version": { "const": "1.0" },
+    "schema_version": {
+      "const": "1.0"
+    },
     "trials": {
       "type": "integer",
       "minimum": 1,
@@ -46,10 +48,13 @@
         "additionalProperties": false,
         "required": ["id", "agent", "source", "input", "expected", "checks"],
         "properties": {
-          "id": { "type": "string", "pattern": "^REG-[0-9]{3}$" },
+          "id": {
+            "type": "string",
+            "pattern": "^REG-[0-9]{3}$"
+          },
           "agent": {
             "enum": ["analyst", "test-designer", "healer"],
-            "description": "The agent run on the input. Its output for one trial is context.json (Analyst), test-cases.json (Test Designer) or candidate.spec.ts (Healer; absent when it declined)."
+            "description": "The agent run on the input. Its output for one trial is context.json (Analyst), test-cases.json (Test Designer) or candidate.spec.ts (Healer: the test as it left it, unchanged when it declined). Every trial needs its output."
           },
           "source": {
             "type": "object",
@@ -64,7 +69,10 @@
                   "escaped-defect"
                 ]
               },
-              "description": { "type": "string", "minLength": 1 }
+              "description": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           },
           "input": {
@@ -88,24 +96,36 @@
                   "enum": [
                     "context_valid",
                     "criteria_verbatim",
-                    "track_at_least",
+                    "track_floor",
                     "test_cases_valid",
                     "automated_case_for_criterion",
                     "declines",
                     "candidate_eligible",
-                    "candidate_contains"
+                    "candidate_contains",
+                    "candidate_omits"
                   ]
                 },
-                "count": { "type": "integer", "minimum": 1 },
-                "track": { "enum": ["lite", "standard", "full"] },
-                "pattern": { "type": "string", "minLength": 1 },
+                "floor": {
+                  "enum": ["lite", "standard", "full"],
+                  "description": "track_floor: the track the runner must hold the story to, from what the Analyst wrote."
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "automated_case_for_criterion: a literal (case-insensitive) naming exactly one criterion of the input context."
+                },
                 "texts": {
                   "type": "array",
                   "minItems": 1,
-                  "items": { "type": "string", "minLength": 1 }
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": "candidate_contains / candidate_omits: texts looked for in the code of the Healer's test, comments excluded."
                 }
               },
-              "additionalProperties": false
+              "additionalProperties": false,
+              "description": "A check of scripts/lib/regression-checks.js and its parameters; the evaluator refuses a parameter the check does not take."
             }
           }
         }

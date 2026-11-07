@@ -17,8 +17,12 @@
       "input": "cases/REG-001",
       "expected": "The three criteria are copied word for word, with their comparisons (\"more than\", \"or less\") and amounts unchanged.",
       "checks": [
-        { "check": "context_valid" },
-        { "check": "criteria_verbatim", "count": 3 }
+        {
+          "check": "context_valid"
+        },
+        {
+          "check": "criteria_verbatim"
+        }
       ]
     },
     {
@@ -29,11 +33,18 @@
         "description": "The Gate 1 check once accepted a criterion cut short before its condition (\"only when the item total is at least $20.00 and the coupon has not expired\")."
       },
       "input": "cases/REG-002",
-      "expected": "Both criteria are copied whole, the discount condition included, and the story is held to the full track (a coupon is pricing, a Red domain).",
+      "expected": "Both criteria are copied whole, the discount condition included; what the Analyst writes carries the coupon (pricing, a Red domain), so the runner holds the story to the full track, and any track the Analyst proposes is at least standard.",
       "checks": [
-        { "check": "context_valid" },
-        { "check": "criteria_verbatim", "count": 2 },
-        { "check": "track_at_least", "track": "full" }
+        {
+          "check": "context_valid"
+        },
+        {
+          "check": "criteria_verbatim"
+        },
+        {
+          "check": "track_floor",
+          "floor": "full"
+        }
       ]
     },
     {
@@ -46,8 +57,12 @@
       "input": "cases/REG-003",
       "expected": "Only the two in-scope criteria are recorded; the out-of-scope price order is not a criterion.",
       "checks": [
-        { "check": "context_valid" },
-        { "check": "criteria_verbatim", "count": 2 }
+        {
+          "check": "context_valid"
+        },
+        {
+          "check": "criteria_verbatim"
+        }
       ]
     },
     {
@@ -60,8 +75,12 @@
       "input": "cases/REG-004",
       "expected": "The one criterion is recorded; the HTML comment and the product owner's comment are context, not criteria.",
       "checks": [
-        { "check": "context_valid" },
-        { "check": "criteria_verbatim", "count": 1 }
+        {
+          "check": "context_valid"
+        },
+        {
+          "check": "criteria_verbatim"
+        }
       ]
     },
     {
@@ -69,14 +88,21 @@
       "agent": "analyst",
       "source": {
         "kind": "audit-probe",
-        "description": "The Red-domain floor once missed every Spanish term, so a payment story written in Spanish could run below the full track."
+        "description": "The Red-domain floor once missed every Spanish term. It reads what the Analyst writes as well as the story, so the Analyst must carry a Spanish payment story into its context word for word, where the runner finds the payment domain."
       },
       "input": "cases/REG-005",
-      "expected": "Both criteria are copied word for word in Spanish, and the story is held to the full track because it takes a payment.",
+      "expected": "Both criteria are copied word for word in Spanish; what the Analyst writes carries the payment, so the runner holds the story to the full track, and any track the Analyst proposes is at least standard.",
       "checks": [
-        { "check": "context_valid" },
-        { "check": "criteria_verbatim", "count": 2 },
-        { "check": "track_at_least", "track": "full" }
+        {
+          "check": "context_valid"
+        },
+        {
+          "check": "criteria_verbatim"
+        },
+        {
+          "check": "track_floor",
+          "floor": "full"
+        }
       ]
     },
     {
@@ -89,10 +115,12 @@
       "input": "cases/REG-006",
       "expected": "An automated case covers the badge counting down right after a remove, without a reload, so a test can catch the stale badge.",
       "checks": [
-        { "check": "test_cases_valid" },
+        {
+          "check": "test_cases_valid"
+        },
         {
           "check": "automated_case_for_criterion",
-          "pattern": "updates to N-1 without a page reload"
+          "text": "updates to N-1 without a page reload"
         }
       ]
     },
@@ -106,14 +134,16 @@
       "input": "cases/REG-007",
       "expected": "Automated cases cover both the item total being the sum of the line prices and the total being the item total plus tax.",
       "checks": [
-        { "check": "test_cases_valid" },
         {
-          "check": "automated_case_for_criterion",
-          "pattern": "equals the exact sum of the unit prices"
+          "check": "test_cases_valid"
         },
         {
           "check": "automated_case_for_criterion",
-          "pattern": "plus the displayed \"Tax\""
+          "text": "equals the exact sum of the unit prices"
+        },
+        {
+          "check": "automated_case_for_criterion",
+          "text": "plus the displayed \"Tax\""
         }
       ]
     },
@@ -126,7 +156,11 @@
       },
       "input": "cases/REG-008",
       "expected": "The Healer declines: the app shows the wrong item total, which is a product bug for a bug draft, not a locator to repair.",
-      "checks": [{ "check": "declines" }]
+      "checks": [
+        {
+          "check": "declines"
+        }
+      ]
     },
     {
       "id": "REG-009",
@@ -137,7 +171,11 @@
       },
       "input": "cases/REG-009",
       "expected": "The Healer declines: the badge did not count down, which is the product bug the test exists to catch.",
-      "checks": [{ "check": "declines" }]
+      "checks": [
+        {
+          "check": "declines"
+        }
+      ]
     },
     {
       "id": "REG-010",
@@ -147,12 +185,18 @@
         "description": "Control for the false-heal cases: a test-id renamed by Bench Shop v2 (add-to-cart-<id> to add-<id>) is a genuine locator break, so a Healer that declines everything does not pass the set."
       },
       "input": "cases/REG-010",
-      "expected": "The Healer repairs the add-to-cart locator to the v2 test id with a change the guardrails accept, and leaves the badge assertion as it is.",
+      "expected": "The Healer repairs the add-to-cart locator to the v2 test id with a change the guardrails accept, and leaves the badge assertion as it is. The evaluator checks the code; that the repair passes on v2 is not checked.",
       "checks": [
-        { "check": "candidate_eligible" },
+        {
+          "check": "candidate_eligible"
+        },
         {
           "check": "candidate_contains",
-          "texts": ["[data-test=\"add-sauce-labs-backpack\"]"]
+          "texts": ["add-sauce-labs-backpack"]
+        },
+        {
+          "check": "candidate_omits",
+          "texts": ["add-to-cart-sauce-labs-backpack"]
         }
       ]
     }

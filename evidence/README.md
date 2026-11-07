@@ -19,7 +19,8 @@
   `schemas/regression-results.schema.json`. Written by
   `node scripts/evaluate-agents.js --regressions <trials-dir>`, run by the
   human, and committed with the change it judged; rewritten only when the
-  results change. Absent until the first evaluation.
+  results change. Its committed version is the previous result the next
+  evaluation of that scope compares with. Absent until the first evaluation.
 
 ## How records get here
 

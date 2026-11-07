@@ -12,26 +12,27 @@
 // that passed every trial, with its interval, and the decision the rule gives.
 //
 // The rule is written before the run: the evaluator refuses a set with
-// uncommitted changes, so the rule and the cases that judged a change are in
-// history before the results they produced. The results go to
-// evidence/regressions/<agent|all>.json and are rewritten only when they
-// change; the previous results there are what "previous" means in the rule.
+// uncommitted changes and records the set's git tree, so the rule and the
+// cases that judged a change are in history before the results. The results
+// go to evidence/regressions/<agent|all>.json and are rewritten only when what
+// they measured changes. "Previous" in the rule is the committed version of
+// that file, never the working copy, so re-running a blocked change does not
+// make it its own baseline.
 
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-  formatErrors,
-  readValidatedJson,
-  validateValue,
-} from './artifact-io.js';
-
+import { formatErrors, validateValue } from './artifact-io.js';
 import { promptDigests, STEP_PROMPTS, UNKNOWN } from './provenance.js';
 import { CHECKS, TRIAL_OUTPUT } from './regression-checks.js';
-import { sameRecorded, writeResultsIfChanged } from './results-file.js';
+import { writeResultsIfChanged } from './results-file.js';
+
+export const SET_DIR = 'examples/evaluation/regressions';
+export const MANIFEST = `${SET_DIR}/manifest.json`;
+export const RESULTS_DIR = 'evidence/regressions';
 
 const SCHEMA_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -40,10 +41,6 @@ const SCHEMA_DIR = join(
   'schemas'
 );
 const schemaFile = (/** @type {string} */ name) => join(SCHEMA_DIR, name);
-
-export const SET_DIR = 'examples/evaluation/regressions';
-export const MANIFEST = `${SET_DIR}/manifest.json`;
-export const RESULTS_DIR = 'evidence/regressions';
 
 /** z for a two-sided 95% interval. */
 const Z_95 = 1.959964;
@@ -64,12 +61,17 @@ export const AGENT_PROMPTS = Object.freeze({
  *   block_below_previous_lower_bound: boolean }} DecisionRule
  * @typedef {{ value: number | null, wilson_95: [number, number] | null }} Rate
  * @typedef {import('./regression-checks.js').CaseInput} CaseInput
+ * @typedef {import('./regression-checks.js').Validate} Validate
+ * @typedef {{ source: string, pass_k: Rate | null, cases_added: string[],
+ *   cases_removed: string[], set_changed: boolean, compared: boolean }} Previous
  */
 
 const round4 = (/** @type {number} */ x) => Math.round(x * 1e4) / 1e4;
 const sha256 = (/** @type {string} */ s) =>
   createHash('sha256').update(s).digest('hex');
-const normalize = (/** @type {string} */ s) => s.replace(/\r\n/g, '\n');
+/** Line endings and a byte-order mark are not content. */
+export const normalize = (/** @type {string} */ s) =>
+  s.replace(/^﻿/, '').replace(/\r\n/g, '\n');
 
 /**
  * The Wilson score interval for `successes` out of `n`, at 95%.
@@ -137,6 +139,11 @@ export function caseErrors(c, input) {
     }
     if (!def.agents.includes(c.agent))
       errors.push(`${c.id}: check "${ref.check}" is not for the ${c.agent}`);
+    const extra = Object.keys(ref).filter(
+      (k) => k !== 'check' && !(def.keys ?? []).includes(k)
+    );
+    if (extra.length)
+      errors.push(`${c.id}: check "${ref.check}" takes no ${extra.join(', ')}`);
     const missing = def.needs.filter((k) => input[k] === null);
     if (missing.length) {
       errors.push(
@@ -154,18 +161,16 @@ export function caseErrors(c, input) {
  * Score one trial's output against every check of its case.
  * @param {RegressionCase} c
  * @param {CaseInput} input
- * @param {string | null} text the output file's text, null when absent
- * @param {(value: any, schema: string) => { ok: boolean, detail: string }} validate
+ * @param {string} text the output file's text, normalized
+ * @param {Validate} validate
  */
 export function scoreTrial(c, input, text, validate) {
   /** @type {any} */
   let json;
-  if (text !== null) {
-    try {
-      json = JSON.parse(text);
-    } catch {
-      json = undefined;
-    }
+  try {
+    json = JSON.parse(text);
+  } catch {
+    json = undefined;
   }
   const failed = c.checks
     .map((ref) => ({
@@ -180,7 +185,7 @@ export function scoreTrial(c, input, text, validate) {
 /**
  * One case's result over its trials.
  * @param {RegressionCase} c
- * @param {{ output_sha256: string | null, pass: boolean,
+ * @param {{ output_sha256: string, pass: boolean,
  *   failed: { check: string, detail: string }[] }[]} trials
  */
 export function caseResult(c, trials) {
@@ -213,12 +218,14 @@ export function aggregate(cases) {
 }
 
 /**
- * The decision the rule gives.
+ * The decision the rule gives. The lower bound is compared only with
+ * previous results of the same set: other cases, or the same cases with other
+ * inputs, measure something else.
  * @param {DecisionRule} rule
  * @param {number} k
  * @param {ReturnType<typeof caseResult>[]} cases
  * @param {ReturnType<typeof aggregate>} agg
- * @param {{ pass_k: Rate } | null} previous
+ * @param {Previous | null} previous
  * @returns {{ verdict: 'pass' | 'block', reasons: string[] }}
  */
 export function decide(rule, k, cases, agg, previous) {
@@ -227,7 +234,7 @@ export function decide(rule, k, cases, agg, previous) {
   if (rule.block_when_a_case_fails_every_trial)
     for (const c of cases)
       if (c.passed === 0) reasons.push(`${c.id} failed all ${k} trials`);
-  const bound = previous?.pass_k?.wilson_95?.[0];
+  const bound = previous?.compared ? previous.pass_k?.wilson_95?.[0] : null;
   if (
     rule.block_below_previous_lower_bound &&
     typeof bound === 'number' &&
@@ -241,27 +248,74 @@ export function decide(rule, k, cases, agg, previous) {
 }
 
 /**
- * Whether the set (rule, cases, inputs) is committed as it is on disk.
+ * @param {string} cwd
+ * @param {string[]} args
+ */
+const git = (cwd, args) =>
+  spawnSync('git', args, { cwd, encoding: 'utf8', windowsHide: true });
+
+/**
+ * Whether the set (rule, cases, inputs) is committed as it is on disk, and
+ * the git tree it is committed as.
  * @param {string} root
- * @returns {{ ok: true } | { ok: false, reason: string }}
+ * @returns {{ ok: true, tree: string } | { ok: false, reason: string }}
  */
 export function setCommitted(root) {
-  const r = spawnSync('git', ['status', '--porcelain', '--', SET_DIR], {
-    cwd: root,
-    encoding: 'utf8',
-  });
-  if (r.error || r.status !== 0)
+  const status = git(root, [
+    'status',
+    '--porcelain',
+    '--untracked-files=all',
+    '--',
+    SET_DIR,
+  ]);
+  if (status.error || status.status !== 0)
     return {
       ok: false,
       reason:
         'cannot ask git whether the regression set is committed (not a git work tree?)',
     };
-  if (r.stdout.trim())
+  if (status.stdout.trim())
     return {
       ok: false,
-      reason: `${SET_DIR} has uncommitted changes:\n${r.stdout.trimEnd()}\nCommit the decision rule and the cases before the run, so they are in history before the results they judge.`,
+      reason: `${SET_DIR} has uncommitted changes:\n${status.stdout.trimEnd()}\nCommit the decision rule and the cases before the run, so they are in history before the results they judge.`,
     };
-  return { ok: true };
+  const tree = git(root, ['rev-parse', `HEAD:${SET_DIR}`]);
+  if (tree.status !== 0)
+    return { ok: false, reason: `${SET_DIR} is not committed.` };
+  return { ok: true, tree: tree.stdout.trim() };
+}
+
+/**
+ * The committed version of the results file at `outPath`, or null when it is
+ * outside the repository or has never been committed.
+ * @param {string} root
+ * @param {string} outPath absolute
+ * @returns {{ ok: true, source: string, doc: any } | { ok: true, source: null }
+ *   | { ok: false, reason: string }}
+ */
+export function committedResults(root, outPath) {
+  const top = git(root, ['rev-parse', '--show-toplevel']);
+  if (top.status !== 0) return { ok: true, source: null };
+  const rel = relative(resolve(top.stdout.trim()), outPath);
+  if (!rel || rel.startsWith('..') || isAbsolute(rel))
+    return { ok: true, source: null };
+  const path = rel.split(sep).join('/');
+  const shown = git(root, ['show', `HEAD:${path}`]);
+  if (shown.status !== 0) return { ok: true, source: null };
+  const source = `HEAD:${path}`;
+  let doc;
+  try {
+    doc = JSON.parse(normalize(shown.stdout));
+  } catch {
+    return { ok: false, reason: `${source} is not JSON.` };
+  }
+  const v = validateValue(doc, schemaFile('regression-results.schema.json'));
+  if (!v.ok)
+    return {
+      ok: false,
+      reason: `${source} does not validate against schemas/regression-results.schema.json:\n${formatErrors(v.errors).join('\n')}`,
+    };
+  return { ok: true, source, doc };
 }
 
 /**
@@ -271,12 +325,14 @@ export function setCommitted(root) {
  *   manifest: { trials: number, decision_rule: DecisionRule,
  *     cases: RegressionCase[] },
  *   manifestText: string,
+ *   setTree: string,
  *   trialsDir: string,
  *   agent: string | null,
  *   previous: { source: string, doc: any } | null,
- *   env: Record<string, string | undefined>,
+ *   model: string,
+ *   harness: string,
  *   now: string,
- *   validate: (value: any, schema: string) => { ok: boolean, detail: string },
+ *   validate: Validate,
  * }} args
  * @returns {{ ok: false, errors: string[] } | { ok: true, doc: any }}
  */
@@ -284,22 +340,28 @@ export function evaluateSet({
   root,
   manifest,
   manifestText,
+  setTree,
   trialsDir,
   agent,
   previous,
-  env,
+  model,
+  harness,
   now,
   validate,
 }) {
   const k = manifest.trials;
-  const cases = manifest.cases.filter((c) => !agent || c.agent === agent);
-  if (!cases.length)
-    return { ok: false, errors: [`no regression case is for "${agent}"`] };
-
   /** @type {string[]} */
   const errors = [];
+  const ids = manifest.cases.map((c) => c.id);
+  const dup = ids.find((id, i) => ids.indexOf(id) !== i);
+  if (dup) errors.push(`${MANIFEST} lists ${dup} more than once`);
+  const cases = manifest.cases.filter((c) => !agent || c.agent === agent);
+  if (!cases.length) errors.push(`no regression case is for "${agent}"`);
+
   /** @type {Map<string, CaseInput>} */
   const inputs = new Map();
+  /** @type {Map<string, string[]>} each case's trial outputs, normalized */
+  const outputs = new Map();
   for (const c of cases) {
     try {
       const input = loadInput(root, c);
@@ -310,60 +372,56 @@ export function evaluateSet({
         `${c.id}: its input cannot be read: ${/** @type {Error} */ (e).message}`
       );
     }
-  }
-  // Every case needs all k trials: a missing one is missing work, never a
-  // smaller denominator.
-  for (const c of cases)
+    // Every case needs all k trials, each with its output: a missing one is
+    // missing work, never a smaller denominator or a silent "declined".
+    /** @type {string[]} */
+    const texts = [];
     for (let n = 1; n <= k; n++) {
-      const dir = join(trialsDir, c.id, `trial-${n}`);
-      const isDir = existsSync(dir) && statSync(dir).isDirectory();
-      if (!isDir) errors.push(`${c.id}: trial ${n} is missing (${dir})`);
-      else if (
-        c.agent !== 'healer' &&
-        !existsSync(join(dir, TRIAL_OUTPUT[c.agent]))
-      )
-        errors.push(
-          `${c.id}: trial ${n} has no ${TRIAL_OUTPUT[c.agent]} (${dir})`
-        );
+      const file = join(trialsDir, c.id, `trial-${n}`, TRIAL_OUTPUT[c.agent]);
+      if (existsSync(file) && statSync(file).isFile())
+        texts.push(normalize(readFileSync(file, 'utf8')));
+      else errors.push(`${c.id}: trial ${n} has no output (${file})`);
     }
+    outputs.set(c.id, texts);
+  }
   if (errors.length) return { ok: false, errors };
 
   const results = cases.map((c) => {
     const input = /** @type {CaseInput} */ (inputs.get(c.id));
-    const trials = [];
-    for (let n = 1; n <= k; n++) {
-      const file = join(trialsDir, c.id, `trial-${n}`, TRIAL_OUTPUT[c.agent]);
-      const text = existsSync(file)
-        ? normalize(readFileSync(file, 'utf8'))
-        : null;
-      trials.push({
-        output_sha256: text === null ? null : sha256(text),
-        ...scoreTrial(c, input, text, validate),
-      });
-    }
+    const trials = /** @type {string[]} */ (outputs.get(c.id)).map((text) => ({
+      output_sha256: sha256(text),
+      ...scoreTrial(c, input, text, validate),
+    }));
     return caseResult(c, trials);
   });
   const agg = aggregate(results);
   const scopeAgents = [...new Set(cases.map((c) => c.agent))].sort();
-
-  const prev = previous?.doc;
-  const prevIds = new Set(
-    (prev?.cases ?? []).map((/** @type {{ id: string }} */ c) => c.id)
-  );
-  const ids = results.map((c) => c.id);
   const rule = {
     ...manifest.decision_rule,
     sha256: sha256(normalize(manifestText)),
+    set_tree: setTree,
   };
-  const previousBlock = prev
-    ? {
-        source: /** @type {{ source: string }} */ (previous).source,
-        pass_k: prev.aggregate?.pass_k ?? null,
-        cases_added: ids.filter((id) => !prevIds.has(id)),
-        cases_removed: [...prevIds].filter((id) => !ids.includes(id)),
-        set_changed: prev.decision_rule?.sha256 !== rule.sha256,
-      }
-    : null;
+
+  const prev = previous?.doc;
+  /** @type {Previous | null} */
+  let previousBlock = null;
+  if (previous && prev) {
+    const prevIds = new Set(
+      prev.cases.map((/** @type {{ id: string }} */ c) => c.id)
+    );
+    const now = results.map((c) => c.id);
+    const added = now.filter((id) => !prevIds.has(id));
+    const removed = [...prevIds].filter((id) => !now.includes(id));
+    const changed = prev.decision_rule.set_tree !== rule.set_tree;
+    previousBlock = {
+      source: previous.source,
+      pass_k: prev.aggregate.pass_k,
+      cases_added: added,
+      cases_removed: removed,
+      set_changed: changed,
+      compared: !changed && !added.length && !removed.length,
+    };
+  }
 
   return {
     ok: true,
@@ -379,8 +437,8 @@ export function evaluateSet({
       },
       decision_rule: rule,
       provenance: {
-        model: (env.QAIZEN_MODEL || '').trim() || UNKNOWN,
-        harness: (env.QAIZEN_HARNESS || '').trim() || UNKNOWN,
+        model,
+        harness,
         prompts: Object.fromEntries(
           scopeAgents.map((a) => [
             a,
@@ -401,15 +459,6 @@ export function evaluateSet({
 
 /** The fields that do not change what an evaluation measured. */
 export const NOT_MEASURED = ['generated_at', 'previous', 'decision'];
-
-/**
- * The results already recorded at `path`, when they measured the same thing:
- * a re-run on the same outputs keeps them, with their date and decision.
- * @param {string} path
- * @param {any} doc
- */
-export const recordedSame = (path, doc) =>
-  sameRecorded(path, doc, NOT_MEASURED);
 
 /**
  * The console report.
@@ -438,8 +487,8 @@ export function reportLines(doc) {
     `Cases passing every trial (pass^${k}): ${a.pass_k.passed}/${a.pass_k.cases} = ${pct(a.pass_k)}`,
     `Trials passing: ${a.per_trial.passed}/${a.per_trial.trials} = ${pct(a.per_trial)}`
   );
-  if (doc.previous) {
-    const p = doc.previous;
+  const p = doc.previous;
+  if (p)
     lines.push(
       `Previous (${p.source}): pass^${k} ${p.pass_k ? pct(p.pass_k) : 'n/a'}` +
         (p.cases_added.length
@@ -448,9 +497,10 @@ export function reportLines(doc) {
         (p.cases_removed.length
           ? `; cases removed ${p.cases_removed.join(', ')}`
           : '') +
-        (p.set_changed ? '; the set or its rule changed since' : '')
+        (p.set_changed ? '; the set changed since' : '') +
+        (p.compared ? '' : '; its lower bound is not compared')
     );
-  } else lines.push('Previous: none recorded for this scope.');
+  else lines.push('Previous: none committed for this scope.');
   lines.push(
     `Decision rule: ${doc.decision_rule.statement}`,
     `Decision: ${doc.decision.verdict.toUpperCase()}` +
@@ -459,6 +509,45 @@ export function reportLines(doc) {
         : '')
   );
   return lines;
+}
+
+/**
+ * The flags of a regression run, or a usage error.
+ * @param {string[]} args
+ * @returns {{ ok: true, trialsDir: string, agent: string | null, out: string }
+ *   | { ok: false, error: string }}
+ */
+function parseArgs(args) {
+  /** @type {Record<string, string>} */
+  const flags = {};
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (!['--regressions', '--agent', '--out'].includes(a))
+      return {
+        ok: false,
+        error: a.startsWith('--')
+          ? `${a} does not apply to --regressions (it takes --agent and --out only).`
+          : `Unexpected argument "${a}".`,
+      };
+    if (a in flags) return { ok: false, error: `${a} is given twice.` };
+    const v = args[i + 1];
+    if (!v || v.startsWith('--'))
+      return { ok: false, error: `${a} requires a value.` };
+    flags[a] = v;
+    i++;
+  }
+  const agent = flags['--agent'] ?? null;
+  if (agent && !(agent in TRIAL_OUTPUT))
+    return {
+      ok: false,
+      error: `--agent must be one of ${Object.keys(TRIAL_OUTPUT).join(', ')}.`,
+    };
+  return {
+    ok: true,
+    trialsDir: flags['--regressions'],
+    agent,
+    out: flags['--out'] ?? `${RESULTS_DIR}/${agent ?? 'all'}.json`,
+  };
 }
 
 /**
@@ -481,78 +570,57 @@ export function runRegressions(
     error(m);
     return 2;
   };
-  const value = (/** @type {string} */ name) => {
-    const i = args.indexOf(name);
-    if (i === -1) return undefined;
-    const v = args[i + 1];
-    return !v || v.startsWith('--') ? null : v;
-  };
-  const known = new Set(['--regressions', '--agent', '--out']);
-  const other = args.find((a) => a.startsWith('--') && !known.has(a));
-  if (other)
+  const flags = parseArgs(args);
+  if (!flags.ok) return usage(flags.error);
+  const model = (env.QAIZEN_MODEL || '').trim();
+  if (!model)
     return usage(
-      `${other} does not apply to --regressions (it takes --agent and --out only).`
+      'Set QAIZEN_MODEL to the model that produced the trials; results without the model cannot say what they measured.'
     );
-  const trialsDir = value('--regressions');
-  if (!trialsDir) return usage('--regressions requires a trials directory.');
-  const agent = value('--agent');
-  if (agent === null || (agent && !(agent in TRIAL_OUTPUT)))
-    return usage(
-      `--agent must be one of ${Object.keys(TRIAL_OUTPUT).join(', ')}.`
-    );
-  const outFlag = value('--out');
-  if (outFlag === null) return usage('--out requires a path.');
-  const out = outFlag ?? `${RESULTS_DIR}/${agent ?? 'all'}.json`;
 
-  const read = readValidatedJson(
-    join(cwd, MANIFEST),
+  const manifestPath = join(cwd, MANIFEST);
+  if (!existsSync(manifestPath))
+    return usage(`The regression set ${MANIFEST} is missing.`);
+  const manifestText = readFileSync(manifestPath, 'utf8');
+  /** @type {any} */
+  let manifest;
+  try {
+    manifest = JSON.parse(normalize(manifestText));
+  } catch {
+    return usage(`${MANIFEST} is not JSON.`);
+  }
+  const valid = validateValue(
+    manifest,
     schemaFile('regression-set.schema.json')
   );
-  if (!read.ok)
+  if (!valid.ok)
     return usage(
-      `The regression set ${MANIFEST} is missing or invalid (schemas/regression-set.schema.json): ${read.message}\n${formatErrors(read.errors).join('\n')}`
+      `${MANIFEST} does not validate against schemas/regression-set.schema.json:\n${formatErrors(valid.errors).join('\n')}`
     );
-  const ids = read.data.cases.map((/** @type {{ id: string }} */ c) => c.id);
-  const dup = ids.find(
-    (/** @type {string} */ id, /** @type {number} */ i) => ids.indexOf(id) !== i
-  );
-  if (dup) return usage(`${MANIFEST} lists ${dup} more than once.`);
   const committed = setCommitted(cwd);
   if (!committed.ok) return usage(committed.reason);
-  const trials = resolve(cwd, trialsDir);
-  if (!existsSync(trials))
-    return usage(`Trials directory not found: ${trialsDir}`);
+  const trialsDir = resolve(cwd, flags.trialsDir);
+  if (!existsSync(trialsDir))
+    return usage(`Trials directory not found: ${flags.trialsDir}`);
 
-  const outPath = resolve(cwd, out);
-  /** @type {{ source: string, doc: any } | null} */
-  let previous = null;
-  if (existsSync(outPath)) {
-    let doc;
-    try {
-      doc = JSON.parse(readFileSync(outPath, 'utf8'));
-    } catch {
-      return usage(
-        `${out} exists but is not JSON; it cannot be the previous results.`
-      );
-    }
-    if (
-      doc?.kind !== 'regression-evaluation' ||
-      (doc.scope?.agent ?? null) !== (agent ?? null)
-    )
-      return usage(
-        `${out} is not a regression evaluation of the same scope (${agent ?? 'all agents'}); pass another --out.`
-      );
-    previous = { source: out, doc };
-  }
+  const outPath = resolve(cwd, flags.out);
+  const prior = committedResults(cwd, outPath);
+  if (!prior.ok) return usage(prior.reason);
+  if (prior.source !== null && (prior.doc.scope.agent ?? null) !== flags.agent)
+    return usage(
+      `${prior.source} is a regression evaluation of another scope; pass another --out.`
+    );
 
   const result = evaluateSet({
     root: cwd,
-    manifest: read.data,
-    manifestText: readFileSync(join(cwd, MANIFEST), 'utf8'),
-    trialsDir: trials,
-    agent: agent ?? null,
-    previous,
-    env,
+    manifest,
+    manifestText,
+    setTree: committed.tree,
+    trialsDir,
+    agent: flags.agent,
+    previous: prior.source === null ? null : prior,
+    model,
+    harness: (env.QAIZEN_HARNESS || '').trim() || UNKNOWN,
     now: new Date().toISOString(),
     validate: (v, name) => {
       const r = validateValue(v, schemaFile(name));
@@ -569,29 +637,26 @@ export function runRegressions(
     for (const e of result.errors) error(e);
     return 2;
   }
-  const valid = validateValue(
+  const checked = validateValue(
     result.doc,
     schemaFile('regression-results.schema.json')
   );
-  if (!valid.ok)
+  if (!checked.ok)
     return usage(
-      `The results do not validate against schemas/regression-results.schema.json; nothing was written:\n${formatErrors(valid.errors).join('\n')}`
+      `The results do not validate against schemas/regression-results.schema.json; nothing was written:\n${formatErrors(checked.errors).join('\n')}`
     );
 
-  const recorded = recordedSame(outPath, result.doc);
+  // A re-run that measured the same thing keeps the recorded file, with its
+  // date and decision.
+  const { written, recorded } = writeResultsIfChanged(outPath, result.doc, {
+    ignore: NOT_MEASURED,
+  });
   const doc = recorded ?? result.doc;
   for (const line of reportLines(doc)) log(line);
-  if (recorded)
-    log(
-      `  unchanged: ${out} already records these results (recorded ${recorded.generated_at}); it was not rewritten.`
-    );
-  else {
-    writeResultsIfChanged(outPath, result.doc, { ignore: NOT_MEASURED });
-    log(`  wrote ${out}`);
-  }
-  if (doc.provenance.model === UNKNOWN)
-    log(
-      '  The model is unknown: set QAIZEN_MODEL to the model that produced the trials.'
-    );
+  log(
+    written
+      ? `  wrote ${flags.out}`
+      : `  unchanged: ${flags.out} already records these results (recorded ${recorded.generated_at}); it was not rewritten.`
+  );
   return doc.decision.verdict === 'pass' ? 0 : 1;
 }

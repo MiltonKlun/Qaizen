@@ -21,38 +21,28 @@ const comparable = (doc, ignore) =>
   );
 
 /**
- * The results already in `path`, when they equal `doc` apart from `ignore`.
- * @param {string} path
- * @param {any} doc
- * @param {string[]} ignore
- * @returns {any | null} the recorded document, or null when it differs or is absent
- */
-export function sameRecorded(path, doc, ignore) {
-  if (!existsSync(path)) return null;
-  try {
-    const recorded = JSON.parse(readFileSync(path, 'utf8'));
-    return comparable(recorded, ignore) === comparable(doc, ignore)
-      ? recorded
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Write `doc` to `path` unless the file there already holds the same results.
  * @param {string} path
  * @param {any} doc
  * @param {{ ignore?: string[] }} [opts]
- * @returns {'written' | 'unchanged'}
+ * @returns {{ written: true, recorded: null } | { written: false, recorded: any }}
+ *   `recorded` is the document already there when it was kept
  */
 export function writeResultsIfChanged(
   path,
   doc,
   { ignore = ['generated_at'] } = {}
 ) {
-  if (sameRecorded(path, doc, ignore)) return 'unchanged';
+  if (existsSync(path)) {
+    try {
+      const recorded = JSON.parse(readFileSync(path, 'utf8'));
+      if (comparable(recorded, ignore) === comparable(doc, ignore))
+        return { written: false, recorded };
+    } catch {
+      // Not JSON: replaced below.
+    }
+  }
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify(doc, null, 2) + '\n');
-  return 'written';
+  return { written: true, recorded: null };
 }

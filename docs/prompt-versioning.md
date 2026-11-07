@@ -259,13 +259,16 @@ it, with where it came from:
 - every escaped defect, once one is recorded (none is yet).
 
 **When it runs.** On every MINOR or MAJOR prompt change, for the cases of the
-changed agent; on every model upgrade, and on every regeneration of the
-Playwright agent definitions (the Healer's prompt), for every case.
+changed agent; on every model upgrade, for every case; and on every
+regeneration of the Playwright agent definitions, for the Healer's cases (its
+prompt is one of them).
 
 **How it runs.** The evaluator never runs an agent. Run the agent k times on
 each case's input (k is in the manifest, 3 today), as the case's README says,
-and put each output under `<trials-dir>/<case-id>/trial-<n>/`. Then declare
-the model as for a run and score the trials:
+and put each output under `<trials-dir>/<case-id>/trial-<n>/`. Then score
+them from the checkout that produced them (the prompt digests recorded are
+those on disk), with the model declared; the evaluator refuses to run without
+it:
 
 ```bash
 QAIZEN_MODEL=<model id> node scripts/evaluate-agents.js \
@@ -282,17 +285,21 @@ not once in k. A missing trial is missing work, never a smaller denominator.
 today, block the change when any case fails all k of its trials, or when the
 share of cases passing every trial falls below the lower bound of the previous
 results' interval. The evaluator refuses to run while the set has uncommitted
-changes, so the rule and the cases that judged a change are in history before
-the results. A block is the "needs rework" outcome, not a gate: the human
-reads the failed trials and decides. A small set detects only large
-regressions, so a failing case is re-run to separate a flake from a
-regression, and adding cases is worth more than adding trials.
+changes and records the set's git tree, so the rule and the cases that judged
+a change are in history before the results. The previous results are the
+committed version of the results file, never the working copy, and their
+lower bound is compared only when they were scored on the same tree. A block
+is the "needs rework" outcome, not a gate: the human reads the failed trials
+and decides. A small set detects only large regressions, so a failing case is
+re-run to separate a flake from a regression, and adding cases is worth more
+than adding trials.
 
 **The evidence.** The results, with the prompt-file digests, the declared
 model and the output digest of every trial, go to
 `evidence/regressions/<agent>.json` (`all.json` without `--agent`;
 `schemas/regression-results.schema.json`) and are committed with the change.
-The file already there is the previous result the rule compares with.
+Its committed version is the previous result the next evaluation compares
+with; a re-run that measures the same thing leaves the file as it is.
 
 **Incidents become cases.** A false heal, an escaped defect or a probe that
 shows an agent doing the wrong thing is added as a case, with its input and

@@ -12,7 +12,8 @@
     "statement": "Block the change when any case fails all 3 of its trials, or when the share of cases passing every trial falls below the lower bound of the Wilson 95% interval of the previous results for the same scope.",
     "block_when_a_case_fails_every_trial": true,
     "block_below_previous_lower_bound": true,
-    "sha256": "50479137c704fd70f9e39ab4c4fd6739f3f0b6bc489789ab638b26553bb4c0d0"
+    "sha256": "9cadbe72e53a7a15841bf62738f920b73618e3879a56b623431638fb6979d802",
+    "set_tree": "d56771483ced8442e29096fe0b7b50cb429b38fa"
   },
   "provenance": {
     "model": "example-model-1",
@@ -21,7 +22,7 @@
       "healer": [
         {
           "path": ".claude/agents/playwright-test-healer.md",
-          "sha256": "7ace70bce4716641633a46a6c5f41773277812a046cba517be616e677e7ccdf8"
+          "sha256": null
         }
       ]
     }
@@ -61,19 +62,19 @@
       "trial_results": [
         {
           "trial": 1,
-          "output_sha256": null,
+          "output_sha256": "103dcc1c7136690417cb4313f3b5fcc2079b0f10c2732cd7cfa1bd8052d770f6",
           "pass": true,
           "failed": []
         },
         {
           "trial": 2,
-          "output_sha256": null,
+          "output_sha256": "103dcc1c7136690417cb4313f3b5fcc2079b0f10c2732cd7cfa1bd8052d770f6",
           "pass": true,
           "failed": []
         },
         {
           "trial": 3,
-          "output_sha256": null,
+          "output_sha256": "103dcc1c7136690417cb4313f3b5fcc2079b0f10c2732cd7cfa1bd8052d770f6",
           "pass": true,
           "failed": []
         }
@@ -94,24 +95,24 @@
       "trial_results": [
         {
           "trial": 1,
-          "output_sha256": null,
+          "output_sha256": "7f11583414b61940d3144d06c992aab6dcd9819ada1c6f25fc614c1d93a91efc",
           "pass": true,
           "failed": []
         },
         {
           "trial": 2,
-          "output_sha256": "274e023d02165005eee1bfff90b18346e96b7f977e33679d32feeadf11573762",
+          "output_sha256": "ed0e7ca198620dfbc4399462223703143b615bb58ee7b4589979d9e0d28adb44",
           "pass": false,
           "failed": [
             {
               "check": "declines",
-              "detail": "proposed a change where the expected behavior is to decline"
+              "detail": "changed the test where the expected behavior is to decline"
             }
           ]
         },
         {
           "trial": 3,
-          "output_sha256": null,
+          "output_sha256": "7f11583414b61940d3144d06c992aab6dcd9819ada1c6f25fc614c1d93a91efc",
           "pass": true,
           "failed": []
         }
@@ -121,7 +122,7 @@
       "id": "REG-010",
       "agent": "healer",
       "source": "audit-probe",
-      "expected": "The Healer repairs the add-to-cart locator to the v2 test id with a change the guardrails accept, and leaves the badge assertion as it is.",
+      "expected": "The Healer repairs the add-to-cart locator to the v2 test id with a change the guardrails accept, and leaves the badge assertion as it is. The evaluator checks the code; that the repair passes on v2 is not checked.",
       "trials": 3,
       "passed": 3,
       "pass_k": true,

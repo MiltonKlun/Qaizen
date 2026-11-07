@@ -27,6 +27,7 @@ import {
   caseErrors,
   caseResult,
   decide,
+  evaluateSet,
   loadInput,
   MANIFEST,
   scoreTrial,
@@ -60,7 +61,10 @@ const TEMPLATE_TC = JSON.parse(
 /** An Analyst output for a case: its story's criteria unless given. */
 function analystOutput(
   /** @type {string} */ id,
-  { criteria = criteriaOf(id), track = 'full' } = {}
+  /** @type {{ criteria?: string[], track?: string }} */ {
+    criteria = criteriaOf(id),
+    track,
+  } = {}
 ) {
   return JSON.stringify({
     ...TEMPLATE_CTX,
@@ -71,12 +75,7 @@ function analystOutput(
       path: 'story.md',
     },
     acceptance_criteria: criteria,
-    risks: [
-      {
-        ...TEMPLATE_CTX.risks[0],
-        related_acs: [0],
-      },
-    ],
+    risks: [{ ...TEMPLATE_CTX.risks[0], related_acs: [0] }],
     track,
     track_floor: undefined,
   });
@@ -103,8 +102,10 @@ function designerOutput(
   });
 }
 
-const trial = (/** @type {string} */ id, /** @type {string | null} */ out) =>
+const trial = (/** @type {string} */ id, /** @type {string} */ out) =>
   scoreTrial(byId(id), input(id), out, validate);
+const failedChecks = (/** @type {string} */ id, /** @type {string} */ out) =>
+  trial(id, out).failed.map((f) => f.check);
 
 test('Wilson 95% intervals match the published values', () => {
   assert.deepEqual(wilson(7, 10), [0.3968, 0.8922]); // "about 40% to 89%"
@@ -134,9 +135,9 @@ test('the committed set is valid, and every case input satisfies its checks', ()
   ]);
 });
 
-test('Analyst cases: verbatim passes; each probe fails its case', () => {
+test('Analyst cases: the story criteria pass; each probe fails its case', () => {
   for (const id of ['REG-001', 'REG-002', 'REG-003', 'REG-004', 'REG-005'])
-    assert.equal(trial(id, analystOutput(id)).pass, true, id);
+    assert.deepEqual(trial(id, analystOutput(id)).failed, [], id);
 
   const flipped = criteriaOf('REG-001').map((c, i) =>
     i === 0 ? c.replace('more than', 'less than') : c
@@ -155,30 +156,90 @@ test('Analyst cases: verbatim passes; each probe fails its case', () => {
       .detail,
     /cut short/
   );
-  // The out-of-scope line promoted: a third criterion, found only there.
   const scopeLine = /^- (.*)$/m.exec(story('REG-003'))?.[1] ?? '';
-  const withOos = trial(
-    'REG-003',
-    analystOutput('REG-003', {
-      criteria: [...criteriaOf('REG-003'), scopeLine],
-    })
+  assert.match(
+    trial(
+      'REG-003',
+      analystOutput('REG-003', {
+        criteria: [...criteriaOf('REG-003'), scopeLine],
+      })
+    ).failed[0].detail,
+    /Out of scope/
   );
-  assert.match(withOos.failed[0].detail, /3 criteria, the story has 2/);
-  const commentOnly = trial(
-    'REG-004',
-    analystOutput('REG-004', {
-      criteria: [
-        'the heading should also turn red when the cart holds more than ten items.',
-      ],
-    })
+  assert.match(
+    trial(
+      'REG-004',
+      analystOutput('REG-004', {
+        criteria: [
+          'the heading should also turn red when the cart holds more than ten items.',
+        ],
+      })
+    ).failed[0].detail,
+    /only in a comment/
   );
-  assert.match(commentOnly.failed[0].detail, /only in a comment/);
-  const low = trial('REG-005', analystOutput('REG-005', { track: 'standard' }));
-  assert.deepEqual(
-    low.failed.map((f) => f.check),
-    ['track_at_least']
+  // A repeated criterion, a dropped one, and a Description sentence passed off
+  // as a criterion: each is a whole passage of the story, and each fails.
+  const [a1, a2, a3] = criteriaOf('REG-001');
+  const verbatim = (/** @type {string[]} */ criteria) =>
+    trial('REG-001', analystOutput('REG-001', { criteria })).failed[0]?.detail;
+  assert.match(verbatim([a1, a1, a3]), /AC 2 is not one of the story's/);
+  assert.match(verbatim([a1, a2]), /criterion 3 is missing/);
+  assert.match(
+    verbatim([
+      a1,
+      a2,
+      'The threshold is compared with the item total before tax, and an order of exactly $50.00 still pays for shipping.',
+    ]),
+    /AC 3 is not one of the story's/
   );
+  assert.equal(verbatim([a1, a2, a3]), undefined);
+});
+
+test('the track floor: no track or standard is right for a Red-domain story; lite is not', () => {
+  for (const track of [undefined, 'standard', 'full'])
+    assert.deepEqual(
+      failedChecks('REG-005', analystOutput('REG-005', { track })),
+      [],
+      String(track)
+    );
+  const lite = trial('REG-005', analystOutput('REG-005', { track: 'lite' }));
+  assert.match(
+    lite.failed[0].detail,
+    /proposed lite, below its floor standard/
+  );
+  // What the Analyst wrote must carry the payment, so the runner holds it to
+  // full: here the criteria are dropped, and with them the Red domain.
+  const bare = trial('REG-005', analystOutput('REG-005', { criteria: [] }));
+  assert.ok(bare.failed.some((f) => f.check === 'track_floor'));
   assert.equal(trial('REG-005', '{not json').pass, false);
+  // A byte-order mark (Windows PowerShell's UTF-8) is not content.
+  const dir = mkdtempSync(join(tmpdir(), 'qaizen-bom-'));
+  try {
+    for (let n = 1; n <= SET.trials; n++) {
+      mkdirSync(join(dir, 'REG-005', `trial-${n}`), { recursive: true });
+      writeFileSync(
+        join(dir, 'REG-005', `trial-${n}`, 'context.json'),
+        '﻿' + analystOutput('REG-005')
+      );
+    }
+    const r = evaluateSet({
+      root: REPO,
+      manifest: { ...SET, cases: [byId('REG-005')] },
+      manifestText: '{}',
+      setTree: '0'.repeat(40),
+      trialsDir: dir,
+      agent: null,
+      previous: null,
+      model: 'm',
+      harness: 'h',
+      now: '2026-11-07T00:00:00.000Z',
+      validate,
+    });
+    assert.ok(r.ok);
+    assert.equal(r.ok && r.doc.cases[0].passed, SET.trials);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('Test Designer cases: an automated case for the named criterion is required', () => {
@@ -196,9 +257,8 @@ test('Test Designer cases: an automated case for the named criterion is required
     trial('REG-007', designerOutput('REG-007', [{ ref: 1 }, { ref: 2 }])).pass,
     true
   );
-  const onlySum = trial('REG-007', designerOutput('REG-007', [{ ref: 1 }]));
   assert.deepEqual(
-    onlySum.failed.map((f) => f.check),
+    failedChecks('REG-007', designerOutput('REG-007', [{ ref: 1 }])),
     ['automated_case_for_criterion']
   );
   const dangling = trial('REG-007', designerOutput('REG-007', [{ ref: 9 }]));
@@ -207,10 +267,19 @@ test('Test Designer cases: an automated case for the named criterion is required
 
 test('Healer cases: the false heals fail, declining passes, the control needs the repair', () => {
   const original = /** @type {string} */ (input('REG-008').original);
-  assert.equal(trial('REG-008', null).pass, true);
   assert.equal(trial('REG-008', original).pass, true);
+  // Formatting and an explanatory comment are not a change.
+  assert.equal(
+    trial('REG-008', `// declined: a pricing bug\n${original}\n\n`).pass,
+    true
+  );
   assert.equal(
     trial('REG-008', original.replace('$39.98', '$40.98')).pass,
+    false
+  );
+  assert.equal(
+    trial('REG-008', original.replace("test('TC-002", "test.fixme('TC-002"))
+      .pass,
     false
   );
   const badge = /** @type {string} */ (input('REG-009').original);
@@ -225,9 +294,32 @@ test('Healer cases: the false heals fail, declining passes, the control needs th
     'add-sauce-labs-backpack'
   );
   assert.equal(trial('REG-010', repaired).pass, true);
+  assert.equal(
+    trial(
+      'REG-010',
+      repaired.replace(
+        `'[data-test="add-sauce-labs-backpack"]'`,
+        `"[data-test='add-sauce-labs-backpack']"`
+      )
+    ).pass,
+    true,
+    'single quotes are the same repair'
+  );
+  assert.deepEqual(failedChecks('REG-010', v1), [
+    'candidate_eligible',
+    'candidate_contains',
+    'candidate_omits',
+  ]);
+  // The new id only in a comment, the locator unchanged otherwise.
   assert.deepEqual(
-    trial('REG-010', null).failed.map((f) => f.check),
-    ['candidate_eligible', 'candidate_contains']
+    failedChecks(
+      'REG-010',
+      v1.replace(
+        'await page.locator(\'[data-test="add-to-cart',
+        '// now add-sauce-labs-backpack\n  await page.locator(\'[data-test="add-to-cart'
+      )
+    ),
+    ['candidate_eligible', 'candidate_contains', 'candidate_omits']
   );
   const body = trial(
     'REG-010',
@@ -244,23 +336,52 @@ test('a malformed case is refused before any trial is read', () => {
       checks: [
         { check: 'no_such_check' },
         { check: 'declines' },
-        { check: 'automated_case_for_criterion', pattern: 'nothing like this' },
+        { check: 'automated_case_for_criterion', text: 'nothing like this' },
+        { check: 'automated_case_for_criterion', text: 'Given' },
+        { check: 'test_cases_valid', texts: ['x'] },
       ],
     },
     input('REG-006')
   );
-  assert.equal(errors.length, 4);
+  assert.equal(errors.length, 6, errors.join('\n'));
   assert.match(errors[0], /unknown check/);
   assert.match(errors[1], /not for the test-designer/);
   assert.match(errors[2], /"declines" needs original/);
-  assert.match(errors[3], /matches no criterion/);
+  assert.match(errors[3], /names 0 criteria/);
+  assert.match(errors[4], /names 3 criteria/);
+  assert.match(errors[5], /takes no texts/);
 });
 
-test('the decision rule: a case failing every trial, or a drop below the previous lower bound, blocks', () => {
+test('a Healer trial without its output is missing work, not a decline', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'qaizen-healer-'));
+  try {
+    for (let n = 1; n <= SET.trials; n++)
+      mkdirSync(join(dir, 'REG-008', `trial-${n}`), { recursive: true });
+    const r = evaluateSet({
+      root: REPO,
+      manifest: { ...SET, cases: [byId('REG-008')] },
+      manifestText: '{}',
+      setTree: '0'.repeat(40),
+      trialsDir: dir,
+      agent: null,
+      previous: null,
+      model: 'm',
+      harness: 'h',
+      now: '2026-11-07T00:00:00.000Z',
+      validate,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.ok ? '' : r.errors[0], /REG-008: trial 1 has no output/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the decision rule: a case failing every trial, or a drop below a comparable previous lower bound, blocks', () => {
   const rule = SET.decision_rule;
   const c = byId('REG-001');
   const t = (/** @type {boolean} */ pass) => ({
-    output_sha256: null,
+    output_sha256: 'a'.repeat(64),
     pass,
     failed: [],
   });
@@ -296,11 +417,22 @@ test('the decision rule: a case failing every trial, or a drop below the previou
     ['REG-003 failed all 3 trials']
   );
   const previous = {
+    source: 'HEAD:x',
     pass_k: { value: 1, wilson_95: /** @type {[number, number]} */ ([0.7, 1]) },
+    cases_added: [],
+    cases_removed: [],
+    set_changed: false,
+    compared: true,
   };
   assert.match(
     decide(rule, 3, [good, flaky], agg, previous).reasons[0],
     /pass\^3 is 0.5, below the previous lower bound 0.7/
+  );
+  // Results scored on another set are not compared.
+  assert.equal(
+    decide(rule, 3, [good, flaky], agg, { ...previous, compared: false })
+      .verdict,
+    'pass'
   );
   assert.equal(
     decide(
@@ -351,18 +483,18 @@ function analystTrials(
   return trials;
 }
 
-const evaluate = (/** @type {string} */ dir, /** @type {string[]} */ args) =>
+const evaluate = (
+  /** @type {string} */ dir,
+  /** @type {string[]} */ args,
+  env = { QAIZEN_MODEL: 'model-x', QAIZEN_HARNESS: 'harness-y' }
+) =>
   spawnSync(execPath, [SCRIPT, '--regressions', 'trials', ...args], {
     cwd: dir,
     encoding: 'utf8',
-    env: {
-      ...process.env,
-      QAIZEN_MODEL: 'model-x',
-      QAIZEN_HARNESS: 'harness-y',
-    },
+    env: { ...process.env, QAIZEN_MODEL: '', QAIZEN_HARNESS: '', ...env },
   });
 
-test('an evaluation writes per-case pass^k, and an identical re-run leaves the file as it is', () => {
+test('an evaluation writes per-case pass^k; an identical re-run leaves the file; the baseline is the committed one', () => {
   const dir = workspace();
   try {
     analystTrials(dir);
@@ -380,8 +512,11 @@ test('an evaluation writes per-case pass^k, and an identical re-run leaves the f
     assert.equal(doc.provenance.model, 'model-x');
     assert.equal(doc.provenance.prompts.analyst[0].path, 'agents/analyst.md');
     assert.match(doc.provenance.prompts.analyst[0].sha256, /^[0-9a-f]{64}$/);
+    assert.equal(
+      doc.decision_rule.set_tree,
+      git(dir, ['rev-parse', `HEAD:${SET_DIR}`]).stdout.trim()
+    );
     assert.equal(doc.previous, null);
-    assert.deepEqual(doc.aggregate.pass_k.wilson_95, wilson(5, 5));
 
     const bytes = readFileSync(out, 'utf8');
     const again = evaluate(dir, ['--agent', 'analyst']);
@@ -389,27 +524,53 @@ test('an evaluation writes per-case pass^k, and an identical re-run leaves the f
     assert.match(again.stdout, /unchanged: .* already records these results/);
     assert.equal(readFileSync(out, 'utf8'), bytes);
 
-    // A changed output is a new result: rewritten, with the previous one named.
+    // Without a declared model, nothing runs (and nothing is rewritten).
+    const anonymous = evaluate(dir, ['--agent', 'analyst'], {});
+    assert.equal(anonymous.status, 2);
+    assert.match(anonymous.stderr, /Set QAIZEN_MODEL/);
+    assert.equal(readFileSync(out, 'utf8'), bytes);
+
+    // The passing results become the committed baseline; a regression is
+    // compared with them.
+    git(dir, ['add', 'evidence']);
+    git(dir, ['commit', '-q', '-m', 'baseline']);
+    const drop = (/** @type {string} */ id) => () =>
+      analystOutput(id, { criteria: [criteriaOf(id)[0]] });
     analystTrials(dir, {
-      'REG-003': () =>
-        analystOutput('REG-003', { criteria: [criteriaOf('REG-003')[0]] }),
+      'REG-001': drop('REG-001'),
+      'REG-002': drop('REG-002'),
+      'REG-003': drop('REG-003'),
     });
     const worse = evaluate(dir, ['--agent', 'analyst']);
     assert.equal(worse.status, 1, worse.stdout);
     assert.match(
       worse.stdout,
-      /Decision: BLOCK \(REG-003 failed all 3 trials\)/
+      /pass\^3 is 0.4, below the previous lower bound 0.5655/
     );
     const next = JSON.parse(readFileSync(out, 'utf8'));
-    assert.equal(next.previous.source, 'evidence/regressions/analyst.json');
-    assert.deepEqual(next.previous.pass_k.wilson_95, wilson(5, 5));
-    assert.equal(next.previous.set_changed, false);
+    assert.equal(
+      next.previous.source,
+      'HEAD:evidence/regressions/analyst.json'
+    );
+    assert.equal(next.previous.compared, true);
+
+    // Re-running the blocked change, its outputs reformatted, still compares
+    // with the committed baseline, not with the blocked run.
+    analystTrials(dir, {
+      'REG-001': () => JSON.stringify(JSON.parse(drop('REG-001')()), null, 2),
+      'REG-002': drop('REG-002'),
+      'REG-003': drop('REG-003'),
+    });
+    const rerun = evaluate(dir, ['--agent', 'analyst']);
+    assert.equal(rerun.status, 1, rerun.stdout);
+    assert.match(rerun.stdout, /wrote evidence\/regressions\/analyst.json/);
+    assert.match(rerun.stdout, /below the previous lower bound 0.5655/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('the evaluator refuses an uncommitted set, a missing trial and a mixed mode, and writes nothing', () => {
+test('the evaluator refuses an uncommitted set, an untracked case, a missing trial and stray arguments, and writes nothing', () => {
   const dir = workspace();
   try {
     const trials = analystTrials(dir);
@@ -425,17 +586,27 @@ test('the evaluator refuses an uncommitted set, a missing trial and a mixed mode
     assert.match(dirty.stderr, /uncommitted changes/);
     git(dir, ['checkout', '--', MANIFEST]);
 
+    // An untracked file is a change too, whatever git's display setting.
+    git(dir, ['config', 'status.showUntrackedFiles', 'no']);
+    writeFileSync(join(dir, SET_DIR, 'cases/REG-001/notes.md'), 'x');
+    const untracked = evaluate(dir, ['--agent', 'analyst']);
+    assert.equal(untracked.status, 2);
+    assert.match(untracked.stderr, /uncommitted changes/);
+    rmSync(join(dir, SET_DIR, 'cases/REG-001/notes.md'));
+
     rmSync(join(trials, 'REG-002', 'trial-3'), { recursive: true });
     const missing = evaluate(dir, ['--agent', 'analyst']);
     assert.equal(missing.status, 2);
-    assert.match(missing.stderr, /REG-002: trial 3 is missing/);
+    assert.match(missing.stderr, /REG-002: trial 3 has no output/);
 
-    const mixed = evaluate(dir, ['--candidate-dir', 'x']);
-    assert.equal(mixed.status, 2);
-    assert.match(
-      mixed.stderr,
-      /--candidate-dir does not apply to --regressions/
-    );
+    for (const args of [
+      ['--candidate-dir', 'x'],
+      ['--agent', 'analyst', '--agent', 'healer'],
+      ['stray'],
+    ]) {
+      const r = evaluate(dir, args);
+      assert.equal(r.status, 2, args.join(' '));
+    }
     assert.equal(existsSync(out), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });

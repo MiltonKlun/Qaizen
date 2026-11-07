@@ -786,7 +786,7 @@ const out = {
   results,
 };
 
-const written = writeResultsIfChanged(OUT_FILE, out);
+const { written } = writeResultsIfChanged(OUT_FILE, out);
 
 // ---------------------------------------------------------------- console --
 const pctText = (/** @type {number | null} */ p) =>
@@ -853,7 +853,7 @@ if (baseline) {
   );
 }
 console.log(
-  `\nOverall: ${pctText(out.match_pct)} (${passedChecks}/${totalChecks} checks)  ->  ${written === 'written' ? `wrote ${OUT_FILE}` : `${OUT_FILE} unchanged (same results)`}`
+  `\nOverall: ${pctText(out.match_pct)} (${passedChecks}/${totalChecks} checks)  ->  ${written ? `wrote ${OUT_FILE}` : `${OUT_FILE} unchanged (same results)`}`
 );
 console.log(
   '  Structural only: a 100% is not a verdict on the business interpretation.'
