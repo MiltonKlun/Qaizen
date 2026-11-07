@@ -902,15 +902,20 @@ async function decideDraftCases(context, step) {
   const doc = read.data;
   const drafts = draftCases(doc);
   if (!drafts.length) return false;
+  // No count: the runner may plant canaries among the cases, and a total
+  // would give them away.
   console.log(
-    `\nBefore Gate 2, decide each of the ${drafts.length} draft test case(s): the gate reviews the scope as you decide it.`
+    '\nBefore Gate 2, decide each draft test case: the gate reviews the scope as you decide it.'
   );
   const storyFile = context?.story?.path || 'story.md';
-  const redDomain = effectiveTrack(
-    context,
-    existsSync(storyFile) ? readFileSync(storyFile, 'utf8') : null
-  ).reasons.some((r) => r.startsWith('red-domain:'));
+  const story = existsSync(storyFile) ? readFileSync(storyFile, 'utf8') : null;
+  const redDomain = effectiveTrack(context, story).reasons.some((r) =>
+    r.startsWith('red-domain:')
+  );
   const rl = createInterface({ input: stdin, output: stdout });
+  // End of input (Ctrl-D) is a quit: what was measured is still kept.
+  /** @type {Promise<string>} */
+  const closed = new Promise((res) => rl.once('close', () => res('q')));
   /** @type {Awaited<ReturnType<typeof caseLoop>>} */
   let loop;
   try {
@@ -918,8 +923,9 @@ async function decideDraftCases(context, step) {
       drafts,
       cases: doc.test_cases ?? [],
       context,
+      story,
       redDomain,
-      ask: (q) => rl.question(q),
+      ask: (q) => Promise.race([rl.question(q).catch(() => 'q'), closed]),
       say: (line) => console.log(line),
       rng: () => randomInt(0, 2 ** 32) / 2 ** 32,
       reviewer: sessionReviewer(),
@@ -943,6 +949,12 @@ async function decideDraftCases(context, step) {
     console.error(`Refusing to save the case decisions: ${w.message}`);
     exit(2);
   }
+  // The loop itself counts only once its decisions are saved.
+  const summary = writeCanaryLog('.', [loop.summary]);
+  if (!summary.ok)
+    console.error(
+      `Warning: the canary log was not written: ${summary.message}`
+    );
   console.log(
     `\nSaved in ${path}: ${Object.entries(decisions)
       .map(([id, d]) => `${id} ${d}`)

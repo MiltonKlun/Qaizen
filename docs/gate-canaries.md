@@ -24,9 +24,9 @@ decision, priority, the risk it covers).
 - **Who plants it.** The runner, at random, never the maintainer: a reviewer
   who knows where the defect is proves nothing.
 - **How often.** Each real decision brings a canary with probability 1 in 10,
-  at a random place among the cases (design decision D9 of the improvement
-  plan: about one in ten decisions, starting with the Gate 2 loop). Most
-  sessions have none; a long one may have two.
+  at a random place among the cases. Most sessions have none; a long one may
+  have two. Neither the rate nor the place can be set by a flag or a
+  variable.
 - **The reveal.** Right after the reviewer decides a canary, the runner says
   it was one, what it changed, and whether it was **caught** (rejected) or
   **missed** (approved). The reveal is immediate, because a canary that is
@@ -40,12 +40,25 @@ without canaries (`test/canaries.test.js` proves the saved cases and the
 digest are byte-identical with and without them). Quitting the loop saves no
 case decision, but keeps the canaries already decided in the log.
 
-**Known tells.** A canary's id is the next unused one, so it can sit out of
-sequence among the cases; its title is a criterion's outcome or a stock rule,
-not the Test Designer's wording. In a Red-domain story a canary is never P0,
-because a real P0 there asks the value question below, which a canary could
-not answer. Each tell lowers the measured catch rate's meaning a little; the
-reviewer is asked to judge content, not ids.
+**What it is made from.** A contradiction changes the main clause of a
+criterion's outcome (what follows its "then"), leaving out asides in brackets,
+negated numbers and subordinate clauses, so that the canary is false of a
+correct app rather than a restatement of the story. An invented rule is used
+only when its topic is the story's (a coupon rule for a story about coupons, a
+sign-in rule for a story about logging in) and the story says nothing about
+it. When neither can be made, no canary is planted.
+
+**What is done against tells.** Every case in the loop is labelled by its
+place ("Case 3"), not by its id, and the loop does not say how many cases it
+holds, so neither an out-of-sequence id nor a count gives a canary away. A
+canary takes a decision, a priority and a risk that the run's own cases use;
+in a Red-domain story a P0 canary asks the value question like a real P0
+case, and shows its own claim as the agent's expected result.
+
+**Known tells.** A canary's title is a criterion's outcome or a stock rule,
+not the Test Designer's wording, and a reviewer who opens the test-cases file
+during the loop will not find it there. Each tell lowers the measured catch
+rate's meaning a little; the reviewer is asked to judge content.
 
 ## 2. Red-domain P0 cases: the value comes first
 

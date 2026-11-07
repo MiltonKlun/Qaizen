@@ -27,6 +27,7 @@ import {
   caseLoop,
   makeCanary,
   mutations,
+  outcomeOf,
   plantSlots,
   valueMatches,
   writeCanaryLog,
@@ -41,6 +42,8 @@ const CONTEXT = read(
 const CASES = read(
   'runs/STORY-020/2026-07-01T00-25-56-738Z/test-cases/STORY-020.json'
 );
+
+const TITLES = CASES.test_cases.map((/** @type {any} */ c) => c.title);
 
 /** A deterministic uniform generator (a small LCG). */
 function seeded(seed = 7) {
@@ -131,13 +134,15 @@ test("a canary contradicts a criterion or invents a rule, and looks like the run
   );
   const kinds = new Set();
   for (let seed = 1; seed < 200; seed++) {
-    const { case: c, plant } = makeCanary(context, cases, seeded(seed), {
-      redDomain: true,
-    });
+    const canary = makeCanary(context, cases, seeded(seed));
+    assert.ok(canary);
+    const { case: c, plant } = canary;
     kinds.add(plant.kind);
     assert.equal(ids.has(c.test_case_id), false, 'a fresh id');
     assert.match(c.test_case_id, /^TC-\d{3}$/);
-    assert.notEqual(c.priority, 'P0', 'never P0 in a Red-domain story');
+    assert.ok(cases.some((r) => r.priority === c.priority));
+    // A P0 canary answers the value question like a real P0 case.
+    assert.deepEqual(c.expected_results, [`${c.title}.`]);
     assert.ok(
       cases.some((r) => r.automation_decision === c.automation_decision)
     );
@@ -166,7 +171,7 @@ test('each canary is revealed right after its decision, and recorded caught or m
   io.ask = async (q) => {
     io.asked.push(q);
     const last = io.said[io.said.length - 1] ?? '';
-    const isCanary = /TC-0(0[6-9]|1\d)\b/.test(last);
+    const isCanary = !TITLES.some((t) => last.includes(t));
     if (isCanary) return canaryTurn++ % 2 === 0 ? 'r' : 'a';
     return 'a';
   };
@@ -201,8 +206,11 @@ test('each canary is revealed right after its decision, and recorded caught or m
   assert.match(reveals[1], /You approved it: missed/);
   // The reveal follows the canary's own decision, before anything else is shown.
   const first = io.said.findIndex((l) => l.includes('That was a canary'));
-  assert.match(io.said[first - 1], /TC-0\d\d/);
-  const loop = r.events.find((e) => e.kind === 'case_loop');
+  assert.match(io.said[first - 1], /^\n {2}Case \d+ /);
+  // Every case is labelled by its place, never by its id.
+  assert.ok(!io.said.some((l) => /\bTC-\d+/.test(l)));
+  const loop = r.quit ? null : r.summary;
+  assert.ok(loop);
   assert.deepEqual(
     {
       real: loop.real_cases,
@@ -213,7 +221,7 @@ test('each canary is revealed right after its decision, and recorded caught or m
   );
   assert.ok(
     validateValue(
-      { schema_version: '1.0', events: r.events },
+      { schema_version: '1.0', events: [...r.events, loop] },
       join(REPO, 'schemas/canary-log.schema.json')
     ).ok
   );
@@ -324,10 +332,7 @@ test('isolation: with or without canaries, the saved cases and the Gate 2 digest
       redDomain: false,
       ask: async () => {
         const last = said[said.length - 1] ?? '';
-        const shown = /TC-\d+/.exec(last)?.[0];
-        const isReal = doc.test_cases.some(
-          (/** @type {any} */ c) => c.test_case_id === shown
-        );
+        const isReal = TITLES.some((t) => last.includes(t));
         if (!isReal) return 'r';
         return real++ === 1 ? 'r' : 'a';
       },
@@ -341,7 +346,10 @@ test('isolation: with or without canaries, the saved cases and the Gate 2 digest
       join(dir, 'test-cases/STORY-020.json'),
       JSON.stringify(doc, null, 2)
     );
-    assert.deepEqual(writeCanaryLog(dir, r.events), { ok: true });
+    assert.deepEqual(
+      writeCanaryLog(dir, [...r.events, ...(r.quit ? [] : [r.summary])]),
+      { ok: true }
+    );
     const files = readdirSync(dir, { recursive: true })
       .map((f) => String(f).replace(/\\/g, '/'))
       .sort();
@@ -425,4 +433,85 @@ test('metrics: catch and false-alarm rates with Wilson intervals; an absent log 
     /7\/10 = 70% \(95% interval 40–89%\)/
   );
   assert.match(canaryLines(canaryMetrics([]), 4)[0], /unknown, not zero/);
+});
+
+test('mutations stay in the main clause, so a canary is a contradiction, not a restatement', () => {
+  // A number inside a negated aside: "hidden (not shown as "0")" must not
+  // become "(not shown as "1")", which a correct app still satisfies.
+  const badge =
+    'Given the user removes the last remaining item, when the cart becomes empty, then the header badge is hidden entirely (not shown as "0").';
+  assert.equal(outcomeOf(badge), 'The header badge is hidden entirely');
+  assert.ok(
+    mutations(/** @type {string} */ (outcomeOf(badge))).every(
+      (m) => !m.text.includes('"1"') && !m.text.includes('(')
+    )
+  );
+  // An already negated clause gets no second negation.
+  assert.deepEqual(
+    mutations('No session is created').filter((m) => m.kind === 'negation'),
+    []
+  );
+  // A subordinate "is" is never the one negated.
+  assert.ok(
+    !mutations(
+      'The application rejects the payment client-side or at the order service boundary, before any processor call is made'
+    ).some((m) => m.text.endsWith('is not made'))
+  );
+  // A number after "not" is not changed.
+  assert.equal(
+    mutations('The total is not $0.00').find((m) => m.kind === 'number'),
+    undefined
+  );
+  // The case of a replaced first word is kept.
+  assert.equal(
+    mutations('Before checkout the cart is saved')[0].text,
+    'After checkout the cart is saved'
+  );
+  // No "then": no outcome to contradict.
+  assert.equal(outcomeOf('The year updates automatically.'), null);
+  // An invented rule must fit the story and not be in it.
+  const login = {
+    acceptance_criteria: [
+      'Given a locked user, when they log in, then an error is shown.',
+    ],
+  };
+  for (let seed = 1; seed < 50; seed++) {
+    const c = makeCanary(login, drafts(), seeded(seed), {
+      story: 'A user can log in with a username and password.',
+    });
+    if (c?.plant.kind === 'invented_rule')
+      assert.match(c.plant.rule, /sign-in|session/);
+  }
+  // Nothing plausible to plant: no canary at all.
+  assert.equal(
+    makeCanary(
+      { acceptance_criteria: ['The footer shows the year.'] },
+      drafts(),
+      seeded(),
+      {
+        story: 'The footer shows the year.',
+      }
+    ),
+    null
+  );
+});
+
+test('a typed value is compared by number, and q at the value prompt quits', async () => {
+  assert.equal(valueMatches('39.98', ['Total reads $39.98']), true);
+  assert.equal(valueMatches('$40', ['The total is $40.00.']), true);
+  assert.equal(valueMatches('39.98 USD', ['Total reads $39.98']), true);
+  assert.equal(valueMatches('$41', ['The total is $40.00.']), false);
+  const p0 = drafts().filter((c) => c.priority === 'P0');
+  const io = scripted(['q']);
+  const r = await caseLoop({
+    drafts: p0,
+    cases: p0,
+    context: CONTEXT,
+    redDomain: true,
+    ...io,
+    rng: seeded(),
+    canaryRate: 0,
+  });
+  assert.equal(r.quit, true);
+  assert.deepEqual(r.events, []);
 });

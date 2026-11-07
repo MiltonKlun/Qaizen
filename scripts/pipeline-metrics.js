@@ -47,6 +47,12 @@ import {
 const DRY = argv.includes('--dry-run');
 const RUNS = 'runs';
 const OUT_DIR = 'metrics';
+const CANARY_LOG_SCHEMA = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'schemas',
+  'canary-log.schema.json'
+);
 const HEALER_RECORD_SCHEMA = join(
   dirname(fileURLToPath(import.meta.url)),
   '..',
@@ -134,8 +140,9 @@ let gate4Rejections = 0;
 let runsWithGateLog = 0;
 // How many runs carry a non-empty prompt_versions map.
 let runsWithPromptVersions = 0;
-/** @type {any[]} each run's gates/canaries.json */
+/** @type {any[]} each run's gates/canaries.json, when it validates */
 const canaryLogs = [];
+let invalidCanaryLogs = 0;
 /** @type {{ story: string, run_id: string, risk_id: string }[]} */
 const untestedHighRisk = []; // {story, run_id, risk_id}
 // What the prompt-stability computation reads per run (demo runs included, as
@@ -223,6 +230,7 @@ for (const run of runs) {
     runsWithGateLog += 1;
     for (const d of ctx.gate_decisions) {
       if (d.decision !== 'rejected') continue;
+      // Gates 1 and 2 (and the lite track's combined scope gate), then
       // Gate 3 and Gate 4 of every branch: E2E, the API's 3' and 4', and the
       // external plan and evidence reviews.
       if (d.gate === 'requirements_reviewed') gate1Rejections += 1;
@@ -235,7 +243,10 @@ for (const run of runs) {
 
   // the runner's canary log (scripts/lib/canaries.js)
   const log = readJson(join(run.base, CANARY_LOG));
-  if (log && Array.isArray(log.events)) canaryLogs.push(log);
+  if (log !== null) {
+    if (validateValue(log, CANARY_LOG_SCHEMA).ok) canaryLogs.push(log);
+    else invalidCanaryLogs += 1;
+  }
 
   // prompt-version linkage: a non-empty prompt_versions map (Analyst v1.3.0+).
   if (
@@ -292,7 +303,7 @@ const metrics = {
   },
   untested_high_risk_items: untestedHighRisk,
   // How the Gate 2 per-case review performed on planted canaries.
-  gate_canaries: canaryMetrics(canaryLogs),
+  gate_canaries: canaryMetrics(canaryLogs, invalidCanaryLogs),
 };
 
 // Prompt stability: one result, per

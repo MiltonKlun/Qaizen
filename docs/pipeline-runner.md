@@ -430,6 +430,10 @@ Each decision, approved or rejected, also leaves a **gate record** under
   path, read before the decision was saved. A file outside the run (the demo
   tests) or a repository file (the lockfile) keeps only its digest.
 
+Next to them, `gates/canaries.json` logs the Gate 2 canaries, the Red-domain
+value questions and each completed case loop (`docs/gate-canaries.md`). It is
+not a gate record, is not chained, and no approval binds it.
+
 The record is written after the decision is saved in `context.json`; it never
 decides anything. The records belong to the run and are archived with it.
 
