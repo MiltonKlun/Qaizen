@@ -65,7 +65,7 @@ export const SCHEMA_CONTRACTS = {
     artifact: 'context.json',
     producers: [
       'agents/analyst.md',
-      'scripts/run-pipeline.js (gate decisions and the answers to Gate 4 scan findings, the repeat check, bindings, status, downgrade confirmations, execution identity)',
+      'scripts/run-pipeline.js (gate decisions and the answers to Gate 4 scan findings, the repeat check, provenance, bindings, status, downgrade confirmations, execution identity)',
       'scripts/run-healer.js (healer attempts)',
     ],
     consumers: [
@@ -81,6 +81,7 @@ export const SCHEMA_CONTRACTS = {
       'examples/expected/healer-attempts.expected-context.json',
       'examples/expected/finding-dispositions.expected-context.json',
       'examples/expected/repeat-check.expected-context.json',
+      'examples/expected/provenance.expected-context.json',
     ],
     invalid: [
       {

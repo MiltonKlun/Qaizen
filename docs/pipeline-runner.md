@@ -301,7 +301,7 @@ digests) on the gate:
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Gate 1                   | the story file + the interpreted ACs, risks, ambiguities and `track`                                                                                                                                                                                                                                                  |
 | Gate 2                   | Gate 1's digest + the test cases (semantic content) + the planner brief                                                                                                                                                                                                                                               |
-| Gate 3                   | Gate 2's digest + the spec + the planner/generator prompt versions                                                                                                                                                                                                                                                    |
+| Gate 3                   | Gate 2's digest + the spec + the digests of the Planner's and the Generator's prompt files (`.claude/agents/playwright-test-planner.md`, `playwright-test-generator.md`); editing either after Gate 3 reopens it. An approval from before binding version 3 keeps its declared prompt versions                        |
 | Gate 4                   | Gate 3's digest + the generated test + every file under the Playwright `testDir` (the seed spec among them) and `tests/fixtures/` + `tests/fixtures.ts` + what those files and the config import relatively (page objects, helpers) + `playwright.config.ts` + `tsconfig.json` + `package.json` + `package-lock.json` |
 | Gate 3'                  | Gate 2's digest + the collection's requests + the environment's keys + `docs/api-spec.yaml`                                                                                                                                                                                                                           |
 | Gate 4'                  | Gate 3''s digest + the assertion scripts + `scripts/run-newman.js` + `package-lock.json`                                                                                                                                                                                                                              |
@@ -389,7 +389,11 @@ The reviewer is settled once per session, not asked at every gate:
 `QAIZEN_REVIEWER` if it is set, otherwise `git config user.name`, and the
 runner asks for a name only when neither exists. Like the rest of the record,
 the name is not authentication (§4), and it never decides anything: the
-decision is still typed at the terminal. An approval asks nothing more; a
+decision is still typed at the terminal. The model and harness that run the agents are
+declared the same way, once per session: `QAIZEN_MODEL` and `QAIZEN_HARNESS`.
+The runner records them, with the digest of each prompt file, as each step's
+provenance; undeclared, they are `unknown`, and `--status` shows it
+(`docs/prompt-versioning.md` §2a). An approval asks nothing more; a
 rejection asks what must change, and needs an answer. On approval it
 continues; on rejection it records the event, prints exactly what to redo (per `docs/review-gates.md` "On rejection"), and
 stops. Quitting (`q`) records nothing — the next invocation re-opens the

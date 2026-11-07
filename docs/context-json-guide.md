@@ -363,6 +363,16 @@ story for wrong and intentional. Written only by the runner, at the
 person's decision; absent when the scan found nothing and on older runs
 (`docs/review-gates.md`, Gate 4).
 
+### `provenance` (optional — written by the runner)
+
+What produced each agent step's output, keyed by step (`analyst`,
+`test-designer`, `planner`, `generator`, `api`, `external-plan`,
+`finalize`, `report`): `{ prompts: [{ path, sha256 }], model, harness,
+output: { path, sha256 }, recorded_at }`. `sha256` is `null` for a prompt
+file that does not exist; `model` and `harness` are what the operator
+declared (`QAIZEN_MODEL`, `QAIZEN_HARNESS`) or `unknown`.
+`docs/prompt-versioning.md` §2a has the rules.
+
 ### `repeat_check` (optional — written by the runner)
 
 What the repeat check before Gate 4 found: `{ input_digest, track,
