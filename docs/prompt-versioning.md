@@ -99,13 +99,54 @@ carries its `prompt_versions` with it — so `runs/` becomes an honest record of
 _which prompts produced which results_, which is exactly what the pipeline
 metrics and `/evolve` read back.
 
-> **Honest scope:** populating `prompt_versions` is a manual/agent step today
-> (read each agent's `version:` and record it when the run starts). It is not
-> auto-injected by a script — that would require a runtime the project
-> deliberately does not have. The field + this convention are the contract; a
-> helper can be added later if the manual step proves to be friction.
-> None of the archived runs under `runs/` records it yet, so their prompt
-> versions are unknown, not assumed.
+> **Honest scope:** populating `prompt_versions` is a manual/agent step
+> (read each agent's `version:` and record it when the run starts). A
+> declared version says what a prompt claims to be, so the runner also records
+> what it was (§2a). None of the archived runs under `runs/` records either
+> yet, so their prompts are unknown, not assumed.
+
+### 2a. What the runner records: prompt-file digests
+
+For each agent step the runner keeps `context.json` `provenance`
+(`scripts/lib/provenance.js`): the SHA-256 of every prompt file the step uses
+(its agent prompt and skills; for the Playwright Planner and Generator the
+generated `.claude/agents/` definitions, untracked as they are, or `null`
+where they do not exist), the model id and harness version, the output it
+describes, and the date. The runner cannot see which model ran an agent, so
+the operator declares it once per session, like the reviewer name:
+`QAIZEN_MODEL` and `QAIZEN_HARNESS`; undeclared, it is `unknown`.
+Provenance is written with the runner's own writes (a gate decision at the
+latest), the first time it sees a step's output and again when the output
+changes, so a run stopped at a gate still writes nothing. `npm run pipeline
+-- --status` shows it. Older runs keep no provenance and show as unknown;
+nothing is backfilled.
+
+The digests and the declared model are taken when the runner records them,
+not when the agent ran: at its next write after the agent wrote its output (a
+gate decision at the latest). A prompt edited in between is recorded as
+edited. The Healer is not among the steps: it produces no run artifact, and
+each candidate it submits is recorded with its own digests in
+`analysis/healer-validation/` (`docs/healer-guardrails.md`); its prompt
+file is not recorded there yet.
+
+Gate 3 binds the Planner's and the Generator's prompt files by digest
+(binding version 3), not their declared versions: editing either prompt
+after Gate 3 returns Gate 3 to pending, with the edited file named, and
+through the chained digests every gate after it. The Generator's prompt is
+bound at Gate 3, as its declared version was, so an edit to it reopens a spec
+review whose spec did not change. Two consequences follow:
+
+- Regenerating the agent definitions (`npx playwright init-agents` after a
+  Playwright upgrade, `docs/dependency-maintenance.md`) reopens Gate 3 of
+  every run in progress, as does running a run on a machine whose
+  `.claude/agents/` differ or are absent (they are gitignored).
+- The prompt files are read from the run's folder. A normal run's folder is
+  the repository; the demo workspace under `runs/DEMO-1/` has no
+  `.claude/agents/`, so its Gate 3 binds both prompts as absent while its
+  provenance, read from the repository, records their digests.
+
+An approval recorded under an earlier version keeps verifying by its own
+rules.
 
 ---
 

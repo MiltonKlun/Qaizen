@@ -232,6 +232,12 @@ npx playwright init-agents --loop=claude
 `.claude/agents/*.md` are generated and gitignored. **Never hand-edit them**
 (`CLAUDE.md` §5).
 
+Regenerating them changes the Planner's and the Generator's prompt files,
+which Gate 3 binds by digest: every run in progress returns to Gate 3, and
+through the chain to Gate 4, for its specs and code to be reviewed under the
+new prompts (`docs/prompt-versioning.md` §2a). Upgrade between runs, or plan
+the re-review.
+
 ## References
 
 - `docs/secrets-management.md` — what may be published from a run.

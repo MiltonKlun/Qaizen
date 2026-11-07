@@ -85,6 +85,12 @@ import {
 } from './lib/gate-history.js';
 import { effectiveTrack } from './track-floor.js';
 import {
+  needsProvenance,
+  provenanceLines,
+  stepOutputs,
+  stepProvenance,
+} from './lib/provenance.js';
+import {
   REPEAT_REPORT,
   REPEAT_WORKERS,
   repeatCount,
@@ -292,6 +298,8 @@ function writeContext(context) {
   // waited at a prompt; writing it back must not drop them.
   const onDisk = readJson(CONTEXT_PATH);
   keepHealerAttempts(context, onDisk.ok ? onDisk.data : null);
+  // What produced each agent step's output, kept with this write.
+  updateProvenance(context);
   const r = writeJsonAtomic(CONTEXT_PATH, context, {
     schemaPath: CONTEXT_SCHEMA,
   });
@@ -791,6 +799,8 @@ export function recordGateDecision({
   }
   const logged = context.gate_decisions[context.gate_decisions.length - 1];
   logged.record = { path: prepared.record, sha256: prepared.sha256 };
+  // What produced the reviewed outputs, kept with the decision.
+  updateProvenance(context, root);
   const w = writeJsonAtomic(join(root, CONTEXT_PATH), context, {
     schemaPath: CONTEXT_SCHEMA,
   });
@@ -1530,6 +1540,36 @@ function playwrightSetup() {
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
+ * Add the provenance of every agent step whose output exists and has none
+ * recorded for that output yet (scripts/lib/provenance.js). It writes
+ * nothing itself: writeContext calls it, so provenance is kept with every
+ * write the runner already makes (a gate decision at the latest) and a run
+ * that stops without writing still writes nothing. The prompt files are read
+ * from the repository, the outputs from the run.
+ * @param {Context} context
+ * @param {string} [root] the run's folder
+ * @returns {string[]} the steps recorded now
+ */
+function updateProvenance(context, root = '.') {
+  const outputs = stepOutputs(context, root, {
+    api: apiPaths(context).collection,
+    externalPlan: externalPaths(context).plan,
+  });
+  /** @type {string[]} */
+  const recorded = [];
+  for (const [step, output] of Object.entries(outputs)) {
+    if (!output || !needsProvenance(context, step, output.sha256)) continue;
+    const c = /** @type {any} */ (context);
+    c.provenance = {
+      ...(c.provenance ?? {}),
+      [step]: stepProvenance(step, { root: REPO_DIR, output, env }),
+    };
+    recorded.push(step);
+  }
+  return recorded;
+}
+
+/**
  * Run one test file repeatEach times on REPEAT_WORKERS workers with
  * Playwright's JSON reporter, and summarize each test across the runs. It
  * writes only the report and Playwright's output folder, and never exits.
@@ -2031,6 +2071,16 @@ function printStatus(context, hints) {
   const ctx = checkContext(context);
   if (!ctx.ok) console.log(`INVALID: context.json ${ctx.reason}`);
   for (const pr of hints.problems ?? []) console.log(`Not accepted: ${pr}`);
+  // What produced each output so far (recorded on --resume, never here).
+  const produced = Object.entries(
+    stepOutputs(context, '.', {
+      api: apiPaths(context).collection,
+      externalPlan: externalPaths(context).plan,
+    })
+  )
+    .filter(([, o]) => o)
+    .map(([step]) => step);
+  for (const line of provenanceLines(context, produced)) console.log(line);
   console.log(`Next step: ${nextStep(context, hints)}`);
 }
 

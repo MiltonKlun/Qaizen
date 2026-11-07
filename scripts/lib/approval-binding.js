@@ -12,8 +12,10 @@
 //                                    ambiguities and track
 //   Gate 2 (test_scope_reviewed)   = Gate-1 digest + semantic test cases
 //                                    + planner brief
-//   Gate 3 (specs_reviewed)        = Gate-2 digest + spec + planner/generator
-//                                    prompt versions
+//   Gate 3 (specs_reviewed)        = Gate-2 digest + spec + the digest of
+//                                    the Planner's and the Generator's
+//                                    prompt files (v3; before: their
+//                                    self-declared versions)
 //   Gate 4 (code_reviewed)         = Gate-3 digest + generated test + every
 //                                    file under the Playwright testDir and
 //                                    tests/fixtures, tests/fixtures.ts, what
@@ -38,7 +40,11 @@
 //   v2  Gate 4 as above, plus everything else under the testDir (the seed
 //       spec among it), tests/fixtures.ts, the relative-import closure of
 //       those files and the config, tsconfig.json and package.json
-// Every other gate has the same inputs under both versions.
+//   v3  Gate 3 binds the Planner's and the Generator's prompt files
+//       (scripts/lib/provenance.js GATE3_PROMPTS) by digest, instead of the
+//       versions they declare in context.json prompt_versions, so editing a
+//       prompt after Gate 3 reopens it
+// Every other gate has the same inputs under every version.
 //
 // Pure computation over files and context. Recording and invalidating are
 // the runner's job; this only answers "what is the digest now?" and "which
@@ -50,9 +56,10 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { isAbsolute, join, normalize } from 'node:path';
 
 import { importClosure } from './import-closure.js';
+import { GATE3_PROMPTS } from './provenance.js';
 
 /** The binding scheme new approvals are recorded under. */
-export const BINDING_VERSION = 2;
+export const BINDING_VERSION = 3;
 
 /** Gates that are bound, in pipeline order. */
 export const BOUND_GATES = [
@@ -549,6 +556,21 @@ export function gateInputs(
     case 'qa_scope_approved':
       return { ...g1(), ...scope() };
     case 'specs_reviewed': {
+      if (version >= 3) {
+        /** @type {Record<string, string | null>} */
+        const inputs = {
+          'gate:test_scope_reviewed': gateDigest(
+            'test_scope_reviewed',
+            context,
+            root,
+            version
+          ),
+          playwright_spec: fileDigest(root, paths.playwright_spec),
+        };
+        for (const p of GATE3_PROMPTS)
+          inputs[`prompt:${p}`] = fileDigest(root, p);
+        return inputs;
+      }
       const versions = Object.fromEntries(
         Object.entries(context?.prompt_versions ?? {}).filter(([k]) =>
           /planner|generator/i.test(k)
@@ -669,7 +691,8 @@ export function gateInputs(
 /**
  * The files behind a gate's own inputs: the same list `gateInputs` digests,
  * without the chained digest of the previous gate. Gate 1's interpretation
- * and Gate 3's prompt versions live in context.json, so it stands for them.
+ * (and, before v3, Gate 3's prompt versions) live in context.json, so it
+ * stands for them. Gate 3's prompt files are repository files.
  * @param {string} gate
  * @param {Context} context
  * @param {string} [root]
@@ -703,7 +726,9 @@ export function gateFiles(
     case 'specs_reviewed':
       return [
         ...f('playwright_spec', paths.playwright_spec),
-        ...f('prompt_versions', 'context.json'),
+        ...(version >= 3
+          ? GATE3_PROMPTS.flatMap((p) => f(`prompt:${p}`, p, false))
+          : f('prompt_versions', 'context.json')),
       ];
     case 'code_reviewed':
       return [
