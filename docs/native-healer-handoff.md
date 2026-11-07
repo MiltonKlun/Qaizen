@@ -58,7 +58,11 @@ Project rules (they override your default instructions):
 - Use test_debug, browser_snapshot and browser_generate_locator to find the
   element the test means. Do not run the whole suite.
 - Produce ONE candidate, then stop and report what you changed and why. Do not
-  iterate. If the failure is not a broken locator, change nothing and say so.
+  iterate.
+- The way out: if the failure is not a broken locator, or no change within
+  these rules fixes it, change nothing, reply "IMPOSSIBLE: <why>" and stop.
+  That is a correct outcome, not a failure; a candidate that works around a
+  rule is not.
 ```
 
 The proposal location is `.healer-candidates/FAIL-XXX/` (gitignored). The

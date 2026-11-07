@@ -1041,6 +1041,40 @@ Gate 2 problem is the entire downstream chain getting re-run. The
 gates exist precisely to make catching it earlier cheaper than
 catching it later.
 
+**Loops have an end.**
+
+- **Repeated rejections.** Every gate brief counts how often that gate was
+  rejected in the run, and since its last approval (`gate_decisions[]`).
+  From the third rejection on it says that another round is unlikely to
+  converge and names what to revisit: the story with its owner for Gate 1;
+  the story or Gate 1 for Gate 2; the approved scope or the story for Gate 3,
+  and the spec before that for Gate 4, or the app when it does not do what
+  the cases describe (a defect to raise); the cases' expected results or
+  the API's documented contract for the API gates; the scope for the
+  external plan and the execution for its evidence
+  (`scripts/lib/brief-checks.js`). It is advice: nothing is blocked, and the
+  decision stays yours.
+- **The agents' way out.** The Planner, the Generator, the API Agent and the
+  native Healer are told that when their task cannot be done within the
+  rules they stop and reply `IMPOSSIBLE: <why>` (the runner's step
+  instructions, which the operator passes on because the native agents'
+  prompts are generated; `agents/api-agent.md` §10;
+  `docs/native-healer-handoff.md`). An honest stop is a correct outcome; a
+  spec, test, collection or patch that works around a rule to exist is not.
+  The answer to an `IMPOSSIBLE` is decided with the scope owner: fix the
+  spec, the scope or the story, or, when the app is what is wrong, raise a
+  defect. Never change the expected behavior to match the app, and never
+  push the agent again unchanged.
+- **AI review rounds.** Any loop in which an AI reviews an artifact again
+  after it changed is capped at 3 rounds, and after the first round it
+  reviews only the diff since the round before. The Spec Reviewer
+  (`agents/spec-reviewer.md`) is the one AI reviewer today: run again on a
+  spec revised after a Gate 3 rejection, it still reads the whole spec, and
+  bringing it under this rule is a change to its prompt that has not been
+  made. Count its re-runs on one spec as rounds, and stop at 3. An AI
+  reviewer stays advisory and has no field it can use to approve
+  (`CLAUDE.md` §3.5).
+
 ---
 
 ## References

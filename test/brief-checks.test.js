@@ -9,7 +9,12 @@ import { join } from 'node:path';
 
 import { removeTempDir } from './helpers/cleanup.js';
 import { runContext, scopeCases } from './helpers/valid-run.js';
-import { briefChecks } from '../scripts/lib/brief-checks.js';
+import {
+  briefChecks,
+  REJECTION_ADVICE_AT,
+  rejectionCount,
+  rejectionLine,
+} from '../scripts/lib/brief-checks.js';
 
 function run(t, { scored = true } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'qaizen-brief-'));
@@ -139,4 +144,84 @@ test('a missing story or test-cases file skips its check, never guesses', (t) =>
   assert.deepEqual(briefChecks('qa_scope', ctx, dir), [
     'every risk (1) is scored likelihood × impact, with its severity on the matrix',
   ]);
+});
+
+test('rejections are counted per gate per run, and from the third the brief advises what to revisit', (t) => {
+  const { dir, ctx } = run(t);
+  const reject = (/** @type {string} */ gate, decision = 'rejected') => ({
+    gate,
+    decision,
+    reviewer: 'r',
+    decided_at: '2026-11-07T10:00:00.000Z',
+  });
+  assert.deepEqual(rejectionCount(ctx, 'specs_reviewed'), {
+    total: 0,
+    sinceApproval: 0,
+  });
+  assert.equal(rejectionLine(ctx, 'specs_reviewed'), null);
+
+  ctx.gate_decisions = [
+    reject('specs_reviewed'),
+    reject('requirements_reviewed'),
+    reject('specs_reviewed', 'approved'),
+    reject('specs_reviewed'),
+  ];
+  assert.deepEqual(rejectionCount(ctx, 'specs_reviewed'), {
+    total: 2,
+    sinceApproval: 1,
+  });
+  assert.deepEqual(briefChecks('gate3', ctx, dir), [
+    'this gate was rejected 2 times before in this run (1 since its last approval)',
+  ]);
+  // Another gate's rejections are its own.
+  assert.equal(
+    briefChecks('gate1', ctx, dir).at(-1),
+    'this gate was rejected 1 time before in this run'
+  );
+
+  ctx.gate_decisions.push(reject('specs_reviewed'));
+  assert.equal(REJECTION_ADVICE_AT, 3);
+  const line = briefChecks('gate3', ctx, dir)[0];
+  assert.match(
+    line,
+    /^ATTENTION: this gate has been rejected 3 times in this run \(2 since its last approval\)/
+  );
+  assert.match(line, /a defect to raise, not a spec to bend/);
+  assert.match(line, /Advisory: nothing is blocked/);
+
+  const three = (/** @type {string} */ gate) =>
+    [1, 2, 3].map(() => reject(gate));
+  const advice = (/** @type {string} */ step, /** @type {string} */ gate) => {
+    ctx.gate_decisions = three(gate);
+    return briefChecks(step, ctx, dir).at(-1) ?? '';
+  };
+  assert.match(
+    advice('gate1', 'requirements_reviewed'),
+    /agree it with its owner/
+  );
+  assert.match(advice('gate2', 'test_scope_reviewed'), /reopen Gate 1/);
+  assert.match(
+    advice('qa_scope', 'qa_scope_approved'),
+    /the Analyst and the Test Designer again/
+  );
+  assert.match(advice('gate4', 'code_reviewed'), /the spec \(Gate 3\)/);
+  assert.match(
+    advice('gate3-api', 'collection_reviewed'),
+    /documented contract/
+  );
+  assert.match(
+    advice('gate4-api', 'api_assertions_reviewed'),
+    /the API itself \(a defect to raise\)/
+  );
+  assert.match(
+    advice('gate3-ext', 'external_plan_reviewed'),
+    /manual, component or skip/
+  );
+  assert.match(
+    advice('gate4-ext', 'external_evidence_reviewed'),
+    /evidence requirements/
+  );
+  // A step that is not a gate gets no line.
+  ctx.gate_decisions = three('specs_reviewed');
+  assert.deepEqual(briefChecks('planner', ctx, dir), []);
 });

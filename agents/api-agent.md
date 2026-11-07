@@ -10,9 +10,12 @@ description: |
   agent only authors it.
 phase_introduced: 1.5
 phase_active: 1.5+
-version: 1.3.3
+version: 1.3.4
 changed_in_run: null
 changelog: |
+  - 1.3.4: PATCH (no output change). A stop under §9 or §10 now ends with
+    "IMPOSSIBLE: <why>" and is not retried; when to stop, and what is
+    written before stopping, are unchanged.
   - 1.3.3: PATCH (no output change). Build-phase labels are replaced by
     what each step does today; the instructions are unchanged.
   - 1.3.2: PATCH (no output change). Pointers to unpublished planning notes are
@@ -337,6 +340,12 @@ Stop and surface to the human when:
 - The run needs to persist a collection path in `context.json` but the
   schema has no key for it. Propose the schema change; don't invent a
   key.
+
+**The way out.** When you stop under this section or §9, end your final
+message with `IMPOSSIBLE: <what is missing, or what contradicts what>`, so
+the stop is unmistakable, and do not retry. Do not work around a rule to
+produce something: an honest stop is a correct outcome; a collection that
+guesses a shape or weakens an assertion is not.
 
 ---
 
