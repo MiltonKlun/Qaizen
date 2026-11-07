@@ -22,7 +22,15 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import {
+  dirname,
+  isAbsolute,
+  join,
+  posix,
+  relative,
+  resolve,
+  sep,
+} from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { formatErrors, validateValue } from './artifact-io.js';
@@ -294,12 +302,17 @@ export function setCommitted(root) {
  *   | { ok: false, reason: string }}
  */
 export function committedResults(root, outPath) {
-  const top = git(root, ['rev-parse', '--show-toplevel']);
-  if (top.status !== 0) return { ok: true, source: null };
-  const rel = relative(resolve(top.stdout.trim()), outPath);
-  if (!rel || rel.startsWith('..') || isAbsolute(rel))
-    return { ok: true, source: null };
-  const path = rel.split(sep).join('/');
+  // The path from git's own prefix for `root`, never by comparing absolute
+  // paths: a temp folder can be spelled two ways on Windows (an 8.3 short
+  // name and the long one), and git reports only the long one.
+  const prefix = git(root, ['rev-parse', '--show-prefix']);
+  if (prefix.status !== 0) return { ok: true, source: null };
+  const fromRoot = relative(resolve(root), outPath);
+  if (!fromRoot || isAbsolute(fromRoot)) return { ok: true, source: null };
+  const path = posix.normalize(
+    `${prefix.stdout.trim()}${fromRoot.split(sep).join('/')}`
+  );
+  if (path.startsWith('..')) return { ok: true, source: null };
   const shown = git(root, ['show', `HEAD:${path}`]);
   if (shown.status !== 0) return { ok: true, source: null };
   const source = `HEAD:${path}`;
