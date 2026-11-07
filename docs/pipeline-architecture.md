@@ -558,8 +558,19 @@ rule).
 | Product bugs found by generated tests | The pipeline's core value signal — is it catching real bugs?                       |
 | Untested high-risk items              | High-severity risks with no covering TC — the coverage gap to close first.         |
 | Gate 3 / Gate 4 rejection rate        | **Prompt quality signals** (see below). Counted from `context.gate_decisions[]`.   |
+| Gate time                             | Minutes from each gate's brief to its decision, per gate and per run.              |
+| Rounds to approval                    | Decisions per approval per gate, and the share approved the first time.            |
+| Gate 2 canary catch rate              | Planted wrong cases the reviewer rejected, with a 95% interval.                    |
+| Scan findings answered                | Per Gate 4 scan check: how often its finding was right (precision).                |
+| Flake rate in the repeat checks       | Repeat checks that found a flaky test, earlier checks of a run included.           |
+| Heals per test                        | Validated heals per healed test, and the tests healed more than once.              |
+| Escaped defects                       | Bugs a completed run should have caught, by why they were missed.                  |
+| Cost and time per story               | The operator's hands-on minutes and spend per run, as entered.                     |
+| Dual-judge trigger                    | Whether escaped false negatives or missed canaries re-open that evaluation.        |
 
-Every metric reports the sample it was computed over (`samples` in the JSON:
+Escaped defects and cost come from `outcomes/`, recorded by a person after
+the run with `npm run record-outcome` (`docs/outcome-records.md`); the rest
+come from the archived runs. Every metric reports the sample it was computed over (`samples` in the JSON:
 runs with a release report, a failure analysis, risk coverage, healer
 evidence), and a metric with no sample is shown as unknown, never as zero or
 success. The same run archived twice counts once. The healer

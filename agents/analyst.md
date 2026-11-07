@@ -9,9 +9,12 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 3.1.13
+version: 3.1.14
 changed_in_run: null
 changelog: |
+  - 3.1.14: PATCH (no output change). repeat_check.earlier, the summaries
+    of earlier repeat checks, is written by the runner only, like the rest
+    of repeat_check.
   - 3.1.13: PATCH (no output change). provenance, what produced each
     agent step's output, is written by the runner only.
   - 3.1.12: PATCH (no output change). repeat_check, the repeat run before
@@ -398,7 +401,7 @@ validate:context`). Fix and re-validate until the script exits 0.
 - Setting `status: "completed"`. The runner sets it once every gate has
   passed and every artifact of the run validates.
 - Writing `gate_decisions[]` (with its `finding_dispositions`), `gate_invalidations[]`,
-  `downgrade_confirmations[]`, `repeat_check`, `provenance` or `execution_identity`
+  `downgrade_confirmations[]`, `repeat_check` (with its `earlier[]`), `provenance` or `execution_identity`
   (Playwright or Newman). The runner records them at a person's decision or an execution;
   the Analyst leaves them out.
 - Writing `healer_attempts[]`. `scripts/run-healer.js` records each candidate

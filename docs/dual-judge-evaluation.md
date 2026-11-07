@@ -41,10 +41,15 @@ if **3+ of these criteria** justify it.
 
 **0 of 4 criteria** currently justify adoption (adoption needs 3+).
 
-Additionally, the **precondition is not met**: evaluation requires 10+ complete
-runs before evaluating; the project has **5** archived runs
+Additionally, the **precondition was not met** when this was decided:
+evaluation requires 10+ complete runs, and the project had **5** archived runs
 (`npm run list-runs`). Evaluating the framework's worth on half the required
-sample would be premature on its own terms.
+sample would have been premature on its own terms.
+
+Criterion 2 could only be answered by what people happened to notice. It is
+now measured: an escaped defect recorded with `why_missed:
+test_passed_wrongly` (`docs/outcome-records.md`) is exactly a test that
+passed when it should have failed, and the metrics count them.
 
 ---
 
@@ -71,16 +76,24 @@ evidence or scale, and the system has a cheaper approximation of it today.
 
 ## 4. Re-evaluation trigger
 
-Re-open this evaluation when **any** of the following becomes true:
+The trigger is computed by `npm run metrics` (`dual_judge_trigger` in
+`metrics/pipeline-metrics.json`, "Dual-judge re-evaluation trigger" in the
+Markdown), and `/evolve` reports it when it fires. Re-open this evaluation
+when **either** signal is met:
 
-- **10+ complete runs** exist (the precondition) AND
-- metrics or `/evolve` surface **false negatives** — tests that passed but
-  should have failed — as a recurring theme (3+ occurrences), OR
-- the Gate-4 reviewer repeatedly catches "technically passed but wrong"
-  results by eye (a sign the automated layer is missing semantic checks), OR
-- the project moves to an app/domain where assertions are inherently semantic
-  (e.g. generated content, ranking quality) and deterministic checks are
-  structurally insufficient.
+| Signal                 | Met when                                                                                             | Why it points here                                                                                                                                                                                                       |
+| ---------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| False-negative escapes | 3 or more escaped defects with `why_missed: test_passed_wrongly`                                     | A test covered the behavior and passed while the product was wrong: the "technically passed but wrong" case a semantic second judge exists for.                                                                          |
+| Missed Gate 2 canaries | 3 or more canaries missed, with the catch rate's 95% upper bound below 90% (`docs/gate-canaries.md`) | A missed canary is a wrong expected result a reviewer approved. A test generated from it asserts the wrong thing and passes or fails for the wrong reason, and the human review meant to catch that is shown to miss it. |
+
+Each signal carries its own minimum count, so a single bad run does not fire
+it, and neither needs the run-count precondition: three recorded false
+negatives are evidence however many runs there were. The trigger is
+advisory. Firing re-opens the evaluation; it does not adopt anything.
+
+Still worth re-opening by judgment, though not measured: the project moves to
+an app or domain where assertions are inherently semantic (generated content,
+ranking quality) and deterministic checks are structurally insufficient.
 
 If re-opened and **3+ criteria** then justify it, adopt the dual-judge **as an
 additional reporting/validation layer only** — a second opinion feeding the
@@ -95,5 +108,7 @@ adapter behind the existing classification, not a new core.
 - `agents/failure-classifier.md` — the current two-axis classifier + the
   `unknown_needs_human_review` escalation path.
 - `agents/spec-reviewer.md` — the Gate-3 semantic-ish assist already in place.
-- `docs/evolve-loop.md` — where a recurring false-negative theme would surface.
+- `docs/evolve-loop.md` — where the trigger surfaces when it fires.
+- `docs/outcome-records.md` — how an escaped defect is recorded.
+- `docs/gate-canaries.md` — the Gate 2 canaries and their catch rate.
 - `dogkeeper886/test-framework-template` — the upstream dual-judge concept.

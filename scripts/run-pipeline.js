@@ -89,6 +89,7 @@ import {
 import {
   REPEAT_REPORT,
   REPEAT_WORKERS,
+  earlierChecks,
   repeatCount,
   repeatLines,
   repeatProblem,
@@ -1723,6 +1724,11 @@ function repeatStep(context) {
     exit(2);
   }
   const summary = ran.summary;
+  // The check before this one, kept as a summary so a flaky check that was
+  // fixed still counts in the metrics.
+  const earlier = earlierChecks(
+    /** @type {any} */ (context).repeat_check ?? null
+  );
   /** @type {import('./lib/repeat-check.js').RepeatRecord} */
   const record = {
     input_digest: inputDigest,
@@ -1734,6 +1740,7 @@ function repeatStep(context) {
     outcome: summary.outcome,
     units: summary.units,
     ...(summary.errors.length ? { errors: summary.errors } : {}),
+    ...(earlier.length ? { earlier } : {}),
   };
   context.repeat_check = record;
   writeContext(context);
@@ -1954,10 +1961,15 @@ function execStep(step, context) {
         ?.playwright;
       if (recorded) {
         normalizeArgs.push('--playwright-identity', JSON.stringify(recorded));
-        // And the repeat check before Gate 4, beside it.
+        // And the repeat check before Gate 4, beside it: the check itself,
+        // without the summaries of earlier ones (run history, not evidence
+        // of this execution).
         const repeat = /** @type {any} */ (context).repeat_check;
-        if (repeat)
-          normalizeArgs.push('--repeat-check', JSON.stringify(repeat));
+        if (repeat) {
+          const { earlier: _earlier, ...check } = repeat;
+          void _earlier;
+          normalizeArgs.push('--repeat-check', JSON.stringify(check));
+        }
       }
     }
     if (context.run_id) normalizeArgs.push('--run-id', context.run_id);

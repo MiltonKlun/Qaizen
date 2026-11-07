@@ -806,6 +806,28 @@ test('a flaky generated test stops the run before Gate 4, and Gate 4 will not op
       r.out,
       /GATE PENDING: code_reviewed|Next step: gate4|cannot be reviewed yet/
     );
+    // Once the test is fixed (its digest changes), the check runs again; the
+    // stable check replaces the flaky one and keeps a summary of it, so the
+    // metrics still count the flaky check.
+    const testPath = join(
+      dir,
+      JSON.parse(readFileSync(ctxPath, 'utf8')).artifact_paths.generated_test
+    );
+    writeFileSync(
+      testPath,
+      readFileSync(testPath, 'utf8') + '\n// fixed: no shared state\n'
+    );
+    r = pipeline(dir, ['--resume'], fakeRepeat(dir, 'stable'));
+    const rerun = JSON.parse(readFileSync(ctxPath, 'utf8')).repeat_check;
+    assert.equal(rerun.outcome, 'stable');
+    assert.deepEqual(
+      rerun.earlier.map((/** @type {any} */ e) => [
+        e.outcome,
+        e.units,
+        e.flaky_units,
+      ]),
+      [['flaky', 1, 1]]
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -380,6 +380,10 @@ repeat_each, workers, ran_at, report, outcome, units[] }`, where `outcome`
 is `stable`, `failing` or `flaky` and each unit counts one test's runs,
 passes, failures, retry-only passes and skips. `input_digest` is the Gate 4
 input digest it ran against; the record holds only while it is current.
+`earlier[]`, when present, keeps a one-line summary of each check before this
+one (`ran_at`, `input_digest`, `repeat_each`, `outcome`, how many tests and
+how many of them flaky), at most twenty: a flaky check stops the run and is
+replaced once the test is fixed, and this is what the metrics count it from.
 Written only by the runner (`docs/review-gates.md`, Gate 4).
 
 ### `status`

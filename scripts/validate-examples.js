@@ -83,6 +83,14 @@ const PATTERNS = [
     schema: 'schemas/canary-log.schema.json',
   },
   {
+    suffix: '.expected-escaped-defect.json',
+    schema: 'schemas/escaped-defect.schema.json',
+  },
+  {
+    suffix: '.expected-story-cost.json',
+    schema: 'schemas/story-cost.schema.json',
+  },
+  {
     suffix: '.expected-regression-results.json',
     schema: 'schemas/regression-results.schema.json',
   },

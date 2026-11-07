@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "record_type": "escaped_defect",
+  "escaped_defect_id": "ESC-001",
+  "story_id": "STORY-010",
+  "run_id": "2026-06-28T12-00-00Z-cartbadge",
+  "run_archive": "runs/STORY-010/2026-06-29T05-42-14-389Z",
+  "risk_ids": ["RISK-001"],
+  "test_case_ids": ["TC-001"],
+  "summary": "The cart badge kept the old count after an item was removed on a second tab; the test covered the badge and passed.",
+  "severity": "high",
+  "found_in": "staging",
+  "found_at": "2026-07-03",
+  "why_missed": "test_passed_wrongly",
+  "notes": "The test asserted the badge after a reload, which hid the stale count.",
+  "recorded_at": "2026-07-03T15:20:00Z",
+  "recorded_by": "QA lead"
+}

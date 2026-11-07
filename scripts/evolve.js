@@ -202,6 +202,26 @@ if (metrics) {
       targets: ['test-cases/', 'agents/test-designer.md'],
     });
   }
+  // Escaped defects and missed canaries can re-open the dual-judge
+  // evaluation (docs/dual-judge-evaluation.md §4); say so when they do.
+  const trigger = metrics.dual_judge_trigger;
+  if (trigger?.fired && Array.isArray(trigger.signals)) {
+    add({
+      theme: 'dual-judge-trigger-fired',
+      confidence: 'medium',
+      evidence: trigger.signals
+        .filter((/** @type {{ met: boolean }} */ s) => s.met)
+        .map(
+          (/** @type {{ rule: string, value: number }} */ s) =>
+            `${s.rule}: now ${s.value}`
+        ),
+      proposed_action:
+        'Re-open the dual-judge evaluation with the escaped defects and the ' +
+        'missed canaries as its evidence, and decide by its criteria. Adopting ' +
+        'it is a human decision; nothing changes automatically.',
+      targets: ['docs/dual-judge-evaluation.md'],
+    });
+  }
   // Prompt stability is reported per prompt-version cohort:
   // each failing cohort is its own finding, and too little evidence is said
   // plainly rather than read as stability.

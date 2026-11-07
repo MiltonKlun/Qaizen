@@ -80,6 +80,47 @@ export const SCHEMA_CONTRACTS = {
       'validate:all (gates/canaries.json at the root and in every archived run); validate:examples; the runner validates the log before writing it',
     migration: 'Single version (1.0).',
   },
+  'schemas/escaped-defect.schema.json': {
+    artifact: 'outcomes/escaped-defects/ESC-NNN.json',
+    producers: [
+      'scripts/record-outcome.js escaped-defect (run by a person, never by an agent)',
+    ],
+    consumers: [
+      'scripts/pipeline-metrics.js',
+      'scripts/defect-history.js (and through it the Analyst)',
+    ],
+    docs: ['docs/outcome-records.md', 'docs/dual-judge-evaluation.md'],
+    examples: ['examples/expected/sample.expected-escaped-defect.json'],
+    invalid: [
+      {
+        path: 'examples/invalid/escaped-defect.no-risk-and-no-reason.json',
+        rule: 'a defect with no risk says why none covers it',
+        errorAt: '',
+      },
+    ],
+    discovery:
+      'validate:all (outcomes/escaped-defects/ at the root); validate:examples; record-outcome.js validates before writing; metrics and the defect history leave out a record that does not validate, and say so',
+    migration: 'Single version (1.0).',
+  },
+  'schemas/story-cost.schema.json': {
+    artifact: 'outcomes/costs/<story>.json',
+    producers: [
+      'scripts/record-outcome.js cost (run by a person, never by an agent)',
+    ],
+    consumers: ['scripts/pipeline-metrics.js'],
+    docs: ['docs/outcome-records.md'],
+    examples: ['examples/expected/sample.expected-story-cost.json'],
+    invalid: [
+      {
+        path: 'examples/invalid/story-cost.entry-without-time-or-spend.json',
+        rule: 'an entry records time, spend or both',
+        errorAt: '/runs/0',
+      },
+    ],
+    discovery:
+      'validate:all (outcomes/costs/ at the root); validate:examples; record-outcome.js validates before writing; metrics leave out a record that does not validate, and say so',
+    migration: 'Single version (1.0).',
+  },
   'schemas/context.schema.json': {
     artifact: 'context.json',
     producers: [

@@ -240,7 +240,7 @@ test('npm run defect-history writes metrics/defect-history.md, or prints it', (t
   assert.equal(written.status, 0, written.stderr);
   assert.match(
     written.stdout,
-    /Wrote .*: 3 run\(s\) read, 1 product bug\(s\)\./
+    /Wrote .*: 3 run\(s\) read, 1 product bug\(s\), 0 escaped defect\(s\)\./
   );
   assert.equal(readFileSync(out, 'utf8'), printed.stdout);
   assert.equal(cli('--print', '--out', out).status, 2);

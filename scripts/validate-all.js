@@ -22,7 +22,9 @@
 //   examples/evaluation/regressions/manifest.json
 //                                         schemas/regression-set.schema.json
 //   evidence/regressions/*.json           schemas/regression-results.schema.json
-//                                         (the last three at the repo root only)
+//   outcomes/escaped-defects/*.json       schemas/escaped-defect.schema.json
+//   outcomes/costs/*.json                 schemas/story-cost.schema.json
+//                                         (the last five at the repo root only)
 //
 // Examples under examples/expected/ are covered by validate-examples.js;
 // this script covers the live, committed run artifacts AT THE ROOT and every
@@ -144,6 +146,17 @@ const TARGETS = [
     dir: 'evidence/regressions',
     suffix: '.json',
     schema: 'schemas/regression-results.schema.json',
+  },
+  // What people recorded after the runs (scripts/record-outcome.js).
+  {
+    dir: 'outcomes/escaped-defects',
+    suffix: '.json',
+    schema: 'schemas/escaped-defect.schema.json',
+  },
+  {
+    dir: 'outcomes/costs',
+    suffix: '.json',
+    schema: 'schemas/story-cost.schema.json',
   },
 ];
 
