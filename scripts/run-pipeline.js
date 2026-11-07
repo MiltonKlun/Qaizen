@@ -1385,7 +1385,7 @@ function storyId(context) {
 }
 
 /** @type {Record<string, (ctx: Context) => string>} */
-const GUIDE_STEPS = {
+export const GUIDE_STEPS = {
   analyst: () =>
     'Run the ANALYST: agents/analyst.md against story.md.\n' +
     launchLine('analyst') +
@@ -1404,6 +1404,7 @@ const GUIDE_STEPS = {
     `  (it explores the real app via Playwright MCP — never from text alone, CLAUDE.md §3.8).\n` +
     launchLine('planner') +
     `  It writes specs/${storyId(ctx)}.md; fill artifact_paths.playwright_spec.\n` +
+    IMPOSSIBLE_LINE +
     '  Then: npm run pipeline -- --resume',
   api: (ctx) =>
     `Run the API AGENT: agents/api-agent.md for the automate_api cases of ${storyId(ctx)}.\n` +

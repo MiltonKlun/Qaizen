@@ -146,26 +146,32 @@ test('a missing story or test-cases file skips its check, never guesses', (t) =>
   ]);
 });
 
-test('rejections are counted per gate per run, and from the third the brief advises revisiting the story or scope', (t) => {
+test('rejections are counted per gate per run, and from the third the brief advises what to revisit', (t) => {
   const { dir, ctx } = run(t);
-  const reject = (/** @type {string} */ gate) => ({
+  const reject = (/** @type {string} */ gate, decision = 'rejected') => ({
     gate,
-    decision: 'rejected',
+    decision,
     reviewer: 'r',
     decided_at: '2026-11-07T10:00:00.000Z',
   });
-  assert.equal(rejectionCount(ctx, 'specs_reviewed'), 0);
+  assert.deepEqual(rejectionCount(ctx, 'specs_reviewed'), {
+    total: 0,
+    sinceApproval: 0,
+  });
   assert.equal(rejectionLine(ctx, 'specs_reviewed'), null);
 
   ctx.gate_decisions = [
     reject('specs_reviewed'),
     reject('requirements_reviewed'),
-    { ...reject('specs_reviewed'), decision: 'approved' },
+    reject('specs_reviewed', 'approved'),
     reject('specs_reviewed'),
   ];
-  assert.equal(rejectionCount(ctx, 'specs_reviewed'), 2);
+  assert.deepEqual(rejectionCount(ctx, 'specs_reviewed'), {
+    total: 2,
+    sinceApproval: 1,
+  });
   assert.deepEqual(briefChecks('gate3', ctx, dir), [
-    'this gate was rejected 2 times before in this run',
+    'this gate was rejected 2 times before in this run (1 since its last approval)',
   ]);
   // Another gate's rejections are its own.
   assert.equal(
@@ -178,19 +184,44 @@ test('rejections are counted per gate per run, and from the third the brief advi
   const line = briefChecks('gate3', ctx, dir)[0];
   assert.match(
     line,
-    /^ATTENTION: this gate has been rejected 3 times in this run/
+    /^ATTENTION: this gate has been rejected 3 times in this run \(2 since its last approval\)/
   );
-  assert.match(line, /revisiting the approved scope \(Gate 2\) or the story/);
+  assert.match(line, /a defect to raise, not a spec to bend/);
   assert.match(line, /Advisory: nothing is blocked/);
 
-  ctx.gate_decisions = [1, 2, 3].map(() => reject('test_scope_reviewed'));
+  const three = (/** @type {string} */ gate) =>
+    [1, 2, 3].map(() => reject(gate));
+  const advice = (/** @type {string} */ step, /** @type {string} */ gate) => {
+    ctx.gate_decisions = three(gate);
+    return briefChecks(step, ctx, dir).at(-1) ?? '';
+  };
   assert.match(
-    briefChecks('gate2', ctx, dir).at(-1) ?? '',
-    /revisiting the story or its interpretation: reopen Gate 1/
+    advice('gate1', 'requirements_reviewed'),
+    /agree it with its owner/
   );
-  ctx.gate_decisions = [1, 2, 3, 4].map(() => reject('requirements_reviewed'));
+  assert.match(advice('gate2', 'test_scope_reviewed'), /reopen Gate 1/);
   assert.match(
-    briefChecks('gate1', ctx, dir).at(-1) ?? '',
-    /rejected 4 times.*agree it with its owner/
+    advice('qa_scope', 'qa_scope_approved'),
+    /the Analyst and the Test Designer again/
   );
+  assert.match(advice('gate4', 'code_reviewed'), /the spec \(Gate 3\)/);
+  assert.match(
+    advice('gate3-api', 'collection_reviewed'),
+    /documented contract/
+  );
+  assert.match(
+    advice('gate4-api', 'api_assertions_reviewed'),
+    /the API itself \(a defect to raise\)/
+  );
+  assert.match(
+    advice('gate3-ext', 'external_plan_reviewed'),
+    /manual, component or skip/
+  );
+  assert.match(
+    advice('gate4-ext', 'external_evidence_reviewed'),
+    /evidence requirements/
+  );
+  // A step that is not a gate gets no line.
+  ctx.gate_decisions = three('specs_reviewed');
+  assert.deepEqual(briefChecks('planner', ctx, dir), []);
 });
