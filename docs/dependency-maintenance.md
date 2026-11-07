@@ -236,7 +236,16 @@ Regenerating them changes the Planner's and the Generator's prompt files,
 which Gate 3 binds by digest: every run in progress returns to Gate 3, and
 through the chain to Gate 4, for its specs and code to be reviewed under the
 new prompts (`docs/prompt-versioning.md` §2a). Upgrade between runs, or plan
-the re-review.
+the re-review. The Healer's prompt changes too, so score the regression set's
+Healer cases on the regenerated prompts before the next heal
+(`docs/prompt-versioning.md` §3a).
+
+## The model
+
+A model upgrade is a change to every agent at once. Before the new model is
+used for runs, score every case of the regression set on it
+(`docs/prompt-versioning.md` §3a) and commit the results; declare it with
+`QAIZEN_MODEL` so the runs and the results name it.
 
 ## References
 

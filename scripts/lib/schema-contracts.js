@@ -239,6 +239,47 @@ export const SCHEMA_CONTRACTS = {
     discovery: 'validate:all; validate:examples',
     migration: 'Postman Collection v2.1 subset; no local versions.',
   },
+  'schemas/regression-results.schema.json': {
+    artifact: 'evidence/regressions/<agent|all>.json',
+    producers: [
+      'scripts/evaluate-agents.js --regressions (run by the human evaluating a prompt or model change)',
+    ],
+    consumers: [
+      'scripts/evaluate-agents.js (the previous results its decision rule compares with)',
+      'the human reviewing the change',
+    ],
+    docs: ['docs/prompt-versioning.md', 'evidence/README.md'],
+    examples: ['examples/expected/healer.expected-regression-results.json'],
+    invalid: [
+      {
+        path: 'examples/invalid/regression-results.pass-rate-above-one.json',
+        rule: 'a pass rate is a share, at most 1',
+        errorAt: '/cases/0/pass_rate/value',
+      },
+    ],
+    discovery:
+      'validate:all (evidence/regressions/*.json); validate:examples; the evaluator validates the results before writing them',
+    migration: 'Single version (1.0).',
+  },
+  'schemas/regression-set.schema.json': {
+    artifact: 'examples/evaluation/regressions/manifest.json',
+    producers: ['the human team'],
+    consumers: ['scripts/evaluate-agents.js --regressions'],
+    docs: [
+      'docs/prompt-versioning.md',
+      'examples/evaluation/regressions/README.md',
+    ],
+    examples: ['examples/evaluation/regressions/manifest.json'],
+    invalid: [
+      {
+        path: 'examples/invalid/regression-set.unknown-check.json',
+        rule: 'a case names a check the evaluator has',
+        errorAt: '/cases/0/checks/0/check',
+      },
+    ],
+    discovery: 'validate:all',
+    migration: 'Single version (1.0).',
+  },
   'schemas/release-report.schema.json': {
     artifact: 'release/release-report.json',
     producers: ['agents/reporter.md'],

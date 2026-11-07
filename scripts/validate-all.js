@@ -18,7 +18,10 @@
 //   planner-input/*.external-plan.json    schemas/external-execution.schema.json
 //   external-evidence/*.results.json      schemas/external-execution.schema.json
 //   examples/evaluation/manifest.json     schemas/evaluation-manifest.schema.json
-//                                         (repo root only)
+//   examples/evaluation/regressions/manifest.json
+//                                         schemas/regression-set.schema.json
+//   evidence/regressions/*.json           schemas/regression-results.schema.json
+//                                         (the last three at the repo root only)
 //
 // Examples under examples/expected/ are covered by validate-examples.js;
 // this script covers the live, committed run artifacts AT THE ROOT and every
@@ -126,6 +129,16 @@ const TARGETS = [
   {
     files: ['examples/evaluation/manifest.json'],
     schema: 'schemas/evaluation-manifest.schema.json',
+  },
+  // The agent regression set and the results committed for it.
+  {
+    files: ['examples/evaluation/regressions/manifest.json'],
+    schema: 'schemas/regression-set.schema.json',
+  },
+  {
+    dir: 'evidence/regressions',
+    suffix: '.json',
+    schema: 'schemas/regression-results.schema.json',
   },
 ];
 

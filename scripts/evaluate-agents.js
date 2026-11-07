@@ -18,6 +18,11 @@
 //     output). This is the step of the human prompt-change workflow
 //     (docs/prompt-versioning.md) where the model's output is evaluated.
 //
+//   * Regression evaluation (--regressions <trials-dir>). Scores k trials of
+//     an agent on every case of the regression set (examples/evaluation/
+//     regressions/) and applies the set's decision rule
+//     (scripts/lib/regression-eval.js).
+//
 // Which gold outputs exist is declared, not guessed: examples/evaluation/
 // manifest.json (schemas/evaluation-manifest.schema.json) lists every story
 // as `designer` (context + test cases), `analyst` (context only) or `none`
@@ -39,28 +44,29 @@
 // context, test cases, failure analysis and ledger (scripts/lib/report-checks.js).
 // No gold release report is declared, so it is compared only with --baseline.
 //   node scripts/evaluate-agents.js --out <path>       # write results elsewhere
+//   node scripts/evaluate-agents.js --regressions <trials-dir> [--agent <name>] [--out <path>]
 //
 // Output: examples/evaluation/latest-results.json in fixture mode;
 // <run-dir>/evaluation-results.json in candidate mode, so the candidate's
-// evidence stays with the candidate (or --out <path>).
+// evidence stays with the candidate; evidence/regressions/<agent|all>.json in
+// regression mode (or --out <path>). A results file is rewritten only when
+// its results change: a re-run that measures the same thing leaves it, and
+// its recorded date, as they are.
 //
 // Exit codes: 0 every scored check passed · 1 at least one check failed
 //             · 2 usage error, invalid manifest, or missing declared/requested work
+//             (regression mode: 0 pass · 1 the decision rule blocks · 2 as above)
 
 import { createHash } from 'node:crypto';
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { argv, exit } from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { readValidatedJson, validateValue } from './lib/artifact-io.js';
+import { runRegressions } from './lib/regression-eval.js';
 import { releaseReportChecks } from './lib/report-checks.js';
+import { writeResultsIfChanged } from './lib/results-file.js';
 
 const STORIES_DIR = 'examples/stories';
 const EXPECTED_DIR = 'examples/expected';
@@ -125,6 +131,8 @@ function flagValue(name) {
   if (!v || v.startsWith('--')) return null;
   return v;
 }
+
+if (argv.includes('--regressions')) exit(runRegressions(argv.slice(2)));
 
 const candidateDir = flagValue('--candidate-dir');
 if (candidateDir === null) fail('--candidate-dir requires a directory path.');
@@ -778,8 +786,7 @@ const out = {
   results,
 };
 
-mkdirSync(dirname(OUT_FILE), { recursive: true });
-writeFileSync(OUT_FILE, JSON.stringify(out, null, 2) + '\n');
+const { written } = writeResultsIfChanged(OUT_FILE, out);
 
 // ---------------------------------------------------------------- console --
 const pctText = (/** @type {number | null} */ p) =>
@@ -846,7 +853,7 @@ if (baseline) {
   );
 }
 console.log(
-  `\nOverall: ${pctText(out.match_pct)} (${passedChecks}/${totalChecks} checks)  ->  wrote ${OUT_FILE}`
+  `\nOverall: ${pctText(out.match_pct)} (${passedChecks}/${totalChecks} checks)  ->  ${written ? `wrote ${OUT_FILE}` : `${OUT_FILE} unchanged (same results)`}`
 );
 console.log(
   '  Structural only: a 100% is not a verdict on the business interpretation.'

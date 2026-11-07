@@ -1,0 +1,96 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-06-30T21-00-00Z-checkoutsummary",
+  "story": {
+    "id": "STORY-020",
+    "title": "Checkout order summary shows the correct item total, tax, and total",
+    "source": "manual",
+    "path": "story.md",
+    "description": "A shopper completes the two-step checkout (enter information, review order summary, finish). The order-summary step must show the correct item total (sum of cart item prices), the tax, and the total (item total + tax), so the shopper sees an accurate amount before committing."
+  },
+  "acceptance_criteria": [
+    "Given a shopper with two known items in the cart, when they proceed to checkout and submit valid first name, last name, and postal code, then they reach the \"Checkout: Overview\" step showing both items.",
+    "Given the checkout overview step, when the order summary is displayed, then the \"Item total\" equals the exact sum of the unit prices of the items in the cart.",
+    "Given the checkout overview step, when the order summary is displayed, then the \"Total\" equals the displayed \"Item total\" plus the displayed \"Tax\" (the arithmetic on screen is internally consistent).",
+    "Given the checkout information step, when the shopper submits the form with a missing required field (e.g. no postal code), then they remain on the information step and an error message is shown — they do not advance to the overview.",
+    "Given the checkout overview step, when the shopper clicks \"Finish\", then they reach the \"Checkout: Complete!\" confirmation and the cart badge is cleared (the order has been placed)."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "The order summary displays a wrong item total (not the sum of the cart items' unit prices), misrepresenting the amount the shopper is about to pay.",
+      "severity": "high",
+      "related_acs": [1]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "The displayed total is not internally consistent with the shown item total plus tax, so the on-screen arithmetic does not add up.",
+      "severity": "high",
+      "related_acs": [2]
+    },
+    {
+      "risk_id": "RISK-003",
+      "description": "The information form advances to the overview despite a missing required field, letting an order proceed with incomplete shipping data.",
+      "severity": "medium",
+      "related_acs": [3]
+    },
+    {
+      "risk_id": "RISK-004",
+      "description": "Finishing the order does not reach the confirmation or does not clear the cart, leaving the shopper unsure whether the order was placed.",
+      "severity": "medium",
+      "related_acs": [0, 4]
+    }
+  ],
+  "track": "standard",
+  "track_floor": {
+    "minimum": "standard",
+    "reasons": [
+      "red-domain: Pricing / money calculation",
+      "5 acceptance criteria (> 4)",
+      "at least one high-severity risk"
+    ]
+  },
+  "artifact_paths": {
+    "test_cases": "test-cases/STORY-020.json",
+    "planner_brief": "planner-input/STORY-020.planner-brief.md",
+    "playwright_spec": "",
+    "generated_test": "",
+    "execution_results": "",
+    "html_report": "",
+    "traces": "",
+    "screenshots": "",
+    "failure_analysis": "",
+    "release_report_md": "",
+    "release_report_json": "",
+    "bug_drafts_dir": ""
+  },
+  "review_gates": {
+    "requirements_reviewed": {
+      "status": true,
+      "reviewer": "Milton",
+      "reviewed_at": "2026-07-01T00:11:05.871Z",
+      "opened_at": "2026-07-01T00:10:52.186Z",
+      "notes": null
+    },
+    "test_scope_reviewed": {
+      "status": false,
+      "reviewer": null,
+      "reviewed_at": null,
+      "notes": null
+    },
+    "specs_reviewed": {
+      "status": false,
+      "reviewer": null,
+      "reviewed_at": null,
+      "notes": null
+    },
+    "code_reviewed": {
+      "status": false,
+      "reviewer": null,
+      "reviewed_at": null,
+      "notes": null
+    }
+  },
+  "status": "in_progress"
+}
