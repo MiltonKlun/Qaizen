@@ -78,11 +78,11 @@
       }
     },
     "baseline": {
-      "description": "The unchanged original, run in the isolated copy to confirm the failure reproduces. Null when nothing ran.",
+      "description": "The unchanged original, run 3 times in the isolated copy to confirm the failure reproduces every time at the same place. Null when nothing ran.",
       "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/run" }]
     },
     "rerun": {
-      "description": "The same single test with the candidate. Null when nothing ran.",
+      "description": "The same single test, run 5 times with the candidate; validated only when every run passed. Null when nothing ran.",
       "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/run" }]
     },
     "patch": {
@@ -167,7 +167,20 @@
           "description": "The Playwright invocation (arguments only; no environment values)."
         },
         "exit_code": { "type": ["integer", "null"] },
-        "error_excerpt": { "type": "string", "maxLength": 400 }
+        "error_excerpt": { "type": "string", "maxLength": 400 },
+        "runs": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "OPTIONAL. How many times the test ran: 3 for the original, 5 with the candidate. Absent on records from before repeated runs (one run each)."
+        },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "failure_locations": {
+          "type": "array",
+          "maxItems": 5,
+          "description": "OPTIONAL. Where the failing runs failed, as file:line:column, each place once. The original must fail at exactly one.",
+          "items": { "type": "string" }
+        }
       }
     }
   }

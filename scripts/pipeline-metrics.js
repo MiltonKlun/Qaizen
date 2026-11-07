@@ -340,7 +340,7 @@ const md = [
   `- Structured submissions: ${healer.submissions} · validated: ${healer.validated} · validation failed: ${healer.validation_failed} · rejected by the static check: ${healer.rejected_static}`,
   `- Success rate (validated / submissions): ${pct(healer.success_rate)}` +
     (healer.success_rate === null ? ' — no structured submission yet' : ''),
-  `- Not counted as patches: ${healer.yellow_suggestions} Yellow suggestion(s), ${healer.exhausted_notices} exhausted notice(s), ${healer.invalid_records} invalid record(s), ${healer.duplicate_records} duplicate record(s)`,
+  `- Not counted as patches: ${healer.yellow_suggestions} Yellow suggestion(s), ${healer.exhausted_notices} exhausted notice(s), ${healer.inconsistent_baselines} failure(s) refused because the original failed inconsistently, ${healer.invalid_records} invalid record(s), ${healer.duplicate_records} duplicate record(s)`,
   `- Legacy Markdown notes (unverified, never counted): ${healer.legacy_markdown_notes}`,
   '',
   '## Product bugs found by generated tests',

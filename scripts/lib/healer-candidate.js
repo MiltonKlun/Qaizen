@@ -27,7 +27,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join, resolve, sep } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 
 import { playwrightCli } from './cli.js';
 import { adaptPlaywrightReport } from './execution-results.js';
@@ -425,9 +425,46 @@ export { playwrightCli };
 const escapeRe = (/** @type {string} */ s) =>
   s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+/** Runs of the unchanged original: each must fail, at the same place. */
+export const BASELINE_RUNS = 3;
+/** Runs with the candidate: each must pass. */
+export const CANDIDATE_RUNS = 5;
+
 /**
- * Run exactly one test in the workspace, with retries, repeats and snapshot
- * updates pinned off, and read its outcome from the JSON report.
+ * Where each failing run of a report failed, as `file:line:column` relative to
+ * the workspace, in order of first appearance.
+ * @param {any} report parsed Playwright JSON report
+ * @param {string} workspace
+ * @returns {string[]}
+ */
+export function failureLocations(report, workspace) {
+  /** @type {string[]} */
+  const out = [];
+  /** @param {any} suite */
+  const walk = (suite) => {
+    for (const spec of suite?.specs ?? [])
+      for (const t of spec.tests ?? [])
+        for (const r of t.results ?? []) {
+          // A test timeout has no error of its own; the action it was
+          // waiting on, if any, carries the location.
+          const loc =
+            r.error?.location ??
+            r.errors?.find((/** @type {any} */ e) => e?.location)?.location;
+          if (!loc?.file) continue;
+          const where = `${posix(relative(workspace, loc.file))}:${loc.line}:${loc.column}`;
+          if (!out.includes(where)) out.push(where);
+        }
+    for (const child of suite?.suites ?? []) walk(child);
+  };
+  for (const s of report?.suites ?? []) walk(s);
+  return out;
+}
+
+/**
+ * Run exactly one test in the workspace `repeat` times, with retries and
+ * snapshot updates pinned off, and read its outcome from the JSON report: the
+ * status across the runs (passed or failed when every run did, flaky when they
+ * disagree), how many passed and failed, and where the failing runs failed.
  *
  * @param {object} args
  * @param {string} args.workspace
@@ -436,9 +473,11 @@ const escapeRe = (/** @type {string} */ s) =>
  * @param {TargetUnit} args.unit
  * @param {string} args.label
  * @param {Record<string, string | undefined>} [args.env]
- * @param {number} [args.timeoutMs]
+ * @param {number} [args.timeoutMs] per run (QAIZEN_HEALER_TIMEOUT_MS)
+ * @param {number} [args.repeat] how many times to run it (default 1)
  * @returns {{status: string, tests_executed: number, command: string,
- *   exit_code: number|null, error_excerpt?: string}}
+ *   exit_code: number|null, error_excerpt?: string, runs?: number,
+ *   passed?: number, failed?: number, failure_locations?: string[]}}
  */
 export function runSingleTest({
   workspace,
@@ -448,6 +487,7 @@ export function runSingleTest({
   label,
   env = process.env,
   timeoutMs = 300000,
+  repeat = 1,
 }) {
   const reportPath = join(workspace, `.report-${label}.json`);
   const title = unit.test_title.split(' > ').pop() ?? unit.test_title;
@@ -459,7 +499,7 @@ export function runSingleTest({
     '--grep',
     `${escapeRe(title)}$`,
     '--repeat-each',
-    '1',
+    String(repeat),
     '--retries',
     '0',
     '--workers',
@@ -475,7 +515,8 @@ export function runSingleTest({
     env: { ...env, PLAYWRIGHT_JSON_OUTPUT_NAME: reportPath },
     encoding: 'utf8',
     shell: false,
-    timeout: timeoutMs,
+    // The timeout is per run, so N runs get N times it.
+    timeout: timeoutMs * repeat,
   });
   const base = { command, exit_code: r.status };
   if (r.error) {
@@ -502,22 +543,43 @@ export function runSingleTest({
   /** @type {Unit[]} */
   const units = adaptPlaywrightReport(report, { executionId: label }).units;
   const executed = units.filter((u) => u.outcome !== 'not_run');
-  if (units.length !== 1 || units[0].identity.test_title !== unit.test_title) {
+  if (
+    units.length !== repeat ||
+    units.some((u) => u.identity.test_title !== unit.test_title)
+  ) {
     return {
       ...base,
       status: 'no_single_test',
       tests_executed: units.length,
       error_excerpt: sanitizeDiagnostic(
-        `expected exactly "${unit.test_title}", got ${units.map((u) => `"${u.identity.test_title}"`).join(', ') || 'no test'}`
+        `expected exactly ${repeat} run(s) of "${unit.test_title}", got ${units.map((u) => `"${u.identity.test_title}"`).join(', ') || 'no test'}`
       ),
     };
   }
-  const u = units[0];
-  const message = (u.attempts ?? []).map((a) => a.error_message).find(Boolean);
+  const passed = units.filter((u) => u.outcome === 'passed').length;
+  const failed = units.filter((u) => u.outcome === 'failed').length;
+  const status =
+    repeat === 1
+      ? units[0].outcome
+      : passed === repeat
+        ? 'passed'
+        : failed === repeat
+          ? 'failed'
+          : passed > 0 && failed > 0
+            ? 'flaky'
+            : (units.find((u) => u.outcome !== 'passed')?.outcome ?? 'failed');
+  const message = units
+    .flatMap((u) => u.attempts ?? [])
+    .map((a) => a.error_message)
+    .find(Boolean);
   return {
     ...base,
-    status: u.outcome,
+    status,
     tests_executed: executed.length,
+    runs: repeat,
+    passed,
+    failed,
+    failure_locations: failureLocations(report, workspace).slice(0, 5),
     ...(message
       ? { error_excerpt: sanitizeDiagnostic(message).slice(0, 400) }
       : {}),

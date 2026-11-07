@@ -247,12 +247,23 @@ node scripts/run-healer.js --failure FAIL-001 --candidate path/to/fixed.spec.ts 
 2. The static check above must find the candidate eligible.
 3. With `--apply`, the config, the test and everything they import are
    copied into `.healer-workspace/` (gitignored; `.env` and other state
-   are never copied). The unchanged original must still fail there; if it
-   passes, nothing is validated and no attempt is used.
-4. The **same single test** then runs with the candidate: one project,
-   `--repeat-each 1`, `--retries 0`, no snapshot updates. It must execute
-   exactly once and pass. Zero tests, a skip, an expected failure or
-   another test do not count.
+   are never copied). The unchanged original runs there 3 times and must
+   fail all 3, at the same place (the same file, line and column). A test
+   that passes on some runs is flaky, and one that fails in different places
+   is broken in a way a locator does not explain: in both cases a locator
+   change would only hide it, so nothing is validated and no attempt is used.
+   The refusal is kept in `analysis/healer-validation/FAIL-XXX.inconsistent.md`
+   (with the run and the original's digest), and the healer refuses that
+   failure for the rest of the run: asking again until the original happens
+   to fail 3 of 3 would let a flaky test through. The failure goes to a
+   human: reclassify it as `flaky` or `unknown_needs_human_review` in the
+   failure analysis, and fix the test or the app by hand. A runner error is
+   not kept this way. `QAIZEN_HEALER_TIMEOUT_MS` (default 300000) is the
+   time allowed per run, so 3 runs get three times it and 5 runs five times.
+4. The **same single test** then runs 5 times with the candidate: one
+   project, `--repeat-each 5`, `--retries 0`, no snapshot updates. It must
+   execute 5 times and pass every time. Zero tests, a skip, an expected
+   failure, another test, or a single failed run do not count.
 5. Only then is `release/healer-patches/FAIL-XXX.attempt-N.patch` written,
    a unified diff proven by applying it to a copy of the original.
 

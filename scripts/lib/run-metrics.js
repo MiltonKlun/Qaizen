@@ -156,6 +156,8 @@ const YELLOW_NOTE = /^#\s*FAIL-\d+\s+—\s+Yellow \(suggestion only\)/;
 const RECORD_NAME = /^FAIL-\d+\.attempt-\d+\.json$/;
 const RENDERING_NAME = /^(FAIL-\d+\.attempt-\d+)\.md$/;
 const EXHAUSTED_NAME = /^FAIL-\d+\.exhausted\.md$/;
+// A failure whose original failed inconsistently: refused, never healed.
+const INCONSISTENT_NAME = /^FAIL-\d+\.inconsistent\.md$/;
 const TERMINAL = new Set(['validated', 'validation_failed', 'rejected_static']);
 
 /**
@@ -173,6 +175,7 @@ export function healerMetrics(dirs, isValidRecord) {
     invalid_records: 0,
     yellow_suggestions: 0,
     exhausted_notices: 0,
+    inconsistent_baselines: 0,
     legacy_markdown_notes: 0,
   };
   for (const { files } of dirs) {
@@ -210,6 +213,7 @@ export function healerMetrics(dirs, isValidRecord) {
       const rendering = RENDERING_NAME.exec(name);
       if (rendering && names.has(`${rendering[1]}.json`)) continue;
       if (EXHAUSTED_NAME.test(name)) counts.exhausted_notices += 1;
+      else if (INCONSISTENT_NAME.test(name)) counts.inconsistent_baselines += 1;
       else if (YELLOW_NOTE.test(text)) counts.yellow_suggestions += 1;
       else counts.legacy_markdown_notes += 1;
     }
