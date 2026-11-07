@@ -61,6 +61,25 @@ export const SCHEMA_CONTRACTS = {
     migration:
       'Additive: 1.0 records stay valid as captured; 1.1 adds provenance and timing.',
   },
+  'schemas/canary-log.schema.json': {
+    artifact: 'gates/canaries.json',
+    producers: [
+      'scripts/run-pipeline.js through scripts/lib/canaries.js (the Gate 2 per-case loop)',
+    ],
+    consumers: ['scripts/pipeline-metrics.js'],
+    docs: ['docs/gate-canaries.md', 'docs/review-gates.md'],
+    examples: ['examples/expected/sample.expected-canary-log.json'],
+    invalid: [
+      {
+        path: 'examples/invalid/canary-log.unknown-result.json',
+        rule: 'a canary is caught or missed',
+        errorAt: '/events/0/result',
+      },
+    ],
+    discovery:
+      'validate:all (gates/canaries.json at the root and in every archived run); validate:examples; the runner validates the log before writing it',
+    migration: 'Single version (1.0).',
+  },
   'schemas/context.schema.json': {
     artifact: 'context.json',
     producers: [

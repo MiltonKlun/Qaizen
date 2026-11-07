@@ -9,6 +9,7 @@
 //
 // Glob -> schema map (an artifact is validated only if it exists):
 //   context.json                          schemas/context.schema.json
+//   gates/canaries.json                   schemas/canary-log.schema.json
 //   test-cases/*.json                     schemas/test-cases.schema.json
 //   analysis/failure-analysis.json        schemas/failure-analysis.schema.json
 //   analysis/execution-ledger.json        schemas/execution-ledger.schema.json
@@ -49,6 +50,10 @@ function targetsFor(base = '.') {
   const at = (/** @type {string} */ p) => join(base, p);
   return [
     { files: [at('context.json')], schema: 'schemas/context.schema.json' },
+    {
+      files: [at('gates/canaries.json')],
+      schema: 'schemas/canary-log.schema.json',
+    },
     {
       dir: at('test-cases'),
       suffix: '.json',

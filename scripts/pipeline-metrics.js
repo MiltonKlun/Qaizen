@@ -32,6 +32,7 @@ import { fileURLToPath } from 'node:url';
 
 import { validateValue } from './lib/artifact-io.js';
 import { failureMetrics, healerMetrics } from './lib/run-metrics.js';
+import { CANARY_LOG, canaryLines, canaryMetrics } from './lib/canaries.js';
 import {
   dispositionLines,
   dispositionMetrics,
@@ -125,11 +126,16 @@ let productBugsFound = 0;
 // append-only log). A run with no gate_decisions contributes nothing (older
 // runs) — we track how many runs actually carry the log so the metric is
 // honest about its sample.
+let gate1Rejections = 0;
+let gate2Rejections = 0;
+let liteScopeRejections = 0;
 let gate3Rejections = 0;
 let gate4Rejections = 0;
 let runsWithGateLog = 0;
 // How many runs carry a non-empty prompt_versions map.
 let runsWithPromptVersions = 0;
+/** @type {any[]} each run's gates/canaries.json */
+const canaryLogs = [];
 /** @type {{ story: string, run_id: string, risk_id: string }[]} */
 const untestedHighRisk = []; // {story, run_id, risk_id}
 // What the prompt-stability computation reads per run (demo runs included, as
@@ -219,10 +225,17 @@ for (const run of runs) {
       if (d.decision !== 'rejected') continue;
       // Gate 3 and Gate 4 of every branch: E2E, the API's 3' and 4', and the
       // external plan and evidence reviews.
+      if (d.gate === 'requirements_reviewed') gate1Rejections += 1;
+      if (d.gate === 'test_scope_reviewed') gate2Rejections += 1;
+      if (d.gate === 'qa_scope_approved') liteScopeRejections += 1;
       if (GATE3_KEYS.has(d.gate)) gate3Rejections += 1;
       if (GATE4_KEYS.has(d.gate)) gate4Rejections += 1;
     }
   }
+
+  // the runner's canary log (scripts/lib/canaries.js)
+  const log = readJson(join(run.base, CANARY_LOG));
+  if (log && Array.isArray(log.events)) canaryLogs.push(log);
 
   // prompt-version linkage: a non-empty prompt_versions map (Analyst v1.3.0+).
   if (
@@ -267,6 +280,9 @@ const metrics = {
   gate_rejections: {
     runs_with_gate_log: runsWithGateLog,
     total_runs: totalRuns,
+    gate1_requirements_rejections: gate1Rejections,
+    gate2_scope_rejections: gate2Rejections,
+    lite_scope_rejections: liteScopeRejections,
     gate3_specs_rejections: gate3Rejections,
     gate4_code_rejections: gate4Rejections,
     note:
@@ -275,6 +291,8 @@ const metrics = {
         : `Counted over ${runsWithGateLog}/${totalRuns} run(s) that carry a gate_decisions log.`,
   },
   untested_high_risk_items: untestedHighRisk,
+  // How the Gate 2 per-case review performed on planted canaries.
+  gate_canaries: canaryMetrics(canaryLogs),
 };
 
 // Prompt stability: one result, per
@@ -358,6 +376,7 @@ const md = [
   '',
   '## Gate rejections',
   '',
+  `- Gate 1 (requirements) rejections: ${gate1Rejections} · Gate 2 (scope) rejections: ${gate2Rejections} · lite scope (Gates 1–2 together) rejections: ${liteScopeRejections}`,
   `- Gate 3 (specs) rejections: ${gate3Rejections} · Gate 4 (code) rejections: ${gate4Rejections}`,
   `- Counted over ${runsWithGateLog}/${totalRuns} run(s) carrying a gate_decisions log.`,
   ...(runsWithGateLog === 0
@@ -365,6 +384,10 @@ const md = [
         '- No run records gate_decisions yet — record them (a rejection event when a gate is sent back) to make this real. 0 here means "unrecorded", not "never happened".',
       ]
     : []),
+  '',
+  '## Gate 2 canaries',
+  '',
+  ...canaryLines(metrics.gate_canaries, totalRuns),
   '',
   '## Gate 4 scan findings answered',
   '',

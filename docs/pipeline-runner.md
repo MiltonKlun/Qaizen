@@ -407,7 +407,10 @@ short, changes a comparison, number or negation, or comes only from an
 out-of-scope section or a comment (`docs/review-gates.md`, Gate 1). It
 also says whether the story hides text an agent could take as an instruction.
 Before Gate 2's brief, the runner asks you to approve or reject each draft
-test case, one at a time, and saves your decisions to the test-cases file;
+test case, one at a time, and saves your decisions to the test-cases file
+(with an occasional planted canary among them, revealed as soon as you decide
+it, and, for a Red-domain story, each P0 case's expected value asked of you
+first; `docs/gate-canaries.md`);
 the gate then reviews the scope as you decided it, and its brief names any
 acceptance criterion or risk that no approved case covers, and those only
 skip or manual cases cover. With

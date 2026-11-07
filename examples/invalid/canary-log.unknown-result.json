@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "events": [
+    {
+      "kind": "canary",
+      "gate": "test_scope_reviewed",
+      "reviewer": "Ana Reviewer",
+      "planted_at": "2026-11-07T10:02:11.000Z",
+      "decided_at": "2026-11-07T10:02:40.000Z",
+      "shown_as": "TC-006",
+      "plant": {
+        "kind": "negation",
+        "criterion": 4,
+        "from": "not",
+        "to": "(removed)"
+      },
+      "decision": "rejected",
+      "result": "unsure"
+    },
+    {
+      "kind": "forced_value",
+      "gate": "test_scope_reviewed",
+      "reviewer": "Ana Reviewer",
+      "answered_at": "2026-11-07T10:03:05.000Z",
+      "test_case_id": "TC-002",
+      "matched": true
+    },
+    {
+      "kind": "canary",
+      "gate": "test_scope_reviewed",
+      "reviewer": "Ana Reviewer",
+      "planted_at": "2026-11-07T10:04:00.000Z",
+      "decided_at": "2026-11-07T10:04:09.000Z",
+      "shown_as": "TC-007",
+      "plant": {
+        "kind": "invented_rule",
+        "rule": "Guest shoppers can keep at most three items in the cart"
+      },
+      "decision": "approved",
+      "result": "missed"
+    },
+    {
+      "kind": "case_loop",
+      "gate": "test_scope_reviewed",
+      "reviewer": "Ana Reviewer",
+      "decided_at": "2026-11-07T10:06:30.000Z",
+      "real_cases": 5,
+      "rejected_real": 1,
+      "canaries": 2
+    }
+  ]
+}

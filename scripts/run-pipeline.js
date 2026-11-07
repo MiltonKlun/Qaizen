@@ -43,7 +43,7 @@ import { createInterface } from 'node:readline/promises';
 import { argv, env, exit, stdin, stdout } from 'node:process';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { dirname, join, relative, resolve, sep } from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash, randomInt } from 'node:crypto';
 import {
   nextStep,
   gatePassed,
@@ -53,11 +53,7 @@ import {
 import { GATE_BRIEFS, renderGateBrief } from './gate-briefs.js';
 import { briefChecks } from './lib/brief-checks.js';
 import { launchLine } from './lib/step-mcp.js';
-import {
-  applyCaseDecisions,
-  describeCase,
-  draftCases,
-} from './lib/case-decisions.js';
+import { applyCaseDecisions, draftCases } from './lib/case-decisions.js';
 import {
   coverageGaps,
   coverageMode,
@@ -145,6 +141,7 @@ import {
   readValidatedJson,
 } from './lib/artifact-io.js';
 import { keepHealerAttempts } from './lib/healer-candidate.js';
+import { caseLoop, writeCanaryLog } from './lib/canaries.js';
 import { playwrightCli } from './lib/cli.js';
 import { approvedScopeDigest, externalSource } from './lib/execution-ledger.js';
 import {
@@ -888,10 +885,15 @@ async function askDispositions(rl, context, findings) {
 /**
  * Ask the reviewer to approve or reject each draft test case, then save the
  * decisions (validated). Nothing is saved unless every draft is decided.
+ * Canaries are planted among the cases and revealed as they are decided, and
+ * a Red-domain P0 case first asks for its expected value
+ * (scripts/lib/canaries.js); those results go to the runner's own log, never
+ * to the test cases.
  * @param {Context} context
+ * @param {string} step gate2 or qa_scope
  * @returns {Promise<boolean>} whether any case was asked about
  */
-async function decideDraftCases(context) {
+async function decideDraftCases(context, step) {
   const path = context.artifact_paths?.test_cases;
   if (!path || !existsSync(path)) return false;
   // An invalid file is reported by the gate's input check, not here.
@@ -903,28 +905,38 @@ async function decideDraftCases(context) {
   console.log(
     `\nBefore Gate 2, decide each of the ${drafts.length} draft test case(s): the gate reviews the scope as you decide it.`
   );
-  /** @type {Record<string, 'approved' | 'rejected'>} */
-  const decisions = {};
+  const storyFile = context?.story?.path || 'story.md';
+  const redDomain = effectiveTrack(
+    context,
+    existsSync(storyFile) ? readFileSync(storyFile, 'utf8') : null
+  ).reasons.some((r) => r.startsWith('red-domain:'));
   const rl = createInterface({ input: stdin, output: stdout });
+  /** @type {Awaited<ReturnType<typeof caseLoop>>} */
+  let loop;
   try {
-    for (const c of drafts) {
-      console.log(`\n${describeCase(c)}`);
-      let a = '';
-      while (!['a', 'r', 'q'].includes(a)) {
-        a = (await rl.question('  [a]pprove / [r]eject / [q]uit: '))
-          .trim()
-          .toLowerCase()
-          .slice(0, 1);
-      }
-      if (a === 'q') {
-        console.log('No case decision recorded; the cases stay as they were.');
-        exit(1);
-      }
-      decisions[c.test_case_id] = a === 'a' ? 'approved' : 'rejected';
-    }
+    loop = await caseLoop({
+      drafts,
+      cases: doc.test_cases ?? [],
+      context,
+      redDomain,
+      ask: (q) => rl.question(q),
+      say: (line) => console.log(line),
+      rng: () => randomInt(0, 2 ** 32) / 2 ** 32,
+      reviewer: sessionReviewer(),
+      gate: GATE_KEYS[step],
+    });
   } finally {
     rl.close();
   }
+  // What the review measured is kept even when the reviewer quits.
+  const logged = writeCanaryLog('.', loop.events);
+  if (!logged.ok)
+    console.error(`Warning: the canary log was not written: ${logged.message}`);
+  if (loop.quit) {
+    console.log('No case decision recorded; the cases stay as they were.');
+    exit(1);
+  }
+  const { decisions } = loop;
   applyCaseDecisions(doc, decisions);
   const w = writeJsonAtomic(path, doc, { schemaPath: TEST_CASES_SCHEMA });
   if (!w.ok) {
@@ -952,7 +964,7 @@ async function runGateInteractive(step, context) {
   const casesOpenedAt = new Date().toISOString();
   const casesAsked =
     (step === 'gate2' || step === 'qa_scope') && stdin.isTTY
-      ? await decideDraftCases(context)
+      ? await decideDraftCases(context, step)
       : false;
 
   // Broken machine-readable inputs are not a judgment call: the gate does not
