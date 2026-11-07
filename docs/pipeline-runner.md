@@ -407,7 +407,10 @@ short, changes a comparison, number or negation, or comes only from an
 out-of-scope section or a comment (`docs/review-gates.md`, Gate 1). It
 also says whether the story hides text an agent could take as an instruction.
 Before Gate 2's brief, the runner asks you to approve or reject each draft
-test case, one at a time, and saves your decisions to the test-cases file;
+test case, one at a time, and saves your decisions to the test-cases file
+(with an occasional planted canary among them, revealed as soon as you decide
+it, and, for a Red-domain story, each P0 case's expected value asked of you
+first; `docs/gate-canaries.md`);
 the gate then reviews the scope as you decided it, and its brief names any
 acceptance criterion or risk that no approved case covers, and those only
 skip or manual cases cover. With
@@ -426,6 +429,10 @@ Each decision, approved or rejected, also leaves a **gate record** under
 - `gates/NNN-<gate>-<decision>/`: a copy of every reviewed file, at its own
   path, read before the decision was saved. A file outside the run (the demo
   tests) or a repository file (the lockfile) keeps only its digest.
+
+Next to them, `gates/canaries.json` logs the Gate 2 canaries, the Red-domain
+value questions and each completed case loop (`docs/gate-canaries.md`). It is
+not a gate record, is not chained, and no approval binds it.
 
 The record is written after the decision is saved in `context.json`; it never
 decides anything. The records belong to the run and are archived with it.

@@ -37,6 +37,9 @@ import { formatErrors, validateValue } from './artifact-io.js';
 import { promptDigests, STEP_PROMPTS, UNKNOWN } from './provenance.js';
 import { CHECKS, TRIAL_OUTPUT } from './regression-checks.js';
 import { writeResultsIfChanged } from './results-file.js';
+import { rate, wilson } from './stats.js';
+
+export { wilson };
 
 export const SET_DIR = 'examples/evaluation/regressions';
 export const MANIFEST = `${SET_DIR}/manifest.json`;
@@ -49,9 +52,6 @@ const SCHEMA_DIR = join(
   'schemas'
 );
 const schemaFile = (/** @type {string} */ name) => join(SCHEMA_DIR, name);
-
-/** z for a two-sided 95% interval. */
-const Z_95 = 1.959964;
 
 /** The prompt files behind each agent a case can be for. */
 export const AGENT_PROMPTS = Object.freeze({
@@ -74,41 +74,11 @@ export const AGENT_PROMPTS = Object.freeze({
  *   cases_removed: string[], set_changed: boolean, compared: boolean }} Previous
  */
 
-const round4 = (/** @type {number} */ x) => Math.round(x * 1e4) / 1e4;
 const sha256 = (/** @type {string} */ s) =>
   createHash('sha256').update(s).digest('hex');
 /** Line endings and a byte-order mark are not content. */
 export const normalize = (/** @type {string} */ s) =>
   s.replace(/^﻿/, '').replace(/\r\n/g, '\n');
-
-/**
- * The Wilson score interval for `successes` out of `n`, at 95%.
- * @param {number} successes
- * @param {number} n
- * @returns {[number, number] | null} null when nothing was tried
- */
-export function wilson(successes, n) {
-  if (!n) return null;
-  const p = successes / n;
-  const z2 = Z_95 * Z_95;
-  const denom = 1 + z2 / n;
-  const centre = (p + z2 / (2 * n)) / denom;
-  const half = (Z_95 * Math.sqrt((p * (1 - p)) / n + z2 / (4 * n * n))) / denom;
-  return [
-    round4(Math.max(0, centre - half)),
-    round4(Math.min(1, centre + half)),
-  ];
-}
-
-/**
- * @param {number} successes
- * @param {number} n
- * @returns {Rate}
- */
-const rate = (successes, n) => ({
-  value: n ? round4(successes / n) : null,
-  wilson_95: wilson(successes, n),
-});
 
 /**
  * A case's input files, read from its folder.

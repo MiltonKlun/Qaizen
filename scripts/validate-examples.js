@@ -79,6 +79,10 @@ const PATTERNS = [
     schema: 'schemas/spec-review.schema.json',
   },
   {
+    suffix: '.expected-canary-log.json',
+    schema: 'schemas/canary-log.schema.json',
+  },
+  {
     suffix: '.expected-regression-results.json',
     schema: 'schemas/regression-results.schema.json',
   },

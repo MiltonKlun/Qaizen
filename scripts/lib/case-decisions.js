@@ -50,15 +50,16 @@ export function applyCaseDecisions(doc, decisions) {
 /**
  * How a case is shown when its decision is asked for.
  * @param {DraftCase} c
+ * @param {string} [label] what names it, its id unless given
  * @returns {string}
  */
-export function describeCase(c) {
+export function describeCase(c, label = c.test_case_id) {
   const facts = [
     c.automation_decision,
     c.priority,
     c.risk_ids?.length ? `covers ${c.risk_ids.join(', ')}` : null,
   ].filter(Boolean);
-  return `  ${c.test_case_id}  ${c.title ?? '(untitled)'}\n    ${facts.join(', ')}`;
+  return `  ${label}  ${c.title ?? '(untitled)'}\n    ${facts.join(', ')}`;
 }
 
 /** The test design techniques a case can name (skills/designing-cases). */

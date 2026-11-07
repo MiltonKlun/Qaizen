@@ -105,6 +105,7 @@ const RUN_SCOPED = [
  */
 const JSON_SCHEMAS = [
   [/^context\.json$/, 'context.schema.json'],
+  [/^gates\/canaries\.json$/, 'canary-log.schema.json'],
   [/^test-cases\/[^/]+\.json$/, 'test-cases.schema.json'],
   [/^analysis\/failure-analysis\.json$/, 'failure-analysis.schema.json'],
   [/^analysis\/failure-analysis\.draft\.json$/, 'failure-analysis.schema.json'],

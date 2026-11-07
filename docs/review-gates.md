@@ -412,7 +412,11 @@ product owner co-approves.
    `test-cases/[story-id].json`. Without a terminal it does not open Gate 2
    while any case is still `draft`. The per-case decisions are part of the
    scope being approved, so changing them afterwards makes the approval
-   stale.
+   stale. Among the cases the runner plants an occasional **canary**, a
+   synthetic case that contradicts a criterion or invents a rule, and says
+   so right after you decide it; for a Red-domain story it asks you to type
+   each P0 case's expected value before showing the agent's. Neither is
+   saved with the cases or changes a decision (`docs/gate-canaries.md`).
 2. Set `review_gates.test_scope_reviewed = true` — through the runner,
    which binds the approval to a digest of the test cases and planner
    brief it covered (`docs/pipeline-runner.md` §4).

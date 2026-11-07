@@ -1,0 +1,129 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://qaizen/schemas/canary-log.schema.json",
+  "title": "Gate canary log",
+  "description": "The runner's log of how the Gate 2 per-case review performed (gates/canaries.json, written only by scripts/run-pipeline.js through scripts/lib/canaries.js). A canary is a synthetic case the runner planted among the real ones, revealed right after it was decided; a forced value is a Red-domain P0 case whose expected value the reviewer typed before seeing the agent's; a case loop is one completed pass over the draft cases. Canaries never appear in test-cases/ or in any approved digest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "events"],
+  "definitions": {
+    "gate": { "enum": ["test_scope_reviewed", "qa_scope_approved"] },
+    "reviewer": { "type": ["string", "null"] },
+    "time": { "type": "string", "format": "date-time" }
+  },
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "events": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "gate",
+              "reviewer",
+              "planted_at",
+              "decided_at",
+              "shown_as",
+              "plant",
+              "decision",
+              "result"
+            ],
+            "properties": {
+              "kind": { "const": "canary" },
+              "gate": { "$ref": "#/definitions/gate" },
+              "reviewer": { "$ref": "#/definitions/reviewer" },
+              "planted_at": { "$ref": "#/definitions/time" },
+              "decided_at": { "$ref": "#/definitions/time" },
+              "shown_as": {
+                "type": "string",
+                "pattern": "^TC-[0-9]+$",
+                "description": "The id the canary was shown with; no case of the run has it."
+              },
+              "plant": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["kind", "criterion", "from", "to"],
+                    "properties": {
+                      "kind": { "enum": ["comparison", "number", "negation"] },
+                      "criterion": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "The acceptance criterion it contradicts, numbered from 1."
+                      },
+                      "from": { "type": "string", "minLength": 1 },
+                      "to": { "type": "string", "minLength": 1 }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["kind", "rule"],
+                    "properties": {
+                      "kind": { "const": "invented_rule" },
+                      "rule": { "type": "string", "minLength": 1 }
+                    }
+                  }
+                ]
+              },
+              "decision": { "enum": ["approved", "rejected"] },
+              "result": {
+                "enum": ["caught", "missed"],
+                "description": "caught when rejected, missed when approved."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "gate",
+              "reviewer",
+              "answered_at",
+              "test_case_id",
+              "matched"
+            ],
+            "properties": {
+              "kind": { "const": "forced_value" },
+              "gate": { "$ref": "#/definitions/gate" },
+              "reviewer": { "$ref": "#/definitions/reviewer" },
+              "answered_at": { "$ref": "#/definitions/time" },
+              "test_case_id": { "type": "string", "pattern": "^TC-[0-9]+$" },
+              "matched": {
+                "type": "boolean",
+                "description": "The typed value appears in the case's expected results. The value itself is not kept."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "gate",
+              "reviewer",
+              "decided_at",
+              "real_cases",
+              "rejected_real",
+              "canaries"
+            ],
+            "properties": {
+              "kind": { "const": "case_loop" },
+              "gate": { "$ref": "#/definitions/gate" },
+              "reviewer": { "$ref": "#/definitions/reviewer" },
+              "decided_at": { "$ref": "#/definitions/time" },
+              "real_cases": { "type": "integer", "minimum": 0 },
+              "rejected_real": { "type": "integer", "minimum": 0 },
+              "canaries": { "type": "integer", "minimum": 0 }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
