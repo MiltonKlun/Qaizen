@@ -314,7 +314,9 @@ always checked against that version's inputs, so a run approved before the
 scheme widened keeps verifying instead of going stale on upgrade. Version 1
 (no `binding_version` recorded) bound Gate 4 to the generated test,
 `tests/fixtures/`, `playwright.config.ts` and `package-lock.json` only;
-version 2 is the row above. Every other gate binds the same inputs under both.
+version 2 is the row above. Version 3 changes only Gate 3, from the declared
+prompt versions to the Planner's and the Generator's prompt files. Every other
+gate binds the same inputs under every version.
 The gate record names the version too (`Binding version` in its header), so
 `--diff` and `--restore` compare a pending gate with what that approval
 actually bound.

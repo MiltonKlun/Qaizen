@@ -21,6 +21,8 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { semanticCase } from './approval-binding.js';
+
 /** The prompt files each agent step uses. */
 export const STEP_PROMPTS = Object.freeze({
   analyst: ['agents/analyst.md', 'skills/receiving-tickets/SKILL.md'],
@@ -185,15 +187,27 @@ export function stepOutputs(context, root, paths = {}) {
           ),
         }
       : null,
-    'test-designer': file(
-      ap.test_cases,
-      json((doc) => ({
-        ...doc,
-        test_cases: (doc?.test_cases ?? []).map((/** @type {any} */ c) =>
-          Object.fromEntries(Object.entries(c).filter(([k]) => k !== 'status'))
-        ),
-      }))
-    ),
+    'test-designer': (() => {
+      // The cases without what others write into them (the reviewer's
+      // per-case decision, the ids adapters write back), and the brief.
+      const cases = file(
+        ap.test_cases,
+        json((doc) => ({
+          ...doc,
+          test_cases: (doc?.test_cases ?? []).map((/** @type {any} */ c) => {
+            const { status: _decision, ...kept } = semanticCase(c);
+            void _decision;
+            return kept;
+          }),
+        }))
+      );
+      if (!cases) return null;
+      const brief = file(ap.planner_brief);
+      return {
+        path: cases.path,
+        sha256: sha256(`${cases.sha256}\n${brief?.sha256 ?? ''}`),
+      };
+    })(),
     planner: file(ap.playwright_spec),
     generator: file(ap.generated_test),
     api: file(paths.api),

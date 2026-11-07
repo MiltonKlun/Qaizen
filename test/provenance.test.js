@@ -123,6 +123,21 @@ test('the Test Designer output leaves out the per-case decisions the reviewer re
   doc.test_cases[0].status = 'rejected';
   write();
   assert.deepEqual(stepOutputs(ctx, dir)['test-designer'], before);
+  // Nor the ids a TestLink or Jira sync writes back into the cases.
+  doc.test_cases[0].testlink_id = '1234';
+  doc.test_cases[0].sync_state = { testlink: 'synced' };
+  write();
+  assert.deepEqual(stepOutputs(ctx, dir)['test-designer'], before);
+  // The planner brief is part of the Test Designer's output.
+  mkdirSync(join(dir, 'planner-input'));
+  writeFileSync(join(dir, ctx.artifact_paths.planner_brief), 'Brief.\n');
+  const withBrief = stepOutputs(ctx, dir)['test-designer'];
+  assert.notDeepEqual(withBrief, before);
+  writeFileSync(
+    join(dir, ctx.artifact_paths.planner_brief),
+    'Brief, redone.\n'
+  );
+  assert.notDeepEqual(stepOutputs(ctx, dir)['test-designer'], withBrief);
   doc.test_cases[0].title = 'another title';
   write();
   assert.notDeepEqual(stepOutputs(ctx, dir)['test-designer'], before);

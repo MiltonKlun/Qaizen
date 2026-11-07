@@ -156,7 +156,7 @@ export function restorePlan(gate, context, root = '.') {
   return plan;
 }
 
-/** The planner and generator prompt versions (what Gate 3 binds). */
+/** The planner and generator prompt versions (what Gate 3 binds before binding version 3; from v3 it binds their prompt files). */
 const specPrompt = (/** @type {string} */ k) => /planner|generator/i.test(k);
 
 /**

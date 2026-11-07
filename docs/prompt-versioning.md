@@ -121,10 +121,32 @@ changes, so a run stopped at a gate still writes nothing. `npm run pipeline
 -- --status` shows it. Older runs keep no provenance and show as unknown;
 nothing is backfilled.
 
+The digests and the declared model are taken when the runner records them,
+not when the agent ran: at its next write after the agent wrote its output (a
+gate decision at the latest). A prompt edited in between is recorded as
+edited. The Healer is not among the steps: it produces no run artifact, and
+each candidate it submits is recorded with its own digests in
+`analysis/healer-validation/` (`docs/healer-guardrails.md`); its prompt
+file is not recorded there yet.
+
 Gate 3 binds the Planner's and the Generator's prompt files by digest
 (binding version 3), not their declared versions: editing either prompt
-after Gate 3 returns Gate 3 to pending, with the edited file named. An
-approval recorded under an earlier version keeps verifying by its own rules.
+after Gate 3 returns Gate 3 to pending, with the edited file named, and
+through the chained digests every gate after it. The Generator's prompt is
+bound at Gate 3, as its declared version was, so an edit to it reopens a spec
+review whose spec did not change. Two consequences follow:
+
+- Regenerating the agent definitions (`npx playwright init-agents` after a
+  Playwright upgrade, `docs/dependency-maintenance.md`) reopens Gate 3 of
+  every run in progress, as does running a run on a machine whose
+  `.claude/agents/` differ or are absent (they are gitignored).
+- The prompt files are read from the run's folder. A normal run's folder is
+  the repository; the demo workspace under `runs/DEMO-1/` has no
+  `.claude/agents/`, so its Gate 3 binds both prompts as absent while its
+  provenance, read from the repository, records their digests.
+
+An approval recorded under an earlier version keeps verifying by its own
+rules.
 
 ---
 
