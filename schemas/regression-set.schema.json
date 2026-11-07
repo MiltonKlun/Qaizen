@@ -1,0 +1,115 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://qaizen/schemas/regression-set.schema.json",
+  "title": "Agent regression set",
+  "description": "The cases a prompt or model change is scored on (examples/evaluation/regressions/manifest.json). Each case is an input, the agent it is for, the behavior expected of the agent and the checks that decide it, with where the case came from. The number of trials and the decision rule are part of the set, so they are written and committed before a run: scripts/evaluate-agents.js --regressions refuses a set with uncommitted changes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "trials", "decision_rule", "cases"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "trials": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20,
+      "description": "k: how many times the agent is run on each case's input."
+    },
+    "decision_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement",
+        "block_when_a_case_fails_every_trial",
+        "block_below_previous_lower_bound"
+      ],
+      "properties": {
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The rule in words, as the report prints it."
+        },
+        "block_when_a_case_fails_every_trial": {
+          "type": "boolean",
+          "description": "Block when any case fails all k of its trials."
+        },
+        "block_below_previous_lower_bound": {
+          "type": "boolean",
+          "description": "Block when the share of cases passing every trial falls below the lower bound of the Wilson 95% interval of the previous results for the same scope."
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "agent", "source", "input", "expected", "checks"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^REG-[0-9]{3}$" },
+          "agent": {
+            "enum": ["analyst", "test-designer", "healer"],
+            "description": "The agent run on the input. Its output for one trial is context.json (Analyst), test-cases.json (Test Designer) or candidate.spec.ts (Healer; absent when it declined)."
+          },
+          "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "description"],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "audit-probe",
+                  "bench-shop-bug",
+                  "false-heal",
+                  "escaped-defect"
+                ]
+              },
+              "description": { "type": "string", "minLength": 1 }
+            }
+          },
+          "input": {
+            "type": "string",
+            "pattern": "^cases/REG-[0-9]{3}$",
+            "description": "The case's folder, relative to the set: story.md, context.json and original.spec.ts as the agent needs them, and a README.md saying how to run the agent on it."
+          },
+          "expected": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The behavior expected of the agent, in words."
+          },
+          "checks": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["check"],
+              "properties": {
+                "check": {
+                  "enum": [
+                    "context_valid",
+                    "criteria_verbatim",
+                    "track_at_least",
+                    "test_cases_valid",
+                    "automated_case_for_criterion",
+                    "declines",
+                    "candidate_eligible",
+                    "candidate_contains"
+                  ]
+                },
+                "count": { "type": "integer", "minimum": 1 },
+                "track": { "enum": ["lite", "standard", "full"] },
+                "pattern": { "type": "string", "minLength": 1 },
+                "texts": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "type": "string", "minLength": 1 }
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -79,6 +79,10 @@ const PATTERNS = [
     schema: 'schemas/spec-review.schema.json',
   },
   {
+    suffix: '.expected-regression-results.json',
+    schema: 'schemas/regression-results.schema.json',
+  },
+  {
     suffix: '.expected-healer-validation.json',
     schema: 'schemas/healer-validation.schema.json',
   },

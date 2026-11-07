@@ -2,9 +2,10 @@
 
 > Every custom agent prompt (`agents/*.md`)
 > carries a semantic `version` in its frontmatter. A run records which
-> version of each agent it used in `context.json.prompt_versions`. A major
-> prompt change is evaluated on a candidate the agent generated from the fixed
-> stories before adoption (§3). This is
+> version of each agent it used in `context.json.prompt_versions`. A minor or
+> major prompt change, and every model upgrade, is scored on the regression
+> set over repeated trials (§3a); a major one is also evaluated on a candidate
+> the agent generated from the fixed stories before adoption (§3). This is
 > additive and backward-compatible — older runs without `prompt_versions`
 > still validate.
 
@@ -52,10 +53,16 @@ This mirrors semver, applied to _behavior the downstream contract depends on_:
 - **MINOR** (`1.0.0 → 1.1.0`) — new optional capability that does not change
   existing outputs. E.g. the Analyst gaining the optional `code_change_context`
   step was a MINOR-class change: present-when-applicable, absent otherwise.
+  **A MINOR change is scored on the regression set (§3a) before it is
+  merged**: "does not change existing outputs" is what the set checks.
 - **MAJOR** (`1.0.0 → 2.0.0`) — changes the shape, the IDs, the linkage, or the
   decision logic of an output. E.g. changing how the Test Designer assigns
   automation decisions, or restructuring `context.json` population. **A MAJOR
-  change MUST be evaluated on a candidate (§3) before it is merged.**
+  change MUST be evaluated on a candidate (§3) and scored on the regression
+  set (§3a) before it is merged.**
+
+A PATCH changes no output by definition, so it needs neither; a wording edit
+that does change what the agent produces is not a PATCH.
 
 A schema change is almost always a MAJOR change to the agent(s) that produce or
 consume that schema, and the Architecture Stability Rule (`CLAUDE.md` §3.10)
@@ -227,6 +234,71 @@ The model's output is what is evaluated here, not the gold fixture again.
 Scores stay structural: wording similarity is not measured, and a structural
 100% is not an assertion that the business interpretation is correct.
 
+Every results file the evaluator writes is rewritten only when its results
+change: a re-run that measures the same thing leaves the file, and the date
+it records, as they are.
+
+---
+
+## 3a. The regression set
+
+One candidate from one story says little about a change that breaks one kind
+of input, and nothing about how often the agent gets it right. The regression
+set (`examples/evaluation/regressions/`, `schemas/regression-set.schema.json`)
+holds the cases the agents must keep getting right, each an input, the agent
+it is for, the behavior expected of it and the mechanical checks that decide
+it, with where it came from:
+
+- audit probes that turn on an agent's judgment (a criterion with its
+  comparison flipped, cut short, taken from an "Out of scope" section or a
+  comment; a payment story in Spanish held to the full track);
+- the Bench Shop seeded bugs, which the Test Designer must cover with an
+  automated case;
+- false heals, which the Healer must decline, with a control case it must
+  still repair so that declining everything does not pass;
+- every escaped defect, once one is recorded (none is yet).
+
+**When it runs.** On every MINOR or MAJOR prompt change, for the cases of the
+changed agent; on every model upgrade, and on every regeneration of the
+Playwright agent definitions (the Healer's prompt), for every case.
+
+**How it runs.** The evaluator never runs an agent. Run the agent k times on
+each case's input (k is in the manifest, 3 today), as the case's README says,
+and put each output under `<trials-dir>/<case-id>/trial-<n>/`. Then declare
+the model as for a run and score the trials:
+
+```bash
+QAIZEN_MODEL=<model id> node scripts/evaluate-agents.js \
+  --regressions <trials-dir> [--agent analyst|test-designer|healer]
+```
+
+The report gives, per case, the trials passed out of k, pass^k (every trial
+passed) and a Wilson 95% interval on its pass rate; then the share of cases
+passing every trial, and of trials passing, each with its interval. pass^k is
+the measure because an agent behind a human gate must be right every time,
+not once in k. A missing trial is missing work, never a smaller denominator.
+
+**The decision rule is written before the run.** It is part of the manifest:
+today, block the change when any case fails all k of its trials, or when the
+share of cases passing every trial falls below the lower bound of the previous
+results' interval. The evaluator refuses to run while the set has uncommitted
+changes, so the rule and the cases that judged a change are in history before
+the results. A block is the "needs rework" outcome, not a gate: the human
+reads the failed trials and decides. A small set detects only large
+regressions, so a failing case is re-run to separate a flake from a
+regression, and adding cases is worth more than adding trials.
+
+**The evidence.** The results, with the prompt-file digests, the declared
+model and the output digest of every trial, go to
+`evidence/regressions/<agent>.json` (`all.json` without `--agent`;
+`schemas/regression-results.schema.json`) and are committed with the change.
+The file already there is the previous result the rule compares with.
+
+**Incidents become cases.** A false heal, an escaped defect or a probe that
+shows an agent doing the wrong thing is added as a case, with its input and
+the expected behavior, in its own commit before the change it motivates is
+evaluated.
+
 ---
 
 ## 4. What this is NOT
@@ -253,4 +325,11 @@ Scores stay structural: wording similarity is not measured, and a structural
    stories, confirm no check regressed and the match did not drop more than 10
    points against the baseline, review the candidate against the gate rubrics,
    and attach the candidate with its `evaluation-results.json` to the PR.
-6. On the next run, record the new version in `context.json.prompt_versions`.
+6. For a MINOR or MAJOR change: score the changed agent's regression cases
+   (§3a) and commit `evidence/regressions/<agent>.json` with the change; a
+   block is rework unless the human, having read the failed trials, records
+   why it is acceptable in the PR.
+7. On the next run, record the new version in `context.json.prompt_versions`.
+
+On a model upgrade, with no prompt change, score every case (§3a) before the
+new model is used for runs.

@@ -1,0 +1,160 @@
+{
+  "schema_version": "1.0",
+  "trials": 3,
+  "decision_rule": {
+    "statement": "Block the change when any case fails all 3 of its trials, or when the share of cases passing every trial falls below the lower bound of the Wilson 95% interval of the previous results for the same scope.",
+    "block_when_a_case_fails_every_trial": true,
+    "block_below_previous_lower_bound": true
+  },
+  "cases": [
+    {
+      "id": "REG-001",
+      "agent": "analyst",
+      "source": {
+        "kind": "audit-probe",
+        "description": "The Gate 1 check once accepted a criterion whose \"more than\" had been flipped to \"less than\" as word for word."
+      },
+      "input": "cases/REG-001",
+      "expected": "The three criteria are copied word for word, with their comparisons (\"more than\", \"or less\") and amounts unchanged.",
+      "checks": [
+        { "check": "context_valid" },
+        { "check": "criteria_verbatim", "count": 3 }
+      ]
+    },
+    {
+      "id": "REG-002",
+      "agent": "analyst",
+      "source": {
+        "kind": "audit-probe",
+        "description": "The Gate 1 check once accepted a criterion cut short before its condition (\"only when the item total is at least $20.00 and the coupon has not expired\")."
+      },
+      "input": "cases/REG-002",
+      "expected": "Both criteria are copied whole, the discount condition included, and the story is held to the full track (a coupon is pricing, a Red domain).",
+      "checks": [
+        { "check": "context_valid" },
+        { "check": "criteria_verbatim", "count": 2 },
+        { "check": "track_at_least", "track": "full" }
+      ]
+    },
+    {
+      "id": "REG-003",
+      "agent": "analyst",
+      "source": {
+        "kind": "audit-probe",
+        "description": "The Gate 1 check once accepted an \"Out of scope\" line promoted to an acceptance criterion."
+      },
+      "input": "cases/REG-003",
+      "expected": "Only the two in-scope criteria are recorded; the out-of-scope price order is not a criterion.",
+      "checks": [
+        { "check": "context_valid" },
+        { "check": "criteria_verbatim", "count": 2 }
+      ]
+    },
+    {
+      "id": "REG-004",
+      "agent": "analyst",
+      "source": {
+        "kind": "audit-probe",
+        "description": "The Gate 1 check once accepted a Jira comment promoted to an acceptance criterion."
+      },
+      "input": "cases/REG-004",
+      "expected": "The one criterion is recorded; the HTML comment and the product owner's comment are context, not criteria.",
+      "checks": [
+        { "check": "context_valid" },
+        { "check": "criteria_verbatim", "count": 1 }
+      ]
+    },
+    {
+      "id": "REG-005",
+      "agent": "analyst",
+      "source": {
+        "kind": "audit-probe",
+        "description": "The Red-domain floor once missed every Spanish term, so a payment story written in Spanish could run below the full track."
+      },
+      "input": "cases/REG-005",
+      "expected": "Both criteria are copied word for word in Spanish, and the story is held to the full track because it takes a payment.",
+      "checks": [
+        { "check": "context_valid" },
+        { "check": "criteria_verbatim", "count": 2 },
+        { "check": "track_at_least", "track": "full" }
+      ]
+    },
+    {
+      "id": "REG-006",
+      "agent": "test-designer",
+      "source": {
+        "kind": "bench-shop-bug",
+        "description": "Bench Shop --bug stale-badge: the cart badge does not count down on a remove until a reload (STORY-003, RISK-001)."
+      },
+      "input": "cases/REG-006",
+      "expected": "An automated case covers the badge counting down right after a remove, without a reload, so a test can catch the stale badge.",
+      "checks": [
+        { "check": "test_cases_valid" },
+        {
+          "check": "automated_case_for_criterion",
+          "pattern": "updates to N-1 without a page reload"
+        }
+      ]
+    },
+    {
+      "id": "REG-007",
+      "agent": "test-designer",
+      "source": {
+        "kind": "bench-shop-bug",
+        "description": "Bench Shop --bug wrong-item-total and --bug inconsistent-total: the overview item total is off by $1.00, or the total is not item total plus tax (STORY-020, RISK-001 and RISK-002)."
+      },
+      "input": "cases/REG-007",
+      "expected": "Automated cases cover both the item total being the sum of the line prices and the total being the item total plus tax.",
+      "checks": [
+        { "check": "test_cases_valid" },
+        {
+          "check": "automated_case_for_criterion",
+          "pattern": "equals the exact sum of the unit prices"
+        },
+        {
+          "check": "automated_case_for_criterion",
+          "pattern": "plus the displayed \"Tax\""
+        }
+      ]
+    },
+    {
+      "id": "REG-008",
+      "agent": "healer",
+      "source": {
+        "kind": "false-heal",
+        "description": "A price check written as a click on text=Item total: $39.98 fails with Bench Shop --bug wrong-item-total; changing the price to $40.98 makes it pass and hides a pricing bug."
+      },
+      "input": "cases/REG-008",
+      "expected": "The Healer declines: the app shows the wrong item total, which is a product bug for a bug draft, not a locator to repair.",
+      "checks": [{ "check": "declines" }]
+    },
+    {
+      "id": "REG-009",
+      "agent": "healer",
+      "source": {
+        "kind": "false-heal",
+        "description": "A wait for the badge to read 1 after a remove fails with Bench Shop --bug stale-badge; waiting for 2, or for any badge, makes it pass and hides the stale badge."
+      },
+      "input": "cases/REG-009",
+      "expected": "The Healer declines: the badge did not count down, which is the product bug the test exists to catch.",
+      "checks": [{ "check": "declines" }]
+    },
+    {
+      "id": "REG-010",
+      "agent": "healer",
+      "source": {
+        "kind": "audit-probe",
+        "description": "Control for the false-heal cases: a test-id renamed by Bench Shop v2 (add-to-cart-<id> to add-<id>) is a genuine locator break, so a Healer that declines everything does not pass the set."
+      },
+      "input": "cases/REG-010",
+      "expected": "The Healer repairs the add-to-cart locator to the v2 test id with a change the guardrails accept, and leaves the badge assertion as it is.",
+      "checks": [
+        { "check": "candidate_eligible" },
+        {
+          "check": "candidate_contains",
+          "texts": ["[data-test=\"add-sauce-labs-backpack\"]"]
+        }
+      ]
+    }
+  ]
+}

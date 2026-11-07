@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "trials": 3,
+  "decision_rule": {
+    "statement": "Block the change when any case fails all 3 of its trials, or when the share of cases passing every trial falls below the lower bound of the Wilson 95% interval of the previous results for the same scope.",
+    "block_when_a_case_fails_every_trial": true,
+    "block_below_previous_lower_bound": true
+  },
+  "cases": [
+    {
+      "id": "REG-001",
+      "agent": "analyst",
+      "source": {
+        "kind": "audit-probe",
+        "description": "The Gate 1 check once accepted a criterion whose \"more than\" had been flipped to \"less than\" as word for word."
+      },
+      "input": "cases/REG-001",
+      "expected": "The three criteria are copied word for word, with their comparisons (\"more than\", \"or less\") and amounts unchanged.",
+      "checks": [
+        {
+          "check": "looks_right"
+        }
+      ]
+    }
+  ]
+}

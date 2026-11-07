@@ -2,7 +2,8 @@
 
 > **Owner:** Human / team. This folder holds the
 > raw measurements behind `docs/evidence.md` — the pipeline-vs-raw-prompting
-> benchmark (`docs/benchmark-protocol.md`).
+> benchmark (`docs/benchmark-protocol.md`) — and the agent regression results
+> behind each prompt or model change (`docs/prompt-versioning.md` §3a).
 
 ## What lives here
 
@@ -11,6 +12,14 @@
   `schemas/benchmark-record.schema.json`. Appended by
   `npm run benchmark:capture` (`scripts/benchmark-capture.js`); never edited by
   an agent. Created on first capture; absent until the run series starts.
+- **`regressions/<agent>.json`** (`all.json` for every agent) — the last
+  regression evaluation of that scope: per case the trials passed, pass^k and a
+  Wilson 95% interval, the prompt digests and model behind the trials, and the
+  decision the set's rule gave. Validates against
+  `schemas/regression-results.schema.json`. Written by
+  `node scripts/evaluate-agents.js --regressions <trials-dir>`, run by the
+  human, and committed with the change it judged; rewritten only when the
+  results change. Absent until the first evaluation.
 
 ## How records get here
 
