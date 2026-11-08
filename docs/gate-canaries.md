@@ -90,6 +90,8 @@ runner writes and which is archived with the run like the rest of `gates/`.
 The counts are small for a long time: 7 caught out of 10 is consistent with
 a true catch rate from about 40% to 89%. Read the interval, not the point.
 The metrics also count Gate 1 and Gate 2 rejections next to Gate 3 and 4.
+Missed canaries are one of the two signals that re-open the dual-judge
+evaluation (`docs/dual-judge-evaluation.md` §4).
 
 ## 4. Gate 4: options, not built
 

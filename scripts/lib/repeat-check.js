@@ -15,7 +15,9 @@
 // A flaky result stops the run before Gate 4: the test is fixed first. The
 // record is kept in context.json `repeat_check`, bound to the Gate 4 inputs it
 // ran against (the same digest Gate 4 approves), so a changed test, fixture,
-// config or lock runs the check again.
+// config or lock runs the check again. A new check replaces the record and
+// keeps a one-line summary of each earlier one (`earlier`), so the metrics
+// can count a flaky check that was fixed.
 //
 // Playwright does not call a test flaky when its repetitions disagree (it
 // counts each repetition as its own test), so the comparison is made here.
@@ -35,7 +37,9 @@ export const REPEAT_REPORT = 'reports/repeat/results.json';
  * @typedef {'stable' | 'failing' | 'flaky'} RepeatOutcome
  * @typedef {{ input_digest: string, track: string, repeat_each: number,
  *   workers: number, ran_at: string, report: string, outcome: RepeatOutcome,
- *   units: RepeatUnit[], errors?: string[] }} RepeatRecord
+ *   units: RepeatUnit[], errors?: string[],
+ *   earlier?: ReturnType<typeof earlierChecks>,
+ *   earlier_dropped?: number }} RepeatRecord
  */
 
 /**
@@ -47,6 +51,67 @@ export function repeatCount(track) {
     /** @type {Record<string, number>} */ (REPEAT_EACH)[track] ??
     REPEAT_EACH.standard
   );
+}
+
+/**
+ * A test is flaky when it passed in one run and failed in another, or passed
+ * only on a retry.
+ * @param {RepeatUnit} u
+ */
+export const isFlakyUnit = (u) => u.flaky > 0 || (u.passed > 0 && u.failed > 0);
+
+/** Earlier checks a record keeps a summary of. */
+export const EARLIER_KEPT = 20;
+
+/**
+ * The summaries of earlier checks a new record carries: the previous
+ * record's own, then the previous record itself. A flaky check stops the run
+ * and is replaced once the test is fixed; this keeps it countable.
+ * @param {RepeatRecord | null | undefined} previous
+ * @returns {{ ran_at: string, input_digest: string, repeat_each: number,
+ *   outcome: RepeatOutcome, units: number, flaky_units: number }[]}
+ */
+export function earlierChecks(previous) {
+  if (!previous || !Array.isArray(previous.units)) return [];
+  return [
+    ...(Array.isArray(previous.earlier) ? previous.earlier : []),
+    {
+      ran_at: previous.ran_at,
+      input_digest: previous.input_digest,
+      repeat_each: previous.repeat_each,
+      outcome: previous.outcome,
+      units: previous.units.length,
+      flaky_units: previous.units.filter(isFlakyUnit).length,
+    },
+  ].slice(-EARLIER_KEPT);
+}
+
+/**
+ * The repeat check as the execution ledger records it: the check itself,
+ * without the summaries of earlier ones (run history, not evidence of the
+ * execution it sits beside; the ledger schema has no place for them).
+ * @param {RepeatRecord} record
+ */
+export function ledgerRepeatCheck(record) {
+  const { earlier: _earlier, earlier_dropped: _dropped, ...check } = record;
+  void _earlier;
+  void _dropped;
+  return check;
+}
+
+/**
+ * How many earlier checks a new record no longer keeps a summary of: the
+ * previous record's count, plus any its own summaries push past the cap.
+ * @param {RepeatRecord | null | undefined} previous
+ * @returns {number}
+ */
+export function earlierDropped(previous) {
+  if (!previous || !Array.isArray(previous.units)) return 0;
+  const kept = Array.isArray(previous.earlier) ? previous.earlier.length : 0;
+  const before = Number.isInteger(previous.earlier_dropped)
+    ? /** @type {number} */ (previous.earlier_dropped)
+    : 0;
+  return before + Math.max(0, kept + 1 - EARLIER_KEPT);
 }
 
 /**
@@ -103,10 +168,8 @@ export function summarizeRepeat(report) {
   const list = [...units.values()].sort(
     (a, b) => a.file.localeCompare(b.file) || a.title.localeCompare(b.title)
   );
-  /** @param {RepeatUnit} u */
-  const isFlaky = (u) => u.flaky > 0 || (u.passed > 0 && u.failed > 0);
   /** @type {RepeatOutcome} */
-  const outcome = list.some(isFlaky)
+  const outcome = list.some(isFlakyUnit)
     ? 'flaky'
     : list.some((u) => u.failed > 0)
       ? 'failing'

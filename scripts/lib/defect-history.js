@@ -8,11 +8,15 @@
 // failure analysis is counted as read, with nothing found. Product bugs are
 // the defects; other failure classes (a flaky test, the environment) are
 // counted per run, because they say something about the area, not about the
-// product. The output carries no generation time, so the same archives give
-// the same file.
+// product. Escaped defects, bugs a completed run should have caught and did
+// not, come from outcomes/escaped-defects/ (scripts/record-outcome.js), with
+// the risks they fall under read from the run they name. The output carries
+// no generation time, so the same records give the same file.
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
+
+import { ESCAPED_DIR, readEscapedDefects } from './outcomes.js';
 
 /**
  * One product bug a past run found.
@@ -22,6 +26,12 @@ import { join } from 'node:path';
  *   summary: string }} PastBug
  * @typedef {{ story: string, run: string, analysed: boolean,
  *   others: Record<string, number> }} PastRun
+ * A product bug a completed run should have caught, found later.
+ * @typedef {{ id: string, story: string, run: string,
+ *   risks: { id: string, description: string, severity: string }[],
+ *   unresolved: string | null, testCases: string[], severity: string,
+ *   whyMissed: string, foundIn: string, foundAt: string,
+ *   jira: string | null, summary: string }} EscapedBug
  */
 
 /** @param {string} path */
@@ -55,16 +65,19 @@ function draftFacts(path) {
 }
 
 /**
- * Every archived run, oldest story and run first, with what it found.
+ * Every archived run, oldest story and run first, with what it found, and
+ * every escaped defect recorded against one.
  * @param {string} runsDir
- * @returns {{ runs: PastRun[], bugs: PastBug[] }}
+ * @param {string} [escapedDir] where the escaped-defect records are
+ * @returns {{ runs: PastRun[], bugs: PastBug[], escaped: EscapedBug[], invalidEscaped: number }}
  */
-export function collectDefects(runsDir) {
+export function collectDefects(runsDir, escapedDir = ESCAPED_DIR) {
+  const { escaped, invalidEscaped } = collectEscaped(runsDir, escapedDir);
   /** @type {PastRun[]} */
   const runs = [];
   /** @type {PastBug[]} */
   const bugs = [];
-  if (!isDir(runsDir)) return { runs, bugs };
+  if (!isDir(runsDir)) return { runs, bugs, escaped, invalidEscaped };
   for (const story of readdirSync(runsDir).sort()) {
     const storyDir = join(runsDir, story);
     if (!isDir(storyDir)) continue;
@@ -122,17 +135,64 @@ export function collectDefects(runsDir) {
       }
     }
   }
-  return { runs, bugs };
+  return { runs, bugs, escaped, invalidEscaped };
+}
+
+/**
+ * The escaped defects, each with the risks it falls under as the archived
+ * run it names describes them.
+ * @param {string} runsDir
+ * @param {string} escapedDir
+ * @returns {{ escaped: EscapedBug[], invalidEscaped: number }}
+ */
+function collectEscaped(runsDir, escapedDir) {
+  const { records, invalid } = readEscapedDefects(escapedDir);
+  const escaped = records
+    .sort((a, b) => a.escaped_defect_id.localeCompare(b.escaped_defect_id))
+    .map((r) => {
+      const ctx = readJson(
+        join(runsDir, r.story_id, basename(r.run_archive), 'context.json')
+      );
+      /** @type {{ risk_id: string, description: string, severity: string }[]} */
+      const risks = Array.isArray(ctx?.risks) ? ctx.risks : [];
+      return {
+        id: r.escaped_defect_id,
+        story: r.story_id,
+        run: r.run_id,
+        risks: r.risk_ids.map((/** @type {string} */ id) => {
+          const risk = risks.find((x) => x.risk_id === id);
+          return {
+            id,
+            description: risk?.description ?? '(not in the archived context)',
+            severity: risk?.severity ?? '?',
+          };
+        }),
+        unresolved: r.traceability_unresolved ?? null,
+        testCases: r.test_case_ids,
+        severity: r.severity,
+        whyMissed: r.why_missed,
+        foundIn: r.found_in,
+        foundAt: r.found_at,
+        jira: r.jira_key ?? null,
+        summary: String(r.summary).replace(/\s+/g, ' ').trim(),
+      };
+    });
+  return { escaped, invalidEscaped: invalid };
 }
 
 const cell = (/** @type {string} */ s) => s.replace(/\|/g, '\\|');
 
 /**
  * The digest the Analyst reads.
- * @param {{ runs: PastRun[], bugs: PastBug[] }} history
+ * @param {{ runs: PastRun[], bugs: PastBug[], escaped?: EscapedBug[], invalidEscaped?: number }} history
  * @returns {string}
  */
-export function renderDefectHistory({ runs, bugs }) {
+export function renderDefectHistory({
+  runs,
+  bugs,
+  escaped = [],
+  invalidEscaped = 0,
+}) {
   const analysed = runs.filter((r) => r.analysed).length;
   const lines = [
     '# Defect history',
@@ -144,7 +204,12 @@ export function renderDefectHistory({ runs, bugs }) {
     '`likelihood_basis` by its story and bug id. No entry here is a reason to',
     'lower a likelihood the change itself raises.',
     '',
-    `Runs read: ${runs.length} · with a failure analysis: ${analysed} · product bugs: ${bugs.length}`,
+    'An escaped defect is a product bug a completed run should have caught and',
+    'did not, found later and recorded with `npm run record-outcome`. It is a',
+    'past product bug like the others, cited by its story and ESC id, and it',
+    "also says the run's tests missed that area.",
+    '',
+    `Runs read: ${runs.length} · with a failure analysis: ${analysed} · product bugs: ${bugs.length} · escaped defects: ${escaped.length}`,
     '',
     '## Product bugs',
     '',
@@ -177,6 +242,42 @@ export function renderDefectHistory({ runs, bugs }) {
       ''
     );
   }
+  lines.push('## Escaped defects', '');
+  if (!escaped.length) {
+    lines.push('No escaped defect is recorded yet.', '');
+  } else {
+    lines.push(
+      '| Story | Run | Defect | Risk at the time | Why missed | Found | What happened |',
+      '| --- | --- | --- | --- | --- | --- | --- |',
+      ...escaped.map((e) =>
+        [
+          e.story,
+          e.run,
+          e.jira ? `${e.id} (${e.jira})` : e.id,
+          e.risks.length
+            ? e.risks
+                .map((r) => `${r.id} (${r.severity}): ${r.description}`)
+                .join('<br>')
+            : `(no risk: ${e.unresolved ?? 'unresolved'})`,
+          e.testCases.length
+            ? `${e.whyMissed} (${e.testCases.join(', ')})`
+            : e.whyMissed,
+          `${e.foundIn}, ${e.foundAt}`,
+          `${e.severity}: ${e.summary}`,
+        ]
+          .map((c) => cell(String(c)))
+          .join(' | ')
+          .replace(/^/, '| ')
+          .concat(' |')
+      ),
+      ''
+    );
+  }
+  if (invalidEscaped)
+    lines.push(
+      `${invalidEscaped} escaped-defect record(s) left out: they do not validate against schemas/escaped-defect.schema.json.`,
+      ''
+    );
   lines.push(
     '## Other failures, by run',
     '',

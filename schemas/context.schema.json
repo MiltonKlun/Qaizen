@@ -710,6 +710,39 @@
           "maxItems": 5,
           "items": { "type": "string" }
         },
+        "earlier": {
+          "type": "array",
+          "description": "OPTIONAL. A summary of each earlier repeat check of this run, oldest first, at most twenty: a flaky check stops the run and is replaced once the test is fixed, so this is what keeps it countable (npm run metrics, the flake rate). Written only by the runner.",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ran_at",
+              "input_digest",
+              "repeat_each",
+              "outcome",
+              "units",
+              "flaky_units"
+            ],
+            "properties": {
+              "ran_at": { "type": "string" },
+              "input_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              "repeat_each": { "type": "integer", "minimum": 2 },
+              "outcome": {
+                "type": "string",
+                "enum": ["stable", "failing", "flaky"]
+              },
+              "units": { "type": "integer", "minimum": 0 },
+              "flaky_units": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "earlier_dropped": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "OPTIONAL. How many earlier checks ran but are past the twenty earlier[] keeps, so the metrics can say the flake rate leaves them out. Written only by the runner."
+        },
         "units": {
           "type": "array",
           "items": {

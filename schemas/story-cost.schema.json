@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://qaizen/schemas/story-cost.schema.json",
+  "title": "Story cost",
+  "description": "What the runs of one story cost, as the operator entered it (outcomes/costs/<story>.json, written only by scripts/record-outcome.js): the hands-on time a person spent on each archived run and, when known, what the run spent (model usage, for example). The pipeline cannot measure either; gate time, which it does measure, is in the metrics apart from this. One entry per run; entering a run again replaces its entry only when asked to.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "record_type", "story_id", "runs"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "record_type": { "const": "story_cost" },
+    "story_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "runs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["run_id", "run_archive", "recorded_at", "recorded_by"],
+        "anyOf": [
+          { "required": ["operator_minutes"] },
+          { "required": ["spend"] }
+        ],
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The run's id as its archived context.json records it, else as its failure analysis does, else its archive folder name: the id the metrics count it by."
+          },
+          "run_archive": {
+            "type": "string",
+            "pattern": "^runs/[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][^/]*$"
+          },
+          "operator_minutes": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Hands-on time people spent on the run, in minutes, gate reviews included."
+          },
+          "spend": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["amount", "currency"],
+            "properties": {
+              "amount": { "type": "number", "minimum": 0 },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$",
+                "description": "ISO 4217 code."
+              }
+            }
+          },
+          "notes": { "type": "string", "maxLength": 1000 },
+          "recorded_at": { "type": "string", "format": "date-time" },
+          "recorded_by": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

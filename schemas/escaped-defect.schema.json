@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://qaizen/schemas/escaped-defect.schema.json",
+  "title": "Escaped defect",
+  "description": "A product bug that a completed run should have caught and did not, found later (outcomes/escaped-defects/ESC-NNN.json, written only by scripts/record-outcome.js at a person's request). It names the archived run that missed it and the risks it falls under, from that run's own context, so the defect history and the metrics can tie the escape to what was in scope. It records a fact about the past; it approves nothing and files nothing in Jira.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_type",
+    "escaped_defect_id",
+    "story_id",
+    "run_id",
+    "run_archive",
+    "risk_ids",
+    "test_case_ids",
+    "summary",
+    "severity",
+    "found_in",
+    "found_at",
+    "why_missed",
+    "recorded_at",
+    "recorded_by"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "record_type": { "const": "escaped_defect" },
+    "escaped_defect_id": { "type": "string", "pattern": "^ESC-[0-9]{3,}$" },
+    "story_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "description": "The story of the run that should have caught it."
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The run's id as its archived context.json records it, else as its failure analysis does, else its archive folder name: the id the metrics count it by."
+    },
+    "run_archive": {
+      "type": "string",
+      "pattern": "^runs/[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][^/]*$",
+      "description": "The archived run folder, relative to the repository root."
+    },
+    "risk_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^RISK-[0-9]+$" },
+      "description": "The risks of that run's context the defect falls under. Empty only with traceability_unresolved."
+    },
+    "traceability_unresolved": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Why no risk of that run covers the defect (CLAUDE.md §3.4). Present exactly when risk_ids is empty."
+    },
+    "test_case_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^TC-[0-9]+$" },
+      "description": "The approved cases of that run that covered the behavior, if any. Empty when no case did."
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "What went wrong, in one or two sentences. No secrets or personal data."
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "found_in": {
+      "type": "string",
+      "enum": ["production", "staging", "later_run", "other"],
+      "description": "Where it was found: in production, in a pre-release environment, by a later run of this pipeline, or elsewhere."
+    },
+    "found_at": {
+      "type": "string",
+      "format": "date",
+      "description": "The day it was found."
+    },
+    "why_missed": {
+      "type": "string",
+      "enum": [
+        "no_case",
+        "not_automated",
+        "test_passed_wrongly",
+        "not_run",
+        "unknown"
+      ],
+      "description": "no_case: no approved case covered the behavior. not_automated: an approved case did, decided manual or skip. test_passed_wrongly: an approved automated case (e2e, API or component) covered it and its test passed (a false negative). not_run: the covering automated test did not run. unknown: not yet known; replace the record (record-outcome.js --replace) once it is. record-outcome.js checks each case against the run it names."
+    },
+    "jira_key": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]*-[0-9]+$",
+      "description": "OPTIONAL. The ticket the defect was filed as, by a person, outside this script."
+    },
+    "notes": { "type": "string", "maxLength": 2000 },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "recorded_by": { "type": "string", "minLength": 1 }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "risk_ids": { "maxItems": 0 } }
+      },
+      "then": { "required": ["traceability_unresolved"] },
+      "else": { "not": { "required": ["traceability_unresolved"] } }
+    },
+    {
+      "if": {
+        "properties": { "why_missed": { "const": "no_case" } }
+      },
+      "then": { "properties": { "test_case_ids": { "maxItems": 0 } } },
+      "else": {
+        "if": {
+          "properties": {
+            "why_missed": {
+              "enum": ["not_automated", "test_passed_wrongly", "not_run"]
+            }
+          }
+        },
+        "then": { "properties": { "test_case_ids": { "minItems": 1 } } }
+      }
+    }
+  ]
+}

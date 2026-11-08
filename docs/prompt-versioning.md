@@ -256,7 +256,8 @@ it, with where it came from:
   automated case;
 - false heals, which the Healer must decline, with a control case it must
   still repair so that declining everything does not pass;
-- every escaped defect, once one is recorded (none is yet).
+- every escaped defect recorded with `npm run record-outcome`
+  (`docs/outcome-records.md`), once one is (none is yet).
 
 **When it runs.** On every MINOR or MAJOR prompt change, for the cases of the
 changed agent; on every model upgrade, for every case; and on every

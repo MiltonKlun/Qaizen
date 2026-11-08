@@ -9,6 +9,8 @@
 // analysis/failure-analysis.json, release/release-report.json,
 // analysis/healer-validation/ — and skips gracefully when an artifact is
 // absent (partial archives are fine; they just contribute what they have).
+// It also reads what people recorded after the runs under outcomes/ (escaped
+// defects, the operator's time and spend; scripts/record-outcome.js).
 //
 // Metrics guide improvement; they NEVER rewrite prompts or contracts
 // automatically (a non-negotiable rule).
@@ -43,6 +45,26 @@ import {
   promptStability,
   renderPromptStability,
 } from './lib/prompt-stability.js';
+import {
+  costLines,
+  costMetrics,
+  dualJudgeLines,
+  dualJudgeTrigger,
+  escapedLines,
+  escapedMetrics,
+  flakeLines,
+  gateTime,
+  gateTimeLines,
+  healsLines,
+  repeatFlakes,
+  roundsLines,
+  roundsToApproval,
+} from './lib/outcome-metrics.js';
+import {
+  readEscapedDefects,
+  readStoryCosts,
+  runIdentity,
+} from './lib/outcomes.js';
 
 const DRY = argv.includes('--dry-run');
 const RUNS = 'runs';
@@ -159,7 +181,7 @@ for (const run of runs) {
   const ctx = readJson(join(run.base, 'context.json'));
   const report = readJson(join(run.base, 'release', 'release-report.json'));
   const fa = readJson(join(run.base, 'analysis', 'failure-analysis.json'));
-  const runId = ctx?.run_id || fa?.run_id || run.dir;
+  const runId = runIdentity(ctx, fa, run.dir);
   const identity = `${run.story}|${runId}`;
   if (seen.has(identity)) {
     duplicateArchives += 1;
@@ -316,6 +338,30 @@ metrics.finding_dispositions = dispositionMetrics(
 );
 metrics.runs_with_prompt_versions = runsWithPromptVersions;
 
+// Outcomes: how the gates and the tests did, and what people recorded after
+// the runs (scripts/lib/outcome-metrics.js).
+const liveContexts = stabilityRuns
+  .filter((r) => !r.demo && r.context)
+  .map((r) => r.context);
+const escapedRead = readEscapedDefects();
+const costsRead = readStoryCosts();
+metrics.gate_time = gateTime(liveContexts);
+metrics.rounds_to_approval = roundsToApproval(liveContexts);
+metrics.repeat_check_flakes = repeatFlakes(liveContexts);
+metrics.escaped_defects = escapedMetrics(
+  escapedRead.records,
+  escapedRead.invalid,
+  seen
+);
+metrics.cost_per_story = {
+  ...costMetrics(costsRead.docs, seen),
+  invalid_records: costsRead.invalid,
+};
+metrics.dual_judge_trigger = dualJudgeTrigger(
+  metrics.escaped_defects,
+  metrics.gate_canaries
+);
+
 // ---- markdown ------------------------------------------------------------
 const pct = (/** @type {number | null} */ r) =>
   r === null ? 'n/a' : `${Math.round(r * 100)}%`;
@@ -396,9 +442,42 @@ const md = [
       ]
     : []),
   '',
+  '## Gate time',
+  '',
+  ...gateTimeLines(metrics.gate_time, totalRuns),
+  '',
+  '## Rounds to approval',
+  '',
+  ...roundsLines(metrics.rounds_to_approval, totalRuns),
+  '',
   '## Gate 2 canaries',
   '',
   ...canaryLines(metrics.gate_canaries, totalRuns),
+  '',
+  '## Flake rate in the repeat checks',
+  '',
+  ...flakeLines(metrics.repeat_check_flakes, totalRuns),
+  '',
+  '## Heals per test',
+  '',
+  ...healsLines(healer.heals_per_test),
+  '',
+  '## Escaped defects',
+  '',
+  ...escapedLines(metrics.escaped_defects, totalRuns),
+  '',
+  '## Cost and time per story',
+  '',
+  ...costLines(metrics.cost_per_story, totalRuns),
+  ...(costsRead.invalid
+    ? [
+        `- ${costsRead.invalid} cost record(s) left out: they do not validate against schemas/story-cost.schema.json.`,
+      ]
+    : []),
+  '',
+  '## Dual-judge re-evaluation trigger',
+  '',
+  ...dualJudgeLines(metrics.dual_judge_trigger),
   '',
   '## Gate 4 scan findings answered',
   '',

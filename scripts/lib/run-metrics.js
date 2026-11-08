@@ -168,7 +168,7 @@ const TERMINAL = new Set(['validated', 'validation_failed', 'rejected_static']);
  * @param {(record: any) => boolean} isValidRecord  schema check
  */
 export function healerMetrics(dirs, isValidRecord) {
-  /** @type {Map<string, string>} */
+  /** @type {Map<string, { outcome: string, story: string, test: string, run: string }>} */
   const unique = new Map();
   const counts = {
     duplicate_records: 0,
@@ -206,7 +206,13 @@ export function healerMetrics(dirs, isValidRecord) {
           rec.candidate.sha256,
         ].join('|');
         if (unique.has(key)) counts.duplicate_records += 1;
-        else unique.set(key, rec.outcome);
+        else
+          unique.set(key, {
+            outcome: rec.outcome,
+            story: rec.story_id,
+            test: rec.unit.unit_id,
+            run: rec.run_id,
+          });
         continue;
       }
       if (!name.endsWith('.md')) continue;
@@ -218,7 +224,7 @@ export function healerMetrics(dirs, isValidRecord) {
       else counts.legacy_markdown_notes += 1;
     }
   }
-  const outcomes = [...unique.values()];
+  const outcomes = [...unique.values()].map((u) => u.outcome);
   const n = (/** @type {string} */ o) => outcomes.filter((x) => x === o).length;
   return {
     submissions: outcomes.length,
@@ -228,5 +234,59 @@ export function healerMetrics(dirs, isValidRecord) {
     // Null when no structured submission exists: absence is not success.
     success_rate: outcomes.length ? n('validated') / outcomes.length : null,
     ...counts,
+    heals_per_test: healsPerTest([...unique.values()]),
+  };
+}
+
+/**
+ * Validated heals per test, across runs: a test the Healer keeps repairing is
+ * brittle, or the app keeps changing under it, and either is worth a look.
+ * A test is its story and its unit id.
+ * @param {{ outcome: string, story: string, test: string, run: string }[]} submissions
+ */
+function healsPerTest(submissions) {
+  /** @type {Map<string, { story: string, test: string, submissions: number, heals: number, runs: Set<string> }>} */
+  const tests = new Map();
+  for (const s of submissions) {
+    const key = JSON.stringify([s.story, s.test]);
+    const t = tests.get(key) ?? {
+      story: s.story,
+      test: s.test,
+      submissions: 0,
+      heals: 0,
+      runs: new Set(),
+    };
+    t.submissions += 1;
+    if (s.outcome === 'validated') {
+      t.heals += 1;
+      t.runs.add(s.run);
+    }
+    tests.set(key, t);
+  }
+  const list = [...tests.values()];
+  const healed = list.filter((t) => t.heals > 0);
+  const heals = healed.reduce((a, t) => a + t.heals, 0);
+  return {
+    tests_with_submissions: list.length,
+    tests_healed: healed.length,
+    validated_heals: heals,
+    // Null when nothing was healed: no test, not a rate of zero.
+    heals_per_healed_test: healed.length
+      ? Math.round((heals / healed.length) * 100) / 100
+      : null,
+    healed_more_than_once: healed
+      .filter((t) => t.heals > 1)
+      .sort(
+        (a, b) =>
+          b.heals - a.heals ||
+          `${a.story}|${a.test}`.localeCompare(`${b.story}|${b.test}`)
+      )
+      .slice(0, 10)
+      .map((t) => ({
+        story: t.story,
+        test: t.test,
+        heals: t.heals,
+        runs: [...t.runs].sort(),
+      })),
   };
 }

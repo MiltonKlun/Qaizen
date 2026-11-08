@@ -23,7 +23,7 @@ silently if absent:
 | Source                          | What it tells `/evolve`                                                                                                                                   |
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Git commits/merges (90d)        | Where effort concentrated; recurring fix/recover/revert themes (churn).                                                                                   |
-| `metrics/pipeline-metrics.json` | Untested high-risk items, prompt-stability status (run `npm run metrics` first).                                                                          |
+| `metrics/pipeline-metrics.json` | Untested high-risk items, prompt-stability status, the dual-judge trigger when it fires (run `npm run metrics` first).                                    |
 | `session-summaries/*.md`        | **Highest signal** — friction in the human's own words after a run.                                                                                       |
 | GitHub issues                   | _Not_ fetched by the script (no token in a plain Node context) — fed via the agent path if the repo uses issues. Declared as a gap, not silently ignored. |
 
