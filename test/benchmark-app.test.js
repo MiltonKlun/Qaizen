@@ -135,10 +135,69 @@ test('the version configuration holds only the documented drift', async () => {
     price: 'unit-price',
     add: 'put-in',
   });
-  // A v2 hook is never part of its v1 name, so a check that a repair uses
-  // the v2 hook cannot be satisfied by the v1 one.
+  // No v1 hook contains its v2 name, so a check that a repair uses the v2
+  // hook cannot be satisfied by code that still uses the v1 one.
   for (const k of Object.keys(v1.hooks))
     assert.equal(v1.hooks[k].includes(v2.hooks[k]), false, k);
+
+  // Everything else that differs, read from what each version renders, and
+  // every difference is a row of the README drift table.
+  const rendered = (/** @type {any} */ v) => {
+    const summary = v.summary('$1.00', '$0.07', '$1.07');
+    return {
+      headingClass: v.headingClass,
+      priceClass: v.priceClass,
+      items: /data-qa="([^"]+)">Items:/.exec(summary)?.[1],
+      tax: /data-qa="([^"]+)">Sales tax:/.exec(summary)?.[1],
+      total: /data-qa="([^"]+)">Order total:/.exec(summary)?.[1],
+      figureTag: /<(\w+) data-qa="[^"]+">Items:/.exec(summary)?.[1],
+      container: /^<(\w+) class="([^"]+)"/.exec(summary)?.slice(1).join('.'),
+      row: /<\w+ class="([^"]+)">\s*<(?:span|td)/.exec(summary)?.[1],
+      lines: /^<(\w+) id="review-lines"/.exec(v.review(''))?.[1],
+    };
+  };
+  const r1 = rendered(v1);
+  const r2 = rendered(v2);
+  assert.deepEqual(r1, {
+    headingClass: 'heading',
+    priceClass: 'price',
+    items: 'sum-items',
+    tax: 'sum-tax',
+    total: 'sum-total',
+    figureTag: 'span',
+    container: 'div.order-sums',
+    row: 'sum-row',
+    lines: 'div',
+  });
+  assert.deepEqual(r2, {
+    headingClass: 'screen-heading',
+    priceClass: 'cost',
+    items: 'items-sum',
+    tax: 'sum-tax',
+    total: 'sum-total',
+    figureTag: 'span',
+    container: 'table.order-table',
+    row: 'order-line',
+    lines: 'section',
+  });
+  const readme = readFileSync(
+    join(REPO, 'examples', 'benchmark-app', 'README.md'),
+    'utf8'
+  );
+  const row = (/** @type {string} */ a, /** @type {string} */ b) =>
+    readme
+      .split(/\r?\n/)
+      .some((l) => l.startsWith('|') && l.includes(a) && l.includes(b));
+  for (const k of Object.keys(v1.hooks))
+    assert.ok(
+      row(`"${v1.hooks[k]}`, `"${v2.hooks[k]}`),
+      `README drift table lacks ${k}`
+    );
+  assert.ok(row(`class="${r1.headingClass}"`, `class="${r2.headingClass}"`));
+  assert.ok(row(`class="${r1.priceClass}"`, `class="${r2.priceClass}"`));
+  assert.ok(row(`"${r1.items}"`, `"${r2.items}"`));
+  assert.ok(row('class="order-sums"', 'class="order-table"'));
+  assert.ok(row('<div id="review-lines">', '<section id="review-lines">'));
   // One visible element per summary figure in both versions: no duplicate
   // label text for a text-based locator to trip over.
   for (const v of [v1, v2]) {
@@ -175,33 +234,53 @@ const SAUCEDEMO = [
   /item_price|summary_info|cart_badge|app_logo|inventory\.html/,
   /swag labs|checkout: overview|checkout: complete|thank you for your order|your cart|epic sadface|item total/i,
 ];
-const benchFiles = () => {
-  /** @type {string[]} */
-  const files = [];
-  const walk = (dir) => {
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
-      const p = join(dir, e.name);
-      if (e.isDirectory()) walk(p);
-      else files.push(p);
-    }
-  };
-  walk(join(REPO, 'examples', 'benchmark-app'));
-  for (const c of ['REG-006', 'REG-007', 'REG-008', 'REG-009', 'REG-010'])
-    walk(join(REPO, 'examples', 'evaluation', 'regressions', 'cases', c));
-  return files;
-};
+const SET = join(REPO, 'examples', 'evaluation', 'regressions');
+
+/**
+ * The regression cases that run on the Bench Shop, from the manifest: a
+ * Bench Shop bug, or a case whose files serve the Bench Shop.
+ */
+function benchCases() {
+  const manifest = JSON.parse(readFileSync(join(SET, 'manifest.json'), 'utf8'));
+  return manifest.cases.filter(
+    (/** @type {any} */ c) =>
+      c.source?.kind === 'bench-shop-bug' ||
+      walk(join(SET, c.input)).some((f) =>
+        readFileSync(f, 'utf8').includes('examples/benchmark-app/serve.js')
+      )
+  );
+}
+
+/** @param {string} dir @returns {string[]} */
+function walk(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]
+  );
+}
 
 test('the Bench Shop, its stories and the cases run on it hold no SauceDemo names, prices, credentials or hooks', () => {
-  const files = benchFiles();
-  assert.ok(files.length >= 20, `only ${files.length} files scanned`);
-  const found = [];
-  for (const f of files) {
-    const lines = readFileSync(f, 'utf8').split(/\r?\n/);
-    lines.forEach((line, i) => {
-      for (const re of SAUCEDEMO)
-        if (re.test(line)) found.push(`${relative(REPO, f)}:${i + 1} ${re}`);
+  const cases = benchCases();
+  assert.deepEqual(
+    cases.map((/** @type {any} */ c) => c.id),
+    ['REG-006', 'REG-007', 'REG-008', 'REG-009', 'REG-010']
+  );
+  /** @type {{ name: string, text: string }[]} */
+  const sources = [
+    ...walk(join(REPO, 'examples', 'benchmark-app')),
+    ...cases.flatMap((/** @type {any} */ c) => walk(join(SET, c.input))),
+  ].map((f) => ({ name: relative(REPO, f), text: readFileSync(f, 'utf8') }));
+  // The cases' manifest entries too: their check texts name hooks.
+  for (const c of cases)
+    sources.push({
+      name: `manifest.json ${c.id}`,
+      text: JSON.stringify(c, null, 2),
     });
-  }
+  const found = [];
+  for (const { name, text } of sources)
+    text.split(/\r?\n/).forEach((line, i) => {
+      for (const re of SAUCEDEMO)
+        if (re.test(line)) found.push(`${name}:${i + 1} ${re}`);
+    });
   assert.deepEqual(found, []);
 });
 

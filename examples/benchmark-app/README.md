@@ -82,7 +82,8 @@ it is off.
 and the marking gauge, takes one out, moves on, puts it back and checks out,
 clean and with each bug, and fails unless each bug changes only its own
 symptom (`scripts/lib/bench-shop-check.js`). Clean: Items \$46.75, Sales tax
-\$3.04, Order total \$49.79, and the count follows the basket. With
+\$3.04, Order total \$49.79, and the count reads 2, then 1 after the take-out
+and after moving on. With
 `wrong-item-total` Items reads \$47.75; with `inconsistent-total` the Order
 total reads \$50.29; with `stale-badge` the count stays at 2 after a take-out
 and is right again on the next screen.
@@ -102,9 +103,12 @@ Every change is listed here so scoring is against a known truth, not a guess.
 | Price cell         | `class="price"`                          | `class="cost"`                         | renamed class          |
 | Screen headings    | `class="heading"`                        | `class="screen-heading"`               | renamed class          |
 | Review totals      | `<div class="order-sums">` + `.sum-row`  | `<table class="order-table">` + `.order-line` | restructured container |
+| Review lines       | `<div id="review-lines">`                | `<section id="review-lines">`          | changed element        |
 
-No v2 hook contains its v1 name, so a check that a repair uses the v2 hook
-cannot be met by the v1 one.
+No v1 hook contains its v2 name, so a check that a repair uses the v2 hook
+cannot be met by code that still uses the v1 one. In both versions the review
+figures are `<span>` elements carrying their hooks; v2 only wraps them in
+table cells.
 
 **Review labels (both versions):** each figure is one element whose text
 carries its label (`Items: $…`), so a text locator for it matches one

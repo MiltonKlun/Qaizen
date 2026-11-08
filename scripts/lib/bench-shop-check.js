@@ -90,6 +90,11 @@ export function bugProblems(seen) {
   const clean = seen.clean;
   if (!clean) return ['no clean run'];
   const sum = clean.lines.reduce((a, b) => a + b, 0);
+  // Both products reach the review: the take-out and put-back worked.
+  if (clean.lines.length !== 2)
+    problems.push(
+      `clean: the review lists ${clean.lines.length} line(s), expected 2`
+    );
   const expectClean = {
     countAfterAdds: 2,
     countAfterTakeOut: 1,

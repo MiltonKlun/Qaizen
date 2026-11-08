@@ -50,6 +50,8 @@ const state = {
   // re-syncs it.
   shownCount: 0,
   delivery: { givenName: '', familyName: '', postcode: '' },
+  // Set by "Place order": the confirmation is reached only that way.
+  placing: false,
 };
 
 function renderCount() {
@@ -176,8 +178,11 @@ function detailsView() {
       .filter(([v]) => !v)
       .map(([, what]) => what);
     if (missing.length) {
-      qa(app, 'form-error').textContent =
-        `Please enter ${missing.join(' and ')}.`;
+      const list =
+        missing.length > 1
+          ? `${missing.slice(0, -1).join(', ')} and ${missing.at(-1)}`
+          : missing[0];
+      qa(app, 'form-error').textContent = `Please enter ${list}.`;
       return;
     }
     state.delivery = { givenName: given, familyName: family, postcode };
@@ -213,7 +218,10 @@ function reviewView() {
           <button data-qa="cancel-order" onclick="location.hash='#catalogue'">Cancel</button>
           <button class="primary" data-qa="place-order">Place order</button>
         `;
-  qa(app, 'place-order').onclick = () => go('#confirmed');
+  qa(app, 'place-order').onclick = () => {
+    state.placing = true;
+    go('#confirmed');
+  };
 }
 
 function confirmedView() {
@@ -223,6 +231,7 @@ function confirmedView() {
           <button class="primary" data-qa="shop-again" onclick="location.hash='#catalogue'">Back to the catalogue</button>
         `;
   // A placed order empties the basket.
+  state.placing = false;
   state.basket = [];
   state.shownCount = 0;
   renderCount();
@@ -251,6 +260,13 @@ function render() {
   state.shownCount = state.basket.length;
   const route = location.hash || '#signin';
   if (!state.user && route !== '#signin') return go('#signin');
+  // Signed in, the sign-in screen leads on to the catalogue; checkout needs
+  // something in the basket; and the confirmation is reached only by placing
+  // an order.
+  if (state.user && route === '#signin') return go('#catalogue');
+  if (!state.basket.length && (route === '#details' || route === '#review'))
+    return go('#basket');
+  if (route === '#confirmed' && !state.placing) return go('#catalogue');
   if (route === '#signin') signinView();
   else if (route === '#catalogue') catalogueView();
   else if (route === '#basket') basketView();

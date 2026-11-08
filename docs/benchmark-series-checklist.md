@@ -79,7 +79,9 @@ node examples/benchmark-app/serve.js --version v2 --port 4174
 ## 5. Per story × arm
 
 **Raw arm.** Start a timer, give the registered prompt, allow only the
-follow-ups a working QA would type, stop at the timebox. Save the tests.
+follow-ups a working QA would type, stop at the timebox. Save the tests. On
+Bench Shop, run it in a workspace without `examples/benchmark-app/` and
+`examples/evaluation/` (protocol §1), and say so in the record's notes.
 
 **Pipeline arm.** `npm run pipeline -- --story <ref>`; review every gate
 yourself (`docs/pipeline-runner.md`). Archive the run (`npm run new-run

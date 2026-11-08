@@ -164,6 +164,16 @@ async function checkBugs() {
           page,
           `http://127.0.0.1:${server.port}/`
         );
+      } catch (err) {
+        // A hook that moved or a screen that no longer leads on: the
+        // purchase could not be made, which is a failure, not a crash.
+        const first = String(err instanceof Error ? err.message : err).split(
+          '\n'
+        )[0];
+        console.error(
+          `\nbenchmark:check FAILED: the purchase could not be made (${bug}): ${first}`
+        );
+        return 1;
       } finally {
         await page.close();
         server.stop();
