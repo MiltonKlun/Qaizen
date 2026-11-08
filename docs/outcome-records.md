@@ -36,20 +36,31 @@ npm run record-outcome -- escaped-defect --story STORY-010 \
 context records. The script refuses, with nothing written, when:
 
 - the run is not archived, is a demo, or is not completed;
-- a `--risk` is not a risk of that run, or a `--case` not one of its cases;
+- a `--risk` is not a risk of that run;
+- a `--case` is not an approved case of that run, or its automation
+  decision does not fit why the defect was missed (the table below);
+- `test_passed_wrongly` names a case the run's execution ledger records as
+  anything but passed;
 - no risk is named and no `--unresolved "<why>"` says why none covers it
   (`CLAUDE.md` §3.4: an unresolved link is stated, never faked);
-- the date is in the future, or the record does not validate.
+- the same defect is already recorded: the same Jira key, or the same run
+  and summary. `--replace ESC-NNN` rewrites that record under its id;
+  `--force-new` records another defect that only looks the same;
+- the date is after today, or the record does not validate.
 
 **Why it was missed** is the field the metrics turn on:
 
-| `why_missed`          | Meaning                                                             | Cases named |
-| --------------------- | ------------------------------------------------------------------- | ----------- |
-| `no_case`             | No approved case covered the behavior: a scope gap (Gates 1–2).     | none        |
-| `not_automated`       | A case covered it, decided manual, component or skip.               | at least 1  |
-| `test_passed_wrongly` | An automated test covered it and passed: a false negative.          | at least 1  |
-| `not_run`             | The covering test did not run.                                      | at least 1  |
-| `unknown`             | Not known yet. Record it now and replace the file once it is known. | any         |
+| `why_missed`          | Meaning                                                         | Cases named                    |
+| --------------------- | --------------------------------------------------------------- | ------------------------------ |
+| `no_case`             | No approved case covered the behavior: a scope gap (Gates 1–2). | none                           |
+| `not_automated`       | An approved case covered it, decided manual or skip.            | 1+, manual or skip             |
+| `test_passed_wrongly` | An automated test covered it and passed: a false negative.      | 1+, automated (e2e, API, comp) |
+| `not_run`             | The covering automated test did not run.                        | 1+, automated (e2e, API, comp) |
+| `unknown`             | Not known yet. Record it now; `--replace` it once it is known.  | any                            |
+
+A component case counts as automated: its suite runs outside the pipeline,
+but a component test that passed while the product was wrong is a false
+negative all the same.
 
 Escaped defects feed the defect history the Analyst reads for a risk's
 likelihood: they are past product bugs, cited by story and ESC id, and they
@@ -80,16 +91,21 @@ archive) are left out and counted apart.
 - **Gate time**: minutes from brief to decision, per gate and per run. It
   includes any pause, so it is an upper bound on review effort.
 - **Rounds to approval**: decisions per approval, per gate, and the share
-  approved the first time, with its 95% interval.
+  approved the first time, with its 95% interval. A re-approval after a
+  change to the reviewed inputs returned the gate to pending is counted
+  apart, so it does not inflate the first-time share.
 - **Flake rate**: repeat checks that found a flaky test, and flaky tests per
-  check, earlier checks of a run included (`repeat_check.earlier`).
+  check, earlier checks of a run included (`repeat_check.earlier`; past the
+  twenty a record keeps, the rest are counted as not kept).
 - **Heals per test**: validated heals per healed test, and the tests healed
   more than once.
-- **Escaped defects**: by why they were missed and by severity.
+- **Escaped defects**: by why they were missed and by severity, over the
+  runs the metrics count (a record of any other run is counted apart).
 - **Cost and time per story**: totals and per-run averages of what was
   entered, per currency.
 - **Dual-judge trigger**: whether escaped false negatives or missed Gate 2
-  canaries re-open the evaluation (`docs/dual-judge-evaluation.md` §4).
+  canaries re-open the evaluation (`docs/dual-judge-evaluation.md` §4);
+  unknown while nothing is recorded and no canary was planted.
 
 None recorded is reported as unknown, never as zero: a defect is only known
 to have escaped once someone records it.

@@ -73,7 +73,8 @@ export function readEscapedDefects(dir = ESCAPED_DIR) {
       data === undefined ||
       !m ||
       data.escaped_defect_id !== `ESC-${m[1]}` ||
-      !validateValue(data, ESCAPED_DEFECT_SCHEMA).ok
+      !validateValue(data, ESCAPED_DEFECT_SCHEMA).ok ||
+      !ofStory(data.run_archive, data.story_id)
     )
       invalid += 1;
     else records.push(data);
@@ -97,12 +98,41 @@ export function readStoryCosts(dir = COSTS_DIR) {
     if (
       data === undefined ||
       name !== `${data?.story_id}.json` ||
-      !validateValue(data, STORY_COST_SCHEMA).ok
+      !validateValue(data, STORY_COST_SCHEMA).ok ||
+      data.runs.some(
+        (/** @type {any} */ r) => !ofStory(r.run_archive, data.story_id)
+      ) ||
+      // One entry per run: a second one would count the run twice.
+      new Set(data.runs.map((/** @type {any} */ r) => r.run_id)).size !==
+        data.runs.length
     )
       invalid += 1;
     else docs.push(data);
   }
   return { docs, invalid };
+}
+
+/**
+ * Whether an archive path is a run folder of this story.
+ * @param {string} archive
+ * @param {string} story
+ */
+const ofStory = (archive, story) =>
+  typeof archive === 'string' && archive.startsWith(`runs/${story}/`);
+
+/**
+ * The id a run is known by, everywhere the metrics and the outcome records
+ * meet: the id its context records, else its failure analysis's, else its
+ * archive folder name.
+ * @param {any} context
+ * @param {any} failureAnalysis
+ * @param {string} folder
+ * @returns {string}
+ */
+export function runIdentity(context, failureAnalysis, folder) {
+  for (const id of [context?.run_id, failureAnalysis?.run_id])
+    if (typeof id === 'string' && id) return id;
+  return folder;
 }
 
 /**
@@ -121,7 +151,7 @@ export function nextEscapedId(dir = ESCAPED_DIR) {
 
 /**
  * @typedef {{ archive: string, runId: string, context: any,
- *   testCases: any[] }} ArchivedRun
+ *   testCases: any[], ledger: any }} ArchivedRun
  */
 
 /**
@@ -145,10 +175,11 @@ export function findArchivedRun(runsDir, story, run) {
     const dir = join(storyDir, name);
     if (!isDir(dir) || existsSync(join(dir, 'DEMO_RUN'))) continue;
     const context = parsed(join(dir, 'context.json')) ?? null;
-    const runId =
-      typeof context?.run_id === 'string' && context.run_id
-        ? context.run_id
-        : name;
+    const runId = runIdentity(
+      context,
+      parsed(join(dir, 'analysis', 'failure-analysis.json')),
+      name
+    );
     if (name !== run && runId !== run) continue;
     const casesRel =
       context?.artifact_paths?.test_cases || `test-cases/${story}.json`;
@@ -158,6 +189,7 @@ export function findArchivedRun(runsDir, story, run) {
       runId,
       context,
       testCases: Array.isArray(cases?.test_cases) ? cases.test_cases : [],
+      ledger: parsed(join(dir, 'analysis', 'execution-ledger.json')) ?? null,
     });
   }
   if (!matches.length)
@@ -177,12 +209,27 @@ export function findArchivedRun(runsDir, story, run) {
  * @typedef {{ id: string, story: string, run: ArchivedRun, risks: string[],
  *   unresolved?: string, cases: string[], summary: string, severity: string,
  *   foundIn: string, foundAt: string, whyMissed: string, jira?: string,
- *   notes?: string, by: string, now: Date }} EscapedInput
+ *   notes?: string, by: string, now: Date, existing?: any[],
+ *   forceNew?: boolean }} EscapedInput
  */
+
+/** The automation decisions a reason for missing a defect fits. */
+const DECISIONS_FOR = {
+  test_passed_wrongly: ['automate_e2e', 'automate_api', 'automate_component'],
+  not_run: ['automate_e2e', 'automate_api', 'automate_component'],
+  not_automated: ['manual', 'skip'],
+};
+
+/** @param {string} s */
+const sameText = (s) => s.replace(/\s+/g, ' ').trim().toLowerCase();
 
 /**
  * An escaped-defect record, checked against the run it names: the run is
- * completed, and every risk and case is that run's own.
+ * completed; every risk is that run's own; every case is an approved case of
+ * it whose automation decision fits why the defect was missed (and, for a
+ * test that passed wrongly, one the run's ledger does not record as anything
+ * but passed); and it is not a record already made, unless forceNew says it
+ * is another defect.
  * @param {EscapedInput} i
  * @returns {{ ok: true, record: any } | { ok: false, errors: string[] }}
  */
@@ -202,10 +249,49 @@ export function buildEscapedDefect(i) {
   for (const r of i.risks)
     if (!knownRisks.has(r))
       errors.push(`${r} is not a risk of ${i.run.archive}`);
-  const knownCases = new Set(i.run.testCases.map((c) => c?.test_case_id));
-  for (const c of i.cases)
-    if (!knownCases.has(c))
-      errors.push(`${c} is not a test case of ${i.run.archive}`);
+  const fits = /** @type {Record<string, string[]>} */ (DECISIONS_FOR)[
+    i.whyMissed
+  ];
+  /** @type {any[]} */
+  const outcomes = Array.isArray(i.run.ledger?.case_outcomes)
+    ? i.run.ledger.case_outcomes
+    : [];
+  for (const id of i.cases) {
+    const c = i.run.testCases.find((x) => x?.test_case_id === id);
+    if (!c) {
+      errors.push(`${id} is not a test case of ${i.run.archive}`);
+      continue;
+    }
+    if (c.status !== 'approved')
+      errors.push(
+        `${id} is ${c.status ?? 'not approved'} in ${i.run.archive}; only an approved case was in scope`
+      );
+    if (fits && !fits.includes(c.automation_decision))
+      errors.push(
+        `${id} was decided ${c.automation_decision}, which does not fit ${i.whyMissed} (that needs ${fits.join(', ')})`
+      );
+    const ran = outcomes.find((o) => o?.test_case_id === id)?.outcome;
+    if (i.whyMissed === 'test_passed_wrongly' && ran && ran !== 'passed')
+      errors.push(
+        `the run's ledger records ${id} as ${ran}, not passed; ${ran === 'not_run' ? 'use --why-missed not_run' : 'a test that did not pass did not pass wrongly'}`
+      );
+  }
+  if (!i.forceNew)
+    for (const r of i.existing ?? []) {
+      if (r.escaped_defect_id === i.id) continue;
+      if (i.jira && r.jira_key === i.jira)
+        errors.push(
+          `${r.escaped_defect_id} already records ${i.jira}; replace it (--replace ${r.escaped_defect_id}) or, if this is another defect, pass --force-new`
+        );
+      else if (
+        r.story_id === i.story &&
+        r.run_id === i.run.runId &&
+        sameText(r.summary) === sameText(i.summary)
+      )
+        errors.push(
+          `${r.escaped_defect_id} already records this defect for ${i.run.runId}; replace it (--replace ${r.escaped_defect_id}) or, if this is another defect, pass --force-new`
+        );
+    }
   if (!i.risks.length && !i.unresolved)
     errors.push(
       'name the risk(s) of that run the defect falls under (--risk), or say why none does (--unresolved "<reason>")'

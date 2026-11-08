@@ -384,6 +384,8 @@ input digest it ran against; the record holds only while it is current.
 one (`ran_at`, `input_digest`, `repeat_each`, `outcome`, how many tests and
 how many of them flaky), at most twenty: a flaky check stops the run and is
 replaced once the test is fixed, and this is what the metrics count it from.
+`earlier_dropped` counts the checks past those twenty, which the metrics
+report as not kept.
 Written only by the runner (`docs/review-gates.md`, Gate 4).
 
 ### `status`

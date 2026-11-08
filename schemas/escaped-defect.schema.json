@@ -34,17 +34,17 @@
     "run_id": {
       "type": "string",
       "minLength": 1,
-      "description": "The run's id as its archived context.json records it (its archive folder name when it records none)."
+      "description": "The run's id as its archived context.json records it, else as its failure analysis does, else its archive folder name: the id the metrics count it by."
     },
     "run_archive": {
       "type": "string",
-      "pattern": "^runs/[A-Za-z0-9][A-Za-z0-9._-]*/[^/]+$",
+      "pattern": "^runs/[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][^/]*$",
       "description": "The archived run folder, relative to the repository root."
     },
     "risk_ids": {
       "type": "array",
       "uniqueItems": true,
-      "items": { "type": "string", "pattern": "^RISK-[0-9]{3,}$" },
+      "items": { "type": "string", "pattern": "^RISK-[0-9]+$" },
       "description": "The risks of that run's context the defect falls under. Empty only with traceability_unresolved."
     },
     "traceability_unresolved": {
@@ -55,7 +55,7 @@
     "test_case_ids": {
       "type": "array",
       "uniqueItems": true,
-      "items": { "type": "string", "pattern": "^TC-[0-9]{3,}$" },
+      "items": { "type": "string", "pattern": "^TC-[0-9]+$" },
       "description": "The approved cases of that run that covered the behavior, if any. Empty when no case did."
     },
     "summary": {
@@ -87,7 +87,7 @@
         "not_run",
         "unknown"
       ],
-      "description": "no_case: no approved case covered the behavior. not_automated: a case did, decided manual, component or skip. test_passed_wrongly: an automated test covered it and passed (a false negative). not_run: the covering test did not run. unknown: not yet known."
+      "description": "no_case: no approved case covered the behavior. not_automated: an approved case did, decided manual or skip. test_passed_wrongly: an approved automated case (e2e, API or component) covered it and its test passed (a false negative). not_run: the covering automated test did not run. unknown: not yet known; replace the record (record-outcome.js --replace) once it is. record-outcome.js checks each case against the run it names."
     },
     "jira_key": {
       "type": "string",

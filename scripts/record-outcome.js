@@ -17,13 +17,15 @@
 //     --severity high|medium|low --found-in production|staging|later_run|other \
 //     --found-at YYYY-MM-DD \
 //     --why-missed no_case|not_automated|test_passed_wrongly|not_run|unknown \
-//     --by "<who records it>" [--jira ABC-123] [--notes "..."] [--dry-run]
+//     --by "<who records it>" [--jira ABC-123] [--notes "..."] //     [--replace ESC-NNN | --force-new] [--dry-run]
 //   npm run record-outcome -- cost --story <id> --run <run> \
 //     [--minutes 95] [--spend 3.40 --currency USD] --by "<who>" \
 //     [--notes "..."] [--replace] [--dry-run]
 //
 // --run is the archive folder under runs/<story>/ or the run id its context
-// records. Nothing is written to Jira; --jira only notes a ticket a person
+// records. A defect already recorded (same Jira key, or same run and summary)
+// is refused: --replace ESC-NNN rewrites that record under its id, once more is
+// known; --force-new records another defect that only looks the same. Nothing is written to Jira; --jira only notes a ticket a person
 // filed.
 //
 // Exit codes: 0 recorded (or printed with --dry-run) · 2 usage error or
@@ -43,12 +45,13 @@ import {
   buildEscapedDefect,
   findArchivedRun,
   nextEscapedId,
+  readEscapedDefects,
   withCostEntry,
 } from './lib/outcomes.js';
 
 const USAGE = [
   'Usage:',
-  '  node scripts/record-outcome.js escaped-defect --story <id> --run <run> (--risk RISK-NNN ... | --unresolved "<why>") [--case TC-NNN ...] --summary "<text>" --severity high|medium|low --found-in production|staging|later_run|other --found-at YYYY-MM-DD --why-missed no_case|not_automated|test_passed_wrongly|not_run|unknown --by "<name>" [--jira KEY-1] [--notes "<text>"] [--dry-run]',
+  '  node scripts/record-outcome.js escaped-defect --story <id> --run <run> (--risk RISK-NNN ... | --unresolved "<why>") [--case TC-NNN ...] --summary "<text>" --severity high|medium|low --found-in production|staging|later_run|other --found-at YYYY-MM-DD --why-missed no_case|not_automated|test_passed_wrongly|not_run|unknown --by "<name>" [--jira KEY-1] [--notes "<text>"] [--replace ESC-NNN | --force-new] [--dry-run]',
   '  node scripts/record-outcome.js cost --story <id> --run <run> [--minutes <n>] [--spend <amount> --currency <ISO 4217>] --by "<name>" [--notes "<text>"] [--replace] [--dry-run]',
 ].join('\n');
 const RUNS = 'runs';
@@ -113,8 +116,13 @@ const cli = parseCli(
             ],
           },
           jira: { type: 'string' },
+          replace: { type: 'string' },
+          'force-new': { type: 'boolean' },
         },
-        exclusive: [['risk', 'unresolved']],
+        exclusive: [
+          ['risk', 'unresolved'],
+          ['replace', 'force-new'],
+        ],
       }
     : {
         usage: USAGE,
@@ -181,9 +189,28 @@ if (kind === 'escaped-defect') {
     Number.isNaN(Date.parse(v['found-at']))
   )
     usage(`--found-at expects a date as YYYY-MM-DD (got "${v['found-at']}")`);
-  if (Date.parse(v['found-at']) > now.getTime())
-    refuse([`--found-at ${v['found-at']} is in the future`]);
-  const id = nextEscapedId(ESCAPED_DIR);
+  // Compared as dates on this machine's calendar: today is never "future",
+  // whatever the time zone.
+  const today = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-');
+  if (v['found-at'] > today)
+    refuse([`--found-at ${v['found-at']} is after today (${today})`]);
+  const existing = readEscapedDefects(ESCAPED_DIR).records;
+  if (v.replace !== undefined) {
+    const old = existing.find((r) => r.escaped_defect_id === v.replace);
+    if (!old)
+      refuse([
+        `--replace ${v.replace}: no valid record of that id under ${ESCAPED_DIR}/`,
+      ]);
+    if (old.story_id !== v.story)
+      refuse([
+        `--replace ${v.replace}: it records a defect of ${old.story_id}, not ${v.story}`,
+      ]);
+  }
+  const id = v.replace ?? nextEscapedId(ESCAPED_DIR);
   const built = buildEscapedDefect({
     id,
     story: v.story,
@@ -200,6 +227,8 @@ if (kind === 'escaped-defect') {
     notes: v.notes,
     by: v.by,
     now,
+    existing,
+    forceNew: v['force-new'] === true,
   });
   if (!built.ok) refuse(built.errors);
   else
@@ -207,7 +236,7 @@ if (kind === 'escaped-defect') {
       join(ESCAPED_DIR, `${id}.json`),
       built.record,
       ESCAPED_DEFECT_SCHEMA,
-      `Recorded ${id}: ${v.story} (${run.runId}) let a ${v.severity} defect escape (${v['why-missed']}). Regenerate the defect history (npm run defect-history) and the metrics (npm run metrics) to include it.`
+      `${v.replace ? 'Replaced' : 'Recorded'} ${id}: ${v.story} (${run.runId}) let a ${v.severity} defect escape (${v['why-missed']}). Regenerate the defect history (npm run defect-history) and the metrics (npm run metrics) to include it.`
     );
 } else {
   /** @param {string} flag */

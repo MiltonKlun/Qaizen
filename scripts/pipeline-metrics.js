@@ -60,7 +60,11 @@ import {
   roundsLines,
   roundsToApproval,
 } from './lib/outcome-metrics.js';
-import { readEscapedDefects, readStoryCosts } from './lib/outcomes.js';
+import {
+  readEscapedDefects,
+  readStoryCosts,
+  runIdentity,
+} from './lib/outcomes.js';
 
 const DRY = argv.includes('--dry-run');
 const RUNS = 'runs';
@@ -177,7 +181,7 @@ for (const run of runs) {
   const ctx = readJson(join(run.base, 'context.json'));
   const report = readJson(join(run.base, 'release', 'release-report.json'));
   const fa = readJson(join(run.base, 'analysis', 'failure-analysis.json'));
-  const runId = ctx?.run_id || fa?.run_id || run.dir;
+  const runId = runIdentity(ctx, fa, run.dir);
   const identity = `${run.story}|${runId}`;
   if (seen.has(identity)) {
     duplicateArchives += 1;
@@ -346,7 +350,8 @@ metrics.rounds_to_approval = roundsToApproval(liveContexts);
 metrics.repeat_check_flakes = repeatFlakes(liveContexts);
 metrics.escaped_defects = escapedMetrics(
   escapedRead.records,
-  escapedRead.invalid
+  escapedRead.invalid,
+  seen
 );
 metrics.cost_per_story = {
   ...costMetrics(costsRead.docs, seen),

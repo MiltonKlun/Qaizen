@@ -26,7 +26,12 @@ import {
   repeatFlakes,
   roundsToApproval,
 } from '../scripts/lib/outcome-metrics.js';
-import { EARLIER_KEPT, earlierChecks } from '../scripts/lib/repeat-check.js';
+import {
+  EARLIER_KEPT,
+  earlierChecks,
+  earlierDropped,
+  ledgerRepeatCheck,
+} from '../scripts/lib/repeat-check.js';
 import { healerMetrics } from '../scripts/lib/run-metrics.js';
 import {
   collectDefects,
@@ -82,7 +87,7 @@ test('gate time sums brief-to-decision minutes per gate and per run, and leaves 
 
 // ------------------------------------------------------------ rounds
 
-test('rounds to approval count the rejections before each approval, and a gate left rejected apart', () => {
+test('rounds to approval count the rejections before each approval, a re-approval and a gate left rejected apart', () => {
   const r = roundsToApproval([
     {
       gate_decisions: [
@@ -90,8 +95,12 @@ test('rounds to approval count the rejections before each approval, and a gate l
         d('test_scope_reviewed', 'rejected', null, '10:10'),
         d('test_scope_reviewed', 'approved', null, '10:20'),
         d('specs_reviewed', 'approved', null, '11:00'),
-        // Invalidated and approved again: a second approval, first time.
+        // Invalidated and approved again: a re-approval, not another
+        // first-time approval.
         d('specs_reviewed', 'approved', null, '12:00'),
+        // Invalidated, rejected, approved: a round of two.
+        d('specs_reviewed', 'rejected', null, '13:00'),
+        d('specs_reviewed', 'approved', null, '13:30'),
       ],
     },
     {
@@ -103,15 +112,16 @@ test('rounds to approval count the rejections before each approval, and a gate l
     { gate_decisions: [] },
   ]);
   assert.equal(r.runs_with_gate_log, 2);
+  // Rounds: test_scope 3 and 1, specs 1 and 2; one specs re-approval apart.
   assert.equal(r.approvals, 4);
+  assert.equal(r.reapprovals, 1);
   assert.equal(r.max_rounds, 3);
-  assert.equal(r.mean_rounds, 1.5);
-  assert.equal(r.first_time.count, 3);
-  assert.equal(r.first_time.value, 0.75);
-  assert.ok(
-    r.first_time.wilson_95[0] < 0.75 && r.first_time.wilson_95[1] > 0.75
-  );
+  assert.equal(r.mean_rounds, 1.75);
+  assert.equal(r.first_time.count, 2);
+  assert.equal(r.first_time.value, 0.5);
+  assert.ok(r.first_time.wilson_95[0] < 0.5 && r.first_time.wilson_95[1] > 0.5);
   assert.equal(r.open_after_rejection, 1);
+  assert.equal(r.by_gate.specs_reviewed.reapprovals, 1);
   assert.deepEqual(
     {
       approvals: r.by_gate.test_scope_reviewed.approvals,
@@ -166,13 +176,42 @@ test('a new repeat check keeps a summary of the one it replaces, up to the cap',
   );
   assert.equal(second.length, 2);
   assert.equal(second[0].outcome, 'flaky', 'oldest first');
+  // Twenty-five checks: the record keeps twenty earlier ones and counts the
+  // rest, so the metrics can say what they leave out.
   let chain = null;
-  for (let i = 0; i < EARLIER_KEPT + 5; i += 1)
+  for (let i = 0; i < EARLIER_KEPT + 5; i += 1) {
+    const dropped = earlierDropped(chain);
     chain = record('stable', [unit(10, 0)], {
       earlier: earlierChecks(chain),
+      ...(dropped ? { earlier_dropped: dropped } : {}),
     });
+  }
+  assert.equal(chain.earlier.length, EARLIER_KEPT);
+  assert.equal(chain.earlier_dropped, 4);
   assert.equal(earlierChecks(chain).length, EARLIER_KEPT);
+  assert.equal(earlierDropped(chain), 5);
+  assert.equal(repeatFlakes([{ repeat_check: chain }]).checks_not_kept, 4);
   assert.deepEqual(earlierChecks(null), []);
+  assert.equal(earlierDropped(null), 0);
+
+  // The ledger copy carries the check itself, valid against the ledger's
+  // schema, and nothing of the history.
+  const copy = ledgerRepeatCheck(chain);
+  assert.equal('earlier' in copy, false);
+  assert.equal('earlier_dropped' in copy, false);
+  assert.equal(
+    validateValue(copy, 'schemas/execution-ledger.schema.json', {
+      fragment: '#/properties/repeat_check',
+    }).ok,
+    true
+  );
+  assert.equal(
+    validateValue(chain, 'schemas/execution-ledger.schema.json', {
+      fragment: '#/properties/repeat_check',
+    }).ok,
+    false,
+    'the ledger schema refuses the history, which is why it is left out'
+  );
 });
 
 test('the flake rate counts the earlier checks of a run, not only its last one', () => {
@@ -351,6 +390,17 @@ test('the dual-judge trigger fires on three escaped false negatives, or on misse
     dualJudgeTrigger(none, canaries(4, 2, [0.15, 0.85])).fired,
     false
   );
+  // Nothing recorded and nothing planted: unknown, not "not fired".
+  assert.equal(dualJudgeTrigger(none, canaries(0, 0, null)).fired, null);
+
+  // A record of a run the metrics do not count is left out, and said.
+  const counted = escapedMetrics(
+    [escape(1, 'test_passed_wrongly'), escape(2, 'test_passed_wrongly')],
+    0,
+    new Set(['S-1|r1'])
+  );
+  assert.equal(counted.recorded, 1);
+  assert.equal(counted.not_counted, 1);
 });
 
 // ------------------------------------------------------------ the records
@@ -428,10 +478,33 @@ function workspace() {
     }),
   });
   put('runs/S-1/a/context.json', ctx('completed', 'run-a'));
+  const tc = (id, automation_decision, status = 'approved') => ({
+    test_case_id: id,
+    risk_ids: ['RISK-001'],
+    automation_decision,
+    status,
+  });
   put('runs/S-1/a/test-cases/S-1.json', {
-    test_cases: [{ test_case_id: 'TC-001', risk_ids: ['RISK-001'] }],
+    test_cases: [
+      tc('TC-001', 'automate_e2e'),
+      tc('TC-002', 'manual'),
+      tc('TC-003', 'automate_e2e', 'draft'),
+      tc('TC-004', 'automate_api'),
+    ],
+  });
+  put('runs/S-1/a/analysis/execution-ledger.json', {
+    case_outcomes: [
+      { test_case_id: 'TC-001', outcome: 'passed' },
+      { test_case_id: 'TC-004', outcome: 'failed' },
+    ],
   });
   put('runs/S-1/b/context.json', ctx('in_progress', 'run-b'));
+  // A run whose context records no id, but whose failure analysis does: the
+  // metrics and the outcome records must know it by the same one.
+  const { run_id: _id, ...noId } = ctx('completed', 'unused');
+  void _id;
+  put('runs/S-2/c/context.json', noId);
+  put('runs/S-2/c/analysis/failure-analysis.json', { run_id: 'run-c' });
   put('runs/DEMO-1/x/context.json', ctx('completed', 'demo'));
   put('runs/DEMO-1/x/DEMO_RUN', '');
   return dir;
@@ -464,6 +537,16 @@ test('record-outcome escaped-defect refuses what it cannot tie to a completed ru
     assert.equal(existsSync(join(dir, 'outcomes')), false, 'nothing written');
   };
   const base = ['--story', 'S-1', ...ESCAPE_ARGS];
+  const tied = (why, ...more) => [
+    ...base,
+    '--run',
+    'a',
+    '--risk',
+    'RISK-001',
+    ...more,
+    '--why-missed',
+    why,
+  ];
   refused(
     [
       ...base,
@@ -500,32 +583,26 @@ test('record-outcome escaped-defect refuses what it cannot tie to a completed ru
     [...base, '--run', 'a', '--risk', 'RISK-009', '--why-missed', 'unknown'],
     /RISK-009 is not a risk of runs\/S-1\/a/
   );
-  refused(
-    [
-      ...base,
-      '--run',
-      'a',
-      '--risk',
-      'RISK-001',
-      '--case',
-      'TC-404',
-      '--why-missed',
-      'not_run',
-    ],
-    /TC-404 is not a test case/
-  );
+  refused(tied('not_run', '--case', 'TC-404'), /TC-404 is not a test case/);
   refused([...base, '--run', 'a', '--why-missed', 'no_case'], /--unresolved/);
+  refused(tied('test_passed_wrongly'), /test_case_ids/);
+  // A case must have been in scope, and decided in a way that fits.
   refused(
-    [
-      ...base,
-      '--run',
-      'a',
-      '--risk',
-      'RISK-001',
-      '--why-missed',
-      'test_passed_wrongly',
-    ],
-    /test_case_ids/
+    tied('test_passed_wrongly', '--case', 'TC-003'),
+    /TC-003 is draft .*only an approved case/
+  );
+  refused(
+    tied('test_passed_wrongly', '--case', 'TC-002'),
+    /TC-002 was decided manual, which does not fit test_passed_wrongly/
+  );
+  refused(
+    tied('not_automated', '--case', 'TC-001'),
+    /TC-001 was decided automate_e2e, which does not fit not_automated/
+  );
+  // A test the ledger records as failed did not pass wrongly.
+  refused(
+    tied('test_passed_wrongly', '--case', 'TC-004'),
+    /ledger records TC-004 as failed, not passed/
   );
   refused(
     [
@@ -543,12 +620,20 @@ test('record-outcome escaped-defect refuses what it cannot tie to a completed ru
       '--by',
       'x',
     ],
-    /in the future/
+    /after today/
   );
 
-  const ok = cli(
-    dir,
-    'escaped-defect',
+  /** Run the CLI and expect it to succeed. */
+  const recorded = (...args) => {
+    const r = cli(dir, 'escaped-defect', ...args);
+    assert.equal(r.status, 0, r.stderr);
+    return r;
+  };
+  const read = (id) =>
+    JSON.parse(
+      readFileSync(join(dir, `outcomes/escaped-defects/${id}.json`), 'utf8')
+    );
+  recorded(
     ...base,
     '--run',
     'run-a',
@@ -561,17 +646,16 @@ test('record-outcome escaped-defect refuses what it cannot tie to a completed ru
     '--jira',
     'SHOP-9'
   );
-  assert.equal(ok.status, 0, ok.stderr);
-  const first = JSON.parse(
-    readFileSync(join(dir, 'outcomes/escaped-defects/ESC-001.json'), 'utf8')
-  );
+  const first = read('ESC-001');
   assert.equal(validateValue(first, ESC_SCHEMA).ok, true);
   assert.equal(first.run_id, 'run-a');
   assert.equal(first.run_archive, 'runs/S-1/a');
-  const second = cli(
-    dir,
-    'escaped-defect',
-    ...base,
+  recorded(
+    '--story',
+    'S-1',
+    '--summary',
+    'Tax rounded the wrong way.',
+    ...ESCAPE_ARGS.slice(2),
     '--run',
     'a',
     '--unresolved',
@@ -579,13 +663,71 @@ test('record-outcome escaped-defect refuses what it cannot tie to a completed ru
     '--why-missed',
     'no_case'
   );
-  assert.equal(second.status, 0, second.stderr);
   assert.ok(existsSync(join(dir, 'outcomes/escaped-defects/ESC-002.json')));
+
+  // The same defect twice is refused: by its summary in the same run, or by
+  // its Jira key.
+  const again = cli(dir, 'escaped-defect', ...tied('unknown'));
+  assert.equal(again.status, 2);
+  assert.match(again.stderr, /ESC-001 already records this defect/);
+  const sameKey = cli(
+    dir,
+    'escaped-defect',
+    '--story',
+    'S-1',
+    '--summary',
+    'Something else.',
+    ...ESCAPE_ARGS.slice(2),
+    '--run',
+    'a',
+    '--risk',
+    'RISK-001',
+    '--why-missed',
+    'unknown',
+    '--jira',
+    'SHOP-9'
+  );
+  assert.equal(sameKey.status, 2);
+  assert.match(sameKey.stderr, /ESC-001 already records SHOP-9/);
+  // Another defect that only looks the same is recorded on request.
+  recorded(...tied('unknown'), '--force-new');
+  assert.equal(read('ESC-003').why_missed, 'unknown');
+  // Once more is known, the record is replaced under its own id.
+  recorded(
+    '--story',
+    'S-1',
+    '--summary',
+    'The total ignored a second discount.',
+    ...ESCAPE_ARGS.slice(2),
+    '--run',
+    'a',
+    '--risk',
+    'RISK-001',
+    '--why-missed',
+    'no_case',
+    '--replace',
+    'ESC-003'
+  );
+  assert.equal(read('ESC-003').why_missed, 'no_case');
+  assert.ok(!existsSync(join(dir, 'outcomes/escaped-defects/ESC-004.json')));
+  const missing = cli(
+    dir,
+    'escaped-defect',
+    ...tied('unknown'),
+    '--replace',
+    'ESC-099'
+  );
+  assert.equal(missing.status, 2);
+  assert.match(missing.stderr, /--replace ESC-099: no valid record/);
 
   const dry = cli(
     dir,
     'escaped-defect',
-    ...base,
+    '--story',
+    'S-1',
+    '--summary',
+    'A dry run.',
+    ...ESCAPE_ARGS.slice(2),
     '--run',
     'a',
     '--risk',
@@ -595,13 +737,13 @@ test('record-outcome escaped-defect refuses what it cannot tie to a completed ru
     '--dry-run'
   );
   assert.equal(dry.status, 0, dry.stderr);
-  assert.ok(!existsSync(join(dir, 'outcomes/escaped-defects/ESC-003.json')));
+  assert.ok(!existsSync(join(dir, 'outcomes/escaped-defects/ESC-004.json')));
 
   // The defect history lists them, with the risk as the run described it.
   const md = renderDefectHistory(
     collectDefects(join(dir, 'runs'), join(dir, 'outcomes/escaped-defects'))
   );
-  assert.match(md, /product bugs: 0 · escaped defects: 2/);
+  assert.match(md, /product bugs: 0 · escaped defects: 3/);
   assert.match(
     md,
     /\| S-1 \| run-a \| ESC-001 \(SHOP-9\) \| RISK-001 \(high\): The total is wrong\. \| test_passed_wrongly \(TC-001\) \| production, 2026-10-05 \| high: The total ignored the discount\. \|/
@@ -679,7 +821,9 @@ test('npm run metrics renders every outcome section on fixture runs, and /evolve
       'S-1',
       '--run',
       'a',
-      ...ESCAPE_ARGS,
+      '--summary',
+      `Defect number ${n} slipped past TC-001.`,
+      ...ESCAPE_ARGS.slice(2),
       '--risk',
       'RISK-001',
       '--case',
@@ -699,6 +843,23 @@ test('npm run metrics renders every outcome section on fixture runs, and /evolve
       'a',
       '--minutes',
       '95',
+      '--by',
+      'x'
+    ).status,
+    0
+  );
+  // S-2's run is known by the id its failure analysis records; its cost
+  // entry must be counted against that same run.
+  assert.equal(
+    cli(
+      dir,
+      'cost',
+      '--story',
+      'S-2',
+      '--run',
+      'run-c',
+      '--minutes',
+      '5',
       '--by',
       'x'
     ).status,
@@ -733,22 +894,24 @@ test('npm run metrics renders every outcome section on fixture runs, and /evolve
   ])
     assert.match(md, new RegExp(`^## ${heading}$`, 'm'), heading);
 
-  // Two runs of S-1 (the demo is not one): 40 min at the gates in each.
-  assert.equal(json.gate_time.decisions_timed, 6);
+  // Three runs (the demo is not one): 60 min at the gates in each.
+  assert.equal(json.total_runs, 3);
+  assert.equal(json.gate_time.decisions_timed, 9);
   assert.equal(json.gate_time.median_minutes_per_run, 60);
   assert.equal(
     json.rounds_to_approval.by_gate.requirements_reviewed.mean_rounds,
     2
   );
-  assert.equal(json.repeat_check_flakes.checks, 4);
-  assert.equal(json.repeat_check_flakes.flaky_checks.count, 2);
+  assert.equal(json.repeat_check_flakes.checks, 6);
+  assert.equal(json.repeat_check_flakes.flaky_checks.count, 3);
   assert.equal(json.escaped_defects.recorded, 3);
   assert.equal(json.escaped_defects.invalid_records, 1);
-  assert.equal(json.cost_per_story.overall.operator_minutes.total, 95);
+  assert.equal(json.cost_per_story.overall.operator_minutes.total, 100);
+  assert.equal(json.cost_per_story.entries_not_counted, 0);
   assert.equal(json.dual_judge_trigger.fired, true);
   assert.match(md, /- FIRED: re-open the evaluation/);
   assert.match(md, /1 record\(s\) left out: they do not validate/);
-  assert.match(md, /Repeat checks that found a flaky test: 2\/4 = 50%/);
+  assert.match(md, /Repeat checks that found a flaky test: 3\/6 = 50%/);
 
   const e = spawnSync(
     execPath,

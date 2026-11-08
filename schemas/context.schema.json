@@ -738,6 +738,11 @@
             }
           }
         },
+        "earlier_dropped": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "OPTIONAL. How many earlier checks ran but are past the twenty earlier[] keeps, so the metrics can say the flake rate leaves them out. Written only by the runner."
+        },
         "units": {
           "type": "array",
           "items": {

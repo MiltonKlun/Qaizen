@@ -38,7 +38,8 @@ export const REPEAT_REPORT = 'reports/repeat/results.json';
  * @typedef {{ input_digest: string, track: string, repeat_each: number,
  *   workers: number, ran_at: string, report: string, outcome: RepeatOutcome,
  *   units: RepeatUnit[], errors?: string[],
- *   earlier?: ReturnType<typeof earlierChecks> }} RepeatRecord
+ *   earlier?: ReturnType<typeof earlierChecks>,
+ *   earlier_dropped?: number }} RepeatRecord
  */
 
 /**
@@ -83,6 +84,34 @@ export function earlierChecks(previous) {
       flaky_units: previous.units.filter(isFlakyUnit).length,
     },
   ].slice(-EARLIER_KEPT);
+}
+
+/**
+ * The repeat check as the execution ledger records it: the check itself,
+ * without the summaries of earlier ones (run history, not evidence of the
+ * execution it sits beside; the ledger schema has no place for them).
+ * @param {RepeatRecord} record
+ */
+export function ledgerRepeatCheck(record) {
+  const { earlier: _earlier, earlier_dropped: _dropped, ...check } = record;
+  void _earlier;
+  void _dropped;
+  return check;
+}
+
+/**
+ * How many earlier checks a new record no longer keeps a summary of: the
+ * previous record's count, plus any its own summaries push past the cap.
+ * @param {RepeatRecord | null | undefined} previous
+ * @returns {number}
+ */
+export function earlierDropped(previous) {
+  if (!previous || !Array.isArray(previous.units)) return 0;
+  const kept = Array.isArray(previous.earlier) ? previous.earlier.length : 0;
+  const before = Number.isInteger(previous.earlier_dropped)
+    ? /** @type {number} */ (previous.earlier_dropped)
+    : 0;
+  return before + Math.max(0, kept + 1 - EARLIER_KEPT);
 }
 
 /**

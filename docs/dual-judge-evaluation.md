@@ -88,8 +88,12 @@ when **either** signal is met:
 
 Each signal carries its own minimum count, so a single bad run does not fire
 it, and neither needs the run-count precondition: three recorded false
-negatives are evidence however many runs there were. The trigger is
-advisory. Firing re-opens the evaluation; it does not adopt anything.
+negatives are evidence however many runs there were. The canary bound is the
+upper end of the two-sided 95% Wilson interval, so "below 90%" means the
+data say, with about 97.5% confidence, that reviewers catch fewer than nine
+canaries in ten. While no escaped defect is recorded and no canary was
+planted, the trigger is unknown, not "not fired". The trigger is advisory.
+Firing re-opens the evaluation; it does not adopt anything.
 
 Still worth re-opening by judgment, though not measured: the project moves to
 an app or domain where assertions are inherently semantic (generated content,

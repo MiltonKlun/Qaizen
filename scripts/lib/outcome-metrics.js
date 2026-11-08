@@ -102,12 +102,16 @@ export function gateTime(contexts) {
 
 /**
  * How many decisions each approval took: the rejections since the previous
- * approval of the same gate, plus the approval. A gate whose last decision
- * is a rejection is counted apart, as still open.
+ * approval of the same gate, plus the approval. An approval that follows an
+ * approval of the same gate with no rejection between is a re-approval
+ * (after a change to the reviewed inputs returned the gate to pending), and
+ * is counted apart: counting it as approved the first time would inflate
+ * that share. A gate whose last decision is a rejection is counted apart, as
+ * still open.
  * @param {any[]} contexts
  */
 export function roundsToApproval(contexts) {
-  /** @type {Record<string, { rounds: number[], open: number }>} */
+  /** @type {Record<string, { rounds: number[], open: number, reapprovals: number }>} */
   const byGate = {};
   let runs = 0;
   for (const ctx of contexts) {
@@ -116,20 +120,24 @@ export function roundsToApproval(contexts) {
     runs += 1;
     /** @type {Record<string, number>} */
     const pending = {};
+    /** @type {Set<string>} gates approved before in this run */
+    const approved = new Set();
     for (const d of decisions) {
       if (typeof d?.gate !== 'string') continue;
-      const g = (byGate[d.gate] ??= { rounds: [], open: 0 });
+      const g = (byGate[d.gate] ??= { rounds: [], open: 0, reapprovals: 0 });
       if (d?.decision === 'rejected')
         pending[d.gate] = (pending[d.gate] ?? 0) + 1;
       else if (d?.decision === 'approved') {
-        g.rounds.push((pending[d.gate] ?? 0) + 1);
+        if (approved.has(d.gate) && !pending[d.gate]) g.reapprovals += 1;
+        else g.rounds.push((pending[d.gate] ?? 0) + 1);
         pending[d.gate] = 0;
+        approved.add(d.gate);
       }
     }
     for (const [gate, n] of Object.entries(pending))
       if (n > 0) byGate[gate].open += 1;
   }
-  /** @param {{ rounds: number[], open: number }} g */
+  /** @param {{ rounds: number[], open: number, reapprovals: number }} g */
   const summary = (g) => {
     const first = g.rounds.filter((r) => r === 1).length;
     return {
@@ -140,6 +148,7 @@ export function roundsToApproval(contexts) {
         : null,
       max_rounds: g.rounds.length ? Math.max(...g.rounds) : null,
       open_after_rejection: g.open,
+      reapprovals: g.reapprovals,
     };
   };
   const all = Object.values(byGate);
@@ -148,6 +157,7 @@ export function roundsToApproval(contexts) {
     ...summary({
       rounds: all.flatMap((g) => g.rounds),
       open: all.reduce((a, g) => a + g.open, 0),
+      reapprovals: all.reduce((a, g) => a + g.reapprovals, 0),
     }),
     by_gate: Object.fromEntries(
       Object.entries(byGate)
@@ -171,10 +181,12 @@ export function repeatFlakes(contexts) {
   let flakyChecks = 0;
   let units = 0;
   let flakyUnits = 0;
+  let notKept = 0;
   for (const ctx of contexts) {
     const r = ctx?.repeat_check;
     if (!r || !Array.isArray(r.units)) continue;
     runs += 1;
+    if (Number.isInteger(r.earlier_dropped)) notKept += r.earlier_dropped;
     const list = [
       ...(Array.isArray(r.earlier) ? r.earlier : []),
       {
@@ -196,6 +208,8 @@ export function repeatFlakes(contexts) {
     flaky_checks: { count: flakyChecks, ...rate(flakyChecks, checks) },
     tests_checked: units,
     flaky_tests: { count: flakyUnits, ...rate(flakyUnits, units) },
+    // Checks past the summaries a record keeps: run, but no longer countable.
+    checks_not_kept: notKept,
   };
 }
 
@@ -277,14 +291,20 @@ export const WHY_MISSED = [
  * Escaped defects, by why they were missed.
  * @param {any[]} records valid outcomes/escaped-defects/*.json records
  * @param {number} invalid records left out because they do not validate
+ * @param {Set<string>} [counted] `story|run_id` of the runs the metrics count;
+ *   a defect recorded against any other run is left out and counted apart
  */
-export function escapedMetrics(records, invalid = 0) {
-  const sorted = [...records].sort((a, b) =>
+export function escapedMetrics(records, invalid = 0, counted) {
+  const kept = counted
+    ? records.filter((r) => counted.has(`${r.story_id}|${r.run_id}`))
+    : records;
+  const sorted = [...kept].sort((a, b) =>
     a.escaped_defect_id.localeCompare(b.escaped_defect_id)
   );
   return {
     recorded: sorted.length,
     invalid_records: invalid,
+    not_counted: records.length - kept.length,
     runs_with_escape: new Set(sorted.map((r) => `${r.story_id}|${r.run_id}`))
       .size,
     by_why_missed: Object.fromEntries(
@@ -357,7 +377,10 @@ export function dualJudgeTrigger(escaped, canaries) {
         upper < DUAL_JUDGE.canary_upper_below,
     },
   ];
-  return { fired: signals.some((s) => s.met), signals };
+  // With nothing recorded and nothing planted there is no evidence either
+  // way: unknown, not "not fired".
+  const evidence = escaped.recorded > 0 || planted > 0;
+  return { fired: evidence ? signals.some((s) => s.met) : null, signals };
 }
 
 // ------------------------------------------------------------ Markdown
@@ -397,18 +420,22 @@ export function gateTimeLines(t, totalRuns) {
  * @returns {string[]}
  */
 export function roundsLines(r, totalRuns) {
-  if (!r.approvals && !r.open_after_rejection)
+  if (!r.approvals && !r.open_after_rejection && !r.reapprovals)
     return [
       `- No run records a gate decision (0/${totalRuns}): rounds to approval are unknown.`,
     ];
   return [
-    `- ${r.approvals} approval(s) over ${r.runs_with_gate_log}/${totalRuns} run(s): ${r.mean_rounds ?? 'n/a'} decision(s) per approval on average, at most ${r.max_rounds ?? 'n/a'}; approved the first time ${r.first_time.count}/${r.approvals} = ${pctI(r.first_time)}.`,
+    `- ${r.approvals} approval(s) over ${r.runs_with_gate_log}/${totalRuns} run(s): ${r.mean_rounds ?? 'n/a'} decision(s) per approval on average, at most ${r.max_rounds ?? 'n/a'}; approved the first time ${r.first_time.count}/${r.approvals} = ${pctI(r.first_time)}.` +
+      (r.reapprovals
+        ? ` ${r.reapprovals} re-approval(s) after a change to the reviewed inputs counted apart.`
+        : ''),
     ...Object.entries(r.by_gate).map(
       ([g, v]) =>
         `- ${g}: ${v.approvals} approval(s), ${v.mean_rounds ?? 'n/a'} per approval, at most ${v.max_rounds ?? 'n/a'}, first time ${v.first_time.count}/${v.approvals}` +
         (v.open_after_rejection
           ? `; ${v.open_after_rejection} run(s) left it rejected`
-          : '')
+          : '') +
+        (v.reapprovals ? `; ${v.reapprovals} re-approval(s)` : '')
     ),
   ];
 }
@@ -427,6 +454,11 @@ export function flakeLines(f, totalRuns) {
     `- Repeat checks that found a flaky test: ${f.flaky_checks.count}/${f.checks} = ${pctI(f.flaky_checks)}, over ${f.runs_with_check}/${totalRuns} run(s).`,
     `- Tests flaky in a check: ${f.flaky_tests.count}/${f.tests_checked} = ${pctI(f.flaky_tests)}.`,
     '- A run keeps a summary of each earlier check, so a flaky check that was fixed still counts; runs from before that only show their last check.',
+    ...(f.checks_not_kept
+      ? [
+          `- ${f.checks_not_kept} earlier check(s) ran but are past the summaries a record keeps, and are not in these counts.`,
+        ]
+      : []),
   ];
 }
 
@@ -490,11 +522,18 @@ export function costLines(c, totalRuns) {
  * @returns {string[]}
  */
 export function escapedLines(e, totalRuns) {
-  const invalid = e.invalid_records
-    ? [
-        `- ${e.invalid_records} record(s) left out: they do not validate against schemas/escaped-defect.schema.json.`,
-      ]
-    : [];
+  const invalid = [
+    ...(e.invalid_records
+      ? [
+          `- ${e.invalid_records} record(s) left out: they do not validate against schemas/escaped-defect.schema.json.`,
+        ]
+      : []),
+    ...(e.not_counted
+      ? [
+          `- ${e.not_counted} record(s) left out: their run is not among the runs counted here.`,
+        ]
+      : []),
+  ];
   if (!e.recorded)
     return [
       '- None recorded. That a defect escaped is only known once someone records it (npm run record-outcome -- escaped-defect); none recorded is not none escaped.',
@@ -520,9 +559,11 @@ export function escapedLines(e, totalRuns) {
  */
 export function dualJudgeLines(t) {
   return [
-    t.fired
-      ? '- FIRED: re-open the evaluation in docs/dual-judge-evaluation.md.'
-      : '- Not fired.',
+    t.fired === null
+      ? '- Unknown: no escaped defect is recorded and no canary was planted, so there is no evidence either way.'
+      : t.fired
+        ? '- FIRED: re-open the evaluation in docs/dual-judge-evaluation.md.'
+        : '- Not fired.',
     ...t.signals.map((s) => {
       const upper =
         ('catch_rate_upper_95' in s ? s.catch_rate_upper_95 : null) ?? null;

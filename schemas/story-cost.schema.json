@@ -28,11 +28,11 @@
           "run_id": {
             "type": "string",
             "minLength": 1,
-            "description": "The run's id as its archived context.json records it (its archive folder name when it records none)."
+            "description": "The run's id as its archived context.json records it, else as its failure analysis does, else its archive folder name: the id the metrics count it by."
           },
           "run_archive": {
             "type": "string",
-            "pattern": "^runs/[A-Za-z0-9][A-Za-z0-9._-]*/[^/]+$"
+            "pattern": "^runs/[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][^/]*$"
           },
           "operator_minutes": {
             "type": "number",
