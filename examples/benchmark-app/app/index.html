@@ -23,20 +23,18 @@
         margin: 0 auto;
         padding: 20px;
       }
-      .item {
+      .product {
         border-bottom: 1px solid #ddd;
         padding: 12px 0;
         display: flex;
         justify-content: space-between;
         align-items: center;
       }
-      .item_name {
+      .product-name {
         font-weight: 600;
       }
-      .item_price {
-        color: #2a6;
-      }
-      .price-tag {
+      .price,
+      .cost {
         color: #2a6;
       }
       button {
@@ -57,26 +55,25 @@
         margin: 6px 0;
         box-sizing: border-box;
       }
-      .cart_badge {
+      .basket-count {
         background: #e33;
         color: #fff;
         border-radius: 10px;
         padding: 1px 7px;
         font-size: 12px;
       }
-      .summary_row {
+      .sum-row {
         display: flex;
         justify-content: space-between;
         padding: 4px 0;
       }
-      .summary-list {
-        list-style: none;
-        padding: 0;
+      .order-table {
+        border-collapse: collapse;
       }
-      .summary-line {
+      .order-line td {
         padding: 4px 0;
       }
-      .error {
+      .notice {
         color: #c00;
         min-height: 18px;
       }
@@ -90,15 +87,15 @@
   </head>
   <body>
     <header>
-      <span class="app_title">Bench Shop</span>
+      <span class="shop-name">Bench Shop</span>
       <a
-        href="#cart"
-        class="shopping_cart_link"
-        data-test="shopping-cart-link"
-        aria-label="cart"
+        href="#basket"
+        class="basket-link"
+        data-qa="basket-link"
+        aria-label="basket"
       >
         🛒
-        <span class="cart_badge hidden" data-test="shopping-cart-badge"></span>
+        <span class="basket-count hidden" data-qa="basket-count"></span>
       </a>
     </header>
     <main id="app"><!-- rendered by shop.js --></main>

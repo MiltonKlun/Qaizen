@@ -4,9 +4,14 @@
 // and its drifted v2, runs the reviewed login-surface probes with
 // scripts/selector-survival.js --probe, and compares the outcome with the
 // ground truth in examples/benchmark-app/README.md (drift table): the
-// login-button and title test-ids survive; username, password and the .title
-// class do not. A mismatch means the app, the probes, or the survival rule
-// changed — fix that before measuring a series.
+// sign-in submit and page-heading hooks survive; the user and passphrase hooks
+// and the .heading class do not. A mismatch means the app, the probes, or the
+// survival rule changed — fix that before measuring a series.
+//
+// Then it drives one purchase on v1, clean and with each seeded bug, and
+// checks that every bug changes exactly the symptom the README documents
+// (scripts/lib/bench-shop-check.js), so known_bug_catch_rate has something to
+// catch.
 //
 // Usage: npm run benchmark:check
 // Exit codes: 0 matches the ground truth · 1 differs · 3 not measurable here
@@ -19,6 +24,8 @@ import { dirname, join } from 'node:path';
 import { exit } from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { BUGS, bugProblems, observePurchase } from './lib/bench-shop-check.js';
+
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
 const SERVER = join(REPO, 'examples', 'benchmark-app', 'serve.js');
 const PROBES = join(
@@ -29,8 +36,8 @@ const PROBES = join(
   'login-surface.probe.mjs'
 );
 const EXPECTED = {
-  survived: ['login-button-test-id', 'title-test-id'],
-  lost: ['password-test-id', 'title-class', 'username-test-id'],
+  survived: ['heading-hook', 'submit-hook'],
+  lost: ['heading-class', 'pass-hook', 'user-hook'],
 };
 
 async function browserInstalled() {
@@ -44,15 +51,17 @@ async function browserInstalled() {
 
 /**
  * @param {string} version
+ * @param {string[]} [bugs]
  * @returns {Promise<{ port: number, stop: () => boolean }>}
  */
-function serve(version) {
+function serve(version, bugs = []) {
   const child = spawn(process.execPath, [
     SERVER,
     '--version',
     version,
     '--port',
     '0',
+    ...bugs.flatMap((b) => ['--bug', b]),
   ]);
   return new Promise((resolve, reject) => {
     child.stdout.on('data', (b) => {
@@ -130,8 +139,51 @@ try {
       );
     }
   }
+  if (code === 0) code = await checkBugs();
 } finally {
   for (const s of servers) s.stop();
   rmSync(dir, { recursive: true, force: true });
 }
 exit(code);
+
+/**
+ * Every seeded bug toggles its own symptom and nothing else.
+ * @returns {Promise<number>} the exit code
+ */
+async function checkBugs() {
+  const { chromium } = await import('@playwright/test');
+  const browser = await chromium.launch();
+  /** @type {Record<string, import('./lib/bench-shop-check.js').Observation>} */
+  const seen = {};
+  try {
+    for (const bug of ['clean', ...BUGS]) {
+      const server = await serve('v1', bug === 'clean' ? [] : [bug]);
+      const page = await browser.newPage();
+      try {
+        seen[bug] = await observePurchase(
+          page,
+          `http://127.0.0.1:${server.port}/`
+        );
+      } finally {
+        await page.close();
+        server.stop();
+      }
+    }
+  } finally {
+    await browser.close();
+  }
+  const problems = bugProblems(seen);
+  if (problems.length) {
+    console.error(
+      '\nbenchmark:check FAILED: a seeded bug does not toggle as documented:'
+    );
+    for (const p of problems) console.error(`  - ${p}`);
+    return 1;
+  }
+  const c = seen.clean;
+  console.log(
+    `benchmark:check OK: clean purchase Items ${c.items / 100}, Sales tax ${c.tax / 100}, Order total ${c.total / 100}; ` +
+      `each of ${BUGS.join(', ')} changes only its own symptom.`
+  );
+  return 0;
+}

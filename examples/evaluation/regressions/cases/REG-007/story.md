@@ -1,61 +1,48 @@
-# Checkout order summary shows the correct item total, tax, and total (STORY-020)
+# The order review shows the right items figure, sales tax and order total (BENCH-2)
 
-> Manual-mode story. Targets the SauceDemo shopping demo app
-> (https://www.saucedemo.com). The Analyst should treat this as
-> `source: "manual"` and produce `context.json` with
-> `story.id = "STORY-020"`. New territory for the evaluation dataset:
-> the multi-step checkout journey and its money math (not previously
-> covered by the login / cart-badge / sort stories).
+> Manual-mode story for the local Bench Shop (`examples/benchmark-app/`;
+> `--bug wrong-item-total` and `--bug inconsistent-total` break it). The
+> Analyst should treat it as `source: "manual"` and produce `context.json`
+> with `story.id = "BENCH-2"`.
 
 ## Goal
 
-A shopper who has items in their cart can complete the two-step checkout
-(enter their information, review the order summary, and finish the
-purchase). The order-summary step must show the correct **item total**
-(sum of the cart item prices), the **tax**, and the **total**
-(item total + tax) — so the shopper sees an accurate amount before they
-commit to the order.
+A shopper with products in the basket can check out: enter delivery details,
+review the order, and place it. The review must show the right **Items**
+figure (the sum of the basket's prices), the **Sales tax**, and the **Order
+total** (Items plus Sales tax), so the shopper sees the true amount before
+placing the order.
 
 ## Acceptance criteria
 
-1. Given a shopper with two known items in the cart, when they proceed
-   to checkout and submit valid first name, last name, and postal code,
-   then they reach the "Checkout: Overview" step showing both items.
-2. Given the checkout overview step, when the order summary is displayed,
-   then the "Item total" equals the exact sum of the unit prices of the
-   items in the cart.
-3. Given the checkout overview step, when the order summary is displayed,
-   then the "Total" equals the displayed "Item total" plus the displayed
-   "Tax" (the arithmetic on screen is internally consistent).
-4. Given the checkout information step, when the shopper submits the form
-   with a missing required field (e.g. no postal code), then they remain
-   on the information step and an error message is shown — they do not
-   advance to the overview.
-5. Given the checkout overview step, when the shopper clicks "Finish",
-   then they reach the "Checkout: Complete!" confirmation and the cart
-   badge is cleared (the order has been placed).
+1. Given a shopper with two products in the basket, when they go to checkout
+   and submit a given name, a family name and a postcode, then they reach the
+   "Review your order" screen listing both products.
+2. Given the order review, when the summary is shown, then the "Items" figure
+   equals the exact sum of the prices of the products in the basket.
+3. Given the order review, when the summary is shown, then the "Order total"
+   equals the shown "Items" figure plus the shown "Sales tax".
+4. Given the delivery details screen, when the shopper submits it with a
+   required field empty (for example no postcode), then they stay on that
+   screen and a message says what is missing; they do not reach the review.
+5. Given the order review, when the shopper places the order, then they reach
+   the "Order placed" confirmation and the basket count is cleared.
 
 ## Out of scope
 
-- Adding/removing items inside the checkout flow (cart contents are a
-  precondition, set up before checkout begins).
-- Real payment processing (SauceDemo has no real payment backend).
-- Persisting an order history across sessions.
-- Visual styling of the checkout pages.
-- The "Cancel" buttons' navigation targets (separate concern).
+- Changing the basket during checkout (its contents are set up before).
+- Payment (Bench Shop takes none).
+- Order history.
+- How the checkout screens look.
+- Where the cancel and back buttons lead.
 
 ## Notes for the QA pipeline
 
-- AC 1, AC 4, AC 5 are UI-journey assertions (multi-step form, error
-  state, confirmation) → `automate_e2e`.
-- AC 2 and AC 3 are the money-math guarantees — the highest-value cases.
-  They are observable only on the rendered overview page (SauceDemo has
-  no order-summary API), so they are `automate_e2e` too, but they are
-  the regression-critical ones: a wrong item total or an inconsistent
-  total is a money bug. The Planner/Generator must read the actual
-  rendered prices and compute the expected sum, NOT hard-code a magic
-  number from the story text.
-- Standard SauceDemo user `standard_user` / `secret_sauce`, base URL
-  https://www.saucedemo.com. Known item prices to use: Sauce Labs
-  Backpack ($29.99) and Sauce Labs Bike Light ($9.99), but the tests
-  should read the prices live rather than assume them.
+- AC 1, AC 4 and AC 5 are journey assertions → `automate_e2e`.
+- AC 2 and AC 3 are the money guarantees and the regression-critical cases.
+  They are visible only on the rendered review (Bench Shop has no API), so
+  they are `automate_e2e` too. The tests must read the prices and figures the
+  screen shows and compute the expected values from them, never copy a number
+  from this story; the story gives none on purpose.
+- The sign-in screen shows the demo account. Every hook, price and figure
+  is on the running app: read them from it.

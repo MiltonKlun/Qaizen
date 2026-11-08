@@ -6,9 +6,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
+import { readFileSync, readdirSync } from 'node:fs';
 import { request } from 'node:http';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { execPath } from 'node:process';
+
+import {
+  bugProblems,
+  cents,
+  salesTax,
+} from '../scripts/lib/bench-shop-check.js';
 
 const REPO = process.cwd();
 const BENCH = join(REPO, 'examples', 'benchmark-app', 'serve.js');
@@ -117,23 +124,129 @@ test('the version configuration holds only the documented drift', async () => {
   const { v1, v2 } = globalThis.BENCH_VERSIONS;
   assert.deepEqual(Object.keys(globalThis.BENCH_VERSIONS), ['v1', 'v2']);
   assert.deepEqual(v1.hooks, {
-    username: 'username',
-    password: 'password',
-    price: 'inventory-item-price',
-    add: 'add-to-cart',
+    user: 'login-user',
+    pass: 'login-pass',
+    price: 'product-price',
+    add: 'basket-add',
   });
   assert.deepEqual(v2.hooks, {
-    username: 'user-name',
-    password: 'pass-word',
-    price: 'item-cost',
-    add: 'add',
+    user: 'signin-user',
+    pass: 'signin-pass',
+    price: 'unit-price',
+    add: 'put-in',
   });
+  // A v2 hook is never part of its v1 name, so a check that a repair uses
+  // the v2 hook cannot be satisfied by the v1 one.
+  for (const k of Object.keys(v1.hooks))
+    assert.equal(v1.hooks[k].includes(v2.hooks[k]), false, k);
   // One visible element per summary figure in both versions: no duplicate
   // label text for a text-based locator to trip over.
   for (const v of [v1, v2]) {
-    const html = v.summary('$1.00', '$0.08', '$1.08');
-    assert.equal((html.match(/Item total:/g) ?? []).length, 1);
-    assert.equal((html.match(/Tax:/g) ?? []).length, 1);
-    assert.equal((html.match(/>Total:/g) ?? []).length, 1);
+    const html = v.summary('$1.00', '$0.07', '$1.07');
+    assert.equal((html.match(/Items:/g) ?? []).length, 1);
+    assert.equal((html.match(/Sales tax:/g) ?? []).length, 1);
+    assert.equal((html.match(/Order total:/g) ?? []).length, 1);
   }
+});
+
+// What a model may remember of the well-known public demo shop: none of it
+// may be in the Bench Shop or in the cases and stories that run on it, so a
+// test that passes there was written by looking at the app.
+const SAUCEDEMO = [
+  // products and their ids
+  /sauce labs/i,
+  /sauce-labs/i,
+  /backpack/i,
+  /bike light/i,
+  /bolt t-shirt/i,
+  /fleece jacket/i,
+  /onesie/i,
+  /allthethings/i,
+  // credentials
+  /standard_user|locked_out_user|problem_user|performance_glitch_user|error_user|visual_user/,
+  /secret_sauce/,
+  // prices, the 8% tax and the totals they make
+  /\b(29\.99|9\.99|15\.99|49\.99|7\.99|39\.98|43\.18)\b/,
+  /\b0\.08\b|\b8 ?%/,
+  // the attribute, hooks, classes, routes and screen text
+  /data-test\b/,
+  /shopping[-_]cart|inventory[-_]item|add-to-cart|checkout-step|subtotal|tax-label|total-label/i,
+  /complete-header|back-to-products|continue-shopping|login-button|firstName|lastName|postalCode/,
+  /item_price|summary_info|cart_badge|app_logo|inventory\.html/,
+  /swag labs|checkout: overview|checkout: complete|thank you for your order|your cart|epic sadface|item total/i,
+];
+const benchFiles = () => {
+  /** @type {string[]} */
+  const files = [];
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else files.push(p);
+    }
+  };
+  walk(join(REPO, 'examples', 'benchmark-app'));
+  for (const c of ['REG-006', 'REG-007', 'REG-008', 'REG-009', 'REG-010'])
+    walk(join(REPO, 'examples', 'evaluation', 'regressions', 'cases', c));
+  return files;
+};
+
+test('the Bench Shop, its stories and the cases run on it hold no SauceDemo names, prices, credentials or hooks', () => {
+  const files = benchFiles();
+  assert.ok(files.length >= 20, `only ${files.length} files scanned`);
+  const found = [];
+  for (const f of files) {
+    const lines = readFileSync(f, 'utf8').split(/\r?\n/);
+    lines.forEach((line, i) => {
+      for (const re of SAUCEDEMO)
+        if (re.test(line)) found.push(`${relative(REPO, f)}:${i + 1} ${re}`);
+    });
+  }
+  assert.deepEqual(found, []);
+});
+
+test('the seeded-bug check passes only when each bug shows its own symptom and nothing else', () => {
+  const clean = {
+    countAfterAdds: 2,
+    countAfterTakeOut: 1,
+    countAfterMoving: 1,
+    lines: [3450, 1225],
+    items: 4675,
+    tax: salesTax(4675),
+    total: 4675 + salesTax(4675),
+  };
+  assert.equal(salesTax(4675), 304, '6.5% of $46.75, half up');
+  const seen = {
+    clean,
+    'stale-badge': { ...clean, countAfterTakeOut: 2 },
+    'wrong-item-total': {
+      ...clean,
+      items: 4775,
+      total: 4775 + clean.tax,
+    },
+    'inconsistent-total': { ...clean, total: clean.total + 50 },
+  };
+  assert.deepEqual(bugProblems(seen), []);
+  // A bug that no longer toggles is caught...
+  assert.match(
+    bugProblems({ ...seen, 'stale-badge': clean }).join('\n'),
+    /stale-badge: does not show its symptom/
+  );
+  // ...and so is one that changes something else as well.
+  assert.match(
+    bugProblems({
+      ...seen,
+      'inconsistent-total': {
+        ...seen['inconsistent-total'],
+        countAfterTakeOut: 2,
+      },
+    }).join('\n'),
+    /inconsistent-total: changes countAfterTakeOut/
+  );
+  // A wrong clean run is reported before any bug is judged against it.
+  assert.match(
+    bugProblems({ ...seen, clean: { ...clean, tax: 320 } }).join('\n'),
+    /clean: tax is 320, expected 304/
+  );
+  assert.equal(cents('Order total: $49.79'), 4979);
 });

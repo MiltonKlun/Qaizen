@@ -1,8 +1,8 @@
 # REG-006 — Test Designer
 
-**Where it comes from (bench-shop-bug).** Bench Shop --bug stale-badge: the cart badge does not count down on a remove until a reload (STORY-003, RISK-001).
+**Where it comes from (bench-shop-bug).** Bench Shop --bug stale-badge: the basket count does not go down on a take-out until the shopper changes screen (BENCH-1, RISK-001).
 
-**Expected behavior.** An automated case covers the badge counting down right after a remove, without a reload, so a test can catch the stale badge.
+**Expected behavior.** An automated case covers the basket count going down right after a take-out, without a change of screen, so a test can catch the stale count.
 
 ## Running a trial
 

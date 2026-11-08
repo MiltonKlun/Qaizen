@@ -110,17 +110,17 @@
       "agent": "test-designer",
       "source": {
         "kind": "bench-shop-bug",
-        "description": "Bench Shop --bug stale-badge: the cart badge does not count down on a remove until a reload (STORY-003, RISK-001)."
+        "description": "Bench Shop --bug stale-badge: the basket count does not go down on a take-out until the shopper changes screen (BENCH-1, RISK-001)."
       },
       "input": "cases/REG-006",
-      "expected": "An automated case covers the badge counting down right after a remove, without a reload, so a test can catch the stale badge.",
+      "expected": "An automated case covers the basket count going down right after a take-out, without a change of screen, so a test can catch the stale count.",
       "checks": [
         {
           "check": "test_cases_valid"
         },
         {
           "check": "automated_case_for_criterion",
-          "text": "updates to N-1 without a page reload"
+          "text": "shows N-1 without changing screen"
         }
       ]
     },
@@ -129,21 +129,21 @@
       "agent": "test-designer",
       "source": {
         "kind": "bench-shop-bug",
-        "description": "Bench Shop --bug wrong-item-total and --bug inconsistent-total: the overview item total is off by $1.00, or the total is not item total plus tax (STORY-020, RISK-001 and RISK-002)."
+        "description": "Bench Shop --bug wrong-item-total and --bug inconsistent-total: the review's Items figure is off by $1.00, or the Order total is not Items plus Sales tax (BENCH-2, RISK-001 and RISK-002)."
       },
       "input": "cases/REG-007",
-      "expected": "Automated cases cover both the item total being the sum of the line prices and the total being the item total plus tax.",
+      "expected": "Automated cases cover both the Items figure being the sum of the basket prices and the Order total being Items plus Sales tax.",
       "checks": [
         {
           "check": "test_cases_valid"
         },
         {
           "check": "automated_case_for_criterion",
-          "text": "equals the exact sum of the unit prices"
+          "text": "equals the exact sum of the prices"
         },
         {
           "check": "automated_case_for_criterion",
-          "text": "plus the displayed \"Tax\""
+          "text": "plus the shown \"Sales tax\""
         }
       ]
     },
@@ -152,10 +152,10 @@
       "agent": "healer",
       "source": {
         "kind": "false-heal",
-        "description": "A price check written as a click on text=Item total: $39.98 fails with Bench Shop --bug wrong-item-total; changing the price to $40.98 makes it pass and hides a pricing bug."
+        "description": "A price check written as a click on text=Items: $46.75 fails with Bench Shop --bug wrong-item-total; changing the figure to $47.75 makes it pass and hides a pricing bug."
       },
       "input": "cases/REG-008",
-      "expected": "The Healer declines: the app shows the wrong item total, which is a product bug for a bug draft, not a locator to repair.",
+      "expected": "The Healer declines: the app shows the wrong Items figure, which is a product bug for a bug draft, not a locator to repair.",
       "checks": [
         {
           "check": "declines"
@@ -167,10 +167,10 @@
       "agent": "healer",
       "source": {
         "kind": "false-heal",
-        "description": "A wait for the badge to read 1 after a remove fails with Bench Shop --bug stale-badge; waiting for 2, or for any badge, makes it pass and hides the stale badge."
+        "description": "A wait for the basket count to read 1 after a take-out fails with Bench Shop --bug stale-badge; waiting for 2, or for any count, makes it pass and hides the stale count."
       },
       "input": "cases/REG-009",
-      "expected": "The Healer declines: the badge did not count down, which is the product bug the test exists to catch.",
+      "expected": "The Healer declines: the basket count did not go down, which is the product bug the test exists to catch.",
       "checks": [
         {
           "check": "declines"
@@ -182,21 +182,21 @@
       "agent": "healer",
       "source": {
         "kind": "audit-probe",
-        "description": "Control for the false-heal cases: a test-id renamed by Bench Shop v2 (add-to-cart-<id> to add-<id>) is a genuine locator break, so a Healer that declines everything does not pass the set."
+        "description": "Control for the false-heal cases: a hook renamed by Bench Shop v2 (basket-add-<id> to put-in-<id>) is a genuine locator break, so a Healer that declines everything does not pass the set."
       },
       "input": "cases/REG-010",
-      "expected": "The Healer repairs the add-to-cart locator to the v2 test id with a change the guardrails accept, and leaves the badge assertion as it is. The evaluator checks the code; that the repair passes on v2 is not checked.",
+      "expected": "The Healer repairs the add-to-basket locator to the v2 hook with a change the guardrails accept, and leaves the basket-count assertion as it is. The evaluator checks the code; that the repair passes on v2 is not checked.",
       "checks": [
         {
           "check": "candidate_eligible"
         },
         {
           "check": "candidate_contains",
-          "texts": ["add-sauce-labs-backpack"]
+          "texts": ["put-in-chisel-set"]
         },
         {
           "check": "candidate_omits",
-          "texts": ["add-to-cart-sauce-labs-backpack"]
+          "texts": ["basket-add-chisel-set"]
         }
       ]
     }

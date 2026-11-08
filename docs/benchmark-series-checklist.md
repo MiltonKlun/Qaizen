@@ -39,7 +39,8 @@ be fitted to the result.
   Public SauceDemo has one version, so survival there is `null` with that
   reason.
 - **Known bug(s):** on the Bench Shop, an injectable bug id (`stale-badge` for
-  STORY-003, `wrong-item-total` / `inconsistent-total` for STORY-020); for a
+  BENCH-1, `wrong-item-total` / `inconsistent-total` for BENCH-2, both in
+  `examples/benchmark-app/stories/`); for a
   shipped story, the bug and where it is documented. A story with no known bug
   records `known_bug_catch_rate: null`, not a guessed number.
 
