@@ -190,7 +190,8 @@ A run is complete when one story has produced this full traceability chain.
 
 The chain above splits into a **design half** (Analyst → Gate 1 → Test
 Designer → Gate 2 — no code needed) and an **execution half** (Planner →
-Gate 3 → Generator → repeat check → Gate 4 → execute → report — needs code). The design
+Gate 3 → Generator → repeat check → fault check (Bench Shop stories) → Gate 4 →
+execute → report — needs code). The design
 half may be run at **refinement** (before code exists) to produce draft
 test cases as a shared acceptance contract, or at **ready-for-QA** (the
 default). Cases designed at refinement carry `design_stage:

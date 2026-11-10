@@ -17,7 +17,8 @@
 //            design techniques behind the cases
 //   lite     both (the consolidated gate reviews Gates 1 and 2 together)
 //   Gate 4   the repeat check: how each test fared over N runs of the same
-//            code (repeat-check.js)
+//            code (repeat-check.js); on a Bench Shop story, the fault check:
+//            which seeded bug each test kills (fault-check.js)
 //   every    how often this gate was rejected in this run; from the third
 //            rejection on, an advice to revisit the story or the scope
 //            instead of another round (advisory: it blocks nothing)
@@ -29,6 +30,7 @@ import { fileURLToPath } from 'node:url';
 import { readValidatedJson } from './artifact-io.js';
 import { gateDigest } from './approval-binding.js';
 import { repeatBriefLine, repeatState } from './repeat-check.js';
+import { faultBriefLine, faultState } from './fault-check.js';
 import { compareCriteria, criteriaLines } from './criteria-check.js';
 import { techniqueLine, techniqueSummary } from './case-decisions.js';
 import { hiddenText, hiddenTextLine } from './hidden-text.js';
@@ -181,11 +183,10 @@ export function briefChecks(step, context, root = '.') {
     }
   }
   if (step === 'gate4') {
-    checks.push(
-      repeatBriefLine(
-        repeatState(context, gateDigest('code_reviewed', context, root))
-      )
-    );
+    const digest = gateDigest('code_reviewed', context, root);
+    checks.push(repeatBriefLine(repeatState(context, digest)));
+    const faults = faultBriefLine(faultState(context, digest));
+    if (faults) checks.push(faults);
   }
   const gateKey = /** @type {Record<string, string>} */ (GATE_KEYS)[step];
   const rejections = gateKey ? rejectionLine(context, gateKey) : null;

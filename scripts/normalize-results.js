@@ -23,6 +23,8 @@
 //     [--playwright-identity <json>]  what the execute step recorded
 //     [--repeat-check <json>]        the repeat check before Gate 4 (needs
 //                                    the identity, and must match its Gate 4)
+//     [--fault-check <json>]         the fault check before Gate 4, on a
+//                                    Bench Shop story (the same conditions)
 //     [--execution <execution-id>]   every Newman report for this story in
 //                                    that execution
 //     [--newman <report.json> ...]   repeatable; explicit reports
@@ -269,7 +271,7 @@ function usage(message) {
   if (message) console.error(`Error: ${message}`);
   console.error(
     'Usage: node scripts/normalize-results.js --story <STORY-ID> ' +
-      '[--playwright <report.json> [--playwright-identity <json> [--repeat-check <json>]]] ' +
+      '[--playwright <report.json> [--playwright-identity <json> [--repeat-check <json>] [--fault-check <json>]]] ' +
       '[--execution <id>] [--newman <report.json> ...] ' +
       '[--out <ledger.json>] [--run-id <id>] [--mapping <file>] [--test-cases <file>] ' +
       '[--external-plan <file>] [--external-results <file>]'
@@ -457,6 +459,32 @@ export function main(args = argv.slice(2)) {
     }
   }
 
+  // The fault check the runner ran before Gate 4 on a Bench Shop story
+  // (scripts/lib/fault-check.js): kept beside the execution on the same
+  // condition as the repeat check.
+  /** @type {any} */
+  let faultCheck = null;
+  if (flags['fault-check']) {
+    try {
+      faultCheck = JSON.parse(flags['fault-check']);
+    } catch {
+      usage('--fault-check is not valid JSON');
+      return 2;
+    }
+    if (!pwIdentity?.gate_digest) {
+      usage(
+        '--fault-check goes with --playwright and a --playwright-identity that names its Gate 4 approval digest'
+      );
+      return 2;
+    }
+    if (faultCheck?.input_digest !== pwIdentity.gate_digest) {
+      console.error(
+        'Error: the fault check ran against other inputs than the Gate 4 approval this execution ran under; re-run the fault check.'
+      );
+      return 2;
+    }
+  }
+
   // The identity the pipeline's execute-api step recorded: it must name
   // exactly the Newman reports being read, and goes into the ledger with
   // each of them.
@@ -632,6 +660,7 @@ export function main(args = argv.slice(2)) {
     mapping,
     approvedScopeDigest: scopeDigest,
     repeatCheck,
+    faultCheck,
   });
 
   const inv = ledgerInvariants(ledger);

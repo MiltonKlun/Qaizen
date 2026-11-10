@@ -1,0 +1,154 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-11-10T10-00-00Z-bench2",
+  "story": {
+    "id": "BENCH-2",
+    "title": "The order review shows the right items figure, sales tax and order total",
+    "source": "manual",
+    "path": "story.md",
+    "description": "A shopper checks out (delivery details, order review, place order). The review must show the right Items figure (sum of the basket prices), the Sales tax and the Order total (Items plus Sales tax), so the shopper sees the true amount before placing the order."
+  },
+  "acceptance_criteria": [
+    "Given a shopper with two products in the basket, when they go to checkout and submit a given name, a family name and a postcode, then they reach the \"Review your order\" screen listing both products.",
+    "Given the order review, when the summary is shown, then the \"Items\" figure equals the exact sum of the prices of the products in the basket.",
+    "Given the order review, when the summary is shown, then the \"Order total\" equals the shown \"Items\" figure plus the shown \"Sales tax\".",
+    "Given the delivery details screen, when the shopper submits it with a required field empty (for example no postcode), then they stay on that screen and a message says what is missing; they do not reach the review.",
+    "Given the order review, when the shopper places the order, then they reach the \"Order placed\" confirmation and the basket count is cleared."
+  ],
+  "ambiguities": [],
+  "risks": [
+    {
+      "risk_id": "RISK-001",
+      "description": "The review shows a wrong Items figure (not the sum of the basket prices), misstating what the shopper is about to pay.",
+      "severity": "high",
+      "related_acs": [1]
+    },
+    {
+      "risk_id": "RISK-002",
+      "description": "The Order total is not the shown Items figure plus the shown Sales tax, so the figures on screen do not add up.",
+      "severity": "high",
+      "related_acs": [2]
+    },
+    {
+      "risk_id": "RISK-003",
+      "description": "The delivery details screen moves on to the review with a required field empty, letting an order go ahead without full delivery details.",
+      "severity": "medium",
+      "related_acs": [3]
+    },
+    {
+      "risk_id": "RISK-004",
+      "description": "Placing the order does not reach the confirmation or does not clear the basket count, leaving the shopper unsure the order was placed.",
+      "severity": "medium",
+      "related_acs": [0, 4]
+    }
+  ],
+  "track": "standard",
+  "track_floor": {
+    "minimum": "standard",
+    "reasons": [
+      "red-domain: Pricing / money calculation",
+      "5 acceptance criteria (> 4)",
+      "at least one high-severity risk"
+    ]
+  },
+  "artifact_paths": {
+    "test_cases": "test-cases/BENCH-2.json",
+    "planner_brief": "planner-input/BENCH-2.planner-brief.md",
+    "playwright_spec": "specs/BENCH-2.md",
+    "generated_test": "tests/BENCH-2.spec.ts",
+    "execution_results": "",
+    "html_report": "",
+    "traces": "",
+    "screenshots": "",
+    "failure_analysis": "",
+    "release_report_md": "",
+    "release_report_json": "",
+    "bug_drafts_dir": ""
+  },
+  "review_gates": {
+    "requirements_reviewed": {
+      "status": true,
+      "reviewer": "Milton",
+      "reviewed_at": "2026-11-08T09:40:00.000Z",
+      "opened_at": "2026-11-08T09:35:00.000Z",
+      "notes": null
+    },
+    "test_scope_reviewed": {
+      "status": false,
+      "reviewer": null,
+      "reviewed_at": null,
+      "notes": null
+    },
+    "specs_reviewed": {
+      "status": false,
+      "reviewer": null,
+      "reviewed_at": null,
+      "notes": null
+    },
+    "code_reviewed": {
+      "status": false,
+      "reviewer": null,
+      "reviewed_at": null,
+      "notes": null
+    }
+  },
+  "status": "in_progress",
+  "fault_check": {
+    "input_digest": "c3f1a2b4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80",
+    "target": "bench-shop",
+    "track": "standard",
+    "ran_at": "2026-11-10T10-20-00Z",
+    "faults": [
+      {
+        "bug": "wrong-item-total",
+        "criterion_index": 1
+      },
+      {
+        "bug": "inconsistent-total",
+        "criterion_index": 2
+      }
+    ],
+    "outcome": "strong",
+    "units": [
+      {
+        "file": "BENCH-2.spec.ts",
+        "title": "the Items figure is the sum of the line prices [TC-002]",
+        "project": "chromium",
+        "test_case_ids": ["TC-002"],
+        "relevant": ["wrong-item-total"],
+        "clean": "passed",
+        "results": {
+          "wrong-item-total": "assertion_failed",
+          "inconsistent-total": "passed"
+        },
+        "verdict": "strong"
+      },
+      {
+        "file": "BENCH-2.spec.ts",
+        "title": "the Order total is Items plus Sales tax [TC-003]",
+        "project": "chromium",
+        "test_case_ids": ["TC-003"],
+        "relevant": ["inconsistent-total"],
+        "clean": "passed",
+        "results": {
+          "wrong-item-total": "passed",
+          "inconsistent-total": "assertion_failed"
+        },
+        "verdict": "strong"
+      },
+      {
+        "file": "BENCH-2.spec.ts",
+        "title": "the review lists both products [TC-001]",
+        "project": "chromium",
+        "test_case_ids": ["TC-001"],
+        "relevant": [],
+        "clean": "passed",
+        "results": {
+          "wrong-item-total": "passed",
+          "inconsistent-total": "passed"
+        },
+        "verdict": "no_relevant_fault"
+      }
+    ]
+  }
+}

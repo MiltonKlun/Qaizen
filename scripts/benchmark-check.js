@@ -11,7 +11,10 @@
 // Then it drives one purchase on v1, clean and with each seeded bug, and
 // checks that every bug changes exactly the symptom the README documents
 // (scripts/lib/bench-shop-check.js), so known_bug_catch_rate has something to
-// catch.
+// catch. Last, it runs the fault check (scripts/lib/fault-check.js) on its
+// fixtures (examples/benchmark-app/fault-fixtures/): the test that checks the
+// Items figure must kill wrong-item-total, and the one that checks nothing
+// must be flagged as a weak oracle.
 //
 // Usage: npm run benchmark:check
 // Exit codes: 0 matches the ground truth · 1 differs · 3 not measurable here
@@ -25,6 +28,8 @@ import { exit } from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { BUGS, bugProblems, observePurchase } from './lib/bench-shop-check.js';
+import { faultLines, faultRecord, faultsForStory } from './lib/fault-check.js';
+import { runAgainstBenchShop } from './lib/fault-runs.js';
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
 const SERVER = join(REPO, 'examples', 'benchmark-app', 'serve.js');
@@ -140,6 +145,7 @@ try {
     }
   }
   if (code === 0) code = await checkBugs();
+  if (code === 0) code = checkFaults(dir);
 } finally {
   for (const s of servers) s.stop();
   rmSync(dir, { recursive: true, force: true });
@@ -194,6 +200,73 @@ async function checkBugs() {
   console.log(
     `benchmark:check OK: clean purchase Items ${c.items / 100}, Sales tax ${c.tax / 100}, Order total ${c.total / 100}; ` +
       `each of ${BUGS.join(', ')} changes only its own symptom.`
+  );
+  return 0;
+}
+
+/**
+ * The fault check on its fixtures: the test that checks the Items figure
+ * kills wrong-item-total, and the one that checks nothing is a weak oracle.
+ * @param {string} dir a scratch folder for the reports
+ * @returns {number} the exit code
+ */
+function checkFaults(dir) {
+  const fixtures = join(REPO, 'examples', 'benchmark-app', 'fault-fixtures');
+  const story = readFileSync(
+    join(REPO, 'examples', 'benchmark-app', 'stories', 'BENCH-2.md'),
+    'utf8'
+  );
+  const criteria = [
+    ...story.matchAll(/^\d+\. ([\s\S]*?)(?=\r?\n\r?\n|\r?\n\d+\. )/gm),
+  ].map((m) => m[1].replace(/\s+/g, ' ').trim());
+  const faults = faultsForStory('BENCH-2');
+  /** @type {Record<string, any>} */
+  const reports = {};
+  for (const bug of [null, ...faults.map((f) => f.bug)]) {
+    const r = runAgainstBenchShop({
+      bug,
+      pwArgs: ['test', '--config', join(fixtures, 'playwright.config.mjs')],
+      cwd: REPO,
+      reportPath: join(dir, `faults-${bug ?? 'clean'}.json`),
+      outputDir: join(dir, 'fault-output'),
+    });
+    if (!r.ok) {
+      console.error(`\nbenchmark:check FAILED: ${r.reason}`);
+      return 1;
+    }
+    reports[bug ?? 'clean'] = r.report;
+  }
+  const { clean, ...byBug } = reports;
+  const record = faultRecord({
+    inputDigest: '0'.repeat(64),
+    track: 'standard',
+    ranAt: new Date().toISOString(),
+    faults,
+    criteria,
+    // Both fixture cases are about the Items figure (criterion 2).
+    cases: [
+      { test_case_id: 'TC-002', acceptance_criteria_refs: [1] },
+      { test_case_id: 'TC-004', acceptance_criteria_refs: [1] },
+    ],
+    clean,
+    reports: byBug,
+  });
+  for (const line of faultLines(record)) console.log(line);
+  const verdict = (/** @type {string} */ id) =>
+    record.units.find((u) => u.test_case_ids.includes(id))?.verdict;
+  const strong = record.units.find((u) => u.test_case_ids.includes('TC-002'));
+  if (
+    verdict('TC-002') !== 'strong' ||
+    strong?.results['wrong-item-total'] !== 'assertion_failed' ||
+    verdict('TC-004') !== 'weak_oracle'
+  ) {
+    console.error(
+      '\nbenchmark:check FAILED: the fault check did not tell the strong fixture test (kills wrong-item-total) from the assertion-free one (weak oracle).'
+    );
+    return 1;
+  }
+  console.log(
+    'benchmark:check OK: the fault check kills wrong-item-total with the strong fixture test and flags the assertion-free one as a weak oracle.'
   );
   return 0;
 }

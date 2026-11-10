@@ -427,6 +427,138 @@
       }
     },
 
+    "fault_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "OPTIONAL. The fault check the runner ran before Gate 4, copied from context.json fault_check (scripts/lib/fault-check.js): per test, which seeded Bench Shop bug it killed. normalize-results.js records it only when its input_digest is the Gate 4 approval digest the Playwright execution ran under. Absent on stories the Bench Shop does not model.",
+      "required": [
+        "input_digest",
+        "target",
+        "track",
+        "ran_at",
+        "faults",
+        "outcome",
+        "units"
+      ],
+      "properties": {
+        "input_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "target": {
+          "const": "bench-shop"
+        },
+        "track": {
+          "type": "string",
+          "enum": ["lite", "standard", "full"]
+        },
+        "ran_at": {
+          "type": "string"
+        },
+        "faults": {
+          "type": "array",
+          "minItems": 1,
+          "description": "The seeded bugs of the story, each with the index of the acceptance criterion it breaks in this run (null when no criterion carries its phrase).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["bug", "criterion_index"],
+            "properties": {
+              "bug": {
+                "type": "string",
+                "minLength": 1
+              },
+              "criterion_index": {
+                "type": ["integer", "null"],
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "outcome": {
+          "type": "string",
+          "enum": ["strong", "weak", "baseline_failed", "no_relevant_fault"]
+        },
+        "errors": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "string"
+          }
+        },
+        "units": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "file",
+              "title",
+              "project",
+              "test_case_ids",
+              "relevant",
+              "clean",
+              "results",
+              "verdict"
+            ],
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "project": {
+                "type": "string"
+              },
+              "test_case_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^TC-[0-9]+$"
+                }
+              },
+              "relevant": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "clean": {
+                "type": "string",
+                "enum": [
+                  "passed",
+                  "assertion_failed",
+                  "action_failed",
+                  "not_run"
+                ]
+              },
+              "results": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "enum": [
+                    "passed",
+                    "assertion_failed",
+                    "action_failed",
+                    "not_run"
+                  ]
+                }
+              },
+              "verdict": {
+                "type": "string",
+                "enum": [
+                  "strong",
+                  "weak_oracle",
+                  "no_relevant_fault",
+                  "baseline_failed"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "totals": {
       "description": "Counts MUST equal the sum of mutually exclusive unit outcomes. Run-level errors are counted separately and never folded into unit totals.",
       "type": "object",

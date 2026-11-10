@@ -772,6 +772,138 @@
         }
       }
     },
+    "fault_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "OPTIONAL. The fault check the runner ran before Gate 4 on a story the Bench Shop models (scripts/lib/fault-check.js): the generated test run against the Bench Shop clean and with each seeded bug of the story, and per test which bug it killed. A kill is an expect assertion that failed under the bug; an action that failed is not one. A test that survives every bug its cases cover is a weak_oracle, which stops Gate 4 on the full track; a test that fails on the clean app is baseline_failed and stops it on every track. input_digest is the Gate 4 input digest it ran against; the record holds only while that digest is current. Absent on stories the Bench Shop does not model. Written only by the runner.",
+      "required": [
+        "input_digest",
+        "target",
+        "track",
+        "ran_at",
+        "faults",
+        "outcome",
+        "units"
+      ],
+      "properties": {
+        "input_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "target": {
+          "const": "bench-shop"
+        },
+        "track": {
+          "type": "string",
+          "enum": ["lite", "standard", "full"]
+        },
+        "ran_at": {
+          "type": "string"
+        },
+        "faults": {
+          "type": "array",
+          "minItems": 1,
+          "description": "The seeded bugs of the story, each with the index of the acceptance criterion it breaks in this run (null when no criterion carries its phrase).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["bug", "criterion_index"],
+            "properties": {
+              "bug": {
+                "type": "string",
+                "minLength": 1
+              },
+              "criterion_index": {
+                "type": ["integer", "null"],
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "outcome": {
+          "type": "string",
+          "enum": ["strong", "weak", "baseline_failed", "no_relevant_fault"]
+        },
+        "errors": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "string"
+          }
+        },
+        "units": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "file",
+              "title",
+              "project",
+              "test_case_ids",
+              "relevant",
+              "clean",
+              "results",
+              "verdict"
+            ],
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "project": {
+                "type": "string"
+              },
+              "test_case_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^TC-[0-9]+$"
+                }
+              },
+              "relevant": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "clean": {
+                "type": "string",
+                "enum": [
+                  "passed",
+                  "assertion_failed",
+                  "action_failed",
+                  "not_run"
+                ]
+              },
+              "results": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "enum": [
+                    "passed",
+                    "assertion_failed",
+                    "action_failed",
+                    "not_run"
+                  ]
+                }
+              },
+              "verdict": {
+                "type": "string",
+                "enum": [
+                  "strong",
+                  "weak_oracle",
+                  "no_relevant_fault",
+                  "baseline_failed"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "execution_identity": {
       "description": "OPTIONAL. Written only by the runner's execute step: what the Playwright execution was (scripts/lib/execution-identity.js). The report is accepted as this run's evidence only while its digest, its config's digest and the Gate 4 approval digest still match. app_build is QAIZEN_APP_BUILD, or \"unknown\". No agent writes this.",
       "type": "object",

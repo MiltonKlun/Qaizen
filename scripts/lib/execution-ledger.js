@@ -89,7 +89,8 @@ const UNTRUSTWORTHY = new Set(['errored', 'interrupted', 'not_started']);
  * @typedef {{ schema_version: string, run_id: string, story_id: string,
  *   generated_at: string, approved_scope_digest?: string | null,
  *   source_executions: SourceExecution[], units: Unit[],
- *   case_outcomes?: CaseOutcome[], totals: Totals, repeat_check?: any }} Ledger
+ *   case_outcomes?: CaseOutcome[], totals: Totals, repeat_check?: any,
+ *   fault_check?: any }} Ledger
  * @typedef {{ test_case_id: string, automation_decision: string,
  *   status: string, [field: string]: any }} TestCase
  * @typedef {{ story_id: string, test_cases?: TestCase[] }} TestCasesDoc
@@ -137,16 +138,17 @@ export function ledgerInvariants(ledger) {
     );
   }
 
-  // --- the repeat check belongs to the executed code -------------------------
-  // It is kept only beside a Playwright execution whose identity names the
+  // --- the repeat and fault checks belong to the executed code --------------
+  // Each is kept only beside a Playwright execution whose identity names the
   // same Gate 4 approval digest it ran against (normalize-results.js).
-  if (ledger.repeat_check) {
-    const gates = (ledger.source_executions || [])
-      .filter((s) => s.runner === 'playwright')
-      .map((s) => /** @type {any} */ (s).config_identity?.gate_digest);
-    if (!gates.includes(ledger.repeat_check.input_digest)) {
+  const gates = (ledger.source_executions || [])
+    .filter((s) => s.runner === 'playwright')
+    .map((s) => /** @type {any} */ (s).config_identity?.gate_digest);
+  for (const key of /** @type {const} */ (['repeat_check', 'fault_check'])) {
+    const check = ledger[key];
+    if (check && !gates.includes(check.input_digest)) {
       v.push(
-        'repeat_check ran against other inputs than the Gate 4 approval of any Playwright execution in this ledger'
+        `${key} ran against other inputs than the Gate 4 approval of any Playwright execution in this ledger`
       );
     }
   }

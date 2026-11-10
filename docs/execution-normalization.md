@@ -133,7 +133,9 @@ When the run recorded a repeat check before Gate 4 (`context.json`
 `repeat_check`. It is refused unless its `input_digest` is the Gate 4
 approval digest the execution ran under, so a ledger never pairs one
 execution with another code's repeat check. A test stable over ten repeats
-can still flake later; the ledger shows both.
+can still flake later; the ledger shows both. The fault check of a Bench
+Shop story (`context.json` `fault_check`) travels the same way, with
+`--fault-check`, and is kept as `fault_check` on the same condition.
 
 ### What the reports downstream carry
 

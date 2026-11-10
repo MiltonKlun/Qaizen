@@ -11,9 +11,11 @@ description: |
   run completed: the runner does, after validating every artifact.
 phase_introduced: 1
 phase_active: 1+
-version: 5.1.1
+version: 5.1.2
 changed_in_run: null
 changelog: |
+  - 5.1.2: PATCH (no output change). The execution ledger may carry
+    fault_check, the fault check before Gate 4; the report does not read it.
   - 5.1.1: PATCH (no output change). The execution ledger may carry
     repeat_check, the repeat run before Gate 4; the report does not read it.
   - 5.1.0: MINOR. summary names the app build and base URL the evidence

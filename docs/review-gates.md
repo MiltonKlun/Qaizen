@@ -167,7 +167,7 @@ lite run's gate path is:
 
 ```
 Analyst → qa_scope_approved (Gates 1+2 in one decision) → Planner/API
-        → Gate 3 (specs_reviewed) → Generator → repeat check → Gate 4 (code_reviewed) → ...
+        → Gate 3 (specs_reviewed) → Generator → repeat check → fault check (Bench Shop stories) → Gate 4 (code_reviewed) → ...
 ```
 
 Two rules make this a thinning of _ceremony_, never of _review_:
@@ -651,7 +651,8 @@ the API branch — the two branches are reviewed independently.
 > environmental `test.skip` with a written reason) — the reviewer decides.
 
 **When it runs:** After the Playwright Generator Native Agent
-produces `tests/[story-id].spec.ts`, and after the repeat check.
+produces `tests/[story-id].spec.ts`, after the repeat check and, on a story
+the Bench Shop models, after the fault check.
 
 **The repeat check runs first.** The runner runs the generated test 10
 times on the `lite` and `standard` tracks and 20 times on `full`
@@ -676,10 +677,35 @@ baseline. The execution ledger carries the result too
 (`docs/execution-normalization.md`). The repeat run's own output
 (`reports/repeat/`) is a working folder: nothing records its path.
 
+**Then, on a Bench Shop story, the fault check.** A test that stays green
+whatever the app does catches nothing. On a story the Bench Shop models
+(`examples/benchmark-app/stories/`, `scripts/lib/fault-check.js`), the runner
+serves the Bench Shop clean and with each seeded bug of the story, runs the
+generated test against each, and records in `context.json` `fault_check`
+which test kills which bug:
+
+- a test **kills** a bug when one of its `expect` assertions fails under it;
+  an action that fails (a click that times out, a locator that is gone) is
+  not a kill, because the test then failed without checking the behavior;
+- each bug is relevant to the tests whose cases cover the acceptance
+  criterion it breaks; a test that names no case is held to every bug of
+  its story;
+- a test that survives every bug relevant to it is a **weak oracle**: the
+  brief flags it, and on the `full` track Gate 4 does not open until its
+  assertions are strengthened;
+- a test that fails on the clean Bench Shop proves nothing either way, and
+  stops the run on every track.
+
+Like the repeat check, the record is bound to the Gate 4 inputs, is shown
+in the brief, and is copied into the execution ledger. The faults are the
+ones the Bench Shop can switch on; mutating the app's source is not done.
+Stories the Bench Shop does not model have no fault check.
+
 **Inputs the reviewer reads:**
 
 - `tests/[story-id].spec.ts`.
-- The repeat check line in the brief.
+- The repeat check line in the brief, and the fault check's kill matrix on a
+  Bench Shop story.
 - `specs/[story-id].md` (to compare intent vs realization).
 - `test-cases/[story-id].json` (for the `expected_results` to
   cross-check assertions).
