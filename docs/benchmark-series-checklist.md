@@ -39,7 +39,8 @@ be fitted to the result.
   Public SauceDemo has one version, so survival there is `null` with that
   reason.
 - **Known bug(s):** on the Bench Shop, an injectable bug id (`stale-badge` for
-  STORY-003, `wrong-item-total` / `inconsistent-total` for STORY-020); for a
+  BENCH-1, `wrong-item-total` / `inconsistent-total` for BENCH-2, both in
+  `examples/benchmark-app/stories/`); for a
   shipped story, the bug and where it is documented. A story with no known bug
   records `known_bug_catch_rate: null`, not a guessed number.
 
@@ -78,7 +79,9 @@ node examples/benchmark-app/serve.js --version v2 --port 4174
 ## 5. Per story × arm
 
 **Raw arm.** Start a timer, give the registered prompt, allow only the
-follow-ups a working QA would type, stop at the timebox. Save the tests.
+follow-ups a working QA would type, stop at the timebox. Save the tests. On
+Bench Shop, run it in a workspace without `examples/benchmark-app/` and
+`examples/evaluation/` (protocol §1), and say so in the record's notes.
 
 **Pipeline arm.** `npm run pipeline -- --story <ref>`; review every gate
 yourself (`docs/pipeline-runner.md`). Archive the run (`npm run new-run

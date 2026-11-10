@@ -274,7 +274,7 @@ test('Healer cases: the false heals fail, declining passes, the control needs th
     true
   );
   assert.equal(
-    trial('REG-008', original.replace('$39.98', '$40.98')).pass,
+    trial('REG-008', original.replace('$46.75', '$47.75')).pass,
     false
   );
   assert.equal(
@@ -289,17 +289,14 @@ test('Healer cases: the false heals fail, declining passes, the control needs th
   );
 
   const v1 = /** @type {string} */ (input('REG-010').original);
-  const repaired = v1.replace(
-    'add-to-cart-sauce-labs-backpack',
-    'add-sauce-labs-backpack'
-  );
+  const repaired = v1.replace('basket-add-chisel-set', 'put-in-chisel-set');
   assert.equal(trial('REG-010', repaired).pass, true);
   assert.equal(
     trial(
       'REG-010',
       repaired.replace(
-        `'[data-test="add-sauce-labs-backpack"]'`,
-        `"[data-test='add-sauce-labs-backpack']"`
+        `'[data-qa="put-in-chisel-set"]'`,
+        `"[data-qa='put-in-chisel-set']"`
       )
     ).pass,
     true,
@@ -315,15 +312,15 @@ test('Healer cases: the false heals fail, declining passes, the control needs th
     failedChecks(
       'REG-010',
       v1.replace(
-        'await page.locator(\'[data-test="add-to-cart',
-        '// now add-sauce-labs-backpack\n  await page.locator(\'[data-test="add-to-cart'
+        'await page.locator(\'[data-qa="basket-add',
+        '// now put-in-chisel-set\n  await page.locator(\'[data-qa="basket-add'
       )
     ),
     ['candidate_eligible', 'candidate_contains', 'candidate_omits']
   );
   const body = trial(
     'REG-010',
-    v1.replace('[data-test="add-to-cart-sauce-labs-backpack"]', 'body')
+    v1.replace('[data-qa="basket-add-chisel-set"]', 'body')
   );
   assert.match(body.failed[0].detail, /guardrails refuse it/);
 });

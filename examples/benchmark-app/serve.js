@@ -17,9 +17,9 @@
 //   --version <id>      which version to serve (default v1; see app/versions.js)
 //   --port <n>          port to listen on (default 4173; 0 = ephemeral)
 //   --bug <id>          inject a bug (repeatable). Known ids:
-//                         stale-badge         cart badge stale on remove until reload
-//                         wrong-item-total    overview item total = sum + 1.00
-//                         inconsistent-total  total != item total + tax
+//                         stale-badge         basket count stale after a take-out
+//                         wrong-item-total    review Items figure = sum + 1.00
+//                         inconsistent-total  Order total != Items + Sales tax
 //
 // On listen it prints `PORT <n>` as its first stdout line (same contract as the
 // demo server) so a driver can read the chosen port when --port 0 is used.

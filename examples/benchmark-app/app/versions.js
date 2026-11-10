@@ -1,5 +1,5 @@
 // Bench Shop versions: the ONLY differences between the served versions.
-// Everything else — the router, the cart, the bug switches,
+// Everything else — the router, the basket, the bug switches,
 // the money math — is shared in shop.js, so the versions cannot drift apart
 // by accident. v2 is v1 with realistic DOM drift; README.md lists every change
 // as the ground truth for selector_survival_rate.
@@ -9,57 +9,55 @@
 
 globalThis.BENCH_VERSIONS = {
   v1: {
-    titleClass: 'title',
-    priceClass: 'item_price',
+    headingClass: 'heading',
+    priceClass: 'price',
     hooks: {
-      username: 'username',
-      password: 'password',
-      price: 'inventory-item-price',
-      add: 'add-to-cart',
+      user: 'login-user',
+      pass: 'login-pass',
+      price: 'product-price',
+      add: 'basket-add',
     },
-    overview: (lines) => `<div id="overview">${lines}</div>`,
-    // One element per figure. Each row once also carried a
-    // separate visible label ("Item total:", "Tax:", "Total:") repeating the
-    // figure's own text, so getByText('Item total:') matched two elements and
-    // a text-based locator failed strictness for a reason no real app had.
-    summary: (itemTotal, tax, total) =>
+    review: (lines) => `<div id="review-lines">${lines}</div>`,
+    // One element per figure, its label in its own text, so a text locator
+    // for "Items:" matches one element.
+    summary: (items, tax, total) =>
       [
-        '<div class="summary_info">',
-        '            <div class="summary_row">',
-        `              <span data-test="subtotal-label">Item total: ${itemTotal}</span>`,
+        '<div class="order-sums">',
+        '            <div class="sum-row">',
+        `              <span data-qa="sum-items">Items: ${items}</span>`,
         '            </div>',
-        '            <div class="summary_row">',
-        `              <span data-test="tax-label">Tax: ${tax}</span>`,
+        '            <div class="sum-row">',
+        `              <span data-qa="sum-tax">Sales tax: ${tax}</span>`,
         '            </div>',
-        '            <div class="summary_row">',
-        `              <span data-test="total-label">Total: ${total}</span>`,
+        '            <div class="sum-row">',
+        `              <span data-qa="sum-total">Order total: ${total}</span>`,
         '            </div>',
         '          </div>',
       ].join('\n'),
   },
   v2: {
-    titleClass: 'page-title',
-    priceClass: 'price-tag',
+    headingClass: 'screen-heading',
+    priceClass: 'cost',
     hooks: {
-      username: 'user-name',
-      password: 'pass-word',
-      price: 'item-cost',
-      add: 'add',
+      user: 'signin-user',
+      pass: 'signin-pass',
+      price: 'unit-price',
+      add: 'put-in',
     },
-    overview: (lines) => `<section id="overview">${lines}</section>`,
-    summary: (itemTotal, tax, total) =>
+    review: (lines) => `<section id="review-lines">${lines}</section>`,
+    summary: (items, tax, total) =>
       [
-        '<ul class="summary-list">',
-        '            <li class="summary-line">',
-        `              <span data-test="summary-subtotal">Item total: ${itemTotal}</span>`,
-        '            </li>',
-        '            <li class="summary-line">',
-        `              <span data-test="tax-label">Tax: ${tax}</span>`,
-        '            </li>',
-        '            <li class="summary-line">',
-        `              <span data-test="total-label">Total: ${total}</span>`,
-        '            </li>',
-        '          </ul>',
+        '<table class="order-table">',
+        '            <tr class="order-line">',
+        `              <td><span data-qa="items-sum">Items: ${items}</span></td>`,
+        '            </tr>',
+        '            <tr class="order-line">',
+        `              <td><span data-qa="sum-tax">Sales tax: ${tax}</span></td>`,
+        '            </tr>',
+        '            <tr class="order-line">',
+        `              <td><span data-qa="sum-total">Order total: ${total}</span></td>`,
+        '            </tr>',
+        '          </table>',
       ].join('\n'),
   },
 };

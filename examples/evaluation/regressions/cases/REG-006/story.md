@@ -1,51 +1,47 @@
-# Cart badge shows stale item count after removing an item (STORY-003)
+# Basket count stays behind after taking an item out (BENCH-1)
 
-> Manual-mode **bug-fix** example story. Targets a generic shopping
-> demo app (e.g. https://www.saucedemo.com). The Analyst should treat
-> this as `source: "manual"` and produce `context.json` with
-> `story.id = "STORY-003"`. Bug-fix variety for the evaluation dataset.
+> Manual-mode **bug-fix** story for the local Bench Shop
+> (`examples/benchmark-app/`, `--bug stale-badge` reproduces it). The Analyst
+> should treat it as `source: "manual"` and produce `context.json` with
+> `story.id = "BENCH-1"`.
 
 ## Goal
 
-The cart badge in the header must always reflect the true number of
-items in the cart. After a user removes an item, the badge must
-decrement immediately — it currently shows the pre-removal count until
-a full page reload.
+The basket count in the header must always show how many products are in the
+basket. After a shopper takes a product out, the count must go down at once;
+today it keeps the old number until the shopper moves to another screen.
 
 ## Background (the bug)
 
-A recent refactor moved the badge's count from a derived value to a
-cached one that is only recomputed on navigation. Removing an item
-updates the cart store but not the cached badge, so the header lies
-until the next page load. No data is lost — the cart contents are
-correct — but the visible count is wrong, which erodes trust at the
-exact moment a user is deciding whether to check out.
+The count was moved from a value worked out from the basket to a cached one
+that is only refreshed when the screen changes. Taking a product out updates
+the basket but not the cached count, so the header is wrong until the next
+screen. The basket itself is right; the number shown is not, at the moment a
+shopper decides whether to check out.
 
 ## Acceptance criteria
 
-1. Given a cart with N items, when the user removes one item from the
-   cart page, then the header badge updates to N-1 without a page
-   reload.
-2. Given the user removes the last remaining item, when the cart
-   becomes empty, then the header badge is hidden entirely (not shown
-   as "0").
-3. Given the user removes an item, when they navigate to another page
-   and back, then the badge still shows the correct count (the fix
-   must not depend on a reload to "correct itself").
+1. Given a basket with N products, when the shopper takes one out on the
+   basket screen, then the header basket count shows N-1 without changing
+   screen.
+2. Given the shopper takes out the last product, when the basket becomes
+   empty, then the header basket count is hidden (not shown as "0").
+3. Given the shopper has taken a product out, when they go to another screen
+   and back, then the basket count still shows the right number.
 
 ## Out of scope
 
-- Adding items to the cart (the increment path already works).
-- Cart total price recomputation (separate concern, separate story).
-- Persisting the cart across sessions.
-- Visual styling of the badge.
+- Adding products to the basket (that path works).
+- The money shown on the order review (a separate story, BENCH-2).
+- Keeping the basket across sessions.
+- How the count looks.
 
 ## Notes for the QA pipeline
 
-- This is a regression fix, so the highest-value cases are the ones
-  that would have caught the regression: the immediate-decrement
-  assertion (AC 1) and the empty-cart hide (AC 2).
-- AC 1 and AC 3 are UI-journey assertions (badge state across
-  interactions) → likely `automate_e2e`. There is no server-side
-  contract here; the badge is a client-rendered value, so an API test
-  would not exercise the bug.
+- This is a regression fix: the cases that matter most are the ones that
+  would have caught it, the immediate count after a take-out (AC 1) and the
+  hidden count for an empty basket (AC 2).
+- The count is rendered in the browser and has no API, so these are
+  `automate_e2e`.
+- The sign-in screen shows the demo account. Every hook, price and figure
+  is on the running app: read them from it.

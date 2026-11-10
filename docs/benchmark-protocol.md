@@ -32,6 +32,12 @@ checklist** to judge output. The only variable is the process.
   follow-ups are allowed (the kind a working QA would actually type), but the
   arm is **timeboxed** to keep it comparable — record the box in the writeup.
   No schemas, no gates, no traceability, no required app exploration.
+  On Bench Shop the raw arm runs in a workspace without this repository's
+  `examples/benchmark-app/` and `examples/evaluation/` (an empty folder, or
+  a checkout with both removed): they hold the app's source, its hooks,
+  prices and totals, and tests already written against it, so an agent that
+  can read them never has to look at the app. Say in the record's notes
+  where the arm ran.
 - **Arm B — the pipeline.** The story driven through `npm run pipeline`
   (`docs/pipeline-runner.md`): Analyst → gates → Test Designer → Planner →
   Generator, with the four human gates and the no-tests-from-text-alone rule
@@ -98,8 +104,11 @@ registration, not mine.**
 > `docs/evidence.md` §5b); and (2) it has **no bugs to catch and one version**,
 > so `known_bug_catch_rate` ties 1.0/1.0 and `selector_survival_rate` is
 > permanently `null`. Bench Shop fixes both — inject a bug with `--bug`, and
-> serve `v1` vs the drifted `v2`. Existing SauceDemo rows stay valid; use Bench
-> Shop when a story needs a catchable bug or a real survival number.
+> serve `v1` vs the drifted `v2`. Its catalogue, prices, tax rule, sign-in
+> details and hooks are its own (since 2026-11-08; before that it mirrored
+> SauceDemo), and its stories are `examples/benchmark-app/stories/BENCH-*.md`.
+> Existing SauceDemo rows stay valid; use Bench Shop when a story needs a
+> catchable bug or a real survival number.
 
 ---
 

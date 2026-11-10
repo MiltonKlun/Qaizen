@@ -1,8 +1,8 @@
 # REG-007 — Test Designer
 
-**Where it comes from (bench-shop-bug).** Bench Shop --bug wrong-item-total and --bug inconsistent-total: the overview item total is off by $1.00, or the total is not item total plus tax (STORY-020, RISK-001 and RISK-002).
+**Where it comes from (bench-shop-bug).** Bench Shop --bug wrong-item-total and --bug inconsistent-total: the review's Items figure is off by $1.00, or the Order total is not Items plus Sales tax (BENCH-2, RISK-001 and RISK-002).
 
-**Expected behavior.** Automated cases cover both the item total being the sum of the line prices and the total being the item total plus tax.
+**Expected behavior.** Automated cases cover both the Items figure being the sum of the basket prices and the Order total being Items plus Sales tax.
 
 ## Running a trial
 

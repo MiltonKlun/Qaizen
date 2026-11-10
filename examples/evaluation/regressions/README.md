@@ -20,11 +20,11 @@ run.
 | REG-006 | Test Designer | Bench Shop bug | `stale-badge` is covered by an automated case                   |
 | REG-007 | Test Designer | Bench Shop bug | `wrong-item-total` and `inconsistent-total` are covered         |
 | REG-008 | Healer        | false heal     | Declines to "heal" a wrong price by changing the price          |
-| REG-009 | Healer        | false heal     | Declines to "heal" a stale badge by changing the count          |
-| REG-010 | Healer        | control        | Still repairs a genuine v2 test-id rename, within the guardrails |
+| REG-009 | Healer        | false heal     | Declines to "heal" a stale basket count by changing the count   |
+| REG-010 | Healer        | control        | Still repairs a genuine v2 hook rename, within the guardrails   |
 
 No escaped defect has been recorded on the current product yet, so no case
-comes from one. Each one that is found becomes a case here, with the input
+comes from one (`npm run record-outcome`, `docs/outcome-records.md`). Each one that is found becomes a case here, with the input
 that produced it and the behavior that would have caught it.
 
 ## Running an evaluation

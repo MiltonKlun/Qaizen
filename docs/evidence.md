@@ -252,11 +252,11 @@ prevent.** The green run flatters raw; the `fictional_rate 1.0`,
 `gate4_corrections 1`, `traceability 0.0`, and the hard-coded money tell the
 real story. It also shows why a target outside the model's training data
 matters: only such a target stops raw prompting from getting lucky. The local
-Bench Shop app is meant to be that target, but it currently mirrors SauceDemo
-(the same products, prices, 8% tax, login and `data-test` names), so its
-totals include the same `$39.98` the text-only arm recalled. It is not yet a
-training-data-free target; it becomes one once its catalogue, prices, tax and
-credentials change.
+Bench Shop app is that target since 2026-11-08: until then it mirrored
+SauceDemo (the same products, prices, tax, login and hook names, so its
+totals included the same figure the text-only arm recalled); its catalogue,
+prices, tax rule, credentials, screens and hooks are now its own, and a test
+keeps them that way (§5d).
 
 ---
 
@@ -282,18 +282,40 @@ around them.
 - **2026-09-30 — record provenance.** New records are schema
   1.1 with provenance and separate timings. The four existing 1.0 records keep
   what was captured then; their missing provenance is not reconstructed.
+- **2026-11-08 — Bench Shop is its own app.** Its catalogue, prices, tax
+  rule (6.5%, from 8%), sign-in details, routes, screen text and hooks
+  (`data-qa`, from SauceDemo's names) were replaced, and a test fails if any
+  SauceDemo name, price, credential or hook returns
+  (`examples/benchmark-app/README.md`). `npm run benchmark:check` now also
+  drives a purchase with each seeded bug and fails unless each changes only
+  its own symptom. The stories a series runs on it are
+  `examples/benchmark-app/stories/BENCH-1.md` and `BENCH-2.md`. The records
+  so far are labelled below; none is changed.
+
+  | Record (`evidence/benchmark.jsonl`, line) | Story                   | Arm      | Label                                |
+  | ----------------------------------------- | ----------------------- | -------- | ------------------------------------ |
+  | 1                                         | cart-badge-count-bugfix | raw      | pre-mechanism, SauceDemo-like target |
+  | 2                                         | cart-badge-count-bugfix | pipeline | pre-mechanism, SauceDemo-like target |
+  | 3                                         | checkout-order-summary  | pipeline | pre-mechanism, SauceDemo-like target |
+  | 4                                         | checkout-order-summary  | raw      | pre-mechanism, SauceDemo-like target |
+
+  "Pre-mechanism": measured before approval binding, the execution ledger,
+  the rule-based classifier and the healer guardrail (the status note at the
+  top). "SauceDemo-like target": measured on live SauceDemo, which the old
+  Bench Shop copied; none was measured on the new Bench Shop. A result on the
+  new app is not comparable with them as a before/after.
 
 ---
 
 ## 6. Next steps
 
 - **Done:** the text-only raw arm for STORY-020 (§5c) — completed the §5b gap.
-- **Make Bench Shop a fair target, then re-run the benchmark against it**
-  (§5c). Today it mirrors SauceDemo, so first change its catalogue,
-  prices, tax and credentials; then it can give the honest test of grounding
-  that public SauceDemo cannot (`--bug` for catch rate, `v1` vs `v2` for
-  selector survival). Re-run on the current pipeline, since every record so
-  far predates its trust mechanisms.
+- **Done:** Bench Shop is a fair target (§5d, 2026-11-08).
+- **Re-run the benchmark against Bench Shop** on the current pipeline, with
+  its own stories (`examples/benchmark-app/stories/`): it gives the honest
+  test of grounding that public SauceDemo cannot (`--bug` for catch rate,
+  `v1` vs `v2` for selector survival), and every record so far predates the
+  pipeline's trust mechanisms.
 - Add the remaining slate stories (protocol §2) to move toward a real series;
   re-evaluate §5 thresholds once ≥5 stories are in. (Solo single-session runs,
   per §5a, give the cleanest timing.)
