@@ -25,7 +25,9 @@ import {
   faultProblem,
   faultRecord,
   faultState,
+  faultsFor,
   faultsForStory,
+  isAssertionError,
   runOutcome,
 } from '../scripts/lib/fault-check.js';
 import { validateValue } from '../scripts/lib/artifact-io.js';
@@ -67,8 +69,29 @@ const report = (tests) => ({
   ],
 });
 const EXPECT = 'Error: expect(received).toBe(expected) // Object.is equality';
-const ACTION =
-  'Error: locator.click: Timeout 5000ms exceeded.\nCall log:\n  - waiting for expect-ish text';
+// An action that failed, with the snippet and call log Playwright prints
+// around it: they quote a neighbouring expect( line, which must not count.
+const ACTION = [
+  'Error: locator.click: Timeout 5000ms exceeded.',
+  'Call log:',
+  '  - waiting for locator(\'[data-qa="place-order"]\')',
+  '',
+  '  12 |   await qa(page, "review-order").click();',
+  '> 13 |   await qa(page, "place-order").click();',
+  '  14 |   expect(items).toBe(4675);',
+].join('\n');
+// An assertion with a custom message: the message is the first line, the
+// matcher line follows (Playwright 1.60).
+const CUSTOM = [
+  'Error: Items total',
+  '',
+  'expect(received).toBe(expected) // Object.is equality',
+  '',
+  'Expected: 4675',
+  'Received: 4775',
+  '',
+  '  20 |   expect(items, "Items total").toBe(4675);',
+].join('\n');
 
 test('a kill is a failed expect; an action that fails, a skip or a pass is not', () => {
   assert.equal(runOutcome(pwTest('expected')), 'passed');
@@ -90,8 +113,31 @@ test('a kill is a failed expect; an action that fails, a skip or a pass is not',
     'assertion_failed',
     'coloured error text'
   );
-  // "expect" further down the error (a call log) does not make it one.
+  assert.equal(
+    runOutcome(pwTest('unexpected', CUSTOM)),
+    'assertion_failed',
+    'an assertion with its own message'
+  );
+  assert.equal(
+    isAssertionError(
+      'Error: Items figure\n\nexpect(locator).toHaveText(expected) failed\n\nLocator: locator(\'[data-qa="sum-items"]\')'
+    ),
+    true
+  );
+  assert.equal(
+    isAssertionError('Error: Total\n\nexpect.poll(received).toBe(expected)'),
+    true
+  );
+  // An expect( quoted in the snippet or call log of a failed action does not
+  // make it an assertion.
   assert.equal(runOutcome(pwTest('unexpected', ACTION)), 'action_failed');
+  assert.equal(
+    isAssertionError(
+      'Error: no amount in ""\n\n  9 |   if (!m) throw new Error(\'no amount\')\n> 10 |   expect(x).toBe(1)'
+    ),
+    false,
+    'a thrown error is not an expect, even beside one'
+  );
   assert.equal(
     runOutcome(pwTest('unexpected', 'Test timeout of 30000ms exceeded.')),
     'action_failed'
@@ -203,23 +249,101 @@ test('the kill matrix: strong, weak oracle, no relevant fault, an untraced test,
   );
 });
 
-test('Gate 4: a missing, outdated or failing-baseline check blocks; a weak oracle blocks on full only', () => {
-  const ctx = (extra = {}) => ({ story: { id: 'BENCH-2' }, ...extra });
+/** A run folder whose staged story is `text`. */
+function storyDir(t, text) {
+  const dir = mkdtempSync(join(REPO, '.tmp-runner-tx-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  writeFileSync(join(dir, 'story.md'), text);
+  return dir;
+}
+const BENCH2_STORY = readFileSync(
+  'examples/benchmark-app/stories/BENCH-2.md',
+  'utf8'
+);
+const manual = (extra = {}) => ({
+  story: { id: 'BENCH-2', source: 'manual', path: 'story.md' },
+  ...extra,
+});
+
+test('only the Bench Shop story itself has a fault check, not another story with its id', (t) => {
+  const same = storyDir(t, BENCH2_STORY.replace(/\n/g, '\r\n') + '\n\n');
+  assert.equal(faultsFor(manual(), same).length, 2, 'line endings aside');
+  const other = storyDir(
+    t,
+    '# BENCH-2\nA Jira story in a project keyed BENCH.\n'
+  );
+  assert.deepEqual(faultsFor(manual(), other), []);
+  assert.deepEqual(
+    faultsFor(
+      { story: { id: 'BENCH-2', source: 'jira', path: 'story.md' } },
+      same
+    ),
+    [],
+    'a Jira story is never the toy shop'
+  );
+  assert.deepEqual(
+    faultsFor(
+      { story: { ...manual().story, jira_issue_key: 'BENCH-2' } },
+      same
+    ),
+    []
+  );
+  assert.equal(faultState(manual(), 'x', other).state, 'not_applicable');
+});
+
+test('a criterion is found with its quotes and dashes changed; one that is gone holds every test to its fault', () => {
+  const fault = faultsForStory('BENCH-2')[1];
   assert.equal(
-    faultState({ story: { id: 'STORY-020' } }, 'x').state,
+    criterionIndex(fault, [
+      'a',
+      'b',
+      'then the “Order total” equals the shown “Items” figure   plus the shown “Sales tax”.',
+    ]),
+    2
+  );
+  const r = faultRecord({
+    inputDigest: 'a'.repeat(64),
+    track: 'standard',
+    ranAt: '2026-11-10T10:00:00Z',
+    faults: faultsForStory('BENCH-2'),
+    criteria: ['nothing', 'like', 'the story'],
+    cases: CASES,
+    clean: report([['lists both [TC-001]', 'expected']]),
+    reports: {
+      'wrong-item-total': report([['lists both [TC-001]', 'expected']]),
+      'inconsistent-total': report([['lists both [TC-001]', 'expected']]),
+    },
+  });
+  assert.deepEqual(r.units[0].relevant, [
+    'wrong-item-total',
+    'inconsistent-total',
+  ]);
+  assert.equal(r.units[0].verdict, 'weak_oracle', 'fails closed');
+  assert.match(
+    faultBriefLine({ state: 'current', record: r }) ?? '',
+    /wrong-item-total, inconsistent-total: the criterion it breaks is not in this run's criteria, so every test was held to it/
+  );
+});
+
+test('Gate 4: a missing, outdated or failing-baseline check blocks; a weak oracle blocks on full only', (t) => {
+  const root = storyDir(t, BENCH2_STORY);
+  const state = (ctx, digest) => faultState(ctx, digest, root);
+  const ctx = (extra = {}) => manual(extra);
+  assert.equal(
+    state({ story: { id: 'STORY-020' } }, 'x').state,
     'not_applicable'
   );
   assert.equal(
-    faultProblem(faultState({ story: { id: 'OLD-1' } }, 'x'), 'full'),
+    faultProblem(state({ story: { id: 'OLD-1' } }, 'x'), 'full'),
     null
   );
   assert.equal(
-    faultBriefLine(faultState({ story: { id: 'OLD-1' } }, 'x')),
+    faultBriefLine(state({ story: { id: 'OLD-1' } }, 'x')),
     null,
     'no fault line for a story the Bench Shop does not model'
   );
   assert.match(
-    faultProblem(faultState(ctx(), 'a'.repeat(64)), 'lite') ?? '',
+    faultProblem(state(ctx(), 'a'.repeat(64)), 'lite') ?? '',
     /no fault check has run/
   );
   const weak = record(
@@ -227,10 +351,11 @@ test('Gate 4: a missing, outdated or failing-baseline check blocks; a weak oracl
     [['shown [TC-002]', 'expected']],
     [['shown [TC-002]', 'expected']]
   );
-  const stale = faultState(ctx({ fault_check: weak }), 'b'.repeat(64));
+  const stale = state(ctx({ fault_check: weak }), 'b'.repeat(64));
   assert.equal(stale.state, 'stale');
   assert.match(faultProblem(stale, 'standard') ?? '', /other inputs/);
-  const current = faultState(ctx({ fault_check: weak }), 'a'.repeat(64));
+  const current = state(ctx({ fault_check: weak }), 'a'.repeat(64));
+  assert.equal(current.state, 'current');
   assert.equal(faultProblem(current, 'standard'), null);
   assert.match(
     faultProblem(current, 'full') ?? '',
@@ -246,13 +371,33 @@ test('Gate 4: a missing, outdated or failing-baseline check blocks; a weak oracl
     [['t [TC-002]', 'unexpected', ACTION]],
     [['t [TC-002]', 'unexpected', ACTION]]
   );
+  // A record that could not judge the test is run again on --resume.
+  const rerun = state(ctx({ fault_check: failing }), 'a'.repeat(64));
+  assert.equal(rerun.state, 'rerun');
   assert.match(
-    faultProblem(
-      faultState(ctx({ fault_check: failing }), 'a'.repeat(64)),
-      'lite'
-    ) ?? '',
+    faultProblem(rerun, 'lite') ?? '',
     /does not pass on the Bench Shop without a seeded bug/
   );
+  assert.match(faultBriefLine(rerun) ?? '', /runs again on --resume/);
+  const missingRun = record(
+    [['shown [TC-002]', 'expected']],
+    [],
+    [['shown [TC-002]', 'expected']]
+  );
+  const notRun = state(ctx({ fault_check: missingRun }), 'a'.repeat(64));
+  assert.equal(notRun.state, 'rerun', 'a relevant run that did not run');
+  assert.match(faultProblem(notRun, 'lite') ?? '', /did not run/);
+
+  // Tests no seeded bug can prove are said, not passed over.
+  const unproven = record(
+    [['lists both [TC-001]', 'expected']],
+    [['lists both [TC-001]', 'expected']],
+    [['lists both [TC-001]', 'expected']]
+  );
+  const line =
+    faultBriefLine(state(ctx({ fault_check: unproven }), 'a'.repeat(64))) ?? '';
+  assert.match(line, /^ATTENTION: /);
+  assert.match(line, /1 test\(s\) not proven by any fault/);
 });
 
 test('the faults step comes after the repeat check and before Gate 4, only when asked for', () => {
@@ -317,6 +462,7 @@ const bugs = JSON.parse(/window\\.__BENCH__ = (\\{.*?\\});/.exec(page)[1]).bugs;
 const on = bugs.includes('wrong-item-total');
 if (mode === 'strong' && on) write([spec('unexpected', 'Error: expect(received).toBe(expected)')]);
 else if (mode === 'action' && bugs.length) write([spec('unexpected', 'Error: locator.click: Timeout 5000ms exceeded.')]);
+else if (mode === 'no-tests' && bugs.length) writeFileSync(out, JSON.stringify({ suites: [], errors: [{ message: 'Error: No tests found' }] }));
 else write([spec('expected')]);
 process.exit(0);
 `
@@ -333,7 +479,13 @@ function workspace() {
       recursive: true,
     });
   copyRuntimeConfig(dir, REPO);
-  writeCompletedRun(dir, { storyId: 'BENCH-2', status: 'in_progress' });
+  // The Bench Shop's own story, staged as the run's story: only then does
+  // the run have a fault check.
+  writeCompletedRun(
+    dir,
+    { storyId: 'BENCH-2', status: 'in_progress' },
+    { 'story.md': BENCH2_STORY }
+  );
   const ctxPath = join(dir, 'context.json');
   const ctx = JSON.parse(readFileSync(ctxPath, 'utf8'));
   ctx.review_gates.code_reviewed = false;
@@ -397,6 +549,25 @@ test('a weak oracle stops a full-track run before Gate 4, and Gate 4 will not op
     assert.equal(gate.code, 2, gate.out);
     assert.match(gate.out, /fault check: weak oracle on the full track/);
     assert.doesNotMatch(gate.out, /GATE PENDING/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a run under a fault that loaded no test is an execution error, never a survival', () => {
+  const { dir, ctxPath } = workspace();
+  try {
+    const r = run(dir, [], fakePlaywright(dir, 'no-tests'));
+    assert.equal(r.code, 2, r.out);
+    assert.match(
+      r.out,
+      /The run with wrong-item-total reported no test \(Error: No tests found\); this is an execution error/
+    );
+    assert.equal(
+      JSON.parse(readFileSync(ctxPath, 'utf8')).fault_check,
+      undefined,
+      'nothing is recorded'
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

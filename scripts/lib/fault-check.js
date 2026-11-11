@@ -17,10 +17,29 @@
 // the criterion. A test that names no case is held to every fault of its
 // story.
 //
+// A story is checked only when it IS a Bench Shop story: a manual story whose
+// text is the one under examples/benchmark-app/stories/, not merely one whose
+// id matches (a Jira project keyed BENCH would otherwise be sent to the toy
+// shop).
+//
 // Full source mutation is not done here: these are the faults the app can
 // switch on, chosen because they model the story's risks.
 //
-// Pure apart from nothing: callers run Playwright and pass the reports in.
+// Callers run Playwright and pass the reports in; the only file read here is
+// the story, to know whether the check applies.
+
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const STORIES = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  'examples',
+  'benchmark-app',
+  'stories'
+);
 
 /**
  * @typedef {{ bug: string, story: string, criterion: string,
@@ -64,8 +83,7 @@ export const BENCH_SHOP_FAULTS = [
 ];
 
 /**
- * The faults that model a story's risks; none for a story the Bench Shop
- * does not model, which then has no fault check.
+ * The catalogue's faults for a Bench Shop story id.
  * @param {string | undefined} storyId
  * @returns {Fault[]}
  */
@@ -74,14 +92,50 @@ export function faultsForStory(storyId) {
 }
 
 /**
+ * Text compared as words: case, whitespace, curly quotes and dashes aside.
+ * @param {string} text
+ */
+const words = (text) =>
+  text
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2010-\u2015\u2212]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+/**
+ * The faults of this run: those of its story, when the run is a manual story
+ * whose text is the Bench Shop's own story of that id; none otherwise, and
+ * then the run has no fault check.
+ * @param {any} context
+ * @param {string} [root] the run's folder
+ * @returns {Fault[]}
+ */
+export function faultsFor(context, root = '.') {
+  const id = context?.story?.id;
+  const faults = faultsForStory(id);
+  if (!faults.length) return [];
+  if (context?.story?.source !== 'manual' || context?.story?.jira_issue_key)
+    return [];
+  const own = join(STORIES, `${id}.md`);
+  const staged = join(root, context?.story?.path || 'story.md');
+  if (!existsSync(own) || !existsSync(staged)) return [];
+  return words(readFileSync(own, 'utf8')) ===
+    words(readFileSync(staged, 'utf8'))
+    ? faults
+    : [];
+}
+
+/**
  * The index of the criterion a fault breaks in this run's context, or null
- * when no criterion carries its phrase (the story was changed).
+ * when no criterion carries its phrase.
  * @param {Fault} fault
  * @param {string[]} criteria context.acceptance_criteria
  */
 export function criterionIndex(fault, criteria) {
   const i = criteria.findIndex((c) =>
-    c.toLowerCase().includes(fault.criterion.toLowerCase())
+    words(c).includes(words(fault.criterion))
   );
   return i === -1 ? null : i;
 }
@@ -107,16 +161,33 @@ export function runOutcome(test) {
     ...(result.errors ?? []),
     ...(result.error ? [result.error] : []),
   ];
-  const assertion = errors.some((e) =>
-    /\bexpect\(/.test(
-      String(e?.message ?? '')
-        // Playwright colours its error text; the ANSI escape is the match.
-        // eslint-disable-next-line no-control-regex
-        .replace(/\u001b\[[0-9;]*m/g, '')
-        .split(/\r?\n/)[0]
-    )
-  );
-  return assertion ? 'assertion_failed' : 'action_failed';
+  return errors.some((e) => isAssertionError(String(e?.message ?? '')))
+    ? 'assertion_failed'
+    : 'action_failed';
+}
+
+/**
+ * Whether a Playwright error message is a failed `expect`. Its first line
+ * names the matcher (`expect(received).toBe(expected)`), or an expect that
+ * timed out (`Timed out 5000ms waiting for expect(locator)...`); with a
+ * custom message (`expect(x, 'Items total')`) the first line is that message
+ * and the matcher line follows it. Only the message lines are read: the code
+ * snippet and the call log that follow can quote a neighbouring `expect(`
+ * around a failed action.
+ * @param {string} message
+ */
+export function isAssertionError(message) {
+  const lines = message
+    // Playwright colours its error text; the ANSI escape is the match.
+    // eslint-disable-next-line no-control-regex
+    .replace(/\u001b\[[0-9;]*m/g, '')
+    .split(/\r?\n/);
+  if (/\bexpect\(/.test(lines[0])) return true;
+  for (const line of lines.slice(1)) {
+    if (/^\s*>?\s*\d+\s*\|/.test(line) || /^\s*Call log:/.test(line)) break;
+    if (/^\s*(?:\w*Error: )?expect(?:\.soft|\.poll)?\(/.test(line)) return true;
+  }
+  return false;
 }
 
 /**
@@ -139,12 +210,21 @@ export function reportOutcomes(report) {
         const file = String(spec.file ?? suite.file ?? '');
         const title = [...titles, String(spec.title ?? '')].join(' › ');
         const project = String(t.projectName ?? '');
-        out.set(JSON.stringify([file, title, project, spec.line ?? null]), {
-          file,
-          title,
-          project,
-          outcome: runOutcome(t),
-        });
+        out.set(
+          JSON.stringify([
+            file,
+            title,
+            project,
+            spec.line ?? null,
+            spec.column ?? null,
+          ]),
+          {
+            file,
+            title,
+            project,
+            outcome: runOutcome(t),
+          }
+        );
       }
     for (const child of suite?.suites ?? [])
       walk(child, [...titles, String(child.title ?? '')]);
@@ -187,11 +267,13 @@ export function faultRecord({
         .filter((c) => ids.includes(c.test_case_id))
         .flatMap((c) => c.acceptance_criteria_refs ?? [])
     );
+    // A test naming no case, or a fault whose criterion is not in this run's
+    // criteria, is held to the fault: an unknown link is not a pass.
     const relevant = faults
       .filter((f) => {
         if (!ids.length) return true;
         const i = indexOf.get(f.bug);
-        return i !== null && i !== undefined && refs.has(i);
+        return i === null || i === undefined || refs.has(i);
       })
       .map((f) => f.bug);
     /** @type {Record<string, RunOutcome>} */
@@ -245,18 +327,25 @@ export function faultRecord({
  * Whether the recorded fault check still holds for the Gate 4 inputs.
  * @param {any} context
  * @param {string} currentDigest
- * @returns {{ state: 'not_applicable' | 'missing' | 'stale' | 'current',
- *   record: FaultRecord | null }}
+ * @param {string} [root] the run's folder (for its story)
+ * @returns {{ state: 'not_applicable' | 'missing' | 'stale' | 'rerun' |
+ *   'current', record: FaultRecord | null }}
  */
-export function faultState(context, currentDigest) {
-  if (!faultsForStory(context?.story?.id).length)
+export function faultState(context, currentDigest, root = '.') {
+  if (!faultsFor(context, root).length)
     return { state: 'not_applicable', record: null };
   const record = context?.fault_check ?? null;
   if (!record) return { state: 'missing', record: null };
-  return {
-    state: record.input_digest === currentDigest ? 'current' : 'stale',
-    record,
-  };
+  if (record.input_digest !== currentDigest) return { state: 'stale', record };
+  // A record that could not judge the test (it failed on the clean app, or a
+  // run it was held to did not run) is run again on --resume rather than
+  // kept: the cause may have been the run, not the test.
+  const inconclusive =
+    record.outcome === 'baseline_failed' ||
+    (record.units ?? []).some((/** @type {FaultUnit} */ u) =>
+      u.relevant.some((b) => u.results[b] === 'not_run')
+    );
+  return { state: inconclusive ? 'rerun' : 'current', record };
 }
 
 /** @param {FaultUnit} u */
@@ -290,20 +379,36 @@ export function faultBriefLine(s) {
   if (s.state === 'not_applicable') return null;
   if (!s.record)
     return 'ATTENTION: no fault check recorded for this test (each new test is run against the seeded bugs its cases cover)';
-  const lines = faultLines(s.record);
+  const r = s.record;
+  const lines = faultLines(r);
+  const unproven = r.units.filter((u) => u.verdict === 'no_relevant_fault');
+  const lost = r.faults.filter((f) => f.criterion_index === null);
+  const notes = [
+    ...(r.units.some((u) => u.verdict === 'weak_oracle')
+      ? [
+          '  A weak oracle passes with the bug its cases are about switched on: its assertions do not check that behavior.',
+        ]
+      : []),
+    ...(unproven.length
+      ? [
+          `  ${unproven.length} test(s) not proven by any fault: no seeded bug breaks the criteria of their cases, so this check says nothing about their assertions.`,
+        ]
+      : []),
+    ...(lost.length
+      ? [
+          `  ${lost.map((f) => f.bug).join(', ')}: the criterion it breaks is not in this run's criteria, so every test was held to it.`,
+        ]
+      : []),
+  ];
   const head =
     s.state === 'stale'
       ? 'ATTENTION: the fault check ran against other inputs than these; '
-      : s.record.outcome === 'strong' ||
-          s.record.outcome === 'no_relevant_fault'
-        ? ''
-        : 'ATTENTION: ';
-  const weak = s.record.units.some((u) => u.verdict === 'weak_oracle')
-    ? [
-        '  A weak oracle passes with the bug its cases are about switched on: its assertions do not check that behavior.',
-      ]
-    : [];
-  return [`${head}${lines[0]}`, ...lines.slice(1), ...weak].join('\n');
+      : s.state === 'rerun'
+        ? 'ATTENTION: the last fault check could not judge the test and runs again on --resume; '
+        : r.outcome === 'strong' && !notes.length
+          ? ''
+          : 'ATTENTION: ';
+  return [`${head}${lines[0]}`, ...lines.slice(1), ...notes].join('\n');
 }
 
 /**
@@ -320,6 +425,8 @@ export function faultProblem(s, track) {
   if (s.state === 'stale')
     return 'the fault check ran against other inputs than the ones under review; --resume runs it again';
   const r = /** @type {FaultRecord} */ (s.record);
+  if (s.state === 'rerun' && r.outcome !== 'baseline_failed')
+    return 'a run the fault check was held to did not run; --resume runs it again';
   if (r.outcome === 'baseline_failed')
     return `the test does not pass on the Bench Shop without a seeded bug, so no kill means anything (${
       r.units

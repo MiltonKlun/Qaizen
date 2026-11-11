@@ -103,7 +103,8 @@ import {
   faultProblem,
   faultRecord,
   faultState,
-  faultsForStory,
+  faultsFor,
+  reportOutcomes,
 } from './lib/fault-check.js';
 import { runAgainstBenchShop } from './lib/fault-runs.js';
 import {
@@ -1797,7 +1798,7 @@ function faultStep(context) {
     );
     exit(2);
   }
-  const faults = faultsForStory(context.story?.id);
+  const faults = faultsFor(context);
   const casesPath = context.artifact_paths?.test_cases;
   const cases = casesPath
     ? readValidatedJson(casesPath, TEST_CASES_SCHEMA)
@@ -1835,6 +1836,28 @@ function faultStep(context) {
     }
     reports[bug ?? 'clean'] = r.report;
   }
+  // A run that loaded no test (a file that does not compile, a failing
+  // global setup) is an execution error, not a test surviving a fault.
+  /** @type {string[]} */
+  const errors = [];
+  for (const [name, report] of Object.entries(reports)) {
+    const first = (Array.isArray(report?.errors) ? report.errors : [])
+      .map((/** @type {any} */ e) =>
+        String(e?.message ?? e ?? '')
+          // eslint-disable-next-line no-control-regex
+          .replace(/\u001b\[[0-9;]*m/g, '')
+          .split(/\r?\n/)[0]
+          .trim()
+      )
+      .filter(Boolean);
+    errors.push(...first.map((/** @type {string} */ e) => `${name}: ${e}`));
+    if (!reportOutcomes(report).size) {
+      console.error(
+        `The ${name === 'clean' ? 'clean run' : `run with ${name}`} reported no test${first.length ? ` (${first.join('; ')})` : ''}; this is an execution error, not a result. Stopping.`
+      );
+      exit(2);
+    }
+  }
   const { clean, ...byBug } = reports;
   const record = faultRecord({
     inputDigest: gateDigest('code_reviewed', context, '.'),
@@ -1847,6 +1870,7 @@ function faultStep(context) {
     ),
     clean,
     reports: byBug,
+    errors,
   });
   /** @type {any} */ (context).fault_check = record;
   writeContext(context);

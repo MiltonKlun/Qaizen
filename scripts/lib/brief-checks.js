@@ -185,7 +185,7 @@ export function briefChecks(step, context, root = '.') {
   if (step === 'gate4') {
     const digest = gateDigest('code_reviewed', context, root);
     checks.push(repeatBriefLine(repeatState(context, digest)));
-    const faults = faultBriefLine(faultState(context, digest));
+    const faults = faultBriefLine(faultState(context, digest, root));
     if (faults) checks.push(faults);
   }
   const gateKey = /** @type {Record<string, string>} */ (GATE_KEYS)[step];

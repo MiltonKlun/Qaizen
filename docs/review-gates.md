@@ -696,10 +696,19 @@ which test kills which bug:
 - a test that fails on the clean Bench Shop proves nothing either way, and
   stops the run on every track.
 
+An `expect` with its own message (`expect(x, 'Items total')`) counts as an
+assertion; an error the test throws itself does not. A bug whose criterion
+is not in the run's criteria (the story was edited) is held against every
+test, and the brief says so; a test whose cases no seeded bug can break is
+named as not proven by any fault. A record that could not judge the test
+(a failure on the clean app, a run that did not run) is run again on
+`--resume`, and a run that loaded no test is an execution error.
+
 Like the repeat check, the record is bound to the Gate 4 inputs, is shown
 in the brief, and is copied into the execution ledger. The faults are the
 ones the Bench Shop can switch on; mutating the app's source is not done.
-Stories the Bench Shop does not model have no fault check.
+Only a manual story whose text is the Bench Shop's own story has a fault
+check; any other story, a Jira one with the same key included, has none.
 
 **Inputs the reviewer reads:**
 

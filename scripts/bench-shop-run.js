@@ -46,16 +46,45 @@ for (let i = 0; i < own.length; i += 2) {
   serverArgs.push(own[i], own[i + 1]);
 }
 
+/** How long the server may take to print its port. */
+const START_TIMEOUT_MS = 10_000;
+
 const server = spawn(execPath, [SERVER, ...serverArgs], {
-  stdio: ['ignore', 'pipe', 'ignore'],
+  stdio: ['ignore', 'pipe', 'pipe'],
 });
+// Its own messages are kept to explain a failed start, not printed otherwise.
+let serverErr = '';
+server.stderr.on('data', (b) => (serverErr += b));
+/** @type {import('node:child_process').ChildProcess | null} */
+let child = null;
+// However this ends, the server and the command end with it.
+const stopAll = () => {
+  child?.kill();
+  server.kill();
+};
+for (const signal of /** @type {const} */ (['SIGINT', 'SIGTERM']))
+  process.on(signal, () => {
+    stopAll();
+    exit(130);
+  });
+
 /** @type {number} */
 let port;
 try {
   port = await new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () =>
+        reject(
+          new Error(`it printed no port within ${START_TIMEOUT_MS / 1000} s`)
+        ),
+      START_TIMEOUT_MS
+    );
     server.stdout.on('data', (b) => {
       const m = String(b).match(/PORT (\d+)/);
-      if (m) resolve(Number(m[1]));
+      if (m) {
+        clearTimeout(timer);
+        resolve(Number(m[1]));
+      }
     });
     server.on('error', reject);
     server.on('exit', (code) =>
@@ -63,19 +92,22 @@ try {
     );
   });
 } catch (err) {
+  stopAll();
   console.error(
-    `Could not serve the Bench Shop: ${err instanceof Error ? err.message : err}`
+    `Could not serve the Bench Shop: ${err instanceof Error ? err.message : err}` +
+      (serverErr.trim() ? `\n${serverErr.trim()}` : '')
   );
   exit(2);
 }
 
-const child = spawn(execPath, command, {
+const running = spawn(execPath, command, {
   stdio: 'inherit',
   env: { ...env, BASE_URL: `http://127.0.0.1:${port}/` },
 });
+child = running;
 const code = await new Promise((resolve) => {
-  child.on('close', (c) => resolve(c ?? 1));
-  child.on('error', () => resolve(2));
+  running.on('close', (c) => resolve(c ?? 1));
+  running.on('error', () => resolve(2));
 });
 server.kill();
 exit(code);

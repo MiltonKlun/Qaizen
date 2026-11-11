@@ -17,6 +17,9 @@ const HELPER = join(
   'bench-shop-run.js'
 );
 
+/** The longest one run of the generated test may take. */
+export const RUN_TIMEOUT_MS = 10 * 60 * 1000;
+
 /**
  * One run of Playwright against the Bench Shop.
  * @param {{ bug: string | null, pwArgs: string[], cwd: string,
@@ -61,12 +64,16 @@ export function runAgainstBenchShop({
       cwd,
       stdio: ['ignore', 'ignore', 'inherit'],
       env: { ...runEnv, PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath },
+      // A run that hangs is stopped: the step reports it, never waits forever.
+      timeout: RUN_TIMEOUT_MS,
     }
   );
   if (run.error)
     return {
       ok: false,
-      reason: `could not launch the run (${run.error.message})`,
+      reason: /ETIMEDOUT/.test(String(run.error.message))
+        ? `the run ${bug ? `with ${bug}` : 'on the clean app'} took longer than ${RUN_TIMEOUT_MS / 60000} minutes and was stopped`
+        : `could not launch the run (${run.error.message})`,
     };
   try {
     return { ok: true, report: JSON.parse(readFileSync(reportPath, 'utf8')) };
