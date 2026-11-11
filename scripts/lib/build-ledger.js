@@ -255,6 +255,7 @@ export function deriveTotals(units, caseOutcomes, sourceErrorCount) {
  * @param {Mapping} [input.mapping]
  * @param {string|null} [input.approvedScopeDigest]
  * @param {any} [input.repeatCheck] the repeat check before Gate 4, if any
+ * @param {any} [input.faultCheck] the fault check before Gate 4, if any
  */
 export function buildLedger({
   runId,
@@ -266,6 +267,7 @@ export function buildLedger({
   mapping = {},
   approvedScopeDigest = null,
   repeatCheck = null,
+  faultCheck = null,
 }) {
   const {
     units: linked,
@@ -291,6 +293,7 @@ export function buildLedger({
     case_outcomes: caseOutcomes,
     totals: deriveTotals(linked, caseOutcomes, sourceErrorCount),
     ...(repeatCheck ? { repeat_check: repeatCheck } : {}),
+    ...(faultCheck ? { fault_check: faultCheck } : {}),
   };
 
   return { ledger, unmapped, ambiguous };

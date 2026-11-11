@@ -88,6 +88,18 @@ and after moving on. With
 total reads \$50.29; with `stale-badge` the count stays at 2 after a take-out
 and is right again on the next screen.
 
+## The fault check before Gate 4
+
+On a story the Bench Shop models (`stories/BENCH-1.md`, `BENCH-2.md`), the
+runner's `faults` step runs the generated test against the Bench Shop clean
+and with each seeded bug of the story (`scripts/bench-shop-run.js` serves it
+on an ephemeral port and points `BASE_URL` at it), and records which test
+kills which bug (`scripts/lib/fault-check.js`, `docs/review-gates.md` Gate 4).
+A kill is a failed `expect`; a test that survives every bug its cases cover
+is a weak oracle. `fault-fixtures/` holds two tests `npm run benchmark:check`
+uses to prove the check tells them apart: one kills `wrong-item-total`, the
+other checks nothing and is flagged.
+
 ## v1 → v2 drift (ground truth for `selector_survival_rate`)
 
 `v2` is `v1` with realistic DOM drift so locators bound to old hooks rot.
@@ -161,3 +173,4 @@ benchmark series, and record the commit you measured (`--app bench-shop@v1
 | `app/versions.js`                | The only differences between versions: the drift table                       |
 | `probes/login-surface.probe.mjs` | Reviewed sign-in probes (typechecked; run by `npm run benchmark:check`)      |
 | `stories/BENCH-1.md`, `BENCH-2.md` | The stories a series runs on Bench Shop, one per seeded bug family        |
+| `fault-fixtures/`                 | A strong and an assertion-free test for the fault check (`benchmark:check`) |

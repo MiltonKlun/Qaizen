@@ -214,11 +214,13 @@ export function writeCompletedRun(dir, opts = {}, overrides = {}) {
         (/** @type {any} */ s) => s.runner === 'playwright'
       );
       if (pw) pw.config_identity = identity;
-      // The repeat check ran against this run's Gate 4 approval, or not at all.
-      if (ledger.repeat_check) {
+      // The repeat and fault checks ran against this run's Gate 4 approval,
+      // or not at all.
+      for (const key of ['repeat_check', 'fault_check']) {
+        if (!ledger[key]) continue;
         if (identity.gate_digest)
-          ledger.repeat_check.input_digest = identity.gate_digest;
-        else delete ledger.repeat_check;
+          ledger[key].input_digest = identity.gate_digest;
+        else delete ledger[key];
       }
       write('analysis/execution-ledger.json', JSON.stringify(ledger));
     }

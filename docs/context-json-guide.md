@@ -388,6 +388,17 @@ replaced once the test is fixed, and this is what the metrics count it from.
 report as not kept.
 Written only by the runner (`docs/review-gates.md`, Gate 4).
 
+### `fault_check` (optional — written by the runner)
+
+On a story the Bench Shop models, which seeded bug each generated test
+kills: `{ input_digest, target, track, ran_at, faults[], outcome, units[] }`.
+`faults[]` names each bug of the story and the index of the criterion it
+breaks; each unit gives the test's cases, the bugs relevant to it, its clean
+run, its run under each bug (`passed`, `assertion_failed`, `action_failed`,
+`not_run`) and its verdict (`strong`, `weak_oracle`, `no_relevant_fault`,
+`baseline_failed`). Bound to the Gate 4 input digest like `repeat_check`.
+Written only by the runner (`docs/review-gates.md`, Gate 4).
+
 ### `status`
 
 One of `"draft"` / `"in_progress"` / `"completed"` / `"blocked"`.

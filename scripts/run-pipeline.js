@@ -99,6 +99,15 @@ import {
   summarizeRepeat,
 } from './lib/repeat-check.js';
 import {
+  faultLines,
+  faultProblem,
+  faultRecord,
+  faultState,
+  faultsFor,
+  reportOutcomes,
+} from './lib/fault-check.js';
+import { runAgainstBenchShop } from './lib/fault-runs.js';
+import {
   approvalAllowed,
   needsReason,
   parseAnswer,
@@ -174,6 +183,8 @@ const JIRA_FETCH = join(SCRIPT_DIR, 'fetch-jira-story.js');
 const CONTEXT_PATH = 'context.json';
 const CONTEXT_SCHEMA = join(REPO_DIR, 'schemas', 'context.schema.json');
 const TEST_CASES_SCHEMA = join(REPO_DIR, 'schemas', 'test-cases.schema.json');
+/** Where the fault check's runs write their reports (gitignored reports/). */
+const FAULT_REPORT_DIR = 'reports/faults';
 const EXTERNAL_SCHEMA = join(
   REPO_DIR,
   'schemas',
@@ -410,10 +421,14 @@ function gatherHints(context) {
   if (
     hints.generatedTestExists &&
     !gatePassed(context.review_gates?.code_reviewed)
-  )
-    hints.repeatCurrent =
-      repeatState(context, gateDigest('code_reviewed', context, '.')).state ===
-      'current';
+  ) {
+    const digest = gateDigest('code_reviewed', context, '.');
+    hints.repeatCurrent = repeatState(context, digest).state === 'current';
+    // A Bench Shop story also has its fault check (scripts/lib/fault-check.js).
+    const faults = faultState(context, digest);
+    if (faults.state !== 'not_applicable')
+      hints.faultCurrent = faults.state === 'current';
+  }
   if (paths.execution_results)
     hints.executionResultsExist = check('execution_results').ok;
 
@@ -1531,10 +1546,18 @@ function gateInputProblems(step, context) {
   // Gate 4 opens only on a repeat check that ran against exactly these
   // inputs and found no flaky test (scripts/lib/repeat-check.js).
   if (step === 'gate4') {
-    const p = repeatProblem(
-      repeatState(context, gateDigest('code_reviewed', context, '.'))
-    );
+    const digest = gateDigest('code_reviewed', context, '.');
+    const p = repeatProblem(repeatState(context, digest));
     if (p) problems.push(`repeat check: ${p}`);
+    // And, on a Bench Shop story, a fault check of these inputs with no test
+    // that fails on the clean app and, on the full track, no weak oracle.
+    const storyFile = context.story?.path || 'story.md';
+    const { track } = effectiveTrack(
+      context,
+      existsSync(storyFile) ? readFileSync(storyFile, 'utf8') : null
+    );
+    const f = faultProblem(faultState(context, digest), track);
+    if (f) problems.push(`fault check: ${f}`);
   }
   return problems;
 }
@@ -1759,11 +1782,114 @@ function repeatStep(context) {
 }
 
 /**
+ * Run the generated test against the Bench Shop, clean and with each seeded
+ * bug of the story, and record which tests kill which bug
+ * (scripts/lib/fault-check.js). A test that fails on the clean app, or a
+ * weak oracle on the full track, stops the run before Gate 4.
+ * @param {Context} context
+ * @returns {boolean} handled
+ */
+function faultStep(context) {
+  const { pwArgs, cwd } = playwrightSetup();
+  const testPath = context.artifact_paths?.generated_test;
+  if (!testPath || !existsSync(testPath)) {
+    console.error(
+      `The generated test ${testPath ?? '(none)'} does not exist; stopping.`
+    );
+    exit(2);
+  }
+  const faults = faultsFor(context);
+  const casesPath = context.artifact_paths?.test_cases;
+  const cases = casesPath
+    ? readValidatedJson(casesPath, TEST_CASES_SCHEMA)
+    : { ok: false };
+  if (!cases.ok) {
+    console.error(
+      `The approved test cases (${casesPath ?? 'none'}) cannot be read; the fault check needs them to know which bug each test is about. Stopping.`
+    );
+    exit(2);
+  }
+  const storyFile = context.story?.path || 'story.md';
+  const { track } = effectiveTrack(
+    context,
+    existsSync(storyFile) ? readFileSync(storyFile, 'utf8') : null
+  );
+  const filter = `(^|/)${escapeRegExp(relative(cwd, resolve(testPath)).split(sep).join('/'))}$`;
+  console.log(
+    `Fault check: ${testPath} against the Bench Shop, clean and with ${faults.map((f) => f.bug).join(', ')}.`
+  );
+  /** @type {Record<string, any>} */
+  const reports = {};
+  for (const bug of [null, ...faults.map((f) => f.bug)]) {
+    const r = runAgainstBenchShop({
+      bug,
+      pwArgs: [...pwArgs, filter],
+      cwd,
+      reportPath: resolve(FAULT_REPORT_DIR, `${bug ?? 'clean'}.json`),
+      outputDir: resolve(FAULT_REPORT_DIR, 'test-results'),
+    });
+    if (!r.ok) {
+      console.error(
+        `${r.reason}; this is an execution error, not a result. Stopping.`
+      );
+      exit(2);
+    }
+    reports[bug ?? 'clean'] = r.report;
+  }
+  // A run that loaded no test (a file that does not compile, a failing
+  // global setup) is an execution error, not a test surviving a fault.
+  /** @type {string[]} */
+  const errors = [];
+  for (const [name, report] of Object.entries(reports)) {
+    const first = (Array.isArray(report?.errors) ? report.errors : [])
+      .map((/** @type {any} */ e) =>
+        String(e?.message ?? e ?? '')
+          // eslint-disable-next-line no-control-regex
+          .replace(/\u001b\[[0-9;]*m/g, '')
+          .split(/\r?\n/)[0]
+          .trim()
+      )
+      .filter(Boolean);
+    errors.push(...first.map((/** @type {string} */ e) => `${name}: ${e}`));
+    if (!reportOutcomes(report).size) {
+      console.error(
+        `The ${name === 'clean' ? 'clean run' : `run with ${name}`} reported no test${first.length ? ` (${first.join('; ')})` : ''}; this is an execution error, not a result. Stopping.`
+      );
+      exit(2);
+    }
+  }
+  const { clean, ...byBug } = reports;
+  const record = faultRecord({
+    inputDigest: gateDigest('code_reviewed', context, '.'),
+    track,
+    ranAt: new Date().toISOString(),
+    faults,
+    criteria: context.acceptance_criteria ?? [],
+    cases: /** @type {any} */ (cases).data.test_cases.filter(
+      (/** @type {any} */ c) => c.status === 'approved'
+    ),
+    clean,
+    reports: byBug,
+    errors,
+  });
+  /** @type {any} */ (context).fault_check = record;
+  writeContext(context);
+  for (const line of faultLines(record)) console.log(line);
+  const problem = faultProblem({ state: 'current', record }, track);
+  if (problem) {
+    console.error(`\nFault check: ${problem}.`);
+    exit(1);
+  }
+  return true;
+}
+
+/**
  * @param {string} step
  * @param {Context} context
  */
 function execStep(step, context) {
   if (step === 'repeat') return repeatStep(context);
+  if (step === 'faults') return faultStep(context);
   if (step === 'execute') {
     // PIPELINE_PW_CONFIG lets a caller point Playwright at a non-root config
     // (the demo uses examples/demo-run/playwright.demo.config.ts so its specs
@@ -1972,6 +2098,9 @@ function execStep(step, context) {
             '--repeat-check',
             JSON.stringify(ledgerRepeatCheck(repeat))
           );
+        // And the fault check, on a Bench Shop story.
+        const faults = /** @type {any} */ (context).fault_check;
+        if (faults) normalizeArgs.push('--fault-check', JSON.stringify(faults));
       }
     }
     if (context.run_id) normalizeArgs.push('--run-id', context.run_id);

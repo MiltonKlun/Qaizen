@@ -267,6 +267,64 @@
       }
     ]
   },
+  "fault_check": {
+    "input_digest": "9a8b7c6d5e4f30211203f4e5d6c7b8a99a8b7c6d5e4f30211203f4e5d6c7b8a9",
+    "target": "bench-shop",
+    "track": "standard",
+    "ran_at": "2026-11-10T10-20-00Z",
+    "faults": [
+      {
+        "bug": "wrong-item-total",
+        "criterion_index": 1
+      },
+      {
+        "bug": "inconsistent-total",
+        "criterion_index": 2
+      }
+    ],
+    "outcome": "strong",
+    "units": [
+      {
+        "file": "BENCH-2.spec.ts",
+        "title": "the Items figure is the sum of the line prices [TC-002]",
+        "project": "chromium",
+        "test_case_ids": ["TC-002"],
+        "relevant": ["wrong-item-total"],
+        "clean": "passed",
+        "results": {
+          "wrong-item-total": "assertion_failed",
+          "inconsistent-total": "passed"
+        },
+        "verdict": "strong"
+      },
+      {
+        "file": "BENCH-2.spec.ts",
+        "title": "the Order total is Items plus Sales tax [TC-003]",
+        "project": "chromium",
+        "test_case_ids": ["TC-003"],
+        "relevant": ["inconsistent-total"],
+        "clean": "passed",
+        "results": {
+          "wrong-item-total": "passed",
+          "inconsistent-total": "assertion_failed"
+        },
+        "verdict": "strong"
+      },
+      {
+        "file": "BENCH-2.spec.ts",
+        "title": "the review lists both products [TC-001]",
+        "project": "chromium",
+        "test_case_ids": ["TC-001"],
+        "relevant": [],
+        "clean": "passed",
+        "results": {
+          "wrong-item-total": "passed",
+          "inconsistent-total": "passed"
+        },
+        "verdict": "no_relevant_fault"
+      }
+    ]
+  },
   "totals": {
     "units": 6,
     "passed": 2,

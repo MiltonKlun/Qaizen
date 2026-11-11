@@ -11,7 +11,7 @@
 // never the step behind it.
 //
 //   analyst → gate1 → test-designer → gate2 →
-//     [E2E]  planner → gate3 → generator → repeat → gate4
+//     [E2E]  planner → gate3 → generator → repeat → faults → gate4
 //     [API]  api → gate3-api (collection_reviewed) → gate4-api (api_assertions_reviewed)
 //     [EXT]  external-plan → gate3-ext (external_plan_reviewed)
 //   → [E2E] execute → [API] execute-api
@@ -41,6 +41,7 @@
  *   externalResultsExist?: boolean, testCasesExist?: boolean,
  *   plannerBriefExists?: boolean, specExists?: boolean,
  *   generatedTestExists?: boolean, repeatCurrent?: boolean,
+ *   faultCurrent?: boolean,
  *   executionResultsExist?: boolean,
  *   failureAnalysisExists?: boolean, failureAnalysisFinalized?: boolean,
  *   bugDraftsMissing?: number, draftProblems?: number,
@@ -118,6 +119,9 @@ export const GATE_KEYS = {
  *   - generatedTestExists:    file-existence override for generated_test.
  *   - repeatCurrent:          false when the repeat check is missing or ran
  *                             against other Gate 4 inputs; absent skips it.
+ *   - faultCurrent:           false when the story has a fault check (a
+ *                             Bench Shop story) and it is missing or ran
+ *                             against other Gate 4 inputs; absent skips it.
  *   - executionResultsExist:  file-existence override for execution_results.
  *   - failureAnalysisExists:  file-existence override for failure_analysis.
  *   - releaseReportExists:    file-existence override for release_report_json.
@@ -131,7 +135,7 @@ export const GATE_KEYS = {
  * behavior is unchanged (filled-only), so older callers are unaffected.
  * @returns {string} one of: analyst | gate1 | test-designer | gate2 |
  *   qa_scope | no-executable-scope | planner | gate3 | generator | gate4 |
- *   repeat | api | gate3-api | gate4-api | external-plan | gate3-ext | execute |
+ *   repeat | faults | api | gate3-api | gate4-api | external-plan | gate3-ext | execute |
  *   execute-api | external-results | gate4-ext | classify |
  *   finalize | confirm-downgrades | report | done   (qa_scope replaces
  *   gate1+gate2 on the lite
@@ -201,6 +205,9 @@ export function nextStep(context, hints = {}) {
     // The repeat check runs before Gate 4 (scripts/lib/repeat-check.js).
     if (!gatePassed(gates.code_reviewed) && hints.repeatCurrent === false)
       return 'repeat';
+    // Then, on a Bench Shop story, the fault check (scripts/lib/fault-check.js).
+    if (!gatePassed(gates.code_reviewed) && hints.faultCurrent === false)
+      return 'faults';
     if (!gatePassed(gates.code_reviewed)) return 'gate4';
   }
   if (api) {
