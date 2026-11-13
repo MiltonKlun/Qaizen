@@ -85,6 +85,98 @@
       "description": "The same single test, run 5 times with the candidate; validated only when every run passed. Null when nothing ran.",
       "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/run" }]
     },
+    "targets": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "OPTIONAL. The candidate's action targets compared, action by action, with those the repeat check recorded (scripts/lib/action-targets.js): same (the same role and accessible name everywhere), yellow (the same role and test id, whose visible name changed: a person decides), different (another element, or a locator matching other than one element: refused), not_recorded (nothing recorded for this test). Absent on records from before the comparison existed, and on candidates that failed before it ran.",
+      "required": ["verdict", "actions_compared", "differences"],
+      "properties": {
+        "verdict": {
+          "type": "string",
+          "enum": ["same", "yellow", "different", "not_recorded"]
+        },
+        "actions_compared": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "differences": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["index", "kind", "why", "recorded", "candidate"],
+            "properties": {
+              "index": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["yellow", "different"]
+              },
+              "why": {
+                "type": "string"
+              },
+              "recorded": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["role", "name", "test_id"],
+                    "properties": {
+                      "role": {
+                        "type": ["string", "null"]
+                      },
+                      "name": {
+                        "type": ["string", "null"]
+                      },
+                      "test_id": {
+                        "type": ["string", "null"]
+                      },
+                      "count": {
+                        "type": ["integer", "null"],
+                        "minimum": 0
+                      }
+                    }
+                  }
+                ]
+              },
+              "candidate": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["role", "name", "test_id"],
+                    "properties": {
+                      "role": {
+                        "type": ["string", "null"]
+                      },
+                      "name": {
+                        "type": ["string", "null"]
+                      },
+                      "test_id": {
+                        "type": ["string", "null"]
+                      },
+                      "count": {
+                        "type": ["integer", "null"],
+                        "minimum": 0
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "patch": {
       "description": "Only for a validated candidate: a unified diff from the original to the candidate, checked by applying it to a copy of the original.",
       "oneOf": [

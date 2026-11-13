@@ -203,8 +203,9 @@ A clean result means **eligible under static checks; human review still
 required**. Equal structure does not prove that a new selector targets the
 same business element: an action moved to another element of the same shape
 (a click on `checkout` changed to `continue-shopping`) passes this check.
-The isolated re-run below catches such a swap only when it changes the
-outcome; the reviewer reading the patch is the check for the rest.
+The action-target comparison below (step 5) catches such a swap even when the
+test still passes with it; the reviewer reading the patch remains the check
+for what it cannot see.
 
 The probe suite, `test/healer-probes.test.js`, holds candidates that keep a
 test's structure but change what a check examines, or widen a selector from
@@ -264,7 +265,19 @@ node scripts/run-healer.js --failure FAIL-001 --candidate path/to/fixed.spec.ts 
    project, `--repeat-each 5`, `--retries 0`, no snapshot updates. It must
    execute 5 times and pass every time. Zero tests, a skip, an expected
    failure, another test, or a single failed run do not count.
-5. Only then is `release/healer-patches/FAIL-XXX.attempt-N.patch` written,
+5. One more run of the candidate, not counted, records what each of its
+   actions acts on (`scripts/lib/action-targets.js`), and compares it, action
+   by action, with what the repeat check recorded for the test before Gate 4
+   (`context.json` `repeat_check.targets`): each element's accessible role,
+   accessible name and test id. The candidate must act on elements of the
+   same role and name, each matched by exactly one element: a renamed test
+   id, or another locator for the same element, is fine. The same element
+   (same role and test id) whose visible name changed is **Yellow**, not a
+   locator repair: a person decides whether the test should follow the app.
+   Another element, or a locator matching several, is refused. When the
+   repeat check recorded nothing for the test (a run from before the record
+   existed), the comparison is not made and the record says so.
+6. Only then is `release/healer-patches/FAIL-XXX.attempt-N.patch` written,
    a unified diff proven by applying it to a copy of the original.
 
 Every submission with `--apply` is recorded in

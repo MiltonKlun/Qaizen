@@ -37,6 +37,8 @@ import {
   keepHealerAttempts,
 } from '../scripts/lib/healer-candidate.js';
 import { copyRuntimeConfig } from './helpers/runtime-config.js';
+import { readTargets, recordingEnv } from '../scripts/lib/action-targets.js';
+import { playwrightCli } from '../scripts/lib/cli.js';
 
 const REPO = process.cwd();
 const STORY = 'HEAL-1';
@@ -290,12 +292,13 @@ test('a validated candidate yields a patch that reproduces it, plus evidence; th
     assert.match(r.out, /VALIDATED \(attempt 1 of 3\)/);
     assert.match(r.out, /Not applied, not committed/);
 
-    // Baseline then candidate: the same single test, pinned options.
-    assert.equal(r.calls.length, 2);
-    // The original runs 3 times, the candidate 5.
+    // Baseline, candidate, then one uncounted run recording the candidate's
+    // action targets: the same single test, pinned options.
+    assert.equal(r.calls.length, 3);
+    // The original runs 3 times, the candidate 5, the recording once.
     assert.deepEqual(
       r.calls.map((args) => args[args.indexOf('--repeat-each') + 1]),
-      ['3', '5']
+      ['3', '5', '1']
     );
     for (const args of r.calls) {
       assert.equal(args[0], 'test');
@@ -1122,4 +1125,130 @@ test('a failing run is placed by its error, or by the action a test timeout was 
     'tests/a.spec.ts:12:5',
   ]);
   assert.deepEqual(failureLocations(null, ws), []);
+});
+
+/** A Bench Shop test that goes to checkout; `checkout` is its locator. */
+const benchSpec = (
+  checkout
+) => `import { test, expect } from '@playwright/test';
+
+// PW-001 SPEC-001
+test('${TITLE}', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Workshop ID').fill('ada.joiner');
+  await page.getByLabel('Passphrase').fill('dovetail-42');
+  await page.locator('[data-qa="login-submit"]').click();
+  await page.locator('[data-qa="basket-add-chisel-set"]').click();
+  await page.locator('[data-qa="basket-link"]').click();
+  await page.locator('${checkout}').click();
+  await expect(page.locator('[data-qa="page-heading"]')).toBeVisible();
+});
+`;
+
+test('real Playwright: a heal that swaps Go to checkout for Keep shopping is refused; the real repair is validated', async (t) => {
+  if (!(await browserInstalled())) {
+    t.skip(
+      'no Playwright browser installed (CI quality job); run locally for the real acceptance'
+    );
+    return;
+  }
+  const server = spawn(execPath, [
+    join(REPO, 'examples', 'benchmark-app', 'serve.js'),
+    '--port',
+    '0',
+  ]);
+  const port = await new Promise((resolve, reject) => {
+    server.stdout.on('data', (b) => {
+      const m = String(b).match(/PORT (\d+)/);
+      if (m) resolve(Number(m[1]));
+    });
+    server.on('error', reject);
+  });
+  const BASE_URL = `http://127.0.0.1:${port}`;
+  const fixed = benchSpec('[data-qa="go-to-checkout"]');
+  const dir = project({ original: benchSpec('#gone-checkout') });
+  try {
+    // What the working test acted on, as the repeat check records it before
+    // Gate 4 (one recording run of the same file and title).
+    const work = join(dir, 'recording');
+    mkdirSync(join(work, 'tests'), { recursive: true });
+    writeFileSync(join(work, TEST_REL), fixed);
+    writeFileSync(join(work, 'playwright.config.ts'), CONFIG);
+    const out = join(work, 'targets.jsonl');
+    spawnSync(execPath, [playwrightCli(), 'test', '--reporter', 'line'], {
+      cwd: work,
+      encoding: 'utf8',
+      env: { ...recordingEnv(out), BASE_URL },
+    });
+    const recorded = readTargets(readFileSync(out, 'utf8'));
+    assert.equal(recorded[0]?.test_title, UNIT.identity.test_title);
+    rmSync(work, { recursive: true, force: true });
+
+    const ctx = JSON.parse(readFileSync(join(dir, 'context.json'), 'utf8'));
+    ctx.repeat_check = {
+      input_digest: 'a'.repeat(64),
+      track: 'standard',
+      repeat_each: 10,
+      workers: 2,
+      ran_at: '2026-11-13T10:00:00.000Z',
+      report: 'reports/repeat/results.json',
+      outcome: 'stable',
+      units: [],
+      targets: recorded,
+    };
+    writeFileSync(
+      join(dir, 'context.json'),
+      JSON.stringify(bindGate(ctx, 'code_reviewed', dir), null, 2)
+    );
+    const env = { QAIZEN_PLAYWRIGHT_CLI: '', BASE_URL };
+
+    // Keep shopping makes the test pass (the next screen has a heading), but
+    // it is another button than the one the test pressed.
+    const swap = heal(
+      dir,
+      [
+        '--failure',
+        'FAIL-001',
+        '--candidate',
+        candidate(dir, 'swap', benchSpec('[data-qa="keep-shopping"]')),
+        '--apply',
+      ],
+      env
+    );
+    assert.equal(swap.code, 1, swap.out);
+    const refused = record(dir, 1);
+    assert.equal(refused.outcome, 'validation_failed');
+    assert.equal(refused.rerun.status, 'passed', 'the swap does pass');
+    assert.equal(refused.targets.verdict, 'different');
+    assert.match(
+      refused.reason,
+      /acts on another element than the test did: action 6 \(click\) now acts on button "Keep shopping" instead of button "Go to checkout"/
+    );
+    assert.equal(refused.patch, null);
+
+    const repaired = heal(
+      dir,
+      [
+        '--failure',
+        'FAIL-001',
+        '--candidate',
+        candidate(dir, 'fixed', fixed),
+        '--apply',
+      ],
+      env
+    );
+    assert.equal(repaired.code, 0, repaired.out);
+    const ok = record(dir, 2);
+    assert.equal(ok.outcome, 'validated');
+    assert.equal(ok.targets.verdict, 'same');
+    assert.equal(ok.targets.actions_compared, 6);
+    assert.equal(
+      readFileSync(join(dir, TEST_REL), 'utf8'),
+      benchSpec('#gone-checkout'),
+      'the live test is untouched'
+    );
+  } finally {
+    server.kill();
+    removeTempDir(dir);
+  }
 });

@@ -673,7 +673,10 @@ fixture, config or lock runs it again, and Gate 4 does not open on a
 missing, outdated or flaky record. The brief shows it, with any test skipped
 in every run and any error Playwright reported. The run passes
 `--update-snapshots none`, so a missing snapshot is a failure, never a new
-baseline. The execution ledger carries the result too
+baseline. After the counted runs, one more run, not counted, records what
+each action acts on (role, accessible name, test id) in
+`repeat_check.targets`: a later heal is held to the same elements
+(`docs/healer-guardrails.md`). The execution ledger carries the result too
 (`docs/execution-normalization.md`). The repeat run's own output
 (`reports/repeat/`) is a working folder: nothing records its path.
 

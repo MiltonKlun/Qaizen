@@ -385,7 +385,13 @@ one (`ran_at`, `input_digest`, `repeat_each`, `outcome`, how many tests and
 how many of them flaky), at most twenty: a flaky check stops the run and is
 replaced once the test is fixed, and this is what the metrics count it from.
 `earlier_dropped` counts the checks past those twenty, which the metrics
-report as not kept.
+report as not kept. `targets[]` is what each action of each test acts on,
+recorded by one extra run after the counted ones: per test (its title path
+as the execution ledger names it, and its project), each action's locator,
+how many elements it matched, and the element's accessible role, accessible
+name and test id. The Healer holds a candidate to the same elements
+(`docs/healer-guardrails.md`). `targets_error` says why nothing was
+recorded.
 Written only by the runner (`docs/review-gates.md`, Gate 4).
 
 ### `fault_check` (optional — written by the runner)

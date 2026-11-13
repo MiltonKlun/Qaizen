@@ -828,6 +828,18 @@ test('a flaky generated test stops the run before Gate 4, and Gate 4 will not op
       ]),
       [['flaky', 1, 1]]
     );
+    // The stable check made one more run to record the action targets (the
+    // stand-in Playwright records none, and the record says so); the flaky
+    // one made none.
+    const launches = readFileSync(join(dir, 'repeat-args.log'), 'utf8')
+      .trim()
+      .split('\n')
+      .map((l) => JSON.parse(l));
+    assert.deepEqual(
+      launches.map((a) => a[a.indexOf('--repeat-each') + 1]),
+      ['20', '20', '1']
+    );
+    assert.equal(rerun.targets_error, 'the recording run recorded no action');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
