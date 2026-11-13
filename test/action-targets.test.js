@@ -62,6 +62,107 @@ test('the role and name come from the first line of the aria snapshot', () => {
   });
   assert.deepEqual(roleAndName('- text: hello'), { role: 'text', name: null });
   assert.deepEqual(roleAndName(''), { role: null, name: null });
+  // Playwright quotes the line YAML-style when the name holds ": " or "#".
+  assert.deepEqual(roleAndName(`- 'button "Step 2: Pay # now"'`), {
+    role: 'button',
+    name: 'Step 2: Pay # now',
+  });
+  assert.deepEqual(roleAndName(`- 'link "It''s: here"':`), {
+    role: 'link',
+    name: "It's: here",
+  });
+  assert.deepEqual(roleAndName('- checkbox "Agree" [checked]'), {
+    role: 'checkbox',
+    name: 'Agree',
+  });
+});
+
+test('look-alikes and unnamed elements: the same one, or refused', () => {
+  const add = (index, testId, sameIndex) =>
+    act(index, 'button', 'Add to basket', testId, {
+      same_count: 3,
+      same_index: sameIndex,
+    });
+  // Another of three "Add to basket" buttons, with another test id: refused.
+  const swap = compareTargets(
+    targets(add(0, 'basket-add-chisel-set', 0)),
+    targets(add(0, 'basket-add-marking-gauge', 1))
+  );
+  assert.equal(swap.verdict, 'different');
+  assert.match(
+    swap.differences[0].why,
+    /acts on another of the 3 elements that are button "Add to basket" \(position 2 instead of 1\)/
+  );
+  // The same position with a renamed test id, or the same test id at another
+  // position (the list was reordered): the same button.
+  assert.equal(
+    compareTargets(
+      targets(add(0, 'basket-add-chisel-set', 0)),
+      targets(add(0, 'put-in-chisel-set', 0))
+    ).verdict,
+    'same'
+  );
+  assert.equal(
+    compareTargets(
+      targets(add(0, 'basket-add-chisel-set', 0)),
+      targets(add(0, 'basket-add-chisel-set', 2))
+    ).verdict,
+    'same'
+  );
+
+  // No accessible name: held to the test id, else to the text.
+  const span = (index, testId, text, extra = {}) =>
+    act(index, 'text', null, testId, { text, ...extra });
+  assert.equal(
+    compareTargets(
+      targets(span(0, null, 'Bevel-Edge Chisel Set', { same_count: 1 })),
+      targets(span(0, null, 'Brass Marking Gauge', { same_count: 1 }))
+    ).verdict,
+    'different'
+  );
+  assert.equal(
+    compareTargets(
+      targets(span(0, 'product-name', 'Bevel-Edge Chisel Set')),
+      targets(span(0, 'product-name', 'Bevel-Edge Chisel Set'))
+    ).verdict,
+    'same'
+  );
+  // Nothing to identify it by: it cannot be shown to be the same.
+  const blank = compareTargets(
+    targets(act(0, 'button', null, null, { text: null })),
+    targets(act(0, 'button', null, null, { text: null }))
+  );
+  assert.equal(blank.verdict, 'different');
+  assert.match(blank.differences[0].why, /has no name, test id or text/);
+});
+
+test('a recording that failed is compared up to where it stopped, and skipped actions are counted apart', () => {
+  const recorded = {
+    ...targets(
+      act(0, 'button', 'Sign in', 'login-submit'),
+      act(1, 'button', 'Go to checkout', 'go-to-checkout', { count: 0 })
+    ),
+    passed: false,
+  };
+  const r = compareTargets(
+    recorded,
+    targets(
+      act(0, 'button', 'Sign in', 'login-submit'),
+      act(1, 'button', 'Go to checkout', 'go-to-checkout'),
+      act(2, 'button', 'Review order', 'review-order')
+    )
+  );
+  assert.equal(r.verdict, 'same', JSON.stringify(r.differences));
+  assert.equal(r.actions_compared, 1);
+  assert.equal(r.actions_skipped, 1);
+  // A complete recording holds the candidate to the same number of actions.
+  assert.equal(
+    compareTargets(
+      { ...recorded, passed: true },
+      targets(act(0, 'button', 'Sign in', 'login-submit'))
+    ).verdict,
+    'different'
+  );
 });
 
 test('the comparison: same element, a changed visible name, another element, a locator matching many', () => {
@@ -276,6 +377,18 @@ test('real Playwright: a swap to another button is refused; a pure test-id renam
 
     // v2 renamed the add button's test id only: the heal that follows it
     // acts on the same button.
+    // A "heal" that adds the marking gauge instead of the chisel set: the
+    // same "Add to basket" text, another button.
+    const wrongProduct = compareTargets(
+      original,
+      record(dir, 'v1', spec('basket-add-marking-gauge', 'go-to-checkout'))
+    );
+    assert.equal(wrongProduct.verdict, 'different');
+    assert.match(
+      wrongProduct.differences[0].why,
+      /another of the 3 elements that are button "Add to basket" \(position 2 instead of 1\)/
+    );
+
     const renamed = record(
       dir,
       'v2',

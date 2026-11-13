@@ -269,14 +269,23 @@ node scripts/run-healer.js --failure FAIL-001 --candidate path/to/fixed.spec.ts 
    actions acts on (`scripts/lib/action-targets.js`), and compares it, action
    by action, with what the repeat check recorded for the test before Gate 4
    (`context.json` `repeat_check.targets`): each element's accessible role,
-   accessible name and test id. The candidate must act on elements of the
-   same role and name, each matched by exactly one element: a renamed test
-   id, or another locator for the same element, is fine. The same element
-   (same role and test id) whose visible name changed is **Yellow**, not a
-   locator repair: a person decides whether the test should follow the app.
-   Another element, or a locator matching several, is refused. When the
-   repeat check recorded nothing for the test (a run from before the record
-   existed), the comparison is not made and the record says so.
+   accessible name, test id and text, and where it stands among elements
+   that look the same. The candidate must act on the same element each
+   time, matched by exactly one element: the same role and name and, when
+   several share them (three "Add to basket" buttons), the same one of them
+   by position or test id; an element with no name is held to its test id,
+   or to its text when that text is unique. A renamed test id, or another
+   locator for the same element, is fine. The same element (same role and
+   test id) whose visible name changed is **Yellow**, not a locator repair:
+   it is written as a suggestion note (`FAIL-XXX.yellow-<digest>.md`, with
+   the diff), uses no attempt, and a person decides whether the test should
+   follow the app; without a test id, a changed name is refused instead.
+   Another element, an element with nothing to identify it, or a locator
+   matching several, is refused. A recording of a test that failed is
+   compared up to the action where it stopped. On a run from before targets
+   were recorded the comparison is not made and the record says so; once
+   the repeat check records them, a test it did not record (its recording
+   failed, it uses no `page` fixture) is refused for a person to review.
 6. Only then is `release/healer-patches/FAIL-XXX.attempt-N.patch` written,
    a unified diff proven by applying it to a copy of the original.
 

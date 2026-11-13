@@ -741,7 +741,7 @@
         "targets": {
           "type": "array",
           "maxItems": 50,
-          "description": "OPTIONAL. What each action of each test acts on, recorded by one extra run after the counted ones (scripts/lib/action-targets.js): per test (its title path as the execution ledger names it, and its project), each action with the locator, how many elements it matched, and the element's accessible role, accessible name and test id (data-qa, data-test or data-testid). The Healer holds a candidate to the same elements. Absent when the check is flaky or nothing could be recorded. Written only by the runner.",
+          "description": "OPTIONAL. What each action of each test acts on, recorded by one extra run after the counted ones (scripts/lib/action-targets.js): per test (its title path as the execution ledger names it, its project, and whether it passed in that run: if not, its actions stop at the one that failed), each action with the locator, how many elements it matched, and the element's accessible role, accessible name, test id (data-qa, data-test or data-testid) and text, with how many elements on the page share its role and name (or, without a name, its text) and which of them it is. The Healer holds a candidate to the same elements. Absent when the check is flaky or nothing could be recorded. Written only by the runner.",
           "items": {
             "type": "object",
             "additionalProperties": false,
@@ -753,6 +753,9 @@
               },
               "project": {
                 "type": "string"
+              },
+              "passed": {
+                "type": "boolean"
               },
               "actions": {
                 "type": "array",
@@ -782,10 +785,23 @@
                       "type": ["string", "null"]
                     },
                     "name": {
-                      "type": ["string", "null"]
+                      "type": ["string", "null"],
+                      "maxLength": 200
                     },
                     "test_id": {
                       "type": ["string", "null"]
+                    },
+                    "text": {
+                      "type": ["string", "null"],
+                      "maxLength": 200
+                    },
+                    "same_count": {
+                      "type": ["integer", "null"],
+                      "minimum": 0
+                    },
+                    "same_index": {
+                      "type": ["integer", "null"],
+                      "minimum": 0
                     }
                   }
                 }

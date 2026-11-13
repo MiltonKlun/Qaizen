@@ -292,13 +292,18 @@ test('a validated candidate yields a patch that reproduces it, plus evidence; th
     assert.match(r.out, /VALIDATED \(attempt 1 of 3\)/);
     assert.match(r.out, /Not applied, not committed/);
 
-    // Baseline, candidate, then one uncounted run recording the candidate's
-    // action targets: the same single test, pinned options.
-    assert.equal(r.calls.length, 3);
-    // The original runs 3 times, the candidate 5, the recording once.
+    // Baseline then candidate: the same single test, pinned options. This
+    // run predates recorded action targets, so no recording run is made.
+    assert.equal(r.calls.length, 2);
+    // The original runs 3 times, the candidate 5.
     assert.deepEqual(
       r.calls.map((args) => args[args.indexOf('--repeat-each') + 1]),
-      ['3', '5', '1']
+      ['3', '5']
+    );
+    assert.equal(record(dir, 1).targets.verdict, 'not_recorded');
+    assert.match(
+      record(dir, 1).reason,
+      /no action targets were recorded for this test, so the elements it acts on were not compared/
     );
     for (const args of r.calls) {
       assert.equal(args[0], 'test');
@@ -910,6 +915,66 @@ test('attempts recorded for another run or another original do not count', () =>
   }
 });
 
+test('once the repeat check records action targets, a test it did not record is not healed without a person', () => {
+  for (const [label, repeatExtra, why] of [
+    [
+      'the recording failed',
+      { targets_error: 'the recording run recorded no action' },
+      /the repeat check's recording run recorded none \(the recording run recorded no action\)/,
+    ],
+    [
+      'another test was recorded',
+      {
+        targets: [
+          {
+            test_title: 'another.spec.ts > something else',
+            project: '',
+            actions: [],
+          },
+        ],
+      },
+      /the repeat check recorded none for this test/,
+    ],
+  ]) {
+    const dir = project();
+    try {
+      const ctx = JSON.parse(readFileSync(join(dir, 'context.json'), 'utf8'));
+      ctx.repeat_check = {
+        input_digest: 'a'.repeat(64),
+        track: 'standard',
+        repeat_each: 10,
+        workers: 2,
+        ran_at: '2026-11-13T10:00:00.000Z',
+        report: 'reports/repeat/results.json',
+        outcome: 'stable',
+        units: [],
+        ...repeatExtra,
+      };
+      writeFileSync(
+        join(dir, 'context.json'),
+        JSON.stringify(bindGate(ctx, 'code_reviewed', dir), null, 2)
+      );
+      const r = heal(dir, [
+        '--failure',
+        'FAIL-001',
+        '--candidate',
+        candidate(dir, 'fixed', FIXED),
+        '--apply',
+      ]);
+      assert.equal(r.code, 1, `${label}: ${r.out}`);
+      const rec = record(dir, 1);
+      assert.equal(rec.outcome, 'validation_failed', label);
+      assert.match(rec.reason, why, label);
+      assert.match(rec.reason, /a person reviews the heal/, label);
+      assert.equal(rec.patch, null, label);
+      // Refused before any recording run: baseline and candidate only.
+      assert.equal(r.calls.length, 2, label);
+    } finally {
+      removeTempDir(dir);
+    }
+  }
+});
+
 test('triage points Green failures at the candidate command and claims no scaffolding', () => {
   const dir = project();
   try {
@@ -1225,6 +1290,62 @@ test('real Playwright: a heal that swaps Go to checkout for Keep shopping is ref
       /acts on another element than the test did: action 6 \(click\) now acts on button "Keep shopping" instead of button "Go to checkout"/
     );
     assert.equal(refused.patch, null);
+
+    // Had the test pressed this button when it read "Proceed to payment"
+    // (same test id), the repair would follow a change of visible text:
+    // Yellow, a suggestion for a person, with no attempt used.
+    const writeTargets = (/** @type {any[]} */ t) => {
+      const c = JSON.parse(readFileSync(join(dir, 'context.json'), 'utf8'));
+      c.repeat_check.targets = t;
+      writeFileSync(
+        join(dir, 'context.json'),
+        JSON.stringify(bindGate(c, 'code_reviewed', dir), null, 2)
+      );
+    };
+    writeTargets(
+      recorded.map((r) => ({
+        ...r,
+        actions: r.actions.map((a) =>
+          a.test_id === 'go-to-checkout'
+            ? { ...a, name: 'Proceed to payment' }
+            : a
+        ),
+      }))
+    );
+    const yellow = heal(
+      dir,
+      [
+        '--failure',
+        'FAIL-001',
+        '--candidate',
+        candidate(dir, 'fixed', fixed),
+        '--apply',
+      ],
+      env
+    );
+    assert.equal(yellow.code, 1, yellow.out);
+    assert.match(yellow.out, /Yellow: written as a suggestion for a person/);
+    const notes = readdirSync(
+      join(dir, 'analysis', 'healer-validation')
+    ).filter((n) => /^FAIL-001\.yellow-[0-9a-f]{12}\.md$/.test(n));
+    assert.equal(notes.length, 1);
+    const note = readFileSync(
+      join(dir, 'analysis', 'healer-validation', notes[0]),
+      'utf8'
+    );
+    assert.match(note, /^# FAIL-001 — Yellow \(suggestion only\)/);
+    assert.match(
+      note,
+      /acts on the same button \(go-to-checkout\), whose visible name changed from "Proceed to payment" to "Go to checkout"/
+    );
+    assert.match(note, /```diff/);
+    assert.ok(
+      !existsSync(
+        join(dir, 'analysis', 'healer-validation', 'FAIL-001.attempt-2.json')
+      ),
+      'a Yellow suggestion is not an attempt'
+    );
+    writeTargets(recorded);
 
     const repaired = heal(
       dir,

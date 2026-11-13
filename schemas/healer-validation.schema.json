@@ -88,7 +88,7 @@
     "targets": {
       "type": "object",
       "additionalProperties": false,
-      "description": "OPTIONAL. The candidate's action targets compared, action by action, with those the repeat check recorded (scripts/lib/action-targets.js): same (the same role and accessible name everywhere), yellow (the same role and test id, whose visible name changed: a person decides), different (another element, or a locator matching other than one element: refused), not_recorded (nothing recorded for this test). Absent on records from before the comparison existed, and on candidates that failed before it ran.",
+      "description": "OPTIONAL. The candidate's action targets compared, action by action, with those the repeat check recorded (scripts/lib/action-targets.js): same (each action checked acts on the element it acted on: the same role and accessible name, the same one when several share them, and, with no name, the same test id or unique text), yellow (the same role and test id, whose visible name changed: written as a suggestion note, not a record), different (another element, one that cannot be identified, or a locator matching other than one element: refused), not_recorded (nothing recorded for this test: validated with that stated only on a run from before the record existed, refused otherwise). actions_compared counts the actions checked, actions_skipped those with nothing recorded to hold them to. Absent on records from before the comparison existed, and on candidates that failed before it ran.",
       "required": ["verdict", "actions_compared", "differences"],
       "properties": {
         "verdict": {
@@ -96,6 +96,10 @@
           "enum": ["same", "yellow", "different", "not_recorded"]
         },
         "actions_compared": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "actions_skipped": {
           "type": "integer",
           "minimum": 0
         },

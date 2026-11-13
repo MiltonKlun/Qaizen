@@ -271,6 +271,13 @@ export function repeatBriefLine(s) {
     ...(s.record.errors ?? []).map(
       (e) => `ATTENTION: Playwright reported an error in the repeat run: ${e}`
     ),
+    // Without recorded targets, a later heal of this test cannot be held to
+    // the elements it acts on, and is refused for a person to review.
+    ...(s.record.targets_error
+      ? [
+          `ATTENTION: the action targets were not recorded (${s.record.targets_error}): a heal of this test will need a person`,
+        ]
+      : []),
   ];
   const head = !stale && warnings.length ? 'ATTENTION: ' : stale;
   return [
