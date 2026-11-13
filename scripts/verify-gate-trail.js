@@ -14,6 +14,7 @@
 //   npm run verify:trail -- --require-signatures       # an unsigned record is a problem
 //   npm run verify:trail -- --allowed-signers <file>   # default config/allowed-signers
 //   npm run verify:trail -- --root runs/<story>/<run>  # an archived run
+//   npm run verify:trail -- --revoked <file>           # keys revoked since (ssh-keygen -r)
 //
 // Exit codes: 0 the trail holds · 1 a problem · 2 usage error, or no
 //             context.json
@@ -30,12 +31,13 @@ import { trailSignatures } from './lib/trail-signatures.js';
 
 const cli = parseCliOrExit(argv.slice(2), {
   usage:
-    'Usage: node scripts/verify-gate-trail.js [--root <run folder>] [--allowed-signers <file>] [--require-signatures]',
+    'Usage: node scripts/verify-gate-trail.js [--root <run folder>] [--allowed-signers <file>] [--revoked <file>] [--require-signatures]',
   positionals: [],
   options: {
     root: { type: 'string' },
     'allowed-signers': { type: 'string' },
     'require-signatures': { type: 'boolean' },
+    revoked: { type: 'string' },
   },
 });
 const root = /** @type {string | undefined} */ (cli.values.root) ?? '.';
@@ -56,6 +58,8 @@ if (!read.ok) {
 const chain = verifyGateTrail(read.data, root);
 const sigs = trailSignatures(root, allowed, {
   require: cli.values['require-signatures'] === true,
+  context: read.data,
+  revoked: /** @type {string | undefined} */ (cli.values.revoked) ?? null,
 });
 const records = listGateRecords(root).length;
 console.log(

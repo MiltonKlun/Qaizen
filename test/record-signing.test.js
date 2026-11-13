@@ -56,10 +56,31 @@ function canSign() {
   }
 }
 
+/**
+ * Whether the signing tests can run; skipped where OpenSSH cannot sign, but
+ * a failure in CI, where they must run.
+ */
+function signingOr(t) {
+  if (canSign()) return true;
+  assert.ok(
+    !process.env.CI,
+    'ssh-keygen cannot sign in CI (OpenSSH 8.2 or later is needed)'
+  );
+  t.skip('ssh-keygen cannot sign here (OpenSSH 8.2 or later is needed)');
+  return false;
+}
+
 function run(t) {
   const dir = mkdtempSync(join(REPO, '.tmp-runner-tx-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const ctx = runContext({ storyId: 'SG-1', runId: 'sg-run-1' });
+  // A fresh run: no gate approved yet, so every approval has a record.
+  for (const gate of Object.keys(ctx.review_gates))
+    ctx.review_gates[gate] = {
+      status: false,
+      reviewer: null,
+      reviewed_at: null,
+    };
   writeFileSync(join(dir, 'story.md'), '# SG-1\nThe story.\n');
   writeFileSync(join(dir, 'context.json'), JSON.stringify(ctx, null, 2));
   const keys = join(dir, 'keys');
@@ -166,10 +187,7 @@ test('a key that cannot be read stops the decision before anything is recorded',
 });
 
 test('a signed record verifies; an edit, a deleted signature, another signer or another key does not', async (t) => {
-  if (!canSign()) {
-    t.skip('ssh-keygen cannot sign here (OpenSSH 8.2 or later is needed)');
-    return;
-  }
+  if (!signingOr(t)) return;
   const { dir, ctx, keys } = run(t);
   const ada = makeKey(keys, 'ada');
   const other = makeKey(keys, 'other');
@@ -202,7 +220,10 @@ test('a signed record verifies; an edit, a deleted signature, another signer or 
   writeFileSync(record, text.replace('BRIEF AS SHOWN', 'ANOTHER BRIEF'));
   const edited = verify(dir, signers);
   assert.equal(edited.status, 1);
-  assert.match(edited.stderr, /its signature does not match it/);
+  assert.match(
+    edited.stderr,
+    /its signature does not verify for Ada Reviewer: the record was changed after it was signed/
+  );
   assert.match(
     edited.stderr,
     /was edited after the approved requirements_reviewed decision recorded it/
@@ -241,20 +262,21 @@ test('a signed record verifies; an edit, a deleted signature, another signer or 
   assert.equal(swapped.status, 1);
   assert.match(
     swapped.stderr,
-    /its signature was not made with the key it names/
+    /its signature was made with SHA256:.*, not with the key it names/
   );
 
   // Only the reviewer's other key is listed: the named key is not allowed.
+  assert.ok(signRecord(record, ada).ok);
   const unlisted = verify(dir, allowed(dir, [[REVIEWER, other]]));
   assert.equal(unlisted.status, 1);
-  assert.match(unlisted.stderr, /is not among the allowed signers/);
+  assert.match(
+    unlisted.stderr,
+    /its signature does not verify for Ada Reviewer: the key is not allowed to sign it/
+  );
 });
 
 test('the trail signatures report each record, signed or not', async (t) => {
-  if (!canSign()) {
-    t.skip('ssh-keygen cannot sign here');
-    return;
-  }
+  if (!signingOr(t)) return;
   const { dir, ctx, keys } = run(t);
   const ada = makeKey(keys, 'ada');
   assert.ok(ada);
@@ -268,4 +290,106 @@ test('the trail signatures report each record, signed or not', async (t) => {
   assert.deepEqual(res.problems, []);
   assert.equal(res.signed, 1);
   assert.equal(res.unsigned, 1);
+});
+
+test('a signed rejection renamed into an approval, or a record moved into another run, does not pass', async (t) => {
+  if (!signingOr(t)) return;
+  const { dir, ctx, keys } = run(t);
+  const ada = makeKey(keys, 'ada');
+  const rejected = decide(dir, ctx, {
+    signingKeyPath: ada,
+    decision: 'rejected',
+    notes: 'not yet',
+  });
+  assert.equal(rejected.ok, true);
+  const signers = allowed(dir, [[REVIEWER, ada]]);
+  assert.equal(verify(dir, signers, ['--require-signatures']).status, 0);
+
+  // Rename the record and its signature, and rewrite the decision and the
+  // gate as an approval: the signature still matches the (rejection) text.
+  const from = join(dir, rejected.record);
+  const to = from.replace('-rejected.md', '-approved.md');
+  writeFileSync(to, readFileSync(from));
+  writeFileSync(`${to}.sig`, readFileSync(`${from}.sig`));
+  rmSync(from);
+  rmSync(`${from}.sig`);
+  const forged = JSON.parse(readFileSync(join(dir, 'context.json'), 'utf8'));
+  const d = forged.gate_decisions.at(-1);
+  d.decision = 'approved';
+  d.record.path = rejected.record.replace('-rejected.md', '-approved.md');
+  forged.review_gates.requirements_reviewed = {
+    status: true,
+    reviewer: REVIEWER,
+    reviewed_at: d.decided_at,
+    notes: null,
+  };
+  writeFileSync(join(dir, 'context.json'), JSON.stringify(forged, null, 2));
+  const r = verify(dir, signers, ['--require-signatures']);
+  assert.equal(r.status, 1, r.stdout);
+  assert.match(
+    r.stderr,
+    /001-gate1-approved\.md does not match its decision: its name says gate1 approved, its text requirements_reviewed rejected; it records requirements_reviewed rejected, the decision naming it requirements_reviewed approved/
+  );
+
+  // The same record carried into another run.
+  forged.run_id = 'another-run';
+  writeFileSync(join(dir, 'context.json'), JSON.stringify(forged, null, 2));
+  assert.match(
+    verify(dir, signers).stderr,
+    /it is of run sg-run-1, not another-run/
+  );
+});
+
+test('with signatures required, an approval without a record does not pass', async (t) => {
+  const { dir, ctx } = run(t);
+  ctx.review_gates.requirements_reviewed = true;
+  ctx.gate_decisions = [
+    {
+      gate: 'requirements_reviewed',
+      decision: 'approved',
+      decided_at: '2026-11-13T10:00:00.000Z',
+      reviewer: REVIEWER,
+      notes: null,
+    },
+  ];
+  writeFileSync(join(dir, 'context.json'), JSON.stringify(ctx, null, 2));
+  const r = verify(dir, join(dir, 'none'), ['--require-signatures']);
+  assert.equal(r.status, 1, r.stdout);
+  assert.match(
+    r.stderr,
+    /requirements_reviewed stands approved without a gate record of its approval, and signatures are required/
+  );
+});
+
+test("the allowed signers' options hold, a key may carry several names, and a brief's line endings do not matter", async (t) => {
+  if (!signingOr(t)) return;
+  const { dir, ctx, keys } = run(t);
+  const ada = makeKey(keys, 'ada');
+  const done = decide(dir, ctx, {
+    signingKeyPath: ada,
+    brief: 'LINE ONE\r\nLINE TWO\r\n',
+  });
+  assert.equal(done.ok, true);
+  assert.doesNotMatch(readFileSync(join(dir, done.record), 'utf8'), /\r/);
+  const pub = readFileSync(`${ada}.pub`, 'utf8').trim();
+  const write = (line) => {
+    const path = join(dir, 'allowed-signers');
+    writeFileSync(path, `${line}\n`);
+    return path;
+  };
+  assert.equal(verify(dir, write(`"${REVIEWER}" ${pub}`)).status, 0);
+  // Another namespace, or a key retired before the record was signed.
+  const other = verify(dir, write(`"${REVIEWER}" namespaces="git" ${pub}`));
+  assert.equal(other.status, 1);
+  assert.match(other.stderr, /the key is no longer allowed to sign it/);
+  const expired = verify(
+    dir,
+    write(`"${REVIEWER}" valid-before="20200101" ${pub}`)
+  );
+  assert.equal(expired.status, 1);
+  // The same key listed under two names, the reviewer second.
+  assert.equal(
+    verify(dir, write(`"Bo Somebody,${REVIEWER}" ${pub}`)).status,
+    0
+  );
 });

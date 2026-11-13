@@ -44,7 +44,12 @@ signed, the trail check reports it.
 The team lists who may sign in `config/allowed-signers`, in the format
 `ssh-keygen` documents (`ALLOWED SIGNERS` in its manual): one line per
 person, the name in double quotes when it holds a space, then the public key.
-The name must be the one the reviewer types at the gate.
+The name must be the one the reviewer decides as (`QAIZEN_REVIEWER`, else
+`git config user.name`). The file is read as written, so its options hold:
+`namespaces="qaizen-gate-record"` limits a key to gate records, and
+`valid-before="YYYYMMDD"` retires a rotated key while the records it signed
+before that date stay valid. Removing a key's line instead makes every record
+it signed fail.
 
 ```text
 "Ada Reviewer" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... ada@laptop
@@ -57,15 +62,21 @@ npm run verify:trail -- --require-signatures # an unsigned record is a problem
 npm run verify:trail -- --allowed-signers <file>
 ```
 
-It checks the chain (the trail check of `--history`) and each record's
-signature. A problem is reported, and the command exits 1, when:
+It checks the chain (the trail check of `--history`), that each record says
+what its file name and its decision say (gate, decision, run, reviewer, and
+the digest the gate stands approved on), and each record's signature. A
+problem is reported, and the command exits 1, when:
 
 - a signed record no longer matches its signature (it was edited);
+- a record was moved under another name, or into another run or decision
+  (a signed rejection renamed into an approval, for instance);
 - a record names a signing key but has no signature, or one made with
   another key;
-- the key that signed it is not among the allowed signers;
-- the signer is not the reviewer the record names;
-- with `--require-signatures`, a record is unsigned.
+- the key that signed it is not allowed to sign it for its reviewer (not
+  listed under that name, expired, for another namespace, or listed in a
+  revocation file given with `--revoked <file>`);
+- with `--require-signatures`, a record is unsigned, or a gate stands
+  approved without a validly signed record of that approval.
 
 Line endings converted by a checkout do not break a signature: the record is
 checked as it was written. Records from before signing, and records of
@@ -78,5 +89,10 @@ operators who do not sign, are valid unless signatures are required.
 - It does not make `context.json` or `gates/` tamper-proof: someone who can
   rewrite both, and sign with an allowed key, can still write a consistent
   trail. It makes that the act of a named key holder.
+- It trusts `config/allowed-signers`, which anyone with the checkout can
+  edit: someone who adds their own key under a reviewer's name can sign as
+  that reviewer. Protect the file like code (changes reviewed, CODEOWNERS or
+  branch protection), or check against a copy from a source you trust with
+  `--allowed-signers <file>`.
 - It does not manage keys: adding, rotating and removing people in
   `config/allowed-signers` is the team's.

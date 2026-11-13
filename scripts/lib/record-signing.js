@@ -20,15 +20,7 @@
 // what they approved.
 
 import { spawnSync } from 'node:child_process';
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 
 /** The namespace every gate-record signature is made in. */
 export const NAMESPACE = 'qaizen-gate-record';
@@ -103,7 +95,7 @@ export function signRecord(recordPath, keyPath) {
  * @param {string} keyPath
  */
 export const signCommand = (record, keyPath) =>
-  `ssh-keygen -Y sign -f ${keyPath} -n ${NAMESPACE} ${record}`;
+  `ssh-keygen -Y sign -f "${keyPath}" -n ${NAMESPACE} "${record}"`;
 
 /**
  * The allowed signers: one line per principal and key.
@@ -134,79 +126,88 @@ export function readAllowedSigners(path) {
 }
 
 /**
- * What a record's signature shows: who signed it, checked against the
- * allowed signers and, when the record names its signing key, against that
- * key only. The record is compared with its line endings normalized, as it
- * was written, so a checkout that converts them does not break the
- * signature.
+ * What a record's signature shows, checked with `ssh-keygen -Y verify`
+ * against the allowed signers file as the team wrote it (its namespaces,
+ * validity dates and certificate authorities apply), with the record's
+ * reviewer as the principal, and, when the record names its signing key,
+ * that the key `ssh-keygen` reports is that one. The record is compared with
+ * its line endings normalized, as it was written, so a checkout that
+ * converts them does not break the signature.
  * @param {string} recordPath
  * @param {string} allowedSignersPath
- * @param {string | null} [declared] the key fingerprint the record names
- * @returns {{ ok: true, principal: string } | { ok: false, reason: string }}
+ * @param {{ reviewer: string | null, declared?: string | null,
+ *   revoked?: string | null }} who
+ * @returns {{ ok: true, fingerprint: string | null } | { ok: false, reason: string }}
  */
-export function verifyRecord(recordPath, allowedSignersPath, declared = null) {
+export function verifyRecord(recordPath, allowedSignersPath, who) {
   const sig = `${recordPath}.sig`;
   if (!existsSync(sig)) return { ok: false, reason: 'it has no signature' };
   if (!existsSync(allowedSignersPath))
     return {
       ok: false,
-      reason: `there is no allowed signers file (${allowedSignersPath}) to check its signature against`,
+      reason: `there is no allowed signers file (${allowedSignersPath}) to check its signature against (docs/signed-gate-records.md)`,
     };
-  let signers = readAllowedSigners(allowedSignersPath);
-  const dir = mkdtempSync(join(tmpdir(), 'qaizen-signers-'));
-  try {
-    if (declared) {
-      signers = signers.filter((s) => {
-        const pub = join(dir, 'key.pub');
-        writeFileSync(pub, `${s.key}\n`);
-        const fp = keyFingerprint(pub);
-        return fp.ok && fp.fingerprint === declared;
-      });
-      if (!signers.length)
-        return {
-          ok: false,
-          reason: `the key it names (${declared}) is not among the allowed signers`,
-        };
-    }
-    const allowed = join(dir, 'allowed_signers');
-    writeFileSync(
-      allowed,
-      signers.map((s) => `"${s.principal}" ${s.key}`).join('\n') + '\n'
-    );
-    const found = keygen(['-Y', 'find-principals', '-s', sig, '-f', allowed]);
-    const principal = found.stdout.split(/\r?\n/)[0]?.trim();
-    if (!found.ok || !principal)
-      return {
-        ok: false,
-        reason: found.missing
-          ? 'ssh-keygen was not found, so its signature cannot be checked'
-          : declared
-            ? `its signature was not made with the key it names (${declared})`
-            : 'its signature was made by a key the allowed signers do not list',
-      };
-    const data = readFileSync(recordPath, 'utf8').replace(/\r\n/g, '\n');
-    const verified = keygen(
-      [
-        '-Y',
-        'verify',
-        '-f',
-        allowed,
-        '-I',
-        principal,
-        '-n',
-        NAMESPACE,
-        '-s',
-        sig,
-      ],
-      { input: data }
-    );
-    if (!verified.ok)
-      return {
-        ok: false,
-        reason: `its signature does not match it (it was changed after it was signed)`,
-      };
-    return { ok: true, principal };
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
+  if (!who.reviewer)
+    return {
+      ok: false,
+      reason: 'it names no reviewer to check its signer against',
+    };
+  const data = readFileSync(recordPath, 'utf8').replace(/\r\n/g, '\n');
+  const verified = keygen(
+    [
+      '-Y',
+      'verify',
+      '-f',
+      allowedSignersPath,
+      '-I',
+      who.reviewer,
+      '-n',
+      NAMESPACE,
+      '-s',
+      sig,
+      ...(who.revoked ? ['-r', who.revoked] : []),
+    ],
+    { input: data }
+  );
+  if (verified.missing)
+    return {
+      ok: false,
+      reason: 'ssh-keygen was not found, so its signature cannot be checked',
+    };
+  if (!verified.ok) {
+    // Who did sign it, if anyone the allowed signers list: to say why.
+    const found = keygen([
+      '-Y',
+      'find-principals',
+      '-s',
+      sig,
+      '-f',
+      allowedSignersPath,
+    ]);
+    const principals = found.ok
+      ? found.stdout
+          .split(/\r?\n/)
+          .map((l) => l.trim())
+          .filter(Boolean)
+      : [];
+    return {
+      ok: false,
+      reason:
+        principals.length && !principals.includes(who.reviewer)
+          ? `it was signed by ${principals.join(', ')}, but it names ${who.reviewer} as the reviewer`
+          : principals.length
+            ? `its signature does not verify for ${who.reviewer}: the record was changed after it was signed, or the key is no longer allowed to sign it (expired, revoked or for another namespace) (${verified.stderr.split(/\r?\n/)[0] || 'no reason given'})`
+            : `its signature does not verify for ${who.reviewer}: the key is not allowed to sign it (not listed, expired, revoked or for another namespace) or the record was changed (${verified.stderr.split(/\r?\n/)[0] || 'no reason given'})`,
+    };
   }
+  const fingerprint =
+    /\b(SHA256:[A-Za-z0-9+/=]+)/.exec(
+      `${verified.stdout}\n${verified.stderr}`
+    )?.[1] ?? null;
+  if (who.declared && fingerprint !== who.declared)
+    return {
+      ok: false,
+      reason: `its signature was made with ${fingerprint ?? 'another key'}, not with the key it names (${who.declared})`,
+    };
+  return { ok: true, fingerprint };
 }

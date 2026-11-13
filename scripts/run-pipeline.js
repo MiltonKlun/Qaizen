@@ -764,8 +764,9 @@ const REDO_AFTER_REJECT = {
  *   brief: string, scan?: string | null,
  *   dispositions?: import('./lib/finding-dispositions.js').DispositionRecord[],
  *   signingKeyPath?: string | null }} args
- *   `signingKeyPath` defaults to QAIZEN_SIGNING_KEY: the operator's SSH key
- *   that signs the record (scripts/lib/record-signing.js)
+ *   `signingKeyPath`: the operator's SSH key that signs the record
+ *   (scripts/lib/record-signing.js); the interactive gate passes
+ *   QAIZEN_SIGNING_KEY, and no other caller signs
  * @returns {{ ok: true, record: string, dir: string,
  *   signature: string | null, signingError: string | null } |
  *   { ok: false, stage: 'context' | 'record', message: string }}
@@ -784,7 +785,7 @@ export function recordGateDecision({
   brief,
   scan = null,
   dispositions = [],
-  signingKeyPath = env.QAIZEN_SIGNING_KEY || null,
+  signingKeyPath = null,
 }) {
   // An operator who signs their records (scripts/lib/record-signing.js):
   // the record names the key, so a missing signature shows. A key that
@@ -1232,7 +1233,15 @@ async function runGateInteractive(step, context) {
       );
       exit(1);
     }
+    // Signing may ask for the key's passphrase at the terminal: the prompt's
+    // own reading of the terminal stops first.
+    const signingKeyPath = env.QAIZEN_SIGNING_KEY || null;
+    if (signingKeyPath) {
+      rl.pause();
+      if (process.stdin.isTTY) process.stdin.setRawMode(false);
+    }
     const done = recordGateDecision({
+      signingKeyPath,
       context,
       step,
       gateKey,
