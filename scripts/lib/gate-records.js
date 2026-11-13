@@ -209,7 +209,10 @@ export function recordDigest(root, record) {
  * @param {string} root
  * @param {string} record
  * @returns {{ previous: { record: string, sha256: string } | null | undefined,
- *   copies: Map<string, string> | null }}
+ *   copies: Map<string, string> | null, reviewer: string | null,
+ *   signingKey: string | null, gate: string | null,
+ *   decision: string | null, run: string | null,
+ *   approvalDigest: string | null }}
  */
 export function readRecord(root, record) {
   const abs = join(root, record);
@@ -234,7 +237,26 @@ export function readRecord(root, record) {
     for (const m of section.matchAll(/^\| `(.+)` \| `([0-9a-f]{64})` \|$/gm))
       copies.set(m[1], m[2]);
   }
-  return { previous, copies };
+  /** A header row's value, with the escaping of `cell` undone. */
+  const header = (/** @type {string} */ name) => {
+    const v = new RegExp(`^\\| ${name} \\| (.*) \\|$`, 'm').exec(md)?.[1];
+    return v === undefined ? null : v.replace(/\\\|/g, '|');
+  };
+  const reviewer = header('Reviewer');
+  const signingKey =
+    /^`(SHA256:[A-Za-z0-9+/=]+)`$/.exec(header('Signing key') ?? '')?.[1] ??
+    null;
+  return {
+    previous,
+    copies,
+    reviewer: reviewer === '(none)' ? null : reviewer,
+    signingKey,
+    gate: /^(\S+) \(/.exec(header('Gate') ?? '')?.[1] ?? null,
+    decision: header('Decision'),
+    run: header('Run'),
+    approvalDigest:
+      /^`([0-9a-f]{64})`$/.exec(header('Approval digest') ?? '')?.[1] ?? null,
+  };
 }
 
 /**
@@ -311,6 +333,73 @@ export function verifyGateTrail(context, root = '.') {
       problems.push(
         `${rec.path} was edited after the ${d.decision} ${d.gate} decision recorded it`
       );
+  }
+  problems.push(...recordConsistency(context, root));
+  return problems;
+}
+
+/**
+ * Whether each record says what its file name and the decision naming it
+ * say: the same gate and decision, run and reviewer, and, for the approval a
+ * gate stands on now, the digest that approval is bound to. A record moved
+ * under another name, or carried into another run or decision, shows here
+ * even when its own digest or signature is intact.
+ * @param {Context} context
+ * @param {string} [root]
+ * @returns {string[]}
+ */
+export function recordConsistency(context, root = '.') {
+  /** @type {string[]} */
+  const problems = [];
+  const byPath = new Map(listGateRecords(root).map((r) => [r.record, r]));
+  /** @type {any[]} */
+  const decisions = Array.isArray(context?.gate_decisions)
+    ? context.gate_decisions
+    : [];
+  /** @type {Map<string, any>} the latest approval of each gate */
+  const latest = new Map();
+  for (const d of decisions)
+    if (d?.decision === 'approved' && d?.gate) latest.set(d.gate, d);
+  for (const d of decisions) {
+    const path = d?.record?.path;
+    const r = path ? byPath.get(path) : undefined;
+    if (!r) continue;
+    const said = readRecord(root, path);
+    // Records from before these rows were written are not checked for them.
+    if (!said.gate || !said.decision) continue;
+    /** @type {string[]} */
+    const wrong = [];
+    if (GATE_STEP[said.gate] !== r.step || said.decision !== r.decision)
+      wrong.push(
+        `its name says ${r.step} ${r.decision}, its text ${said.gate} ${said.decision}`
+      );
+    if (said.gate !== d.gate || said.decision !== d.decision)
+      wrong.push(
+        `it records ${said.gate} ${said.decision}, the decision naming it ${d.gate} ${d.decision}`
+      );
+    if (said.run !== null && said.run !== (context?.run_id ?? '(none)'))
+      wrong.push(
+        `it is of run ${said.run}, not ${context?.run_id ?? '(none)'}`
+      );
+    if (said.reviewer !== (d.reviewer ?? null))
+      wrong.push(
+        `it names ${said.reviewer ?? 'no reviewer'}, the decision ${d.reviewer ?? 'no reviewer'}`
+      );
+    const gateNow = /** @type {any} */ (context?.review_gates ?? {})[d.gate];
+    if (
+      latest.get(d.gate) === d &&
+      gateNow &&
+      typeof gateNow === 'object' &&
+      gateNow.status === true &&
+      gateNow.input_digest &&
+      said.approvalDigest &&
+      said.approvalDigest !== gateNow.input_digest
+    )
+      wrong.push(
+        `its approval digest is not the one ${d.gate} stands approved on`
+      );
+    if (wrong.length)
+      problems.push(`${path} does not match its decision: ${wrong.join('; ')}`);
   }
   return problems;
 }
@@ -410,6 +499,7 @@ const short = (/** @type {string | null | undefined} */ d) =>
  *   scan?: string | null,
  *   dispositions?: import('./finding-dispositions.js').DispositionRecord[],
  *   title?: string,
+ *   signingKey?: string | null,
  * }} args
  * @returns {PreparedRecord}
  */
@@ -428,6 +518,7 @@ export function prepareGateRecord({
   scan = null,
   dispositions = [],
   title,
+  signingKey = null,
 }) {
   const step = GATE_STEP[gate];
   if (!step) throw new Error(`prepareGateRecord: unknown gate "${gate}"`);
@@ -488,6 +579,9 @@ export function prepareGateRecord({
     `| Approval digest | \`${binding.input_digest}\` |`,
     `| Binding version | ${binding.binding_version ?? 1} |`,
     `| Previous record | ${previous} |`,
+    // The key that signs this record (record-signing.js), named in the record
+    // itself, so a signature that goes missing shows.
+    ...(signingKey ? [`| Signing key | \`${signingKey}\` |`] : []),
     '',
   ];
   if (notes) {
@@ -555,7 +649,9 @@ export function prepareGateRecord({
       ''
     );
   }
-  const text = lines.join('\n');
+  // One kind of line ending throughout, whatever the brief or the story
+  // carried: what is signed (record-signing.js) is then what is checked.
+  const text = lines.join('\n').replace(/\r\n?/g, '\n');
   return {
     number,
     name,

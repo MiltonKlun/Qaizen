@@ -493,8 +493,10 @@ test('the trail check passes on an untouched trail and names a deleted or edited
       'Someone Else'
     )
   );
+  // (and that the record no longer names the decision's reviewer)
   assert.deepEqual(verifyGateTrail(readCtx(dir), dir), [
     'gates/004-gate4-approved.md was edited after the approved code_reviewed decision recorded it',
+    'gates/004-gate4-approved.md does not match its decision: it names Someone Else, the decision Ada Reviewer',
   ]);
 
   // ...and deletions, in the middle or at the end.
