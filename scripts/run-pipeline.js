@@ -109,6 +109,11 @@ import {
 import { runAgainstBenchShop } from './lib/fault-runs.js';
 import { readTargets, recordingEnv } from './lib/action-targets.js';
 import {
+  keyFingerprint,
+  signCommand,
+  signRecord,
+} from './lib/record-signing.js';
+import {
   approvalAllowed,
   needsReason,
   parseAnswer,
@@ -757,8 +762,12 @@ const REDO_AFTER_REJECT = {
  *   notes: string | null, openedAt: string, decidedAt: string,
  *   bindings: Record<string, ReturnType<typeof bindingFor>>,
  *   brief: string, scan?: string | null,
- *   dispositions?: import('./lib/finding-dispositions.js').DispositionRecord[] }} args
- * @returns {{ ok: true, record: string, dir: string } |
+ *   dispositions?: import('./lib/finding-dispositions.js').DispositionRecord[],
+ *   signingKeyPath?: string | null }} args
+ *   `signingKeyPath` defaults to QAIZEN_SIGNING_KEY: the operator's SSH key
+ *   that signs the record (scripts/lib/record-signing.js)
+ * @returns {{ ok: true, record: string, dir: string,
+ *   signature: string | null, signingError: string | null } |
  *   { ok: false, stage: 'context' | 'record', message: string }}
  */
 export function recordGateDecision({
@@ -775,7 +784,23 @@ export function recordGateDecision({
   brief,
   scan = null,
   dispositions = [],
+  signingKeyPath = env.QAIZEN_SIGNING_KEY || null,
 }) {
+  // An operator who signs their records (scripts/lib/record-signing.js):
+  // the record names the key, so a missing signature shows. A key that
+  // cannot be read stops here, before anything is recorded.
+  /** @type {string | null} */
+  let signingKey = null;
+  if (signingKeyPath) {
+    const fp = keyFingerprint(signingKeyPath);
+    if (!fp.ok)
+      return {
+        ok: false,
+        stage: 'context',
+        message: `signing is on (QAIZEN_SIGNING_KEY), but ${fp.reason}; nothing was recorded`,
+      };
+    signingKey = fp.fingerprint;
+  }
   const captured = captureGateFiles(gateKey, context, root);
   applyGateDecision(context, gateKey, {
     decision,
@@ -807,6 +832,7 @@ export function recordGateDecision({
       scan,
       dispositions,
       title: GATE_BRIEFS[step]?.name,
+      signingKey,
     });
   } catch (e) {
     return {
@@ -825,7 +851,22 @@ export function recordGateDecision({
   if (!w.ok) return { ok: false, stage: 'context', message: w.message };
   try {
     const rec = commitGateRecord(root, prepared);
-    return { ok: true, record: rec.record, dir: rec.dir };
+    // Signed once written. A failure leaves the decision and the record as
+    // they are; the record names its key, so the trail check reports the
+    // missing signature until the record is signed by hand.
+    const signed = signingKeyPath
+      ? signRecord(join(root, rec.record), signingKeyPath)
+      : null;
+    return {
+      ok: true,
+      record: rec.record,
+      dir: rec.dir,
+      signature: signed?.ok ? signed.signature : null,
+      signingError:
+        signed && !signed.ok
+          ? `${signed.reason}. Sign it by hand: ${signCommand(rec.record, /** @type {string} */ (signingKeyPath))}`
+          : null,
+    };
   } catch (e) {
     // The decision stands; it no longer names a record that was never
     // written, so the trail check does not read the failure as a deletion.
@@ -1216,6 +1257,11 @@ async function runGateInteractive(step, context) {
     console.log(
       `\nGate record: ${done.record}${done.dir ? `  (reviewed files copied to ${done.dir}/)` : ''}`
     );
+    if (done.signature) console.log(`Signed: ${done.signature}`);
+    if (done.signingError)
+      console.error(
+        `The record is NOT signed: ${done.signingError} (npm run verify:trail reports it until then).`
+      );
 
     if (decision === 'rejected') {
       console.log(`\n${gateKey}: REJECTED — recorded in gate_decisions[].`);

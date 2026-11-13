@@ -454,7 +454,10 @@ leaves nothing to compare). For an archived run, its git history is the
 stronger anchor. Copy digests are taken over the raw bytes, so a copy whose
 line endings a checkout converted no longer matches; nothing restores from an
 archive. The check shows that the trail changed after the fact, not who
-changed it or who decided.
+changed it or who decided. An operator can also sign each record with their
+SSH key (`QAIZEN_SIGNING_KEY`), and `npm run verify:trail` checks the chain
+and every signature against `config/allowed-signers`: a signature shows which
+key approved, not how carefully (`docs/signed-gate-records.md`).
 
 Two read-only views use them. Neither writes anything, not even when an
 approval has gone stale:

@@ -209,7 +209,8 @@ export function recordDigest(root, record) {
  * @param {string} root
  * @param {string} record
  * @returns {{ previous: { record: string, sha256: string } | null | undefined,
- *   copies: Map<string, string> | null }}
+ *   copies: Map<string, string> | null, reviewer: string | null,
+ *   signingKey: string | null }}
  */
 export function readRecord(root, record) {
   const abs = join(root, record);
@@ -234,7 +235,15 @@ export function readRecord(root, record) {
     for (const m of section.matchAll(/^\| `(.+)` \| `([0-9a-f]{64})` \|$/gm))
       copies.set(m[1], m[2]);
   }
-  return { previous, copies };
+  const reviewer = /^\| Reviewer \| (.*) \|$/m.exec(md)?.[1] ?? null;
+  const signingKey =
+    /^\| Signing key \| `(SHA256:[A-Za-z0-9+/=]+)` \|$/m.exec(md)?.[1] ?? null;
+  return {
+    previous,
+    copies,
+    reviewer: reviewer === '(none)' ? null : reviewer,
+    signingKey,
+  };
 }
 
 /**
@@ -410,6 +419,7 @@ const short = (/** @type {string | null | undefined} */ d) =>
  *   scan?: string | null,
  *   dispositions?: import('./finding-dispositions.js').DispositionRecord[],
  *   title?: string,
+ *   signingKey?: string | null,
  * }} args
  * @returns {PreparedRecord}
  */
@@ -428,6 +438,7 @@ export function prepareGateRecord({
   scan = null,
   dispositions = [],
   title,
+  signingKey = null,
 }) {
   const step = GATE_STEP[gate];
   if (!step) throw new Error(`prepareGateRecord: unknown gate "${gate}"`);
@@ -488,6 +499,9 @@ export function prepareGateRecord({
     `| Approval digest | \`${binding.input_digest}\` |`,
     `| Binding version | ${binding.binding_version ?? 1} |`,
     `| Previous record | ${previous} |`,
+    // The key that signs this record (record-signing.js), named in the record
+    // itself, so a signature that goes missing shows.
+    ...(signingKey ? [`| Signing key | \`${signingKey}\` |`] : []),
     '',
   ];
   if (notes) {
