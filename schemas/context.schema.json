@@ -738,6 +738,82 @@
             }
           }
         },
+        "targets": {
+          "type": "array",
+          "maxItems": 50,
+          "description": "OPTIONAL. What each action of each test acts on, recorded by one extra run after the counted ones (scripts/lib/action-targets.js): per test (its title path as the execution ledger names it, its project, and whether it passed in that run: if not, its actions stop at the one that failed), each action with the locator, how many elements it matched, and the element's accessible role, accessible name, test id (data-qa, data-test or data-testid) and text, with how many elements on the page share its role and name (or, without a name, its text) and which of them it is. The Healer holds a candidate to the same elements. Absent when the check is flaky or nothing could be recorded. Written only by the runner.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["test_title", "project", "actions"],
+            "properties": {
+              "test_title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "project": {
+                "type": "string"
+              },
+              "passed": {
+                "type": "boolean"
+              },
+              "actions": {
+                "type": "array",
+                "maxItems": 200,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["index", "method", "locator", "count"],
+                  "properties": {
+                    "index": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "method": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "locator": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "count": {
+                      "type": ["integer", "null"],
+                      "minimum": 0
+                    },
+                    "role": {
+                      "type": ["string", "null"]
+                    },
+                    "name": {
+                      "type": ["string", "null"],
+                      "maxLength": 200
+                    },
+                    "test_id": {
+                      "type": ["string", "null"]
+                    },
+                    "text": {
+                      "type": ["string", "null"],
+                      "maxLength": 200
+                    },
+                    "same_count": {
+                      "type": ["integer", "null"],
+                      "minimum": 0
+                    },
+                    "same_index": {
+                      "type": ["integer", "null"],
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "targets_error": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "OPTIONAL. Why the recording run recorded no action target. Written only by the runner."
+        },
         "earlier_dropped": {
           "type": "integer",
           "minimum": 1,

@@ -107,6 +107,7 @@ import {
   reportOutcomes,
 } from './lib/fault-check.js';
 import { runAgainstBenchShop } from './lib/fault-runs.js';
+import { readTargets, recordingEnv } from './lib/action-targets.js';
 import {
   approvalAllowed,
   needsReason,
@@ -183,6 +184,8 @@ const JIRA_FETCH = join(SCRIPT_DIR, 'fetch-jira-story.js');
 const CONTEXT_PATH = 'context.json';
 const CONTEXT_SCHEMA = join(REPO_DIR, 'schemas', 'context.schema.json');
 const TEST_CASES_SCHEMA = join(REPO_DIR, 'schemas', 'test-cases.schema.json');
+/** Where the repeat check's recording run writes the action targets. */
+const REPEAT_TARGETS = 'reports/repeat/targets.jsonl';
 /** Where the fault check's runs write their reports (gitignored reports/). */
 const FAULT_REPORT_DIR = 'reports/faults';
 const EXTERNAL_SCHEMA = join(
@@ -1695,6 +1698,40 @@ export function runRepeatCheck({
 }
 
 /**
+ * One run of the generated test that records what each action acts on
+ * (scripts/lib/action-targets.js). Not counted in the repeat check: the
+ * recording adds work before each action, which could change a verdict.
+ * @param {{ cwd: string, pwArgs: string[], testPath: string }} input
+ * @returns {{ targets: import('./lib/action-targets.js').Targets[], error: string | null }}
+ */
+function recordActionTargets({ cwd, pwArgs, testPath }) {
+  const out = resolve(REPEAT_TARGETS);
+  rmSync(out, { force: true });
+  mkdirSync(dirname(out), { recursive: true });
+  const ran = runRepeatCheck({
+    cwd,
+    pwArgs,
+    testPath,
+    repeatEach: 1,
+    reportPath: resolve('reports/repeat/targets-report.json'),
+    outputDir: resolve('reports/repeat/targets-results'),
+    runEnv: recordingEnv(out, env),
+  });
+  const targets = existsSync(out) ? readTargets(readFileSync(out, 'utf8')) : [];
+  const error = !ran.ok
+    ? ran.reason
+    : targets.length
+      ? null
+      : 'the recording run recorded no action';
+  if (error) console.error(`Action targets not recorded: ${error}.`);
+  else
+    console.log(
+      `Action targets recorded for ${targets.length} test(s), ${targets.reduce((n, t) => n + t.actions.length, 0)} action(s).`
+    );
+  return { targets, error: error?.slice(0, 300) ?? null };
+}
+
+/**
  * Run the generated test N times before Gate 4 and record what happened
  * (scripts/lib/repeat-check.js). A flaky result stops the run.
  * @param {Context} context
@@ -1754,6 +1791,13 @@ function repeatStep(context) {
   const previous = /** @type {any} */ (context).repeat_check ?? null;
   const earlier = earlierChecks(previous);
   const dropped = earlierDropped(previous);
+  // One more run, not counted, records what each action acts on, so a later
+  // heal can be held to the same elements (scripts/lib/action-targets.js).
+  // A flaky test stops the run anyway, so it is not recorded.
+  const recorded =
+    summary.outcome === 'flaky'
+      ? null
+      : recordActionTargets({ cwd, pwArgs, testPath });
   /** @type {import('./lib/repeat-check.js').RepeatRecord} */
   const record = {
     input_digest: inputDigest,
@@ -1767,6 +1811,8 @@ function repeatStep(context) {
     ...(summary.errors.length ? { errors: summary.errors } : {}),
     ...(earlier.length ? { earlier } : {}),
     ...(dropped ? { earlier_dropped: dropped } : {}),
+    ...(recorded?.targets.length ? { targets: recorded.targets } : {}),
+    ...(recorded?.error ? { targets_error: recorded.error } : {}),
   };
   context.repeat_check = record;
   writeContext(context);

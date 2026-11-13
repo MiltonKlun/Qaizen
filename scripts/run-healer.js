@@ -66,6 +66,12 @@ import { draftProblems } from './lib/run-artifacts.js';
 import { DRAFT_PATH } from './lib/analysis-overrides.js';
 import { readLedger } from './lib/execution-ledger.js';
 import {
+  compareTargets,
+  readTargets,
+  recordingEnv,
+  targetsOf,
+} from './lib/action-targets.js';
+import {
   MAX_ATTEMPTS,
   PATCH_DIR,
   VALIDATION_DIR,
@@ -470,6 +476,18 @@ The unchanged original of ${failureId} was already seen failing inconsistently i
         timeoutMs,
         repeat,
       });
+    // One run of the candidate that records its action targets.
+    const recordTargets = (/** @type {string} */ out) =>
+      runSingleTest({
+        workspace,
+        configPath,
+        testPath,
+        unit,
+        label: 'targets',
+        env: recordingEnv(out, env),
+        timeoutMs,
+        repeat: 1,
+      });
 
     console.log(`\nIsolated copy: ${workspace}`);
     // The original must fail every time, at the same place: a test that
@@ -558,6 +576,135 @@ The unchanged original of ${failureId} was already seen failing inconsistently i
       });
     }
 
+    // The candidate must act on the same elements the test acted on when the
+    // repeat check recorded it (scripts/lib/action-targets.js). One more run,
+    // not counted, records the candidate's targets.
+    const repeat = /** @type {any} */ (context).repeat_check ?? null;
+    // A run from before targets were recorded has none at all: the heal is
+    // validated without the comparison, and the record says so. Once the
+    // repeat check records targets, a test it did not record is refused.
+    const recordsTargets = Boolean(
+      repeat && (Array.isArray(repeat.targets) || repeat.targets_error)
+    );
+    const recordedTargets = targetsOf(
+      repeat?.targets,
+      unit.test_title,
+      unit.project ?? ''
+    );
+    /** @type {ReturnType<typeof compareTargets>} */
+    let targets = compareTargets(null, null);
+    if (recordsTargets && !recordedTargets) {
+      const why = repeat.targets_error
+        ? `the repeat check's recording run recorded none (${repeat.targets_error})`
+        : 'the repeat check recorded none for this test (it uses no page fixture, or acts only in ways the recording does not see)';
+      return save({
+        ...base,
+        outcome: 'validation_failed',
+        reason:
+          `the elements this test acts on were not recorded: ${why}; the candidate cannot be held to them, so a person reviews the heal`.slice(
+            0,
+            500
+          ),
+        baseline,
+        rerun,
+        targets,
+        patch: null,
+      });
+    }
+    if (recordedTargets) {
+      const targetsOut = join(workspace, '.targets.jsonl');
+      const recording = recordTargets(targetsOut);
+      const candidateTargets = existsSync(targetsOut)
+        ? targetsOf(
+            readTargets(readFileSync(targetsOut, 'utf8')),
+            unit.test_title,
+            unit.project ?? ''
+          )
+        : null;
+      if (recording.status !== 'passed' || !candidateTargets) {
+        return save({
+          ...base,
+          outcome: 'validation_failed',
+          reason:
+            `the run that records the candidate's action targets ${recording.status !== 'passed' ? `ended ${recording.status}` : 'recorded nothing'}${recording.error_excerpt ? ` (${recording.error_excerpt})` : ''}, so it cannot be held to the elements the test acted on`.slice(
+              0,
+              500
+            ),
+          baseline,
+          rerun,
+          targets,
+          patch: null,
+        });
+      }
+      targets = compareTargets(recordedTargets, candidateTargets);
+    }
+    console.log(
+      `  Action targets: ${targets.verdict}` +
+        (targets.verdict === 'not_recorded'
+          ? ' (a run from before targets were recorded: not compared)'
+          : ` over ${targets.actions_compared} action(s)` +
+            (targets.actions_skipped
+              ? `, ${targets.actions_skipped} with nothing recorded to hold them to`
+              : ''))
+    );
+    for (const d of targets.differences) console.log(`    - ${d.why}`);
+    if (targets.verdict === 'yellow') {
+      // Yellow is a suggestion for a person, never a patch, and uses no
+      // attempt (docs/healer-guardrails.md, Yellow).
+      const suggestion = buildPatch({
+        workspace,
+        relPath: testPath,
+        original,
+        candidate,
+      });
+      const notePath = join(
+        VALIDATION_DIR,
+        `${failureId}.yellow-${candidateDigest.slice(0, 12)}.md`
+      );
+      const wroteNote = writeTextAtomic(
+        notePath,
+        [
+          `# ${failureId} — Yellow (suggestion only)`,
+          '',
+          `The candidate passed ${CANDIDATE_RUNS} of ${CANDIDATE_RUNS} runs, but it is not a locator repair:`,
+          '',
+          ...targets.differences.map((d) => `- ${d.why}`),
+          '',
+          'The app changed what the element says. A person decides whether the test should follow it; nothing was applied, and no healing attempt was used.',
+          '',
+          ...(suggestion.ok
+            ? ['```diff', suggestion.patch.trimEnd(), '```', '']
+            : [
+                `(The suggestion could not be rendered as a diff: ${suggestion.reason})`,
+                '',
+              ]),
+        ].join('\n')
+      );
+      if (!wroteNote.ok) {
+        console.error(wroteNote.message);
+        return 1;
+      }
+      console.log(
+        `\nYellow: written as a suggestion for a person, ${notePath}. No attempt was used.`
+      );
+      return 1;
+    }
+    if (targets.verdict === 'different') {
+      return save({
+        ...base,
+        outcome: 'validation_failed',
+        reason:
+          `the candidate acts on another element than the test did: ${targets.differences[0]?.why ?? ''}`.slice(
+            0,
+            500
+          ),
+        baseline,
+        rerun,
+        targets,
+        patch: null,
+      });
+    }
+
     const built = buildPatch({
       workspace,
       relPath: testPath,
@@ -571,6 +718,7 @@ The unchanged original of ${failureId} was already seen failing inconsistently i
         reason: built.reason.slice(0, 500),
         baseline,
         rerun,
+        targets,
         patch: null,
       });
     }
@@ -584,9 +732,14 @@ The unchanged original of ${failureId} was already seen failing inconsistently i
       {
         ...base,
         outcome: 'validated',
-        reason: `eligible under static checks; the original failed ${BASELINE_RUNS} of ${BASELINE_RUNS} runs at ${baseline.failure_locations?.[0]}, and passed ${CANDIDATE_RUNS} of ${CANDIDATE_RUNS} with the candidate, in isolation`,
+        reason:
+          `eligible under static checks; the original failed ${BASELINE_RUNS} of ${BASELINE_RUNS} runs at ${baseline.failure_locations?.[0]}, and passed ${CANDIDATE_RUNS} of ${CANDIDATE_RUNS} with the candidate, in isolation; ` +
+          (targets.verdict === 'same'
+            ? `every action acts on the element it acted on before (${targets.actions_compared} compared)`
+            : 'no action targets were recorded for this test, so the elements it acts on were not compared'),
         baseline,
         rerun,
+        targets,
         patch: {
           path: patchPath.split('\\').join('/'),
           sha256: sha256(built.patch),

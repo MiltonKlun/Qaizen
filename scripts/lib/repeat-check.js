@@ -39,7 +39,9 @@ export const REPEAT_REPORT = 'reports/repeat/results.json';
  *   workers: number, ran_at: string, report: string, outcome: RepeatOutcome,
  *   units: RepeatUnit[], errors?: string[],
  *   earlier?: ReturnType<typeof earlierChecks>,
- *   earlier_dropped?: number }} RepeatRecord
+ *   earlier_dropped?: number,
+ *   targets?: import('./action-targets.js').Targets[],
+ *   targets_error?: string }} RepeatRecord
  */
 
 /**
@@ -89,13 +91,22 @@ export function earlierChecks(previous) {
 /**
  * The repeat check as the execution ledger records it: the check itself,
  * without the summaries of earlier ones (run history, not evidence of the
- * execution it sits beside; the ledger schema has no place for them).
+ * execution it sits beside) or the action targets (what the Healer is held
+ * to, not a result); the ledger schema has no place for them.
  * @param {RepeatRecord} record
  */
 export function ledgerRepeatCheck(record) {
-  const { earlier: _earlier, earlier_dropped: _dropped, ...check } = record;
+  const {
+    earlier: _earlier,
+    earlier_dropped: _dropped,
+    targets: _targets,
+    targets_error: _targetsError,
+    ...check
+  } = record;
   void _earlier;
   void _dropped;
+  void _targets;
+  void _targetsError;
   return check;
 }
 
@@ -260,6 +271,13 @@ export function repeatBriefLine(s) {
     ...(s.record.errors ?? []).map(
       (e) => `ATTENTION: Playwright reported an error in the repeat run: ${e}`
     ),
+    // Without recorded targets, a later heal of this test cannot be held to
+    // the elements it acts on, and is refused for a person to review.
+    ...(s.record.targets_error
+      ? [
+          `ATTENTION: the action targets were not recorded (${s.record.targets_error}): a heal of this test will need a person`,
+        ]
+      : []),
   ];
   const head = !stale && warnings.length ? 'ATTENTION: ' : stale;
   return [

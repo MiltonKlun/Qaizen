@@ -35,6 +35,7 @@ import { bindingFor } from '../scripts/lib/approval-binding.js';
 import { listGateRecords } from '../scripts/lib/gate-records.js';
 import { recordGateDecision } from '../scripts/run-pipeline.js';
 import { releaseExecutionSummary } from '../scripts/lib/execution-ledger.js';
+import { ledgerRepeatCheck } from '../scripts/lib/repeat-check.js';
 
 const REPO = process.cwd();
 const RUNNER = join(REPO, 'scripts', 'run-pipeline.js');
@@ -215,11 +216,17 @@ test('the demo completes: real run, finalized Red analysis, BUG-001, a 2.0 repor
   assert.equal(repeat.repeat_each, 3);
   assert.equal(repeat.workers, 2);
   assert.ok(repeat.units.every((u) => u.runs === 3));
-  // The ledger keeps it beside the execution it ran before, and the recorded
-  // trace and screenshot path is where Playwright writes them.
+  // One more run recorded what each action acts on, for a later heal.
+  assert.ok(repeat.targets.length > 0, repeat.targets_error);
+  assert.ok(
+    repeat.targets.every((t) => t.actions.every((a) => a.count !== undefined))
+  );
+  // The ledger keeps the check beside the execution it ran before (without
+  // the targets, which are not a result), and the recorded trace and
+  // screenshot path is where Playwright writes them.
   assert.deepEqual(
     readJson(join(ws, 'analysis', 'execution-ledger.json')).repeat_check,
-    repeat
+    ledgerRepeatCheck(repeat)
   );
   const paths = readJson(join(ws, 'context.json')).artifact_paths;
   assert.equal(paths.traces, 'reports/test-results');

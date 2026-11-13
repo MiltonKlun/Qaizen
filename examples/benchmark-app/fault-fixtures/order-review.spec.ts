@@ -32,6 +32,8 @@ test('the Items figure is the sum of the line prices [TC-002]', async ({
   page,
 }) => {
   await reachReview(page);
+  // allTextContents does not wait: read the prices once the review is shown.
+  await qa(page, 'sum-items').waitFor();
   const lines = (await qa(page, 'product-price').allTextContents()).map(cents);
   const items = cents((await qa(page, 'sum-items').textContent()) ?? '');
   expect(items).toBe(lines.reduce((a, b) => a + b, 0));

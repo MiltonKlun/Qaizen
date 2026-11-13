@@ -107,6 +107,41 @@
         "flaky_units": 1
       }
     ],
+    "targets": [
+      {
+        "test_title": "STORY-001.spec.ts > valid credentials reach the inventory [TC-001]",
+        "project": "chromium",
+        "actions": [
+          {
+            "index": 0,
+            "method": "fill",
+            "locator": "getByLabel('Username')",
+            "count": 1,
+            "role": "textbox",
+            "name": "Username",
+            "test_id": "username"
+          },
+          {
+            "index": 1,
+            "method": "fill",
+            "locator": "getByLabel('Password')",
+            "count": 1,
+            "role": "textbox",
+            "name": "Password",
+            "test_id": "password"
+          },
+          {
+            "index": 2,
+            "method": "click",
+            "locator": "getByRole('button', { name: 'Login' })",
+            "count": 1,
+            "role": "button",
+            "name": "Login",
+            "test_id": "login-button"
+          }
+        ]
+      }
+    ],
     "units": [
       {
         "file": "tests/STORY-001.spec.ts",

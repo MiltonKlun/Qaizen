@@ -54,6 +54,11 @@
     "failed": 0,
     "failure_locations": []
   },
+  "targets": {
+    "verdict": "same",
+    "actions_compared": 3,
+    "differences": []
+  },
   "patch": {
     "path": "release/healer-patches/FAIL-001.attempt-1.patch",
     "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
