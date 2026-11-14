@@ -28,6 +28,7 @@ record moves to **Accepted** and states the decision.
 | D7  | TestLink sync runs through XML-RPC, not the TestLink MCP bridge   | Accepted                |
 | D8  | No n8n: the repository and GitHub Actions orchestrate             | Accepted                |
 | D9  | CI keeps traces on the runner instead of masking them             | Proposed (not blocking) |
+| D10 | Gate records can be signed per operator, with OpenSSH             | Accepted                |
 
 ---
 
@@ -234,3 +235,22 @@ the HTML report stay on the runner (`docs/security-and-data-safety.md` §4).
 failure needs a local reproduction or a deliberate, restricted upload.
 Reconsider when Playwright can mask trace values, or if a sanitizer that
 scrubs trace archives before upload is worth building.
+
+## D10 — Gate records can be signed per operator, with OpenSSH
+
+**Status.** Accepted (2026-11-13).
+
+**Context.** Gate records are chained and named by digest in
+`context.json`, which shows that the trail changed after the fact but not
+who made a decision: anyone with the checkout can write a record.
+
+**Decision.** Signing is optional, per operator: one who sets
+`QAIZEN_SIGNING_KEY` signs each record with `ssh-keygen -Y sign`, and the
+record names the key. `npm run verify:trail` checks the chain and every
+signature against `config/allowed-signers`; `--require-signatures` makes
+an unsigned approval a problem. OpenSSH is a system tool, not a new
+dependency (`docs/signed-gate-records.md`).
+
+**Consequences.** A signed record names the key that approved it; it says
+nothing about how carefully. Unsigned trails stay valid. The list of
+signers is a file in the repository and has to be protected like code.

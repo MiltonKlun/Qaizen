@@ -1,0 +1,11 @@
+# Who may sign gate records (docs/signed-gate-records.md), read by
+# `npm run verify:trail`. The format is ssh-keygen's ALLOWED SIGNERS: one line
+# per person and key, the name in double quotes when it holds a space, the
+# same name the reviewer decides as (QAIZEN_REVIEWER, else git user.name).
+# Options such as valid-before="YYYYMMDD" (a rotated key) and
+# namespaces="qaizen-gate-record" are honoured.
+#
+# This file is trusted as the list of signers, so protect it like code:
+# changes to it go through review (CODEOWNERS or branch protection).
+#
+# "Ada Reviewer" namespaces="qaizen-gate-record" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... ada@laptop

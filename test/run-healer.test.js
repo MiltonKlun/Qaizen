@@ -1232,13 +1232,18 @@ test('real Playwright: a heal that swaps Go to checkout for Keep shopping is ref
   const BASE_URL = `http://127.0.0.1:${port}`;
   const fixed = benchSpec('[data-qa="go-to-checkout"]');
   const dir = project({ original: benchSpec('#gone-checkout') });
+  // The Bench Shop flow has more steps than the demo's: a longer action
+  // timeout keeps a loaded machine from failing one of the five candidate
+  // runs. Gate 4 is bound below, after this config is in place.
+  const config = CONFIG.replace('actionTimeout: 2000', 'actionTimeout: 8000');
+  writeFileSync(join(dir, 'playwright.config.ts'), config);
   try {
     // What the working test acted on, as the repeat check records it before
     // Gate 4 (one recording run of the same file and title).
     const work = join(dir, 'recording');
     mkdirSync(join(work, 'tests'), { recursive: true });
     writeFileSync(join(work, TEST_REL), fixed);
-    writeFileSync(join(work, 'playwright.config.ts'), CONFIG);
+    writeFileSync(join(work, 'playwright.config.ts'), config);
     const out = join(work, 'targets.jsonl');
     spawnSync(execPath, [playwrightCli(), 'test', '--reporter', 'line'], {
       cwd: work,

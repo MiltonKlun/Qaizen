@@ -53,7 +53,8 @@
     "evolve": "node scripts/evolve.js",
     "session-summary": "node scripts/session-summary.js",
     "defect-history": "node scripts/defect-history.js",
-    "record-outcome": "node scripts/record-outcome.js"
+    "record-outcome": "node scripts/record-outcome.js",
+    "verify:trail": "node scripts/verify-gate-trail.js"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
