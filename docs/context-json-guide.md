@@ -363,6 +363,28 @@ story for wrong and intentional. Written only by the runner, at the
 person's decision; absent when the scan found nothing and on older runs
 (`docs/review-gates.md`, Gate 4).
 
+**Independence (`independence`, optional — full track, Gates 2 and 4).** An
+approval of `test_scope_reviewed`, `code_reviewed` or
+`api_assertions_reviewed` on the `full` track carries what it rested on:
+`{ control, operator, ... }`, where `control` is `second_reviewer` (with
+`handed_over_at`: the person deciding is not `operator`, the one the runner
+handed the step to), `delay` (with `brief_first_shown_at` and `minutes`, an
+hour or more) or `outside_review` (with the team's sampling `rate` and
+whether this decision was `selected`). The runner refuses such an approval
+with none. Written only by the runner; absent on rejections, other tracks
+and gates, and older runs (`docs/review-gates.md`, "Independence at Gates 2
+and 4").
+
+### `review_independence` (optional — written by the runner)
+
+What the independence of a full-track approval is judged from:
+`handoffs`, keyed by step (`test-designer`, `generator`, `api`), is
+`{ operator, at }`, the session's reviewer name when the runner printed
+the step's instruction (the latest operator counts); `briefs`, keyed by
+gate, is `{ input_digest, first_shown_at }`, when the gate's brief was first
+shown for the inputs it is bound to. Names are declared, not
+authenticated. Not part of any gate's reviewed input.
+
 ### `provenance` (optional — written by the runner)
 
 What produced each agent step's output, keyed by step (`analyst`,
@@ -638,6 +660,11 @@ older files continue to validate:
   `analysis/healer-validation/` with its SHA-256. The three-attempt cap counts
   these together with the record files, so deleting the records gives no
   attempt back. Not part of any gate's reviewed input.
+- Optional `review_independence` and `gate_decisions[].independence`:
+  written only by the runner on the `full` track. Who each reviewed step was
+  handed to, when each Gate 2 and Gate 4 brief was first shown, and what an
+  approval there rested on (a second reviewer, the delay, or the sampled
+  outside review).
 - Optional `likelihood`, `impact` and `likelihood_basis` on each risk (the
   risk matrix, Analyst 3.0.0); when both are present, `severity` must be
   their cell.

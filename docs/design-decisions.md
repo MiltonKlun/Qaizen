@@ -254,3 +254,28 @@ dependency (`docs/signed-gate-records.md`).
 **Consequences.** A signed record names the key that approved it; it says
 nothing about how carefully. Unsigned trails stay valid. The list of
 signers is a file in the repository and has to be protected like code.
+
+## D11 — Red-domain approvals rest on a second reviewer or a compensating control
+
+**Status.** Accepted (2026-11-14).
+
+**Context.** A Red-domain story touches pricing, permissions, security or
+another area where a wrong approval is costly. A solo operator who runs the
+Test Designer or the Generator and then approves its output is reviewing
+their own step, with nothing between the two.
+
+**Decision.** On the `full` track, an approval at Gate 2 or Gate 4 (and the
+API branch's Gate 4) is recorded only with one of: a second reviewer (the
+person deciding is not the operator the runner handed the step to), a delay
+of at least an hour between the first showing of the brief for these inputs
+and the decision, or the team's sampled outside review, drawn when the
+decision is recorded. The decision and its gate record name the control
+(`docs/review-gates.md`, "Independence at Gates 2 and 4"). An advisory AI
+review, its accuracy measured on canaries, is a fourth control once it
+exists.
+
+**Consequences.** Solo operation stays supported through the delay. Names
+are declared, so the second reviewer is only as strong as the team's
+honesty or its signed records; the delay shows that time passed, not that
+it was spent reviewing. The outside review needs someone outside the team,
+so it is off until a team sets a sampling rate.

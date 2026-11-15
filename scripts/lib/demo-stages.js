@@ -75,6 +75,13 @@ function setPaths(workspace, patch) {
 export function startWorkspace({ fixtures, workspace }) {
   mkdirSync(workspace, { recursive: true });
   cpSync(join(fixtures, 'story.md'), join(workspace, 'story.md'));
+  // The demo's own gate checks: the sampled outside review, so a solo
+  // demo reviewer can approve the full-track Gates 2 and 4.
+  mkdirSync(join(workspace, 'config'), { recursive: true });
+  cpSync(
+    join(fixtures, 'config', 'gate-checks.json'),
+    join(workspace, 'config', 'gate-checks.json')
+  );
   const ctx = readJsonFile(join(fixtures, 'context.after-analyst.json'));
   writeValidated(
     join(workspace, 'context.json'),

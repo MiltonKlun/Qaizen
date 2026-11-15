@@ -36,6 +36,10 @@ import { validateValue } from './lib/artifact-io.js';
 import { failureMetrics, healerMetrics } from './lib/run-metrics.js';
 import { CANARY_LOG, canaryLines, canaryMetrics } from './lib/canaries.js';
 import {
+  independenceLines,
+  independenceMetrics,
+} from './lib/review-independence.js';
+import {
   dispositionLines,
   dispositionMetrics,
 } from './lib/finding-dispositions.js';
@@ -347,6 +351,7 @@ const escapedRead = readEscapedDefects();
 const costsRead = readStoryCosts();
 metrics.gate_time = gateTime(liveContexts);
 metrics.rounds_to_approval = roundsToApproval(liveContexts);
+metrics.review_independence = independenceMetrics(liveContexts);
 metrics.repeat_check_flakes = repeatFlakes(liveContexts);
 metrics.escaped_defects = escapedMetrics(
   escapedRead.records,
@@ -449,6 +454,10 @@ const md = [
   '## Rounds to approval',
   '',
   ...roundsLines(metrics.rounds_to_approval, totalRuns),
+  '',
+  '## Independence of full-track approvals',
+  '',
+  ...independenceLines(metrics.review_independence),
   '',
   '## Gate 2 canaries',
   '',

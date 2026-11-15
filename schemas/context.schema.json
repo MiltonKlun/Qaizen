@@ -621,6 +621,87 @@
                 "reason": { "type": ["string", "null"] }
               }
             }
+          },
+          "independence": {
+            "type": "object",
+            "description": "OPTIONAL. What a full-track approval at Gate 2 (test_scope_reviewed) or Gate 4 (code_reviewed, api_assertions_reviewed) rested on (scripts/lib/review-independence.js): second_reviewer, the person deciding is not the operator the runner handed the step to; delay, at least min_delay_minutes (60 or more) passed between the first showing of the brief for these inputs and the decision; outside_review, the team's sampled outside review, drawn when the decision was recorded (selected: whether an outside reviewer reviews it). The runner refuses such an approval with none of them. Absent on rejections, on other tracks and gates, and on older runs. Written only by the runner.",
+            "additionalProperties": false,
+            "required": ["control", "operator"],
+            "properties": {
+              "control": {
+                "type": "string",
+                "enum": ["second_reviewer", "delay", "outside_review"]
+              },
+              "operator": {
+                "type": ["string", "null"],
+                "description": "Who the runner handed the reviewed step to; null when it is not recorded."
+              },
+              "handed_over_at": { "type": "string" },
+              "brief_first_shown_at": { "type": "string" },
+              "minutes": { "type": "integer", "minimum": 0 },
+              "rate": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+              "selected": { "type": "boolean" }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": { "control": { "const": "second_reviewer" } }
+                },
+                "then": {
+                  "required": ["handed_over_at"],
+                  "properties": { "operator": { "type": "string" } }
+                }
+              },
+              {
+                "if": { "properties": { "control": { "const": "delay" } } },
+                "then": { "required": ["brief_first_shown_at", "minutes"] }
+              },
+              {
+                "if": {
+                  "properties": { "control": { "const": "outside_review" } }
+                },
+                "then": { "required": ["rate", "selected"] }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "review_independence": {
+      "type": "object",
+      "description": "OPTIONAL (full track). What the independence of a Gate 2 or Gate 4 approval is judged from (scripts/lib/review-independence.js): handoffs, who the runner handed each reviewed step to (it records the session's reviewer name when it prints the step's instruction; the latest operator counts), and briefs, when each gate's brief was first shown for the inputs it is bound to (inputs that change start the clock again). Names are declared, not authenticated. Absent on other tracks and on older runs. Written only by the runner.",
+      "additionalProperties": false,
+      "properties": {
+        "handoffs": {
+          "type": "object",
+          "propertyNames": { "enum": ["test-designer", "generator", "api"] },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["operator", "at"],
+            "properties": {
+              "operator": { "type": ["string", "null"] },
+              "at": { "type": "string" }
+            }
+          }
+        },
+        "briefs": {
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "test_scope_reviewed",
+              "code_reviewed",
+              "api_assertions_reviewed"
+            ]
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["input_digest", "first_shown_at"],
+            "properties": {
+              "input_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              "first_shown_at": { "type": "string" }
+            }
           }
         }
       }

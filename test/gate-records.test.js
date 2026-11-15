@@ -16,7 +16,11 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { removeTempDir } from './helpers/cleanup.js';
-import { runContext, scopeCases } from './helpers/valid-run.js';
+import {
+  handedToOperator,
+  runContext,
+  scopeCases,
+} from './helpers/valid-run.js';
 import {
   bindingFor,
   gateFiles,
@@ -81,6 +85,8 @@ function project(t) {
     })
   );
   put(`external-evidence/${STORY}/a.png`, 'PNG');
+  // Red-domain story: the reviewed steps were run by someone else.
+  handedToOperator(ctx);
   put('context.json', JSON.stringify(ctx, null, 2));
   return { dir, ctx, put };
 }

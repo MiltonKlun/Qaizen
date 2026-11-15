@@ -147,7 +147,14 @@ test('`{}` artifacts are never "produced", so the run is not complete', () => {
       assert.match(r.out, new RegExp(`${key}: `), `${key} must be named`);
     }
     assert.match(r.out, /Next step: TEST-DESIGNER/);
-    assert.equal(readFileSync(join(dir, 'context.json'), 'utf8'), before);
+    // Nothing is marked produced. On this full-track story the runner notes
+    // who it handed the step to (scripts/lib/review-independence.js), and
+    // that write keeps the provenance, as every context write does.
+    const after = JSON.parse(readFileSync(join(dir, 'context.json'), 'utf8'));
+    assert.ok(after.review_independence.handoffs['test-designer'].at);
+    delete after.review_independence;
+    delete after.provenance;
+    assert.deepEqual(after, JSON.parse(before));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
