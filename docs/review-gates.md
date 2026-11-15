@@ -233,7 +233,9 @@ decision and its gate record name which (`independence`):
   step's instruction says so (for the API Agent that is the API branch's
   Gate 3, which notes them for its Gate 4). Inputs that change, an edit after a rejection
   included, get the next session that opens the gate as their operator, so
-  a reviewer who edits what they review is its operator. At Gate 2,
+  a reviewer who edits what they review is its operator. A gate reached
+  in the same session right after deciding another one notes nobody: the
+  reviewer who just decided did not produce what comes next. At Gate 2,
   deciding each draft case is not authoring it: the case's approval state
   is left out of what the operator is noted on. Nothing outside a terminal
   is noted;
@@ -247,8 +249,8 @@ decision and its gate record name which (`independence`):
   `config/gate-checks.json`, because someone outside the team has agreed to
   review a share of these decisions. The draw is made when the decision is
   recorded, so the reviewer cannot know whether this one will be looked at,
-  and once per gate and inputs: approving the same inputs again keeps the
-  first draw. A decision is only marked for outside review: nothing in the pipeline
+  and once: a draw that selected the gate holds for the rest of the run,
+  whatever changes, and approving the same inputs again keeps the draw. A decision is only marked for outside review: nothing in the pipeline
   records the outside reviewer's verdict yet.
 
 An advisory AI review, its accuracy measured on canaries, becomes a fourth

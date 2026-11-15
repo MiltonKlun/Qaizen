@@ -9,17 +9,20 @@
 //   second_reviewer  the person deciding is not the operator of what they
 //                    approve: the first person whose terminal session opened
 //                    this gate on these inputs (the operator who ran the
-//                    step opens it once and quits). Inputs that change, an
-//                    edit after a rejection included, get a new operator;
+//                    step opens it once and quits; a gate reached right
+//                    after deciding another one notes nobody). Inputs that
+//                    change, an edit after a rejection included, get a new
+//                    operator;
 //   delay            at least an hour (config/gate-checks.json can make it
 //                    longer, never shorter) passed between the first time
 //                    the brief for these same inputs was shown and the
 //                    decision;
 //   outside_review   the team's sampled outside review: offered only when
 //                    the team set a sampling rate, and drawn when the
-//                    decision is recorded, once per gate and inputs, so the
-//                    reviewer can neither know the draw in advance nor draw
-//                    again.
+//                    decision is recorded; a draw that selected the gate
+//                    holds for the rest of the run, and one for the same
+//                    inputs is never made again, so the reviewer can
+//                    neither know the draw in advance nor draw again.
 //
 // An advisory AI review joins these once it exists (its accuracy measured on
 // canaries). A rejection needs none of them. Names are the ones people decide
@@ -272,21 +275,29 @@ export function independenceOptions({
     }
   }
 
-  // An outside-review draw already made for this gate and these inputs
-  // stands: approving again does not draw again.
-  const drawn = (context?.gate_decisions ?? []).findLast(
+  // An outside-review draw made before stands: one that selected this gate
+  // holds for the rest of the run, so changing the inputs does not escape
+  // it, and one for these same inputs is not drawn again.
+  const draws = (context?.gate_decisions ?? []).filter(
     (/** @type {any} */ d) =>
-      d?.gate === gate &&
-      d?.independence?.control === 'outside_review' &&
-      d.independence.input_digest === digest
+      d?.gate === gate && d?.independence?.control === 'outside_review'
   );
+  const earlierDraw = draws.some(
+    (/** @type {any} */ d) => d.independence.selected === true
+  )
+    ? true
+    : draws.some(
+          (/** @type {any} */ d) => d.independence.input_digest === digest
+        )
+      ? false
+      : null;
   return {
     operator,
     second,
     delay,
     waitUntil,
     outsideRate: config.outsideRate,
-    earlierDraw: drawn ? Boolean(drawn.independence.selected) : null,
+    earlierDraw,
     why,
   };
 }
@@ -295,7 +306,8 @@ export function independenceOptions({
  * The control an approval rests on: a second reviewer (unless the reviewer
  * said they are the operator after all), else the delay, else the outside
  * review when the reviewer chose it and the team has one. The draw is made
- * here, unless one was made for these inputs before.
+ * here with `rng` (which the caller must give: the runner gives crypto
+ * randomness), unless an earlier draw stands.
  * @param {ReturnType<typeof independenceOptions>} options
  * @param {{ outside?: boolean, notOperator?: boolean, digest?: string,
  *   rng?: () => number }} [choice]
@@ -305,12 +317,16 @@ export function resolveIndependence(options, choice = {}) {
   if (options.second && choice.notOperator !== false) return options.second;
   if (options.delay) return options.delay;
   if (choice.outside && options.outsideRate !== null) {
-    const rng = choice.rng ?? Math.random;
+    const rng = choice.rng;
+    if (options.earlierDraw === null && !rng)
+      throw new Error('resolveIndependence: the outside review needs an rng');
     return {
       control: 'outside_review',
       operator: options.operator,
       rate: options.outsideRate,
-      selected: options.earlierDraw ?? rng() < options.outsideRate,
+      selected:
+        options.earlierDraw ??
+        /** @type {() => number} */ (rng)() < options.outsideRate,
       input_digest: choice.digest ?? '',
     };
   }

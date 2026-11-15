@@ -852,6 +852,9 @@ export function recordGateDecision({
   notOperator = true,
   rng = () => randomInt(0, 2 ** 32) / 2 ** 32,
 }) {
+  // A decision is never recorded as made later than now.
+  if (!(Date.parse(decidedAt) <= Date.now()))
+    decidedAt = new Date().toISOString();
   // On the full track, an approval at Gate 2 or 4 rests on a second reviewer
   // or a compensating control, and records which; without one, nothing is
   // recorded (scripts/lib/review-independence.js).
@@ -862,10 +865,7 @@ export function recordGateDecision({
     if (!ind.ok) return { ok: false, stage: 'context', message: ind.message };
     if (ind.needed) {
       const digest = bindings[gateKey]?.input_digest ?? '';
-      // A decision time in the future does not meet the delay.
-      const at = new Date(
-        Math.min(Date.parse(decidedAt) || Date.now(), Date.now())
-      ).toISOString();
+      const at = decidedAt;
       const options = independenceOptions({
         context,
         gate: gateKey,
@@ -1131,6 +1131,9 @@ async function decideDraftCases(context, step) {
   return true;
 }
 
+/** Whether this invocation has recorded a gate decision (it continues after an approval). */
+let decidedThisInvocation = false;
+
 /**
  * @param {string} step
  * @param {Context} context
@@ -1149,7 +1152,20 @@ async function runGateInteractive(step, context) {
   const noted = (
     step === 'gate3-api' ? ['api_assertions_reviewed'] : [gateKey]
   ).filter((g) => independenceFor(context, g).needed);
-  if (stdin.isTTY && noted.length) {
+  // A gate this session reached right after deciding another one is not
+  // noted: its inputs were produced by whoever ran the step, not by the
+  // reviewer who just decided.
+  if (stdin.isTTY && noted.length && decidedThisInvocation) {
+    const left = noted.filter(
+      (g) =>
+        context.review_independence?.operators?.[g]?.authored_digest !==
+        authoredDigest(g, context, '.')
+    );
+    if (left.length)
+      console.log(
+        `Full track: you reached this gate right after deciding another one, so you are not noted as the operator of what ${left.join(', ')} reviews. Whoever ran ${left.map((g) => INDEPENDENT_GATES[g]).join(', ')} notes themselves by opening this gate in their own session.\n`
+      );
+  } else if (stdin.isTTY && noted.length) {
     const operator = sessionReviewer();
     const at = new Date().toISOString();
     const changed = noted.filter((g) =>
@@ -1396,7 +1412,7 @@ async function runGateInteractive(step, context) {
             );
           // A name that differs is not proof of another person: ask.
           if (options.second && notOperator) {
-            notOperator = !/^n(o)?$/i.test(
+            notOperator = /^y(es)?$/i.test(
               (
                 await rl.question(
                   `You decide as ${reviewer}; ${options.operator} is noted as the operator of these inputs. Are you someone other than ${options.operator}? [y]es / [n]o: `
@@ -1507,6 +1523,7 @@ async function runGateInteractive(step, context) {
       console.log(`To redo: ${REDO_AFTER_REJECT[step]}`);
       exit(1);
     }
+    decidedThisInvocation = true;
     console.log(
       `\n${gateKey}: approved — recorded with telemetry and bound to the reviewed inputs.`
     );
@@ -2987,7 +3004,7 @@ async function main() {
       );
       if (context && gate && independenceFor(context, gate).needed)
         console.log(
-          `\nFull track: once you have run it, open the next gate yourself (npm run pipeline -- --resume) and quit at its first question. You are then noted as the operator of what ${gate} reviews, and another person's approval counts as a second review.`
+          `\nFull track: once you have run it, open the next gate yourself (npm run pipeline -- --resume) and quit at its first question${gate === 'code_reviewed' ? ' (the repeat and fault checks run first, which takes a while)' : ''}. You are then noted as the operator of what ${gate} reviews, and another person's approval counts as a second review.`
         );
       exit(0);
     }

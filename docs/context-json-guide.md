@@ -371,7 +371,8 @@ approval of `test_scope_reviewed`, `code_reviewed` or
 approved inputs, and said so), `delay` (with `brief_first_shown_at` and
 `minutes`, an hour or more) or `outside_review` (with the team's sampling
 `rate`, whether this decision was `selected`, and the `input_digest` it was
-drawn for: approving the same inputs again keeps the draw). The runner
+drawn for: a selection holds for the rest of the run, and approving the
+same inputs again keeps the draw). The runner
 refuses such an approval with none. Written only by the runner; absent on
 rejections, other tracks and gates, and older runs (`docs/review-gates.md`,
 "Independence at Gates 2 and 4").

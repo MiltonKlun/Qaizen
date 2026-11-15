@@ -259,6 +259,36 @@ test('the outside review: chosen, with a rate, drawn once per gate and inputs', 
     }).selected,
     true
   );
+  // A selection holds for the rest of the run, whatever the inputs now; a
+  // draw that did not select is kept for its own inputs only.
+  const draw = (selected, digest) => ({
+    gate: 'test_scope_reviewed',
+    decision: 'approved',
+    independence: {
+      control: 'outside_review',
+      operator: null,
+      rate: 0.25,
+      selected,
+      input_digest: digest,
+    },
+  });
+  assert.equal(
+    options({ gate_decisions: [draw(true, OTHER)] }, cfg).earlierDraw,
+    true
+  );
+  assert.equal(
+    options({ gate_decisions: [draw(false, DIGEST)] }, cfg).earlierDraw,
+    false
+  );
+  assert.equal(
+    options({ gate_decisions: [draw(false, OTHER)] }, cfg).earlierDraw,
+    null
+  );
+  // A new draw needs its randomness given.
+  assert.throws(
+    () => resolveIndependence(withRate, { outside: true }),
+    /needs an rng/
+  );
   assert.match(
     refusalLines(options({}), 60).join('\n'),
     /once the team sets independence\.outside_review_rate/
