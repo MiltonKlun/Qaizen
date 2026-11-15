@@ -563,7 +563,7 @@ rule).
 | Gate time                             | Minutes from each gate's brief to its decision, per gate and per run.              |
 | Rounds to approval                    | Decisions per approval per gate, and the share approved the first time.            |
 | Gate 2 canary catch rate              | Planted wrong cases the reviewer rejected, with a 95% interval.                    |
-| Scan findings answered                | Per Gate 4 scan check: how often its finding was right (precision).                |
+| Findings answered                     | Per Gate 4 scan check and AI finding type: how often it was right (precision).     |
 | Flake rate in the repeat checks       | Repeat checks that found a flaky test, earlier checks of a run included.           |
 | Heals per test                        | Validated heals per healed test, and the tests healed more than once.              |
 | Escaped defects                       | Bugs a completed run should have caught, by why they were missed.                  |

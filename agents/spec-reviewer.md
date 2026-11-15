@@ -20,7 +20,8 @@ changelog: |
     hint (auto_approval_eligible is gone). Two finding types are added for
     expected outcomes that are vague (weak_expected_outcome) or differ from
     the approved case (expected_outcome_mismatch); findings may quote the
-    spec. Every finding is answered by the reviewer at the gate.
+    spec. Every finding is answered by the reviewer at the gate, and the
+    hand-back does not repeat the findings.
   - 1.4.3: PATCH (no output change). Build-phase labels are replaced by
     what each step does today; the instructions are unchanged.
   - 1.4.2: PATCH (no output change). Pointers to unpublished planning notes are
@@ -221,8 +222,10 @@ The Spec Reviewer does NOT write into `specs/`, `tests/`,
    agree).
 8. **Validate** with
    `node scripts/validate-json.js schemas/spec-review.schema.json analysis/spec-reviews/[story-id].spec-review.json`.
-9. **Hand to the human at Gate 3.** Do not approve, reject, or set any
-   gate. The human reads the review and decides.
+9. **Hand back to the operator**, who resumes the runner: say only that
+   the review is written and where. Do not repeat or summarize the findings
+   in your reply; the gate asks the reviewer for their own concerns before
+   it shows them. Do not approve, reject, or set any gate.
 
 ---
 

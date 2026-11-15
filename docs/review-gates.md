@@ -1161,8 +1161,10 @@ catching it later.
   push the agent again unchanged.
 - **AI review rounds.** The advisory AI review of a gate (below) has at
   most 3 rounds in a run, and after the first round it reviews only what
-  changed since the round before. The runner counts a round when its
-  review is first shown at the gate and shows no fourth.
+  changed since the round before. The runner counts a round once its
+  review has been shown at the gate (quitting at the concerns question
+  does not use one), shows no fourth, and stops asking for a review once
+  the three are used.
 
 ### Advisory AI review (Gates 3 and 4)
 
@@ -1180,16 +1182,21 @@ no case asked for. It is advice, under four rules:
   1.x spec review, or a fourth round is not shown, and the gate says why.
 - **Your reading first.** Before the review is shown, the gate asks what
   concerns you have from your own reading; your answer is kept with the
-  decision. Then the findings are shown, with no verdict: no findings
+  decision. This holds at the gate only: the reviewer agents are told not
+  to repeat their findings when they hand back, but whoever runs the agent
+  can open the review file. Where the operator also decides the gate, open
+  the gate before reading the review. Then the findings are shown, with no verdict: no findings
   reads as "the AI reviewer reported nothing", never as a pass.
 - **Every finding answered.** Each finding is answered like a scan
   finding (fixed, wrong, intentional, irrelevant; a reason on a
   Red-domain story for wrong and intentional), and "fixed" allows only a
-  rejection. The answers are kept per finding type (`ai:<type>`), so the
+  rejection. The answers are kept per gate and finding type (`ai-spec:<type>`,
+  `ai-test:<type>`), so the
   metrics show how often each kind of AI finding was right.
 - **No way to approve.** The review has no field that could approve, and
-  nothing in the runner reads one. The decision, its record and the
-  approval binding are the same with or without it.
+  nothing in the runner reads one. The decision and its approval binding
+  are the same with or without it; the record only gains a section saying
+  what was shown.
 
 `ai_review: "on"` in `config/gate-checks.json` makes the runner stop for
 a review before Gates 3 and 4 (steps `ai-review-spec` and

@@ -116,7 +116,7 @@
           "reason": "two ids the app documents as stable; no position involved"
         },
         {
-          "rule": "ai:weak_assertion",
+          "rule": "ai-test:weak_assertion",
           "line": 21,
           "test": "TC-001",
           "excerpt": "await expect(page.locator('#inventory_container .inventory_list')).toBeVisible();",

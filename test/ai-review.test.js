@@ -3,14 +3,24 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { execPath } from 'node:process';
 
+import { removeTempDir } from './helpers/cleanup.js';
+import { copyRuntimeConfig } from './helpers/runtime-config.js';
+import { runContext, scopeCases } from './helpers/valid-run.js';
 import { validateValue } from '../scripts/lib/artifact-io.js';
+import { bindingFor, gateDigest } from '../scripts/lib/approval-binding.js';
 import {
   AI_REVIEW_GATES,
   MAX_ROUNDS,
   aiFindings,
   aiReviewMode,
+  blindFirst,
+  printable,
   logRound,
   recordSection,
   reviewInstruction,
@@ -19,7 +29,11 @@ import {
   reviewState,
 } from '../scripts/lib/ai-review.js';
 import { nextStep } from '../scripts/pipeline-state.js';
-import { GUIDE_STEPS, applyGateDecision } from '../scripts/run-pipeline.js';
+import {
+  GUIDE_STEPS,
+  applyGateDecision,
+  recordGateDecision,
+} from '../scripts/run-pipeline.js';
 
 const DIGEST = 'a'.repeat(64);
 const OTHER = 'b'.repeat(64);
@@ -170,9 +184,9 @@ test('the steps come before Gates 3 and 4, after the repeat and fault checks', (
 
 test('findings are answered like scan findings, and shown with no verdict', () => {
   const s = /** @type {any} */ (state(testReview()));
-  assert.deepEqual(aiFindings(s.review), [
+  assert.deepEqual(aiFindings('code_reviewed', s.review), [
     {
-      rule: 'ai:weak_assertion',
+      rule: 'ai-test:weak_assertion',
       line: 41,
       test: 'TC-002',
       excerpt: 'await expect(sum).toBeVisible();',
@@ -287,4 +301,175 @@ test('no review has a field that could approve, and a decision is the same with 
   assert.deepEqual(withReview.review_gates, without.review_gates);
   assert.equal(withReview.gate_decisions[0].ai_review.round, 1);
   assert.equal(without.gate_decisions[0].ai_review, undefined);
+});
+
+test('with the rounds used, any review is past the cap and none is asked for', () => {
+  const full = context({ ai_reviews: shown(MAX_ROUNDS) });
+  for (const raw of [
+    testReview({ input_digest: OTHER }),
+    testReview({ schema_version: '2.0' }),
+    '{not json',
+    testReview({ round: 1 }),
+  ]) {
+    const s = state(raw, full);
+    assert.equal(s.state, 'capped', String(raw).slice(0, 40));
+    assert.equal(reviewNeeded('on', s), false);
+  }
+  // A review already shown is shown again, even with the rounds used.
+  const ctx = context();
+  const raw = JSON.stringify(testReview());
+  logRound(ctx, 'code_reviewed', state(raw, ctx), 't');
+  ctx.ai_reviews.push(...shown(2).map((r, i) => ({ ...r, round: i + 2 })));
+  assert.equal(state(raw, ctx).usable, true);
+});
+
+test('a review with converted line endings is the same review', () => {
+  const lf = JSON.stringify(testReview(), null, 2);
+  const crlf = lf.replace(/\n/g, '\r\n');
+  assert.equal(state(lf).sha256, state(crlf).sha256);
+});
+
+test('blind first: the question carries nothing the AI wrote, and AI text is printed safely', () => {
+  const s = state(testReview());
+  const shownFirst = blindFirst('code_reviewed', s);
+  assert.doesNotMatch(
+    `${shownFirst.question}\n${shownFirst.prompt}`,
+    /wrong total|weak_assertion|TC-002|\$46/
+  );
+  assert.match(shownFirst.review.join('\n'), /A wrong total passes/);
+  assert.equal(printable('a\u001b[2Jb\u0007c\nd'), 'a [2Jb c d');
+  const nasty = state(
+    testReview({
+      findings: [
+        {
+          type: 'weak_assertion',
+          severity: 'info',
+          description: 'x\u001b[31mred',
+        },
+      ],
+    })
+  );
+  const ESC = String.fromCharCode(0x1b);
+  assert.equal(
+    reviewLines('code_reviewed', nasty).join('\n').includes(ESC),
+    false
+  );
+  assert.equal(
+    aiFindings('code_reviewed', nasty.review)[0].note.includes(ESC),
+    false
+  );
+  assert.equal(
+    aiFindings('specs_reviewed', s.review)[0].rule,
+    'ai-spec:weak_assertion'
+  );
+});
+
+test('the runner asks for a review before Gate 3, takes one for the printed digest, and records it with the decision', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'qaizen-ai-review-'));
+  t.after(() => removeTempDir(dir));
+  const put = (rel, text) => {
+    mkdirSync(dirname(join(dir, rel)), { recursive: true });
+    writeFileSync(join(dir, rel), text);
+  };
+  copyRuntimeConfig(dir);
+  const ctx = runContext({
+    storyId: 'AR-1',
+    runId: 'run-ar-1',
+    status: 'in_progress',
+    gates: false,
+  });
+  ctx.acceptance_criteria = ['The page shows a greeting.'];
+  put('story.md', '# AR-1\n\n1. The page shows a greeting.\n');
+  put(
+    'test-cases/AR-1.json',
+    JSON.stringify(scopeCases('AR-1', 'run-ar-1'), null, 2)
+  );
+  put('planner-input/AR-1.planner-brief.md', 'Explore the page.\n');
+  put('specs/AR-1.md', '# SPEC-001\n\nTC-001: the greeting is shown.\n');
+  put('context.json', JSON.stringify(ctx, null, 2));
+  put('config/gate-checks.json', JSON.stringify({ ai_review: 'on' }));
+  const readCtx = () =>
+    JSON.parse(readFileSync(join(dir, 'context.json'), 'utf8'));
+  const decide = (step, gateKey, extra = {}) => {
+    const c = readCtx();
+    const r = recordGateDecision({
+      root: dir,
+      context: c,
+      step,
+      gateKey,
+      decision: 'approved',
+      reviewer: 'Ada',
+      notes: null,
+      openedAt: '2026-11-15T10:00:00.000Z',
+      decidedAt: '2026-11-15T10:01:00.000Z',
+      bindings: { [gateKey]: bindingFor(gateKey, c, dir) },
+      brief: 'brief',
+      ...extra,
+    });
+    assert.equal(r.ok, true, r.message);
+    return r;
+  };
+  decide('gate1', 'requirements_reviewed');
+  decide('gate2', 'test_scope_reviewed');
+  const run = () =>
+    spawnSync(
+      execPath,
+      [join(process.cwd(), 'scripts', 'run-pipeline.js'), '--resume'],
+      {
+        cwd: dir,
+        encoding: 'utf8',
+        input: '',
+      }
+    );
+  const asked = run();
+  assert.match(
+    asked.stdout,
+    /Next step: AI-REVIEW-SPEC/,
+    asked.stdout + asked.stderr
+  );
+  const digest = /input_digest: ([a-f0-9]{64})/.exec(asked.stdout)?.[1];
+  assert.equal(digest, gateDigest('specs_reviewed', readCtx(), dir));
+  assert.match(asked.stdout, /round: 1/);
+  const review = JSON.parse(
+    readFileSync(
+      'examples/expected/spec-review-bound.expected-spec-review.json',
+      'utf8'
+    )
+  );
+  put(
+    'analysis/spec-reviews/AR-1.spec-review.json',
+    JSON.stringify(
+      { ...review, story_id: 'AR-1', input_digest: digest },
+      null,
+      2
+    )
+  );
+  const gate = run();
+  assert.match(
+    gate.stderr,
+    /GATE PENDING: specs_reviewed/,
+    gate.stdout + gate.stderr
+  );
+
+  // The decision as the gate records it, with the review it was shown.
+  const r = decide('gate3', 'specs_reviewed', {
+    aiReview: {
+      review: 'analysis/spec-reviews/AR-1.spec-review.json',
+      sha256: 'd'.repeat(64),
+      round: 1,
+      findings: 4,
+      own_concerns: 'The empty-name case.',
+      lines: ['AI review of the spec (round 1 of 3).'],
+    },
+  });
+  const saved = readCtx();
+  assert.equal(validateValue(saved, 'schemas/context.schema.json').ok, true);
+  assert.equal(
+    saved.gate_decisions.at(-1).ai_review.own_concerns,
+    'The empty-name case.'
+  );
+  assert.match(
+    readFileSync(join(dir, r.record), 'utf8'),
+    /## Advisory AI review[\s\S]*> The empty-name case\./
+  );
 });

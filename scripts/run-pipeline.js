@@ -139,7 +139,7 @@ import {
   readReview,
   recordSection,
   reviewInstruction,
-  reviewLines,
+  blindFirst,
   reviewNeeded,
 } from './lib/ai-review.js';
 import {
@@ -1461,24 +1461,22 @@ async function runGateInteractive(step, context) {
         digest: reviewedDigests[gateKey],
       });
       if (state.usable) {
+        // Blind first: the reviewer's own concerns, then the review. The
+        // round counts once the review has been shown.
+        const shown = blindFirst(gateKey, state);
+        console.log(`\n${shown.question}`);
+        const own = (await rl.question(shown.prompt)).trim();
+        console.log(`\n${shown.review.join('\n')}`);
         if (logRound(context, gateKey, state, new Date().toISOString()))
           writeContext(context);
-        console.log(
-          `\nThere is an AI review of this ${AI_REVIEW_GATES[gateKey].what}. Before it is shown: what concerns do you have, from your own reading?`
-        );
-        const own = (
-          await rl.question('Your concerns (one line; Enter for none): ')
-        ).trim();
-        const lines = reviewLines(gateKey, state);
-        console.log(`\n${lines.join('\n')}`);
-        reviewFindings = aiFindings(state.review);
+        reviewFindings = aiFindings(gateKey, state.review);
         aiReview = {
           review: state.path,
           sha256: state.sha256,
           round: state.round,
           findings: reviewFindings.length,
           own_concerns: own || null,
-          lines,
+          lines: shown.review,
         };
       } else {
         // Said whenever a review exists or the team asks for one; a team
@@ -1497,7 +1495,7 @@ async function runGateInteractive(step, context) {
     const canApprove = approvalAllowed(dispositions);
     if (!canApprove)
       console.log(
-        'A finding answered "fixed" means the test changes first, so this review can only be rejected (or quit).'
+        'A finding answered "fixed" means what this gate reviews changes first, so this review can only be rejected (or quit).'
       );
     let decision = '';
     let outsideChosen = false;
@@ -1836,7 +1834,10 @@ function storyId(context) {
 function aiReviewGuide(gate, ctx) {
   const digest = gateDigest(gate, ctx, '.');
   const state = readReview({ context: ctx, gate, digest });
-  const round = state.usable ? state.round : (state.nextRound ?? 1);
+  // The step is asked for only while rounds are left (reviewNeeded).
+  const round = state.usable
+    ? state.round
+    : /** @type {number} */ (state.nextRound);
   const last = (ctx?.gate_decisions ?? [])
     .filter((/** @type {any} */ d) => d.gate === gate && d.record?.path)
     .at(-1);

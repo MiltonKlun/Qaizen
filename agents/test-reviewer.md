@@ -111,8 +111,10 @@ It writes nothing else: not `tests/`, `specs/`, `test-cases/`,
 8. **Validate:**
    `node scripts/validate-json.js schemas/test-review.schema.json analysis/test-reviews/[story-id].test-review.json`
    must exit 0.
-9. **Hand back to the operator**, who resumes the runner. Do not approve,
-   reject, edit the test or set any gate.
+9. **Hand back to the operator**, who resumes the runner: say only that
+   the review is written and where. Do not repeat or summarize the findings
+   in your reply; the gate asks the reviewer for their own concerns before
+   it shows them. Do not approve, reject, edit the test or set any gate.
 
 ## 4. Rules
 

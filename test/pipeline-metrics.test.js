@@ -686,7 +686,7 @@ test('metrics report each scan check’s answers and precision on fixture runs',
       join(dir, 'metrics', 'pipeline-metrics.md'),
       'utf8'
     );
-    assert.match(md, /## Gate 4 scan findings answered/);
+    assert.match(md, /## Findings answered at the gates/);
     assert.match(
       md,
       /- hard_wait: 3 answered, precision 67% \(fixed 1, wrong 1, intentional 1, irrelevant 0\)/

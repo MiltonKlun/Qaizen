@@ -133,18 +133,20 @@ export function reviewState({ context, gate, digest, raw }) {
     reason,
     nextRound,
   });
-  if (raw === null) {
-    if (nextRound === null)
-      return no(
-        'capped',
-        `the ${MAX_ROUNDS} review rounds of this gate are used`
-      );
-    return no('missing', `there is no ${path}`);
-  }
+  const capped = () =>
+    no(
+      'capped',
+      `the ${MAX_ROUNDS} review rounds of this gate are used, so no review is shown and none is asked for`
+    );
+  if (raw === null)
+    return nextRound === null ? capped() : no('missing', `there is no ${path}`);
   const sha256 = createHash('sha256')
     .update(raw.replace(/\r\n/g, '\n'))
     .digest('hex');
   const earlier = shown.find((r) => r.sha256 === sha256);
+  // With the rounds used, only a review already shown can be shown again;
+  // anything else is past the cap, whatever its state.
+  if (!earlier && nextRound === null) return capped();
   /** @type {any} */
   let review;
   try {
@@ -158,7 +160,9 @@ export function reviewState({ context, gate, digest, raw }) {
   )
     return no(
       'legacy',
-      `${path} is a schema_version ${review.schema_version} review, which names no input digest: it is not used`
+      gate === 'specs_reviewed' && /^1\./.test(review.schema_version)
+        ? `${path} is a schema_version ${review.schema_version} review, which names no input digest: it is not used`
+        : `${path} has schema_version ${review.schema_version}, which this runner does not read`
     );
   const v = validateValue(review, join(REPO_DIR, g.schema));
   if (!v.ok)
@@ -182,11 +186,6 @@ export function reviewState({ context, gate, digest, raw }) {
       path,
       logged: true,
     };
-  if (nextRound === null)
-    return no(
-      'capped',
-      `the ${MAX_ROUNDS} review rounds of this gate are used; ${path} is not shown`
-    );
   if (review.round !== nextRound)
     return no(
       'wrong_round',
@@ -196,7 +195,8 @@ export function reviewState({ context, gate, digest, raw }) {
     usable: true,
     review,
     sha256,
-    round: nextRound,
+    // Not null: a new review past the cap returned capped above.
+    round: /** @type {number} */ (nextRound),
     path,
     logged: false,
   };
@@ -224,10 +224,7 @@ export function readReview({ context, gate, digest, root = '.' }) {
  * @param {ReviewState} state
  */
 export const reviewNeeded = (mode, state) =>
-  mode === 'on' &&
-  !state.usable &&
-  /** @type {{ state: string }} */ (/** @type {unknown} */ (state)).state !==
-    'capped';
+  mode === 'on' && !state.usable && state.nextRound !== null;
 
 /**
  * Count a review as a round, the first time it is shown at its gate.
@@ -251,18 +248,53 @@ export function logRound(context, gate, state, at) {
 }
 
 /**
+ * Text an AI wrote, made safe to print: control characters become spaces.
+ * @param {unknown} text
+ */
+export const printable = (text) =>
+  Array.from(String(text ?? ''), (c) => {
+    const n = /** @type {number} */ (c.codePointAt(0));
+    return n < 0x20 || (n >= 0x7f && n < 0xa0) ? ' ' : c;
+  }).join('');
+
+/** The rule prefix of each gate's AI findings: the metrics count them apart. */
+export const RULE_PREFIX = Object.freeze(
+  /** @type {Record<string, string>} */ ({
+    specs_reviewed: 'ai-spec',
+    code_reviewed: 'ai-test',
+  })
+);
+
+/**
  * The review's findings as the findings the reviewer answers at the gate.
+ * @param {string} gate
  * @param {any} review
  * @returns {import('./finding-dispositions.js').Finding[]}
  */
-export function aiFindings(review) {
+export function aiFindings(gate, review) {
   return (review?.findings ?? []).map((/** @type {any} */ f) => ({
-    rule: `ai:${f.type}`,
+    rule: `${RULE_PREFIX[gate]}:${f.type}`,
     line: Number.isInteger(f.line) ? f.line : null,
     test: f.tc_id ?? null,
-    excerpt: f.quote ?? '',
-    note: `[${f.severity ?? 'info'}] ${f.description}`,
+    excerpt: printable(f.quote ?? ''),
+    note: `[${f.severity ?? 'info'}] ${printable(f.description)}`,
   }));
+}
+
+/**
+ * Blind first: what the gate asks before anything of the review is shown,
+ * and the review it shows after the answer. The question carries nothing
+ * the AI wrote.
+ * @param {string} gate
+ * @param {Extract<ReviewState, { usable: true }>} state
+ * @returns {{ question: string, prompt: string, review: string[] }}
+ */
+export function blindFirst(gate, state) {
+  return {
+    question: `There is an AI review of this ${AI_REVIEW_GATES[gate].what}. Before it is shown: what concerns do you have, from your own reading?`,
+    prompt: 'Your concerns (one line; Enter for none): ',
+    review: reviewLines(gate, state),
+  };
 }
 
 /**
@@ -286,13 +318,13 @@ export function reviewLines(gate, state) {
     );
   for (const [i, f] of findings.entries())
     lines.push(
-      `  ${i + 1}. [${f.severity ?? 'info'}] ${f.type}${f.tc_id ? ` ${f.tc_id}` : ''}${Number.isInteger(f.line) ? ` line ${f.line}` : ''}: ${f.description}`
+      `  ${i + 1}. [${printable(f.severity ?? 'info')}] ${printable(f.type)}${f.tc_id ? ` ${printable(f.tc_id)}` : ''}${Number.isInteger(f.line) ? ` line ${f.line}` : ''}: ${printable(f.description)}`
     );
   for (const r of review.recommendations ?? [])
-    lines.push(`  Suggestion: ${r}`);
+    lines.push(`  Suggestion: ${printable(r)}`);
   if (gate === 'specs_reviewed' && review.uncovered_risks?.length)
     lines.push(
-      `  Risks with no covering case: ${review.uncovered_risks.join(', ')} (${review.uncovered_high_severity_count ?? 0} high).`
+      `  Risks with no covering case: ${printable(review.uncovered_risks.join(', '))} (${review.uncovered_high_severity_count ?? 0} high).`
     );
   return lines;
 }

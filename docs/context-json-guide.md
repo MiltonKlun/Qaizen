@@ -354,14 +354,16 @@ It makes gate cost measurable (`reviewed_at − opened_at` here;
 `docs/review-gates.md` ("Gate telemetry"). Backward-compatible: absent on
 older runs, never required.
 
-**Scan findings answered (`finding_dispositions`, optional — Gate 4).** A
+**Findings answered (`finding_dispositions`, optional — Gates 3 and 4).** A
 `code_reviewed` event in `gate_decisions[]` carries the reviewer's answer
-to each Gate 4 static scan finding: `{ rule, line, test, excerpt, note,
-disposition, reason }`, where `disposition` is `fixed`, `wrong`,
-`intentional` or `irrelevant` and `reason` is required on a Red-domain
-story for wrong and intentional. Written only by the runner, at the
-person's decision; absent when the scan found nothing and on older runs
-(`docs/review-gates.md`, Gate 4).
+to each Gate 4 static scan finding, and a `specs_reviewed` or
+`code_reviewed` event the answer to each finding of the advisory AI review
+it was shown (rule `ai-spec:<type>` or `ai-test:<type>`): `{ rule, line,
+test, excerpt, note, disposition, reason }`, where `disposition` is
+`fixed`, `wrong`, `intentional` or `irrelevant` and `reason` is required on
+a Red-domain story for wrong and intentional. Written only by the runner,
+at the person's decision; absent when there was nothing to answer and on
+older runs (`docs/review-gates.md`, Gate 4).
 
 **Independence (`independence`, optional — full track, Gates 2 and 4).** An
 approval of `test_scope_reviewed`, `code_reviewed` or
@@ -381,7 +383,7 @@ rejections, other tracks and gates, and older runs (`docs/review-gates.md`,
 shown an advisory AI review carries `{ review, sha256, round, findings,
 own_concerns }`: the review file and its digest, its round (1 to 3), how
 many findings it had (each answered in `finding_dispositions`, rule
-`ai:<type>`), and what the reviewer noted from their own reading before it
+`ai-spec:<type>` at Gate 3, `ai-test:<type>` at Gate 4), and what the reviewer noted from their own reading before it
 was shown. Written only by the runner (`docs/review-gates.md`, "Advisory AI
 review").
 

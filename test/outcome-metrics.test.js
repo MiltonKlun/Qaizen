@@ -888,7 +888,7 @@ test('npm run metrics renders every outcome section on fixture runs, and /evolve
     'Gate time',
     'Rounds to approval',
     'Gate 2 canaries',
-    'Gate 4 scan findings answered',
+    'Findings answered at the gates',
     'Flake rate in the repeat checks',
     'Heals per test',
     'Escaped defects',
