@@ -250,8 +250,10 @@ decision and its gate record name which (`independence`):
   review a share of these decisions. The draw is made when the decision is
   recorded, so the reviewer cannot know whether this one will be looked at,
   and once: a draw that selected the gate holds for the rest of the run,
-  whatever changes, and approving the same inputs again keeps the draw. A decision is only marked for outside review: nothing in the pipeline
-  records the outside reviewer's verdict yet.
+  whatever changes, and approving the same inputs again keeps the draw. The outside reviewer records their verdict on each marked decision
+  with `npm run record-outcome -- outside-review` (`docs/outcome-records.md`
+  §3), and `npm run metrics` lists the marked decisions still waiting and
+  every disagreement.
 
 An advisory AI review, its accuracy measured on canaries, becomes a fourth
 control when it exists. A rejection needs none of them, and a setting in

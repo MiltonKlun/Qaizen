@@ -91,6 +91,10 @@ const PATTERNS = [
     schema: 'schemas/story-cost.schema.json',
   },
   {
+    suffix: '.expected-outside-review.json',
+    schema: 'schemas/outside-review.schema.json',
+  },
+  {
     suffix: '.expected-regression-results.json',
     schema: 'schemas/regression-results.schema.json',
   },

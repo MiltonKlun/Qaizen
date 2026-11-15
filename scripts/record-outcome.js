@@ -9,6 +9,9 @@
 //                    falls under. It feeds the defect history and the metrics.
 //   cost             the hands-on time and the spend of one run, which the
 //                    pipeline cannot measure.
+//   outside-review   an outside reviewer's verdict on a full-track approval
+//                    the sampled outside review marked
+//                    (docs/review-gates.md, "Independence at Gates 2 and 4").
 //
 // Usage:
 //   npm run record-outcome -- escaped-defect --story <id> --run <run> \
@@ -21,6 +24,10 @@
 //   npm run record-outcome -- cost --story <id> --run <run> \
 //     [--minutes 95] [--spend 3.40 --currency USD] --by "<who>" \
 //     [--notes "..."] [--replace] [--dry-run]
+//   npm run record-outcome -- outside-review --story <id> --run <run> \
+//     --gate gate2|gate4|gate4-api [--decided-at <ISO time>] \
+//     --verdict agree|disagree --by "<outside reviewer>" [--notes "..."] \
+//     [--replace] [--dry-run]
 //
 // --run is the archive folder under runs/<story>/ or the run id its context
 // records. A defect already recorded (same Jira key, or same run and summary)
@@ -41,18 +48,23 @@ import {
   COSTS_DIR,
   ESCAPED_DEFECT_SCHEMA,
   ESCAPED_DIR,
+  OUTSIDE_DIR,
+  OUTSIDE_REVIEW_SCHEMA,
   STORY_COST_SCHEMA,
   buildEscapedDefect,
+  buildOutsideReview,
   findArchivedRun,
   nextEscapedId,
   readEscapedDefects,
   withCostEntry,
+  withOutsideReview,
 } from './lib/outcomes.js';
 
 const USAGE = [
   'Usage:',
   '  node scripts/record-outcome.js escaped-defect --story <id> --run <run> (--risk RISK-NNN ... | --unresolved "<why>") [--case TC-NNN ...] --summary "<text>" --severity high|medium|low --found-in production|staging|later_run|other --found-at YYYY-MM-DD --why-missed no_case|not_automated|test_passed_wrongly|not_run|unknown --by "<name>" [--jira KEY-1] [--notes "<text>"] [--replace ESC-NNN | --force-new] [--dry-run]',
   '  node scripts/record-outcome.js cost --story <id> --run <run> [--minutes <n>] [--spend <amount> --currency <ISO 4217>] --by "<name>" [--notes "<text>"] [--replace] [--dry-run]',
+  '  node scripts/record-outcome.js outside-review --story <id> --run <run> --gate gate2|gate4|gate4-api [--decided-at <ISO time>] --verdict agree|disagree --by "<outside reviewer>" [--notes "<text>"] [--replace] [--dry-run]',
 ].join('\n');
 const RUNS = 'runs';
 
@@ -85,8 +97,10 @@ const common = {
 };
 
 const [kind, ...rest] = argv.slice(2);
-if (kind !== 'escaped-defect' && kind !== 'cost')
-  usage(`the first argument is escaped-defect or cost (got "${kind ?? ''}")`);
+if (kind !== 'escaped-defect' && kind !== 'cost' && kind !== 'outside-review')
+  usage(
+    `the first argument is escaped-defect, cost or outside-review (got "${kind ?? ''}")`
+  );
 
 const cli = parseCli(
   rest,
@@ -124,16 +138,27 @@ const cli = parseCli(
           ['replace', 'force-new'],
         ],
       }
-    : {
-        usage: USAGE,
-        options: {
-          ...common,
-          minutes: { type: 'string' },
-          spend: { type: 'string' },
-          currency: { type: 'string' },
-          replace: { type: 'boolean' },
-        },
-      }
+    : kind === 'outside-review'
+      ? {
+          usage: USAGE,
+          options: {
+            ...common,
+            gate: { type: 'string' },
+            'decided-at': { type: 'string' },
+            verdict: { type: 'string', choices: ['agree', 'disagree'] },
+            replace: { type: 'boolean' },
+          },
+        }
+      : {
+          usage: USAGE,
+          options: {
+            ...common,
+            minutes: { type: 'string' },
+            spend: { type: 'string' },
+            currency: { type: 'string' },
+            replace: { type: 'boolean' },
+          },
+        }
 );
 if (!cli.ok) usage(cli.error);
 const v = /** @type {Record<string, any>} */ (cli.values);
@@ -150,7 +175,9 @@ const required =
         'why-missed',
         'by',
       ]
-    : ['story', 'run', 'by'];
+    : kind === 'outside-review'
+      ? ['story', 'run', 'gate', 'verdict', 'by']
+      : ['story', 'run', 'by'];
 const missing = required.filter((k) => v[k] === undefined || v[k] === '');
 if (missing.length) usage(`missing ${missing.map((k) => `--${k}`).join(', ')}`);
 const storyProblem = validateStoryId(v.story);
@@ -237,6 +264,37 @@ if (kind === 'escaped-defect') {
       built.record,
       ESCAPED_DEFECT_SCHEMA,
       `${v.replace ? 'Replaced' : 'Recorded'} ${id}: ${v.story} (${run.runId}) let a ${v.severity} defect escape (${v['why-missed']}). Regenerate the defect history (npm run defect-history) and the metrics (npm run metrics) to include it.`
+    );
+} else if (kind === 'outside-review') {
+  const built = buildOutsideReview({
+    run,
+    gate: v.gate,
+    decidedAt: v['decided-at'],
+    verdict: v.verdict,
+    notes: v.notes,
+    by: v.by,
+    now,
+  });
+  if (!built.ok) refuse(built.errors);
+  const path = join(OUTSIDE_DIR, `${v.story}.json`);
+  /** @type {any} */
+  let doc = null;
+  if (existsSync(path)) {
+    const r = readJson(path);
+    if (!r.ok) refuse([r.message]);
+    else doc = r.data;
+    if (doc?.story_id !== v.story)
+      refuse([`${path} is not ${v.story}'s outside-review record`]);
+  }
+  const entry = /** @type {{ ok: true, entry: any }} */ (built).entry;
+  const next = withOutsideReview(doc, v.story, entry, v.replace === true);
+  if (!next.ok) refuse(next.errors);
+  else
+    save(
+      path,
+      next.doc,
+      OUTSIDE_REVIEW_SCHEMA,
+      `Recorded ${v.by}'s outside review of ${entry.gate} in ${v.story} (${run.runId}, decided ${entry.decided_at}): ${entry.verdict}.${entry.verdict === 'disagree' ? ' Follow it up: reopen the gate, or record an escaped defect.' : ''} npm run metrics counts it.`
     );
 } else {
   /** @param {string} flag */

@@ -150,7 +150,7 @@ flowchart LR
 | `npm run validate:all` | Validate every committed artifact against its schema |
 | `npm run metrics` · `npm run evolve` | Aggregate run metrics · propose improvements from them |
 | `npm run defect-history` | Summarize the bugs past runs found, for the Analyst's risk scoring |
-| `npm run record-outcome -- escaped-defect ...` | Record a bug a completed run let through, or (`cost`) a run's time and spend |
+| `npm run record-outcome -- escaped-defect ...` | Record a bug a completed run let through, a run's time and spend (`cost`), or an outside reviewer's verdict (`outside-review`) |
 | `npm run verify:trail` | Check the gate records' chain and, where an operator signs them, each signature |
 
 How the runner works, step by step: [docs/pipeline-runner.md](docs/pipeline-runner.md).

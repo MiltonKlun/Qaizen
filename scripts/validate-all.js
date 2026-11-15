@@ -24,6 +24,7 @@
 //   evidence/regressions/*.json           schemas/regression-results.schema.json
 //   outcomes/escaped-defects/*.json       schemas/escaped-defect.schema.json
 //   outcomes/costs/*.json                 schemas/story-cost.schema.json
+//   outcomes/outside-reviews/*.json       schemas/outside-review.schema.json
 //                                         (the last five at the repo root only)
 //
 // Examples under examples/expected/ are covered by validate-examples.js;
@@ -157,6 +158,11 @@ const TARGETS = [
     dir: 'outcomes/costs',
     suffix: '.json',
     schema: 'schemas/story-cost.schema.json',
+  },
+  {
+    dir: 'outcomes/outside-reviews',
+    suffix: '.json',
+    schema: 'schemas/outside-review.schema.json',
   },
 ];
 

@@ -807,7 +807,10 @@ test('record-outcome cost adds one entry per run, and replaces it only when aske
     false,
     'a replaced entry is the new one'
   );
-  assert.match(cli(dir, 'nothing').stderr, /escaped-defect or cost/);
+  assert.match(
+    cli(dir, 'nothing').stderr,
+    /escaped-defect, cost or outside-review/
+  );
 });
 
 test('npm run metrics renders every outcome section on fixture runs, and /evolve reports a fired trigger', (t) => {

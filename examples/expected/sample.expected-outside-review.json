@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "record_type": "outside_review",
+  "story_id": "STORY-001",
+  "reviews": [
+    {
+      "run_id": "2026-06-06T13-00-00Z-independence",
+      "run_archive": "runs/STORY-001/2026-06-06T13-00-00Z-independence",
+      "gate": "code_reviewed",
+      "decided_at": "2026-06-06T15-20-00Z",
+      "decision_record": "gates/006-gate4-approved.md",
+      "decision_reviewer": "bob@example.com",
+      "operator": "bob@example.com",
+      "verdict": "agree",
+      "notes": "Read the fixed test against TC-002 and TC-003: the locked-user and wrong-password assertions check the error text and that no session cookie is set.",
+      "recorded_at": "2026-06-09T10:00:00Z",
+      "recorded_by": "dana@partner.example"
+    }
+  ]
+}
