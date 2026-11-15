@@ -16,7 +16,7 @@ import { dirname, join } from 'node:path';
 import { execPath } from 'node:process';
 
 import { removeTempDir } from './helpers/cleanup.js';
-import { runContext, scopeCases } from './helpers/valid-run.js';
+import { noteOperator, runContext, scopeCases } from './helpers/valid-run.js';
 import { bindingFor } from '../scripts/lib/approval-binding.js';
 import {
   gateDiff,
@@ -65,7 +65,8 @@ const readCtx = (dir) =>
   JSON.parse(readFileSync(join(dir, 'context.json'), 'utf8'));
 
 function decide(dir, step, gateKey, decision, notes = null, at = '10:00') {
-  const ctx = readCtx(dir);
+  // Red-domain story: someone else ran the reviewed step.
+  const ctx = noteOperator(readCtx(dir), gateKey, dir);
   const r = recordGateDecision({
     root: dir,
     context: ctx,

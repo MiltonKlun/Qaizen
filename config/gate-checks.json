@@ -1,5 +1,6 @@
 {
   "_comment": "Automatic checks the runner shows at the gates (scripts/run-pipeline.js). Human-editable; they inform the reviewer and never approve anything. See docs/review-gates.md, Gate 2.",
   "scope_coverage": "warn",
-  "_scope_coverage_comment": "Gate 2 (and the lite consolidated gate): every acceptance criterion and every risk should have at least one approved case; a skip case with its reason counts as an accepted risk. \"warn\" names the gaps in the brief; \"block\" keeps the gate closed until there are none."
+  "_scope_coverage_comment": "Gate 2 (and the lite consolidated gate): every acceptance criterion and every risk should have at least one approved case; a skip case with its reason counts as an accepted risk. \"warn\" names the gaps in the brief; \"block\" keeps the gate closed until there are none.",
+  "_independence_comment": "Optional `independence` object, for full-track approvals at Gates 2 and 4 (docs/review-gates.md, \"Independence at Gates 2 and 4\"): `min_delay_minutes` (60 or more; the default is 60) and `outside_review_rate` (0.1 to 1; absent, the default, means there is no sampled outside review). A value that cannot apply refuses approvals at those gates until it is fixed."
 }

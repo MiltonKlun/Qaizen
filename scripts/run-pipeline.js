@@ -120,6 +120,18 @@ import {
   recordDispositions,
 } from './lib/finding-dispositions.js';
 import {
+  INDEPENDENT_GATES,
+  authoredDigest,
+  independenceConfig,
+  independenceLine,
+  independenceOptions,
+  needsIndependence,
+  recordBriefShown,
+  recordOperator,
+  refusalLines,
+  resolveIndependence,
+} from './lib/review-independence.js';
+import {
   gate4Findings,
   loadGate4Artifacts,
   renderGate4Brief,
@@ -661,7 +673,8 @@ function withConventionalPaths(context) {
  * @param {{ decision: string, reviewer?: string | null,
  *   notes?: string | null, openedAt: string, decidedAt: string,
  *   bindings?: Record<string, object>,
- *   dispositions?: import('./lib/finding-dispositions.js').DispositionRecord[] }} decision
+ *   dispositions?: import('./lib/finding-dispositions.js').DispositionRecord[],
+ *   independence?: import('./lib/review-independence.js').Independence | null }} decision
  */
 export function applyGateDecision(
   context,
@@ -674,6 +687,7 @@ export function applyGateDecision(
     decidedAt,
     bindings = {},
     dispositions = [],
+    independence = null,
   }
 ) {
   const approved = decision === 'approved';
@@ -715,6 +729,9 @@ export function applyGateDecision(
     // The reviewer's answer to each Gate 4 scan finding, given before this
     // decision (scripts/lib/finding-dispositions.js).
     ...(dispositions.length ? { finding_dispositions: dispositions } : {}),
+    // What a full-track approval at Gate 2 or 4 rested on
+    // (scripts/lib/review-independence.js).
+    ...(independence ? { independence } : {}),
   });
   // Gate 1 approval moves the run out of draft (docs/context-json-guide.md §2).
   if (
@@ -750,6 +767,42 @@ const REDO_AFTER_REJECT = {
 };
 
 /**
+ * Whether an approval at this gate needs independence (the full track, Gate 2
+ * or 4), and the team's settings for it (config/gate-checks.json).
+ * @param {Context} context
+ * @param {string} gateKey
+ * @param {string} [root]
+ * @returns {{ ok: true, needed: boolean,
+ *   config: import('./lib/review-independence.js').IndependenceConfig } |
+ *   { ok: false, needed: boolean, message: string }}
+ */
+function independenceFor(context, gateKey, root = '.') {
+  const storyFile = join(root, context?.story?.path || 'story.md');
+  const { track } = effectiveTrack(
+    context,
+    existsSync(storyFile) ? readFileSync(storyFile, 'utf8') : null
+  );
+  const needed = needsIndependence(track, gateKey);
+  const path = join(root, 'config', 'gate-checks.json');
+  /** @type {any} */
+  let checks = null;
+  if (needed && existsSync(path)) {
+    try {
+      checks = JSON.parse(readFileSync(path, 'utf8'));
+    } catch (e) {
+      return {
+        ok: false,
+        needed,
+        message: `config/gate-checks.json is not valid JSON: ${/** @type {Error} */ (e).message}`,
+      };
+    }
+  }
+  const cfg = independenceConfig(checks);
+  if (!cfg.ok) return { ...cfg, needed };
+  return { ok: true, needed, config: cfg.config };
+}
+
+/**
  * Record one human gate decision: what was reviewed is read first, then the
  * decision goes into context.json (validated, atomic) naming its gate record
  * by digest, then that record is written under gates/
@@ -763,13 +816,22 @@ const REDO_AFTER_REJECT = {
  *   bindings: Record<string, ReturnType<typeof bindingFor>>,
  *   brief: string, scan?: string | null,
  *   dispositions?: import('./lib/finding-dispositions.js').DispositionRecord[],
- *   signingKeyPath?: string | null }} args
+ *   signingKeyPath?: string | null,
+ *   outsideReview?: boolean, notOperator?: boolean,
+ *   rng?: () => number }} args
  *   `signingKeyPath`: the operator's SSH key that signs the record
  *   (scripts/lib/record-signing.js); the interactive gate passes
- *   QAIZEN_SIGNING_KEY, and no other caller signs
+ *   QAIZEN_SIGNING_KEY, and no other caller signs.
+ *   `outsideReview`: the reviewer chose the sampled outside review for a
+ *   full-track approval; it is drawn here, with `rng` (crypto randomness
+ *   unless a test gives one), or taken from a draw made for these inputs
+ *   before. `notOperator: false`: the reviewer said they are the operator
+ *   noted for these inputs, so they are no second reviewer
+ *   (scripts/lib/review-independence.js)
  * @returns {{ ok: true, record: string, dir: string,
- *   signature: string | null, signingError: string | null } |
- *   { ok: false, stage: 'context' | 'record', message: string }}
+ *   signature: string | null, signingError: string | null,
+ *   independence: import('./lib/review-independence.js').Independence | null } |
+ *   { ok: false, stage: 'context' | 'record' | 'independence', message: string }}
  */
 export function recordGateDecision({
   root = '.',
@@ -786,7 +848,47 @@ export function recordGateDecision({
   scan = null,
   dispositions = [],
   signingKeyPath = null,
+  outsideReview = false,
+  notOperator = true,
+  rng = () => randomInt(0, 2 ** 32) / 2 ** 32,
 }) {
+  // A decision is never recorded as made later than now.
+  if (!(Date.parse(decidedAt) <= Date.now()))
+    decidedAt = new Date().toISOString();
+  // On the full track, an approval at Gate 2 or 4 rests on a second reviewer
+  // or a compensating control, and records which; without one, nothing is
+  // recorded (scripts/lib/review-independence.js).
+  /** @type {import('./lib/review-independence.js').Independence | null} */
+  let independence = null;
+  if (decision === 'approved') {
+    const ind = independenceFor(context, gateKey, root);
+    if (!ind.ok) return { ok: false, stage: 'context', message: ind.message };
+    if (ind.needed) {
+      const digest = bindings[gateKey]?.input_digest ?? '';
+      const at = decidedAt;
+      const options = independenceOptions({
+        context,
+        gate: gateKey,
+        reviewer,
+        digest,
+        authored: authoredDigest(gateKey, context, root),
+        at,
+        config: ind.config,
+      });
+      independence = resolveIndependence(options, {
+        outside: outsideReview,
+        notOperator,
+        digest,
+        rng,
+      });
+      if (!independence)
+        return {
+          ok: false,
+          stage: 'independence',
+          message: refusalLines(options, ind.config.minDelayMinutes).join('\n'),
+        };
+    }
+  }
   // An operator who signs their records (scripts/lib/record-signing.js):
   // the record names the key, so a missing signature shows. A key that
   // cannot be read stops here, before anything is recorded.
@@ -811,6 +913,7 @@ export function recordGateDecision({
     decidedAt,
     bindings,
     dispositions,
+    independence,
   });
   // The record is built before anything is written, so the decision can
   // name it by digest: an edited or deleted record is then visible in the
@@ -834,6 +937,7 @@ export function recordGateDecision({
       dispositions,
       title: GATE_BRIEFS[step]?.name,
       signingKey,
+      independence: independence ? independenceLine(independence) : null,
     });
   } catch (e) {
     return {
@@ -862,6 +966,7 @@ export function recordGateDecision({
       ok: true,
       record: rec.record,
       dir: rec.dir,
+      independence,
       signature: signed?.ok ? signed.signature : null,
       signingError:
         signed && !signed.ok
@@ -1026,12 +1131,54 @@ async function decideDraftCases(context, step) {
   return true;
 }
 
+/** Whether this invocation has recorded a gate decision (it continues after an approval). */
+let decidedThisInvocation = false;
+
 /**
  * @param {string} step
  * @param {Context} context
  */
 async function runGateInteractive(step, context) {
   const gateKey = GATE_KEYS[step];
+
+  // Full track, Gate 2 or 4: an approval rests on a second reviewer or a
+  // compensating control (scripts/lib/review-independence.js). The first
+  // terminal session to open the gate on these inputs is noted as their
+  // operator, before anything is asked, so the operator who ran the step can
+  // open the gate once and quit.
+  const ind = independenceFor(context, gateKey);
+  // The API Agent's operator opens the API branch's Gate 3 first; what they
+  // are noted on must still be unchanged at its Gate 4.
+  const noted = (
+    step === 'gate3-api' ? ['api_assertions_reviewed'] : [gateKey]
+  ).filter((g) => independenceFor(context, g).needed);
+  // A gate this session reached right after deciding another one is not
+  // noted: its inputs were produced by whoever ran the step, not by the
+  // reviewer who just decided.
+  if (stdin.isTTY && noted.length && decidedThisInvocation) {
+    const left = noted.filter(
+      (g) =>
+        context.review_independence?.operators?.[g]?.authored_digest !==
+        authoredDigest(g, context, '.')
+    );
+    if (left.length)
+      console.log(
+        `Full track: you reached this gate right after deciding another one, so you are not noted as the operator of what ${left.join(', ')} reviews. Whoever ran ${left.map((g) => INDEPENDENT_GATES[g]).join(', ')} notes themselves by opening this gate in their own session.\n`
+      );
+  } else if (stdin.isTTY && noted.length) {
+    const operator = sessionReviewer();
+    const at = new Date().toISOString();
+    const changed = noted.filter((g) =>
+      recordOperator(context, g, authoredDigest(g, context, '.'), operator, at)
+    );
+    if (changed.length) {
+      writeContext(context);
+      for (const g of changed)
+        console.log(
+          `Full track: ${operator ?? 'this session (no name)'} is noted as the operator of what ${g} reviews now (the output of ${INDEPENDENT_GATES[g]}). If someone else is to review it, quit here ([q] at the first question): their approval then counts as a second review. Deciding it yourself needs the delay or the sampled outside review.\n`
+        );
+    }
+  }
 
   // Gate 2 reviews the scope as decided: in a terminal, the reviewer first
   // decides each draft case, one at a time. Without one, a draft case still
@@ -1167,6 +1314,51 @@ async function runGateInteractive(step, context) {
       : 'No reviewer name found (QAIZEN_REVIEWER or git user.name).'
   );
 
+  // The first showing of this brief, for these inputs, starts the delay. A
+  // setting that cannot apply refuses approvals only: a rejection stays
+  // possible.
+  const authored = authoredDigest(gateKey, context, '.');
+  const optionsNow = () =>
+    ind.ok
+      ? independenceOptions({
+          context,
+          gate: gateKey,
+          reviewer,
+          digest: reviewedDigests[gateKey],
+          authored,
+          at: new Date().toISOString(),
+          config: ind.config,
+        })
+      : null;
+  if (!ind.ok)
+    console.log(
+      `Approval is not possible until the setting is fixed: ${ind.message}. A rejection is.`
+    );
+  else if (ind.needed) {
+    if (
+      recordBriefShown(
+        context,
+        gateKey,
+        reviewedDigests[gateKey],
+        new Date().toISOString()
+      )
+    )
+      writeContext(context);
+    const now = /** @type {NonNullable<ReturnType<typeof optionsNow>>} */ (
+      optionsNow()
+    );
+    const rests = resolveIndependence(now);
+    console.log(
+      rests
+        ? `Full track: an approval now would record its independence as ${independenceLine(rests)}.`
+        : `Full track: an approval here needs a second reviewer or a compensating control. Now: ${now.why.join('; ')}.` +
+            (now.waitUntil ? ` The delay is met from ${now.waitUntil}.` : '') +
+            (now.outsideRate !== null
+              ? ' The sampled outside review is available.'
+              : '')
+    );
+  }
+
   const rl = createInterface({ input: stdin, output: stdout });
   // Input that ends (Ctrl-D) records nothing, and says so.
   let settled = false;
@@ -1189,6 +1381,8 @@ async function runGateInteractive(step, context) {
         'A finding answered "fixed" means the test changes first, so this review can only be rejected (or quit).'
       );
     let decision = '';
+    let outsideChosen = false;
+    let notOperator = true;
     while (decision === '') {
       const a = (
         await rl.question(
@@ -1203,9 +1397,51 @@ async function runGateInteractive(step, context) {
         console.log('No decision recorded; the gate stays as it was.');
         exit(1);
       }
-      if (canApprove && (a === 'a' || a === 'approve' || a === 'approved'))
-        decision = 'approved';
-      else if (a === 'r' || a === 'reject' || a === 'rejected')
+      if (canApprove && (a === 'a' || a === 'approve' || a === 'approved')) {
+        if (!ind.ok)
+          console.log(
+            `Approval is not possible until the setting is fixed: ${ind.message}.`
+          );
+        else if (!ind.needed) decision = 'approved';
+        else {
+          // Checked as of now: the delay may have been met while the prompt
+          // was open.
+          const options =
+            /** @type {NonNullable<ReturnType<typeof optionsNow>>} */ (
+              optionsNow()
+            );
+          // A name that differs is not proof of another person: ask.
+          if (options.second && notOperator) {
+            notOperator = /^y(es)?$/i.test(
+              (
+                await rl.question(
+                  `You decide as ${reviewer}; ${options.operator} is noted as the operator of these inputs. Are you someone other than ${options.operator}? [y]es / [n]o: `
+                )
+              ).trim()
+            );
+          }
+          if (resolveIndependence(options, { notOperator }))
+            decision = 'approved';
+          else {
+            const rate = options.outsideRate;
+            const take =
+              rate !== null &&
+              /^y(es)?$/i.test(
+                (
+                  await rl.question(
+                    `No second reviewer, and the delay is not met. Rest this approval on the sampled outside review? About ${Math.round(rate * 100)}% of such decisions are drawn for an outside reviewer, after you decide. [y]es / [n]o: `
+                  )
+                ).trim()
+              );
+            if (take) {
+              outsideChosen = true;
+              decision = 'approved';
+            } else
+              for (const l of refusalLines(options, ind.config.minDelayMinutes))
+                console.log(l);
+          }
+        }
+      } else if (a === 'r' || a === 'reject' || a === 'rejected')
         decision = 'rejected';
       else if (!canApprove && (a === 'a' || a === 'approve'))
         console.log(
@@ -1240,8 +1476,12 @@ async function runGateInteractive(step, context) {
       rl.pause();
       if (process.stdin.isTTY) process.stdin.setRawMode(false);
     }
+    // The outside review is drawn by the recorder, once the decision is
+    // made: the reviewer cannot learn the draw first and decide around it.
     const done = recordGateDecision({
       signingKeyPath,
+      outsideReview: decision === 'approved' && outsideChosen,
+      notOperator,
       context,
       step,
       gateKey,
@@ -1256,6 +1496,10 @@ async function runGateInteractive(step, context) {
       dispositions,
     });
     if (!done.ok) {
+      if (done.stage === 'independence') {
+        console.error(`Nothing was recorded.\n${done.message}`);
+        exit(1);
+      }
       console.error(
         done.stage === 'context'
           ? `Refusing to update context.json: ${done.message}`
@@ -1266,6 +1510,8 @@ async function runGateInteractive(step, context) {
     console.log(
       `\nGate record: ${done.record}${done.dir ? `  (reviewed files copied to ${done.dir}/)` : ''}`
     );
+    if (done.independence)
+      console.log(`Independence: ${independenceLine(done.independence)}`);
     if (done.signature) console.log(`Signed: ${done.signature}`);
     if (done.signingError)
       console.error(
@@ -1277,6 +1523,7 @@ async function runGateInteractive(step, context) {
       console.log(`To redo: ${REDO_AFTER_REJECT[step]}`);
       exit(1);
     }
+    decidedThisInvocation = true;
     console.log(
       `\n${gateKey}: approved — recorded with telemetry and bound to the reviewed inputs.`
     );
@@ -2749,6 +2996,16 @@ async function main() {
         `Next step: ${step.toUpperCase()} (agent step — the runner never runs LLM agents)\n`
       );
       console.log(GUIDE_STEPS[step](context));
+      // On the full track, an approval of this step's output by someone else
+      // is a second review, once the operator has opened the gate
+      // (scripts/lib/review-independence.js).
+      const gate = Object.keys(INDEPENDENT_GATES).find(
+        (g) => INDEPENDENT_GATES[g] === step
+      );
+      if (context && gate && independenceFor(context, gate).needed)
+        console.log(
+          `\nFull track: once you have run it, open the next gate yourself (npm run pipeline -- --resume) and quit at its first question${gate === 'code_reviewed' ? ' (the repeat and fault checks run first, which takes a while)' : ''}. You are then noted as the operator of what ${gate} reviews, and another person's approval counts as a second review.`
+        );
       exit(0);
     }
     if (step === 'confirm-downgrades') {

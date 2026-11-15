@@ -125,7 +125,7 @@ export const SCHEMA_CONTRACTS = {
     artifact: 'context.json',
     producers: [
       'agents/analyst.md',
-      'scripts/run-pipeline.js (gate decisions and the answers to Gate 4 scan findings, the repeat check, the fault check, provenance, bindings, status, downgrade confirmations, execution identity)',
+      'scripts/run-pipeline.js (gate decisions and the answers to Gate 4 scan findings, the repeat check, the fault check, provenance, bindings, status, downgrade confirmations, execution identity, review independence)',
       'scripts/run-healer.js (healer attempts)',
     ],
     consumers: [
@@ -143,6 +143,7 @@ export const SCHEMA_CONTRACTS = {
       'examples/expected/repeat-check.expected-context.json',
       'examples/expected/fault-check.expected-context.json',
       'examples/expected/provenance.expected-context.json',
+      'examples/expected/review-independence.expected-context.json',
     ],
     invalid: [
       {
@@ -159,6 +160,11 @@ export const SCHEMA_CONTRACTS = {
         path: 'examples/invalid/context.likelihood-without-impact.json',
         rule: 'likelihood and impact are given together',
         errorAt: '/risks/0',
+      },
+      {
+        path: 'examples/invalid/context.second-reviewer-without-operator.json',
+        rule: 'a second reviewer names the operator noted for the approved inputs',
+        errorAt: '/gate_decisions/1/independence/operator',
       },
     ],
     discovery:

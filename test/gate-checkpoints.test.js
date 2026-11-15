@@ -18,7 +18,7 @@ import { dirname, join } from 'node:path';
 import { execPath } from 'node:process';
 
 import { removeTempDir } from './helpers/cleanup.js';
-import { runContext, scopeCases } from './helpers/valid-run.js';
+import { noteOperator, runContext, scopeCases } from './helpers/valid-run.js';
 import {
   bindingFor,
   bindingState,
@@ -84,7 +84,8 @@ const readCtx = (dir) =>
 const read = (dir, rel) => readFileSync(join(dir, rel), 'utf8');
 
 function decide(dir, step, gateKey, decision = 'approved', notes = null) {
-  const ctx = readCtx(dir);
+  // Red-domain story: someone else ran the reviewed step.
+  const ctx = noteOperator(readCtx(dir), gateKey, dir);
   const r = recordGateDecision({
     root: dir,
     context: ctx,
@@ -365,7 +366,7 @@ test('a Gate 4 approved under binding version 1 is compared and restored under v
   approveAll(dir, 3);
   // Gate 4 recorded exactly as a version-1 runner did: no binding_version,
   // the v1 inputs, and no copy of what v1 never bound (the seed spec).
-  const ctx = readCtx(dir);
+  const ctx = noteOperator(readCtx(dir), 'code_reviewed', dir);
   const r = recordGateDecision({
     root: dir,
     context: ctx,
@@ -757,6 +758,7 @@ test('text in the brief cannot pose as the chain or the copy digests', (t) => {
     '',
     `| \`test-cases/${STORY}.json\` | \`${zero}\` |`,
   ].join('\n');
+  noteOperator(ctx, 'test_scope_reviewed', dir);
   const r = recordGateDecision({
     root: dir,
     context: ctx,

@@ -621,6 +621,98 @@
                 "reason": { "type": ["string", "null"] }
               }
             }
+          },
+          "independence": {
+            "type": "object",
+            "description": "OPTIONAL. What a full-track approval at Gate 2 (test_scope_reviewed) or Gate 4 (code_reviewed, api_assertions_reviewed) rested on (scripts/lib/review-independence.js): second_reviewer, the person deciding is not the operator noted for these inputs (the first terminal session that opened the gate on them, at noted_at) and said so; delay, at least min_delay_minutes (60 or more) passed between the first showing of the brief for these inputs and the decision; outside_review, the team's sampled outside review at its rate, drawn once per gate and input digest when the decision was recorded (selected: whether this decision is marked for outside review). The runner refuses such an approval with none of them. Absent on rejections, on other tracks and gates, and on older runs. Written only by the runner.",
+            "additionalProperties": false,
+            "required": ["control", "operator"],
+            "properties": {
+              "control": {
+                "type": "string",
+                "enum": ["second_reviewer", "delay", "outside_review"]
+              },
+              "operator": {
+                "type": ["string", "null"],
+                "description": "The operator noted for the approved inputs; null when none is noted."
+              },
+              "noted_at": { "type": "string" },
+              "brief_first_shown_at": { "type": "string" },
+              "minutes": { "type": "integer", "minimum": 60 },
+              "rate": { "type": "number", "minimum": 0.1, "maximum": 1 },
+              "selected": { "type": "boolean" },
+              "input_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": { "control": { "const": "second_reviewer" } }
+                },
+                "then": {
+                  "required": ["noted_at"],
+                  "properties": { "operator": { "type": "string" } }
+                }
+              },
+              {
+                "if": { "properties": { "control": { "const": "delay" } } },
+                "then": { "required": ["brief_first_shown_at", "minutes"] }
+              },
+              {
+                "if": {
+                  "properties": { "control": { "const": "outside_review" } }
+                },
+                "then": { "required": ["rate", "selected", "input_digest"] }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "review_independence": {
+      "type": "object",
+      "description": "OPTIONAL (full track). What the independence of a Gate 2 or Gate 4 approval is judged from (scripts/lib/review-independence.js): operators, keyed by gate, the operator noted for what the gate reviews: the session's reviewer name in the first terminal session that opened the gate on those inputs (authored_digest is the gate's input digest, leaving out at Gate 2 each case's approval state; inputs that change get the next session that opens the gate); and briefs, when each gate's brief was first shown for the inputs it is bound to (inputs that change start the clock again). Names are declared, not authenticated. Not part of any gate's reviewed input. Absent on other tracks and on older runs. Written only by the runner.",
+      "additionalProperties": false,
+      "properties": {
+        "operators": {
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "test_scope_reviewed",
+              "code_reviewed",
+              "api_assertions_reviewed"
+            ]
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["operator", "authored_digest", "at"],
+            "properties": {
+              "operator": { "type": ["string", "null"] },
+              "authored_digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "at": { "type": "string" }
+            }
+          }
+        },
+        "briefs": {
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "test_scope_reviewed",
+              "code_reviewed",
+              "api_assertions_reviewed"
+            ]
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["input_digest", "first_shown_at"],
+            "properties": {
+              "input_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              "first_shown_at": { "type": "string" }
+            }
           }
         }
       }

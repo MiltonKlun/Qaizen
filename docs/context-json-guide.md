@@ -363,6 +363,32 @@ story for wrong and intentional. Written only by the runner, at the
 person's decision; absent when the scan found nothing and on older runs
 (`docs/review-gates.md`, Gate 4).
 
+**Independence (`independence`, optional — full track, Gates 2 and 4).** An
+approval of `test_scope_reviewed`, `code_reviewed` or
+`api_assertions_reviewed` on the `full` track carries what it rested on:
+`{ control, operator, ... }`, where `control` is `second_reviewer` (with
+`noted_at`: the person deciding is not `operator`, the one noted for the
+approved inputs, and said so), `delay` (with `brief_first_shown_at` and
+`minutes`, an hour or more) or `outside_review` (with the team's sampling
+`rate`, whether this decision was `selected`, and the `input_digest` it was
+drawn for: a selection holds for the rest of the run, and approving the
+same inputs again keeps the draw). The runner
+refuses such an approval with none. Written only by the runner; absent on
+rejections, other tracks and gates, and older runs (`docs/review-gates.md`,
+"Independence at Gates 2 and 4").
+
+### `review_independence` (optional — written by the runner)
+
+What the independence of a full-track approval is judged from, keyed by
+gate. `operators` is `{ operator, authored_digest, at }`: the session's
+reviewer name in the first terminal session that opened the gate on those
+inputs, with the digest of those inputs (the gate's input digest; at Gate 2
+without each case's approval state, which the reviewer sets). Inputs that
+change get the next session that opens the gate. `briefs` is
+`{ input_digest, first_shown_at }`, when the gate's brief was first shown
+for the inputs it is bound to. Names are declared, not authenticated. Not
+part of any gate's reviewed input.
+
 ### `provenance` (optional — written by the runner)
 
 What produced each agent step's output, keyed by step (`analyst`,
@@ -638,6 +664,11 @@ older files continue to validate:
   `analysis/healer-validation/` with its SHA-256. The three-attempt cap counts
   these together with the record files, so deleting the records gives no
   attempt back. Not part of any gate's reviewed input.
+- Optional `review_independence` and `gate_decisions[].independence`:
+  written only by the runner on the `full` track. Who each reviewed step was
+  noted operator of what each Gate 2 and Gate 4 reviews, when each brief was first shown, and what an
+  approval there rested on (a second reviewer, the delay, or the sampled
+  outside review).
 - Optional `likelihood`, `impact` and `likelihood_basis` on each risk (the
   risk matrix, Analyst 3.0.0); when both are present, `severity` must be
   their cell.

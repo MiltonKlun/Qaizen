@@ -1,0 +1,6 @@
+{
+  "_comment": "The demo workspace's gate checks (scripts/lib/demo-stages.js copies this into runs/DEMO-1/<run>/config/). DEMO-1 touches a Red domain, so it runs on the full track, where an approval at Gate 2 or Gate 4 needs a second reviewer or a compensating control (docs/review-gates.md, \"The full track\"). A demo has one person and no hour to wait, so the demo offers the sampled outside review: you see the question a solo reviewer is asked. Nothing is sent to anyone; the draw is recorded in the demo's own gate records.",
+  "independence": {
+    "outside_review_rate": 0.25
+  }
+}

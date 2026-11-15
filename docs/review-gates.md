@@ -206,12 +206,65 @@ track, why, and what it requires. In force today:
 - a failure analysis that lowers any failure's severity needs a person to
   confirm it (`scripts/lib/analysis-overrides.js`). On every other track
   only some downgrades need one: a lowered Red failure, or a failure on a
-  high-severity, Red-domain or untraced risk.
+  high-severity, Red-domain or untraced risk;
+- the repeat check before Gate 4 runs each generated test 20 times, not 10
+  (`scripts/lib/repeat-check.js`), and on a Bench Shop story a test that
+  survives every relevant seeded bug keeps Gate 4 closed
+  (`scripts/lib/fault-check.js`);
+- an approval at Gate 2 or Gate 4 (and the API branch's Gate 4) needs a
+  second reviewer or a compensating control, below.
 
-Not built yet, and so not in force: more repeat runs of the generated test
-before Gate 4. The four gates
-are the same on `full` as on `standard`; `full` adds checks, never
-removes one.
+The four gates are the same on `full` as on `standard`; `full` adds checks,
+never removes one.
+
+#### Independence at Gates 2 and 4
+
+A Red-domain approval should not rest only on the word of the person who
+ran the step it reviews. On the `full` track the runner records an
+approval at Gate 2 or Gate 4 only when one of these applies, and the
+decision and its gate record name which (`independence`):
+
+- **a second reviewer**: the person deciding is not the operator of what
+  they approve, and says so when asked. The operator is the first person
+  whose terminal session opens the gate on those inputs
+  (`review_independence.operators`): after running the Test Designer, the
+  Generator or the API Agent, its operator opens the next gate
+  (`npm run pipeline -- --resume`) and quits at its first question, and the
+  step's instruction says so (for the API Agent that is the API branch's
+  Gate 3, which notes them for its Gate 4). Inputs that change, an edit after a rejection
+  included, get the next session that opens the gate as their operator, so
+  a reviewer who edits what they review is its operator. A gate reached
+  in the same session right after deciding another one notes nobody: the
+  reviewer who just decided did not produce what comes next. At Gate 2,
+  deciding each draft case is not authoring it: the case's approval state
+  is left out of what the operator is noted on. Nothing outside a terminal
+  is noted;
+- **a delay**: at least an hour passed between the first time the brief
+  for these same inputs was shown and the decision. Quit at the prompt and
+  `--resume` later; inputs that change start the clock again. A team can
+  ask for longer in `config/gate-checks.json` (`independence.min_delay_minutes`),
+  never for less;
+- **the sampled outside review**: offered only when the team set
+  `independence.outside_review_rate` (between 0.1 and 1) in
+  `config/gate-checks.json`, because someone outside the team has agreed to
+  review a share of these decisions. The draw is made when the decision is
+  recorded, so the reviewer cannot know whether this one will be looked at,
+  and once: a draw that selected the gate holds for the rest of the run,
+  whatever changes, and approving the same inputs again keeps the draw. A decision is only marked for outside review: nothing in the pipeline
+  records the outside reviewer's verdict yet.
+
+An advisory AI review, its accuracy measured on canaries, becomes a fourth
+control when it exists. A rejection needs none of them, and a setting in
+`config/gate-checks.json` that cannot apply refuses approvals only. Solo operation
+stays supported: the delay is always available. `npm run metrics` counts
+how full-track approvals rested on each control.
+
+Names are the ones people decide as (`QAIZEN_REVIEWER`, else
+`git config user.name`), declared and not authenticated, like the rest of
+`context.json`: someone who sets another name can pose as a second
+reviewer. Signed gate records (`docs/signed-gate-records.md`) tie the
+deciding reviewer to a key; the operator's name stays declared. A delay
+shows time passed, not that the time was spent reviewing.
 
 ### When it's worth consolidating (team-wide, all tracks)
 

@@ -500,7 +500,10 @@ const short = (/** @type {string | null | undefined} */ d) =>
  *   dispositions?: import('./finding-dispositions.js').DispositionRecord[],
  *   title?: string,
  *   signingKey?: string | null,
+ *   independence?: string | null,
  * }} args
+ *   `independence`: what a full-track approval at Gate 2 or 4 rested on, as
+ *   one line (review-independence.js independenceLine)
  * @returns {PreparedRecord}
  */
 export function prepareGateRecord({
@@ -519,6 +522,7 @@ export function prepareGateRecord({
   dispositions = [],
   title,
   signingKey = null,
+  independence = null,
 }) {
   const step = GATE_STEP[gate];
   if (!step) throw new Error(`prepareGateRecord: unknown gate "${gate}"`);
@@ -574,6 +578,7 @@ export function prepareGateRecord({
     `| Gate | ${cell(gate)} (${step}) |`,
     `| Decision | ${decision} |`,
     `| Reviewer | ${cell(reviewer ?? '(none)')} |`,
+    ...(independence ? [`| Independence | ${cell(independence)} |`] : []),
     `| Opened | ${cell(openedAt)} |`,
     `| Decided | ${cell(decidedAt)}${took ? ` (${took})` : ''} |`,
     `| Approval digest | \`${binding.input_digest}\` |`,

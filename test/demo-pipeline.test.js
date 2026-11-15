@@ -181,7 +181,16 @@ test('the demo completes: real run, finalized Red analysis, BUG-001, a 2.0 repor
         decidedAt: now,
         bindings: { [gate]: bindingFor(gate, ctx, ws) },
         brief: `brief for ${step}`,
+        // Gates 2 and 4 of this full-track story: the demo's sampled
+        // outside review (examples/demo-run/config/gate-checks.json).
+        outsideReview: true,
+        rng: () => 0.99,
       });
+      if (gate === 'test_scope_reviewed' || gate === 'code_reviewed')
+        assert.equal(
+          ctx.gate_decisions.at(-1).independence?.control,
+          'outside_review'
+        );
       assert.equal(recorded.ok, true, recorded.message);
       continue;
     }

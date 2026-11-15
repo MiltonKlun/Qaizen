@@ -13,6 +13,10 @@ import { join } from 'node:path';
 
 import { bindingFor } from '../../scripts/lib/approval-binding.js';
 import { playwrightIdentity } from '../../scripts/lib/execution-identity.js';
+import {
+  authoredDigest,
+  recordOperator,
+} from '../../scripts/lib/review-independence.js';
 
 const REPO = process.cwd();
 const gold = (p) => JSON.parse(readFileSync(join(REPO, p), 'utf8'));
@@ -22,6 +26,24 @@ export const GATE = {
   reviewer: 'h',
   reviewed_at: '2026-09-01T00:00:00Z',
 };
+
+/**
+ * Note an operator who is not the reviewer for what a gate reviews now, as
+ * if they had opened the gate on these inputs first, so a full-track
+ * approval at Gate 2 or 4 rests on a second reviewer
+ * (scripts/lib/review-independence.js). For tests about something else that
+ * decide on a Red-domain story; other gates are left alone.
+ */
+export function noteOperator(ctx, gate, root, operator = 'Test Operator') {
+  recordOperator(
+    ctx,
+    gate,
+    authoredDigest(gate, ctx, root),
+    operator,
+    '2026-09-01T00:00:00.000Z'
+  );
+  return ctx;
+}
 
 export function runContext({
   storyId = 'OLD-1',

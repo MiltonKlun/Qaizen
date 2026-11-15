@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { removeTempDir } from './helpers/cleanup.js';
-import { runContext, scopeCases } from './helpers/valid-run.js';
+import { noteOperator, runContext, scopeCases } from './helpers/valid-run.js';
 import {
   bindingFor,
   gateFiles,
@@ -87,6 +87,8 @@ function project(t) {
 
 /** Record one decision test-style, the way the gate prompt does. */
 function decide(dir, ctx, step, gateKey, decision, extra = {}) {
+  // Red-domain story: someone else ran the reviewed step.
+  noteOperator(ctx, gateKey, dir);
   return recordGateDecision({
     root: dir,
     context: ctx,
