@@ -18,6 +18,7 @@ import { dirname, join } from 'node:path';
 import { execPath } from 'node:process';
 
 import { validateValue } from '../scripts/lib/artifact-io.js';
+import { readOutsideReviews } from '../scripts/lib/outcomes.js';
 import {
   markedDecisions,
   outsideReviewLines,
@@ -352,8 +353,205 @@ test('the metrics count reviewed, agreed, disagreed and waiting, and say what th
   );
   assert.equal(json.outside_reviews.marked, 2);
   assert.equal(json.outside_reviews.agreed, 1);
-  assert.equal(json.outside_reviews.waiting.length, 1);
+  // The verdict is on the latest marked approval at Gate 2; the earlier one
+  // it replaced is not waiting for one.
+  assert.equal(json.outside_reviews.waiting.length, 0);
+  assert.equal(json.outside_reviews.superseded, 1);
   const md = readFileSync(join(dir, 'metrics/pipeline-metrics.md'), 'utf8');
   assert.match(md, /^## Outside reviews$/m);
-  assert.match(md, /Waiting: S-1 run-a test_scope_reviewed \(decided t1\)/);
+  assert.match(md, /1 replaced by a later approval at the same gate/);
+});
+
+test('an earlier marked approval with no verdict waits only while it is the latest at its gate', () => {
+  const run = (decisions) => [
+    { story: 'S-1', runId: 'r', context: { gate_decisions: decisions } },
+  ];
+  const two = [
+    approval('code_reviewed', 't1', outside(true)),
+    approval('code_reviewed', 't2', outside(true)),
+  ];
+  const none = outsideReviewMetrics(run(two), []);
+  assert.deepEqual(
+    none.waiting.map((w) => w.decided_at),
+    ['t2']
+  );
+  assert.equal(none.superseded, 1);
+  // A verdict on the earlier one still counts as a review.
+  const early = outsideReviewMetrics(run(two), [
+    {
+      story_id: 'S-1',
+      reviews: [
+        {
+          run_id: 'r',
+          gate: 'code_reviewed',
+          decided_at: 't1',
+          verdict: 'disagree',
+          recorded_by: 'D',
+        },
+      ],
+    },
+  ]);
+  assert.equal(early.disagreed, 1);
+  assert.equal(early.superseded, 0);
+  assert.equal(early.waiting.length, 1);
+});
+
+test('only the outside reviewer who recorded a verdict replaces it, and blank text is not given', (t) => {
+  const dir = workspace();
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const gate2 = [...BASE, '--gate', 'gate2'];
+  assert.equal(
+    cli(
+      dir,
+      'outside-review',
+      ...gate2,
+      '--verdict',
+      'disagree',
+      '--notes',
+      'No negative case for TC-002.',
+      '--by',
+      'Dana'
+    ).status,
+    0
+  );
+  const other = cli(
+    dir,
+    'outside-review',
+    ...gate2,
+    '--verdict',
+    'agree',
+    '--by',
+    'Eve',
+    '--replace'
+  );
+  assert.equal(other.status, 2);
+  assert.match(other.stderr, /is Dana's; only they can replace it/);
+  const blank = cli(
+    dir,
+    'outside-review',
+    ...BASE,
+    '--gate',
+    'gate2',
+    '--decided-at',
+    't1',
+    '--verdict',
+    'disagree',
+    '--notes',
+    '   ',
+    '--by',
+    'Dana'
+  );
+  assert.equal(blank.status, 2);
+  assert.match(blank.stderr, /a disagreement says why/);
+  const nobody = cli(
+    dir,
+    'outside-review',
+    ...gate2,
+    '--verdict',
+    'agree',
+    '--by',
+    '  '
+  );
+  assert.equal(nobody.status, 2);
+  assert.match(nobody.stderr, /missing --by/);
+  const doc = JSON.parse(readFileSync(join(dir, DOC), 'utf8'));
+  assert.deepEqual(
+    doc.reviews.map((r) => [r.verdict, r.recorded_by]),
+    [['disagree', 'Dana']]
+  );
+});
+
+test('a dry run writes nothing, and a run with no run_id is known by its folder in both places', (t) => {
+  const dir = workspace();
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const dry = cli(
+    dir,
+    'outside-review',
+    ...BASE,
+    '--gate',
+    'gate2',
+    '--verdict',
+    'agree',
+    '--by',
+    'Dana',
+    '--dry-run'
+  );
+  assert.equal(dry.status, 0, dry.stderr);
+  assert.match(dry.stdout, /DRY RUN/);
+  assert.equal(existsSync(join(dir, DOC)), false);
+
+  mkdirSync(join(dir, 'runs/S-3/plain'), { recursive: true });
+  writeFileSync(
+    join(dir, 'runs/S-3/plain/context.json'),
+    JSON.stringify({
+      gate_decisions: [approval('code_reviewed', 't5', outside(true))],
+    })
+  );
+  const r = cli(
+    dir,
+    'outside-review',
+    '--story',
+    'S-3',
+    '--run',
+    'plain',
+    '--gate',
+    'gate4',
+    '--verdict',
+    'agree',
+    '--by',
+    'Dana'
+  );
+  assert.equal(r.status, 0, r.stderr);
+  const m = spawnSync(
+    execPath,
+    [join(REPO, 'scripts', 'pipeline-metrics.js')],
+    { cwd: dir, encoding: 'utf8' }
+  );
+  assert.equal(m.status, 0, m.stderr);
+  const json = JSON.parse(
+    readFileSync(join(dir, 'metrics/pipeline-metrics.json'), 'utf8')
+  );
+  assert.equal(json.outside_reviews.agreed, 1);
+  assert.equal(json.outside_reviews.verdicts_not_counted, 0);
+});
+
+test('records that are misnamed, name another story or repeat a decision are left out', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'qaizen-outside-read-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const review = (extra = {}) => ({
+    run_id: 'r',
+    run_archive: 'runs/S-1/r',
+    gate: 'code_reviewed',
+    decided_at: '2026-06-06T15:20:00Z',
+    decision_reviewer: 'Ada',
+    verdict: 'agree',
+    recorded_at: '2026-06-09T10:00:00Z',
+    recorded_by: 'Dana',
+    ...extra,
+  });
+  const doc = (story, reviews) => ({
+    schema_version: '1.0',
+    record_type: 'outside_review',
+    story_id: story,
+    reviews,
+  });
+  const put = (name, value) =>
+    writeFileSync(join(dir, name), JSON.stringify(value));
+  put('S-1.json', doc('S-1', [review()]));
+  put('S-2.json', doc('S-1', [review()]));
+  put('S-3.json', doc('S-3', [review()]));
+  put(
+    'S-4.json',
+    doc('S-4', [
+      review({ run_archive: 'runs/S-4/r' }),
+      review({ run_archive: 'runs/S-4/r' }),
+    ])
+  );
+  put('S-5.json', { story_id: 'S-5' });
+  const read = readOutsideReviews(dir);
+  assert.deepEqual(
+    read.docs.map((d) => d.story_id),
+    ['S-1']
+  );
+  assert.equal(read.invalid, 4);
 });

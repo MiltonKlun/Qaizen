@@ -137,7 +137,7 @@ export const SCHEMA_CONTRACTS = {
       },
     ],
     discovery:
-      'validate:all (outcomes/outside-reviews/ at the root); validate:examples; record-outcome.js validates before writing; metrics leave out a record that does not validate, and say so',
+      "validate:all (outcomes/outside-reviews/ at the root, schema only); validate:examples; record-outcome.js validates before writing; metrics leave out a record that does not validate, is misnamed, names another story's archive or repeats a decision, and say so",
     migration: 'Single version (1.0).',
   },
   'schemas/context.schema.json': {

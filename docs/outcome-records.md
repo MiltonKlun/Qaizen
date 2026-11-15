@@ -111,7 +111,15 @@ nothing written, when:
 - `--by` is the person who made the decision, or the operator noted for the
   inputs it approved: an outside review is someone else's;
 - a `disagree` gives no `--notes` saying what is wrong;
-- that decision already has a verdict, unless `--replace` is passed.
+- that decision already has a verdict, unless `--replace` is passed by
+  the outside reviewer who recorded it: nobody else can replace a verdict.
+
+A selection holds for the rest of the run at its gate, so an approval made
+again there is marked too. The verdict owed is on the latest marked
+approval at each gate; an earlier one a later approval replaced is counted
+apart, not as waiting. A run archived twice is counted once, from its first
+archive in name order, so a verdict recorded against the other copy is
+reported as naming no marked decision.
 
 A verdict changes nothing in the run. A disagreement is for the team to
 follow up: reopen the gate in a new run of the story, or record the

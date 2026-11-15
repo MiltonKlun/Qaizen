@@ -178,6 +178,9 @@ const required =
     : kind === 'outside-review'
       ? ['story', 'run', 'gate', 'verdict', 'by']
       : ['story', 'run', 'by'];
+// Text that is only spaces is not given.
+for (const k of Object.keys(v))
+  if (typeof v[k] === 'string') v[k] = v[k].trim();
 const missing = required.filter((k) => v[k] === undefined || v[k] === '');
 if (missing.length) usage(`missing ${missing.map((k) => `--${k}`).join(', ')}`);
 const storyProblem = validateStoryId(v.story);

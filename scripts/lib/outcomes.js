@@ -25,7 +25,7 @@ import {
   INDEPENDENT_GATES,
   markedDecisions,
   sameName,
-} from './review-independence.js';
+} from './independence-records.js';
 
 const REPO_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const ESCAPED_DEFECT_SCHEMA = join(
@@ -212,7 +212,7 @@ export function buildOutsideReview(i) {
     errors.push(
       `${i.by} is the operator noted for the inputs this decision approved; an outside review is someone else's`
     );
-  if (i.verdict === 'disagree' && !i.notes)
+  if (i.verdict === 'disagree' && !i.notes?.trim())
     errors.push('a disagreement says why: give --notes "<what is wrong>"');
   if (errors.length) return { ok: false, errors };
   return {
@@ -254,6 +254,15 @@ export function withOutsideReview(doc, story, entry, replace) {
       ok: false,
       errors: [
         `${story} already has an outside review of ${entry.gate} in ${entry.run_id} (decided ${entry.decided_at}); pass --replace to replace it`,
+      ],
+    };
+  // A verdict is its reviewer's: someone else replacing it would erase a
+  // disagreement without a trace.
+  if (at !== -1 && !sameName(reviews[at]?.recorded_by, entry.recorded_by))
+    return {
+      ok: false,
+      errors: [
+        `the outside review of ${entry.gate} in ${entry.run_id} (decided ${entry.decided_at}) is ${reviews[at]?.recorded_by}'s; only they can replace it`,
       ],
     };
   if (at !== -1) reviews[at] = entry;
