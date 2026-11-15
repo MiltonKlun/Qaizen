@@ -377,6 +377,21 @@ refuses such an approval with none. Written only by the runner; absent on
 rejections, other tracks and gates, and older runs (`docs/review-gates.md`,
 "Independence at Gates 2 and 4").
 
+**Advisory AI review (`ai_review`, optional — Gates 3 and 4).** A decision
+shown an advisory AI review carries `{ review, sha256, round, findings,
+own_concerns }`: the review file and its digest, its round (1 to 3), how
+many findings it had (each answered in `finding_dispositions`, rule
+`ai:<type>`), and what the reviewer noted from their own reading before it
+was shown. Written only by the runner (`docs/review-gates.md`, "Advisory AI
+review").
+
+### `ai_reviews` (optional — written by the runner)
+
+Each round of advisory AI review at Gates 3 and 4, logged the first time
+its review was shown: `{ gate, round, review, sha256, input_digest,
+shown_at }`. The runner counts rounds from it and shows no fourth. Not part
+of any gate's reviewed input.
+
 ### `review_independence` (optional — written by the runner)
 
 What the independence of a full-track approval is judged from, keyed by
@@ -503,7 +518,7 @@ each `agents/<name>.md` frontmatter `version:` (e.g. `"analyst": "1.3.0"`). The
 Analyst writes it after minting `run_id`, reading each version from the file
 rather than guessing (`agents/analyst.md` §5 step 9). Include at minimum
 `analyst`, `test-designer`, `failure-classifier`, and `reporter`; add
-`api-agent` / `spec-reviewer` when the run uses them.
+`api-agent` / `spec-reviewer` / `test-reviewer` when the run uses them.
 
 The field is **optional in the schema** (an open map, so new agents register
 without a schema change) but **required by Analyst discipline** — it is what
@@ -582,6 +597,7 @@ also a data-safety control: what is never inlined cannot leak through a prompt
 | test-designer      | `context.json`, `story.md`, `automation-decision-model.md`; `code_change_context` if present. |
 | api-agent          | `context.json`, the `automate_api` cases of `test-cases/`, optional `docs/api-spec.yaml`.     |
 | spec-reviewer      | `context.json`, `test-cases/`, the planner brief, `specs/[story-id].md`.                      |
+| test-reviewer      | `context.json`, `test-cases/`, `specs/[story-id].md`, the generated test and what it imports. |
 | failure-classifier | the draft analysis + `analysis/execution-ledger.json`, `context.json`, `test-cases/`.         |
 | reporter           | `context.json`, `test-cases/`, `analysis/failure-analysis.json`, bug drafts. Summaries only.  |
 
@@ -664,6 +680,8 @@ older files continue to validate:
   `analysis/healer-validation/` with its SHA-256. The three-attempt cap counts
   these together with the record files, so deleting the records gives no
   attempt back. Not part of any gate's reviewed input.
+- Optional `ai_reviews[]` and `gate_decisions[].ai_review`: written only by
+  the runner when an advisory AI review is shown at Gate 3 or 4.
 - Optional `review_independence` and `gate_decisions[].independence`:
   written only by the runner on the `full` track. Who each reviewed step was
   noted operator of what each Gate 2 and Gate 4 reviews, when each brief was first shown, and what an

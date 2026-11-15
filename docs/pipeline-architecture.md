@@ -66,7 +66,7 @@ section 1:
 │ CAPA 2 — Custom agents (only where no reuse exists)                      │
 │ agents/analyst · agents/test-designer                                    │
 │ agents/failure-classifier · agents/reporter                              │
-│ agents/api-agent · agents/spec-reviewer                                  │
+│ agents/api-agent · agents/spec-reviewer · agents/test-reviewer           │
 └─────────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -484,8 +484,9 @@ This layer adds:
   failures only — never commits, never merges, capped at 3 attempts (kept in
   `context.json` `healer_attempts[]` as well as the record files).
 - Healer CI job (assistive, never blocking, never committing).
-- `agents/spec-reviewer.md` assists Gate 3 with a checklist; the human
-  still decides.
+- `agents/spec-reviewer.md` and `agents/test-reviewer.md`: an advisory AI
+  review before Gates 3 and 4, shown after the reviewer's own reading; the
+  human still decides.
 - `runs/[story-id]/[run-id]/` history layout, with `scripts/new-run.js`.
 - Pipeline metrics + `/evolve` loop for prompt evolution.
 - Optional dual-judge framework evaluation.

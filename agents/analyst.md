@@ -9,9 +9,12 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 3.1.17
+version: 3.1.18
 changed_in_run: null
 changelog: |
+  - 3.1.18: PATCH (no output change). ai_reviews[], and the advisory AI
+    review a decision was shown (gate_decisions[].ai_review), are written by
+    the runner only.
   - 3.1.17: PATCH (no output change). review_independence, and the
     independence of a full-track approval in gate_decisions[], are written
     by the runner only.
@@ -408,8 +411,8 @@ validate:context`). Fix and re-validate until the script exits 0.
   them.
 - Setting `status: "completed"`. The runner sets it once every gate has
   passed and every artifact of the run validates.
-- Writing `gate_decisions[]` (with its `finding_dispositions` and `independence`), `gate_invalidations[]`,
-  `downgrade_confirmations[]`, `repeat_check` (with its `earlier[]`), `fault_check`, `review_independence`, `provenance` or `execution_identity`
+- Writing `gate_decisions[]` (with its `finding_dispositions`, `independence` and `ai_review`), `gate_invalidations[]`,
+  `downgrade_confirmations[]`, `repeat_check` (with its `earlier[]`), `fault_check`, `ai_reviews`, `review_independence`, `provenance` or `execution_identity`
   (Playwright or Newman). The runner records them at a person's decision or an execution;
   the Analyst leaves them out.
 - Writing `healer_attempts[]`. `scripts/run-healer.js` records each candidate

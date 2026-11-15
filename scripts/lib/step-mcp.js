@@ -16,6 +16,9 @@ export const STEP_MCP = Object.freeze({
   'test-designer': 'none',
   planner: 'playwright',
   generator: 'playwright',
+  // The advisory AI reviewers read files only.
+  'ai-review-spec': 'none',
+  'ai-review-test': 'none',
   healer: 'playwright',
   api: 'postman',
   'external-plan': 'none',

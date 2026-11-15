@@ -283,3 +283,24 @@ it was spent reviewing. The outside review needs someone outside the team,
 so it is off until a team sets a sampling rate; the outside reviewer
 records each verdict with `npm run record-outcome -- outside-review`, and
 the metrics list what is still waiting and every disagreement.
+
+## D12 — The AI reviewer at Gates 3 and 4 advises after the human's own reading
+
+**Status.** Accepted (2026-11-15).
+
+**Context.** An AI reviewer can catch an assertion or an expected outcome
+that would pass with the behavior broken, which a person reading quickly
+misses. Shown first, or framed as a pass, it also invites the person to
+stop reading.
+
+**Decision.** The Spec Reviewer (Gate 3) and the Test Reviewer (Gate 4)
+write a review bound to the gate's input digest and round. The runner asks
+for the reviewer's own concerns before showing it, shows findings with no
+verdict, requires an answer to every finding, caps the review at three
+rounds (only the change after the first), and gives it no field that could
+approve. A team turns the step on with `ai_review: "on"` in
+`config/gate-checks.json`; it is off by default.
+
+**Consequences.** The answers measure each kind of finding's precision.
+How often the reviewer catches a planted defect is measured separately, on
+the regression set, before it can count toward review independence.

@@ -33,6 +33,9 @@ export const STEP_PROMPTS = Object.freeze({
   ],
   planner: ['.claude/agents/playwright-test-planner.md'],
   generator: ['.claude/agents/playwright-test-generator.md'],
+  // The advisory AI reviewers (scripts/lib/ai-review.js).
+  'ai-review-spec': ['agents/spec-reviewer.md'],
+  'ai-review-test': ['agents/test-reviewer.md'],
   api: ['agents/api-agent.md'],
   'external-plan': [
     'agents/test-designer.md',

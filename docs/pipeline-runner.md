@@ -472,6 +472,15 @@ sampled outside review, drawn when the decision is recorded. Without one,
 `[a]pprove` says why and what would allow it, and nothing is recorded; a
 rejection is always possible. The gate record names the control (`| Independence |`).
 
+At Gates 3 and 4 an advisory AI review can be shown (`docs/review-gates.md`,
+"Advisory AI review"). With `ai_review: "on"` in `config/gate-checks.json`,
+the runner stops before each of those gates at an agent step
+(`AI-REVIEW-SPEC`, `AI-REVIEW-TEST`) that prints the input digest and round
+the review must carry; with the default, `"off"`, it uses a review only if
+one exists for the current inputs. At the gate it asks for your own
+concerns before it shows the review, then asks for an answer to each of its
+findings with the scan's.
+
 Two read-only views use them. Neither writes anything, not even when an
 approval has gone stale:
 

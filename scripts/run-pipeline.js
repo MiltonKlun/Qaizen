@@ -132,6 +132,17 @@ import {
   resolveIndependence,
 } from './lib/review-independence.js';
 import {
+  AI_REVIEW_GATES,
+  aiFindings,
+  aiReviewMode,
+  logRound,
+  readReview,
+  recordSection,
+  reviewInstruction,
+  reviewLines,
+  reviewNeeded,
+} from './lib/ai-review.js';
+import {
   gate4Findings,
   loadGate4Artifacts,
   renderGate4Brief,
@@ -357,6 +368,22 @@ function validateJson(schemaPath, dataPath) {
   return r.status === 0;
 }
 
+/**
+ * config/gate-checks.json, parsed, or null when it is absent or not JSON (the
+ * readers of each setting report a file that is not JSON).
+ * @param {string} [root]
+ * @returns {any}
+ */
+function gateChecksConfig(root = '.') {
+  const path = join(root, 'config', 'gate-checks.json');
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
 // Facts the pure state machine cannot know without I/O.
 //
 // "Produced" means the artifact exists, is well-formed, validates against its
@@ -448,6 +475,33 @@ function gatherHints(context) {
     const faults = faultState(context, digest);
     if (faults.state !== 'not_applicable')
       hints.faultCurrent = faults.state === 'current';
+  }
+  // An advisory AI review before Gates 3 and 4, when the team asks for one
+  // (scripts/lib/ai-review.js).
+  const mode = aiReviewMode(gateChecksConfig());
+  if (!mode.ok) hints.problems.push(mode.message);
+  else if (mode.mode === 'on') {
+    if (hints.specExists && !gatePassed(context.review_gates?.specs_reviewed))
+      hints.aiReviewSpec = !reviewNeeded(
+        mode.mode,
+        readReview({
+          context,
+          gate: 'specs_reviewed',
+          digest: gateDigest('specs_reviewed', context, '.'),
+        })
+      );
+    if (
+      hints.generatedTestExists &&
+      !gatePassed(context.review_gates?.code_reviewed)
+    )
+      hints.aiReviewTest = !reviewNeeded(
+        mode.mode,
+        readReview({
+          context,
+          gate: 'code_reviewed',
+          digest: gateDigest('code_reviewed', context, '.'),
+        })
+      );
   }
   if (paths.execution_results)
     hints.executionResultsExist = check('execution_results').ok;
@@ -674,7 +728,9 @@ function withConventionalPaths(context) {
  *   notes?: string | null, openedAt: string, decidedAt: string,
  *   bindings?: Record<string, object>,
  *   dispositions?: import('./lib/finding-dispositions.js').DispositionRecord[],
- *   independence?: import('./lib/review-independence.js').Independence | null }} decision
+ *   independence?: import('./lib/review-independence.js').Independence | null,
+ *   aiReview?: { review: string, sha256: string, round: number,
+ *     findings: number, own_concerns: string | null } | null }} decision
  */
 export function applyGateDecision(
   context,
@@ -688,6 +744,7 @@ export function applyGateDecision(
     bindings = {},
     dispositions = [],
     independence = null,
+    aiReview = null,
   }
 ) {
   const approved = decision === 'approved';
@@ -732,6 +789,9 @@ export function applyGateDecision(
     // What a full-track approval at Gate 2 or 4 rested on
     // (scripts/lib/review-independence.js).
     ...(independence ? { independence } : {}),
+    // The advisory AI review shown before this decision
+    // (scripts/lib/ai-review.js).
+    ...(aiReview ? { ai_review: aiReview } : {}),
   });
   // Gate 1 approval moves the run out of draft (docs/context-json-guide.md §2).
   if (
@@ -818,7 +878,12 @@ function independenceFor(context, gateKey, root = '.') {
  *   dispositions?: import('./lib/finding-dispositions.js').DispositionRecord[],
  *   signingKeyPath?: string | null,
  *   outsideReview?: boolean, notOperator?: boolean,
- *   rng?: () => number }} args
+ *   rng?: () => number,
+ *   aiReview?: { review: string, sha256: string, round: number,
+ *     findings: number, own_concerns: string | null, lines: string[] }
+ *     | null }} args
+ *   `aiReview`: the advisory AI review shown before the decision, with the
+ *   reviewer's own concerns noted before it (scripts/lib/ai-review.js).
  *   `signingKeyPath`: the operator's SSH key that signs the record
  *   (scripts/lib/record-signing.js); the interactive gate passes
  *   QAIZEN_SIGNING_KEY, and no other caller signs.
@@ -851,6 +916,7 @@ export function recordGateDecision({
   outsideReview = false,
   notOperator = true,
   rng = () => randomInt(0, 2 ** 32) / 2 ** 32,
+  aiReview = null,
 }) {
   // A decision is never recorded as made later than now.
   if (!(Date.parse(decidedAt) <= Date.now()))
@@ -914,6 +980,15 @@ export function recordGateDecision({
     bindings,
     dispositions,
     independence,
+    aiReview: aiReview
+      ? {
+          review: aiReview.review,
+          sha256: aiReview.sha256,
+          round: aiReview.round,
+          findings: aiReview.findings,
+          own_concerns: aiReview.own_concerns,
+        }
+      : null,
   });
   // The record is built before anything is written, so the decision can
   // name it by digest: an edited or deleted record is then visible in the
@@ -938,6 +1013,7 @@ export function recordGateDecision({
       title: GATE_BRIEFS[step]?.name,
       signingKey,
       independence: independence ? independenceLine(independence) : null,
+      aiReview: aiReview ? recordSection(aiReview) : [],
     });
   } catch (e) {
     return {
@@ -1012,7 +1088,7 @@ async function askDispositions(rl, context, findings) {
   );
   const redDomain = reasons.some((r) => r.startsWith('red-domain:'));
   console.log(
-    `\nAnswer each of the ${findings.length} scan finding(s) before deciding: [f]ixed (right; the test must change), [w]rong (a false alarm), [i]ntentional (right, on purpose), i[r]relevant (right, does not matter here).` +
+    `\nAnswer each of the ${findings.length} finding(s) before deciding: [f]ixed (right; the test must change), [w]rong (a false alarm), [i]ntentional (right, on purpose), i[r]relevant (right, does not matter here).` +
       (redDomain
         ? ' This story touches a Red domain, so "wrong" and "intentional" need a reason.'
         : '')
@@ -1372,9 +1448,52 @@ async function runGateInteractive(step, context) {
       reviewer =
         (await rl.question('Reviewer name for this session: ')).trim() || null;
     }
-    // Every scan finding gets an answer before the decision
+    // The advisory AI review (scripts/lib/ai-review.js): the reviewer's own
+    // concerns first, then its findings, each answered with the scan's.
+    /** @type {import('./lib/finding-dispositions.js').Finding[]} */
+    let reviewFindings = [];
+    /** @type {Parameters<typeof recordGateDecision>[0]['aiReview']} */
+    let aiReview = null;
+    if (Object.hasOwn(AI_REVIEW_GATES, gateKey)) {
+      const state = readReview({
+        context,
+        gate: gateKey,
+        digest: reviewedDigests[gateKey],
+      });
+      if (state.usable) {
+        if (logRound(context, gateKey, state, new Date().toISOString()))
+          writeContext(context);
+        console.log(
+          `\nThere is an AI review of this ${AI_REVIEW_GATES[gateKey].what}. Before it is shown: what concerns do you have, from your own reading?`
+        );
+        const own = (
+          await rl.question('Your concerns (one line; Enter for none): ')
+        ).trim();
+        const lines = reviewLines(gateKey, state);
+        console.log(`\n${lines.join('\n')}`);
+        reviewFindings = aiFindings(state.review);
+        aiReview = {
+          review: state.path,
+          sha256: state.sha256,
+          round: state.round,
+          findings: reviewFindings.length,
+          own_concerns: own || null,
+          lines,
+        };
+      } else {
+        // Said whenever a review exists or the team asks for one; a team
+        // that does not use AI review sees nothing about it.
+        const mode = aiReviewMode(gateChecksConfig());
+        if (state.state !== 'missing' || !mode.ok || mode.mode === 'on')
+          console.log(`\nNo AI review is shown: ${state.reason}.`);
+      }
+    }
+    // Every finding gets an answer before the decision
     // (scripts/lib/finding-dispositions.js).
-    const dispositions = await askDispositions(rl, context, scanFindings);
+    const dispositions = await askDispositions(rl, context, [
+      ...scanFindings,
+      ...reviewFindings,
+    ]);
     const canApprove = approvalAllowed(dispositions);
     if (!canApprove)
       console.log(
@@ -1494,6 +1613,7 @@ async function runGateInteractive(step, context) {
       brief: briefText,
       scan: scanText,
       dispositions,
+      aiReview,
     });
     if (!done.ok) {
       if (done.stage === 'independence') {
@@ -1707,6 +1827,32 @@ function storyId(context) {
   return context?.story?.id || '<story-id>';
 }
 
+/**
+ * The instruction that asks for an advisory AI review of a gate's current
+ * inputs (scripts/lib/ai-review.js).
+ * @param {string} gate
+ * @param {Context} ctx
+ */
+function aiReviewGuide(gate, ctx) {
+  const digest = gateDigest(gate, ctx, '.');
+  const state = readReview({ context: ctx, gate, digest });
+  const round = state.usable ? state.round : (state.nextRound ?? 1);
+  const last = (ctx?.gate_decisions ?? [])
+    .filter((/** @type {any} */ d) => d.gate === gate && d.record?.path)
+    .at(-1);
+  const dir = last ? last.record.path.replace(/\.md$/, '') : null;
+  return (
+    (state.usable ? '' : `  (${state.reason}.)\n`) +
+    reviewInstruction(gate, ctx, {
+      digest,
+      round,
+      previous: dir && existsSync(dir) ? dir : null,
+    }) +
+    '\n' +
+    launchLine(AI_REVIEW_GATES[gate].step)
+  );
+}
+
 /** @type {Record<string, (ctx: Context) => string>} */
 export const GUIDE_STEPS = {
   analyst: () =>
@@ -1754,6 +1900,8 @@ export const GUIDE_STEPS = {
     '  A pass needs evidence; a case you do not record stays Not Run. Importing approves\n' +
     '  nothing: the results go to the external Gate 4 for review.\n' +
     '  Then: npm run pipeline -- --resume',
+  'ai-review-spec': (ctx) => aiReviewGuide('specs_reviewed', ctx),
+  'ai-review-test': (ctx) => aiReviewGuide('code_reviewed', ctx),
   generator: (ctx) =>
     `Run the PLAYWRIGHT GENERATOR native agent on specs/${storyId(ctx)}.md.\n` +
     launchLine('generator') +
