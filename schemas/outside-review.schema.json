@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://qaizen/schemas/outside-review.schema.json",
+  "title": "Outside reviews",
+  "description": "What an outside reviewer found when they reviewed the full-track approvals of one story that were marked for the sampled outside review (outcomes/outside-reviews/<story>.json, written only by scripts/record-outcome.js, run by a person). Each entry names the archived run, the gate and the decision it reviewed (its decided_at and gate record), who decided it and who reviewed it after, and whether they agree. The outside reviewer is neither the decision's reviewer nor the operator noted for its inputs. A verdict changes nothing in the run: a disagreement is followed up by the team (reopening the gate, or recording an escaped defect). One entry per decision; entering a decision again replaces its entry only when asked to.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "record_type", "story_id", "reviews"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "record_type": { "const": "outside_review" },
+    "story_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "reviews": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "run_id",
+          "run_archive",
+          "gate",
+          "decided_at",
+          "decision_reviewer",
+          "verdict",
+          "recorded_at",
+          "recorded_by"
+        ],
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The run's id as its archived context.json records it, else as its failure analysis does, else its archive folder name: the id the metrics count it by."
+          },
+          "run_archive": {
+            "type": "string",
+            "pattern": "^runs/[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][^/]*$"
+          },
+          "gate": {
+            "type": "string",
+            "enum": [
+              "test_scope_reviewed",
+              "code_reviewed",
+              "api_assertions_reviewed"
+            ]
+          },
+          "decided_at": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The reviewed decision's decided_at, as the run's gate_decisions[] records it."
+          },
+          "decision_record": {
+            "type": ["string", "null"],
+            "pattern": "^gates/[0-9]{3,}-[a-z0-9_-]+-approved\\.md$",
+            "description": "The gate record of the reviewed decision, inside the run's archive; null when the decision names none."
+          },
+          "decision_reviewer": {
+            "type": ["string", "null"],
+            "description": "Who made the reviewed decision."
+          },
+          "operator": {
+            "type": ["string", "null"],
+            "description": "The operator noted for the approved inputs, when one was."
+          },
+          "verdict": {
+            "type": "string",
+            "enum": ["agree", "disagree"],
+            "description": "agree: the outside reviewer would have approved the same inputs. disagree: they would not; notes say why."
+          },
+          "notes": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "recorded_at": { "type": "string", "format": "date-time" },
+          "recorded_by": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The outside reviewer."
+          }
+        },
+        "if": { "properties": { "verdict": { "const": "disagree" } } },
+        "then": { "required": ["notes"] }
+      }
+    }
+  }
+}

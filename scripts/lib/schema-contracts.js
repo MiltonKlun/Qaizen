@@ -121,6 +121,25 @@ export const SCHEMA_CONTRACTS = {
       'validate:all (outcomes/costs/ at the root); validate:examples; record-outcome.js validates before writing; metrics leave out a record that does not validate, and say so',
     migration: 'Single version (1.0).',
   },
+  'schemas/outside-review.schema.json': {
+    artifact: 'outcomes/outside-reviews/<story>.json',
+    producers: [
+      'scripts/record-outcome.js outside-review (run by a person, never by an agent)',
+    ],
+    consumers: ['scripts/pipeline-metrics.js'],
+    docs: ['docs/outcome-records.md', 'docs/review-gates.md'],
+    examples: ['examples/expected/sample.expected-outside-review.json'],
+    invalid: [
+      {
+        path: 'examples/invalid/outside-review.disagree-without-notes.json',
+        rule: 'a disagreement says why',
+        errorAt: '/reviews/0',
+      },
+    ],
+    discovery:
+      "validate:all (outcomes/outside-reviews/ at the root, schema only); validate:examples; record-outcome.js validates before writing; metrics leave out a record that does not validate, is misnamed, names another story's archive or repeats a decision, and say so",
+    migration: 'Single version (1.0).',
+  },
   'schemas/context.schema.json': {
     artifact: 'context.json',
     producers: [

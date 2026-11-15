@@ -567,9 +567,10 @@ rule).
 | Heals per test                        | Validated heals per healed test, and the tests healed more than once.              |
 | Escaped defects                       | Bugs a completed run should have caught, by why they were missed.                  |
 | Cost and time per story               | The operator's hands-on minutes and spend per run, as entered.                     |
+| Outside reviews                       | Approvals marked for outside review: reviewed, agreed with, waiting.               |
 | Dual-judge trigger                    | Whether escaped false negatives or missed canaries re-open that evaluation.        |
 
-Escaped defects and cost come from `outcomes/`, recorded by a person after
+Escaped defects, cost and outside reviews come from `outcomes/`, recorded by a person after
 the run with `npm run record-outcome` (`docs/outcome-records.md`); the rest
 come from the archived runs. Every metric reports the sample it was computed over (`samples` in the JSON:
 runs with a release report, a failure analysis, risk coverage, healer

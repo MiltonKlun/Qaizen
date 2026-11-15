@@ -38,6 +38,8 @@ import { CANARY_LOG, canaryLines, canaryMetrics } from './lib/canaries.js';
 import {
   independenceLines,
   independenceMetrics,
+  outsideReviewLines,
+  outsideReviewMetrics,
 } from './lib/review-independence.js';
 import {
   dispositionLines,
@@ -66,6 +68,7 @@ import {
 } from './lib/outcome-metrics.js';
 import {
   readEscapedDefects,
+  readOutsideReviews,
   readStoryCosts,
   runIdentity,
 } from './lib/outcomes.js';
@@ -352,6 +355,16 @@ const costsRead = readStoryCosts();
 metrics.gate_time = gateTime(liveContexts);
 metrics.rounds_to_approval = roundsToApproval(liveContexts);
 metrics.review_independence = independenceMetrics(liveContexts);
+const outsideRead = readOutsideReviews();
+metrics.outside_reviews = {
+  ...outsideReviewMetrics(
+    stabilityRuns
+      .filter((r) => !r.demo && r.context)
+      .map((r) => ({ story: r.story, runId: r.runId, context: r.context })),
+    outsideRead.docs
+  ),
+  invalid_records: outsideRead.invalid,
+};
 metrics.repeat_check_flakes = repeatFlakes(liveContexts);
 metrics.escaped_defects = escapedMetrics(
   escapedRead.records,
@@ -458,6 +471,13 @@ const md = [
   '## Independence of full-track approvals',
   '',
   ...independenceLines(metrics.review_independence),
+  '',
+  '## Outside reviews',
+  '',
+  ...outsideReviewLines(
+    metrics.outside_reviews,
+    metrics.outside_reviews.invalid_records
+  ),
   '',
   '## Gate 2 canaries',
   '',

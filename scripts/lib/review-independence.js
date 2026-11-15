@@ -37,15 +37,15 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { canonicalJson, gateDigest, semanticCase } from './approval-binding.js';
+import { INDEPENDENT_GATES, normName as norm } from './independence-records.js';
 
-/** The gates that need independence on the full track, and the step each reviews. */
-export const INDEPENDENT_GATES = Object.freeze(
-  /** @type {Record<string, string>} */ ({
-    test_scope_reviewed: 'test-designer',
-    code_reviewed: 'generator',
-    api_assertions_reviewed: 'api',
-  })
-);
+export {
+  INDEPENDENT_GATES,
+  markedDecisions,
+  outsideReviewLines,
+  outsideReviewMetrics,
+  sameName,
+} from './independence-records.js';
 
 /** The shortest delay that counts, in minutes. */
 export const MIN_DELAY_MINUTES = 60;
@@ -110,11 +110,6 @@ export function independenceConfig(gateChecks) {
     };
   return { ok: true, config: { minDelayMinutes: delay, outsideRate: rate } };
 }
-
-/** @param {string | null | undefined} name */
-const norm = (name) =>
-  (name ?? '').normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase() ||
-  null;
 
 /** @param {string | Buffer} data */
 const sha256 = (data) => createHash('sha256').update(data).digest('hex');

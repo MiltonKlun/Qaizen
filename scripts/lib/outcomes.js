@@ -6,6 +6,10 @@
 //                                           have caught (escaped-defect)
 //   outcomes/costs/<story>.json             the operator's time and spend per
 //                                           run of a story (story-cost)
+//   outcomes/outside-reviews/<story>.json   an outside reviewer's verdict on
+//                                           each full-track approval the
+//                                           sampled outside review marked
+//                                           (outside-review)
 //
 // They name an archived run under runs/ and never change it: an archive is
 // evidence. outcomes/ is not a run folder, so it is never archived or cleared
@@ -16,6 +20,12 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { formatErrors, readJson, validateValue } from './artifact-io.js';
+import { GATE_KEYS } from '../pipeline-state.js';
+import {
+  INDEPENDENT_GATES,
+  markedDecisions,
+  sameName,
+} from './independence-records.js';
 
 const REPO_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const ESCAPED_DEFECT_SCHEMA = join(
@@ -29,10 +39,17 @@ export const STORY_COST_SCHEMA = join(
   'story-cost.schema.json'
 );
 
+export const OUTSIDE_REVIEW_SCHEMA = join(
+  REPO_DIR,
+  'schemas',
+  'outside-review.schema.json'
+);
+
 /** Relative to the repository root. */
 export const OUTCOMES_DIR = 'outcomes';
 export const ESCAPED_DIR = 'outcomes/escaped-defects';
 export const COSTS_DIR = 'outcomes/costs';
+export const OUTSIDE_DIR = 'outcomes/outside-reviews';
 
 const ESC_FILE = /^ESC-(\d{3,})\.json$/;
 
@@ -110,6 +127,155 @@ export function readStoryCosts(dir = COSTS_DIR) {
     else docs.push(data);
   }
   return { docs, invalid };
+}
+
+/**
+ * Every outside-review document that validates, and how many do not.
+ * @param {string} [dir]
+ * @returns {{ docs: any[], invalid: number }}
+ */
+export function readOutsideReviews(dir = OUTSIDE_DIR) {
+  /** @type {any[]} */
+  const docs = [];
+  let invalid = 0;
+  if (!isDir(dir)) return { docs, invalid };
+  for (const name of readdirSync(dir).sort()) {
+    if (!name.endsWith('.json')) continue;
+    const data = parsed(join(dir, name));
+    if (
+      data === undefined ||
+      name !== `${data?.story_id}.json` ||
+      !validateValue(data, OUTSIDE_REVIEW_SCHEMA).ok ||
+      data.reviews.some(
+        (/** @type {any} */ r) => !ofStory(r.run_archive, data.story_id)
+      ) ||
+      // One entry per decision: a second one would count it twice.
+      new Set(
+        data.reviews.map(
+          (/** @type {any} */ r) => `${r.run_id}|${r.gate}|${r.decided_at}`
+        )
+      ).size !== data.reviews.length
+    )
+      invalid += 1;
+    else docs.push(data);
+  }
+  return { docs, invalid };
+}
+
+/**
+ * An outside reviewer's verdict on a decision the sampled outside review
+ * marked, checked against the run it names: the gate is one that needs
+ * independence, the decision is a marked approval of that run (the latest
+ * one at the gate unless `decidedAt` names another), the outside reviewer is
+ * neither its reviewer nor the operator noted for its inputs, and a
+ * disagreement says why.
+ * @param {{ run: ArchivedRun, gate: string, decidedAt?: string,
+ *   verdict: string, notes?: string, by: string, now: Date }} i
+ * @returns {{ ok: true, entry: any } | { ok: false, errors: string[] }}
+ */
+export function buildOutsideReview(i) {
+  const gate =
+    /** @type {Record<string, string>} */ (GATE_KEYS)[i.gate] ?? i.gate;
+  if (!Object.hasOwn(INDEPENDENT_GATES, gate))
+    return {
+      ok: false,
+      errors: [
+        `--gate ${i.gate}: the outside review covers ${Object.keys(INDEPENDENT_GATES).join(', ')} (or gate2, gate4, gate4-api)`,
+      ],
+    };
+  const marked = markedDecisions(i.run.context).filter((d) => d.gate === gate);
+  if (!marked.length)
+    return {
+      ok: false,
+      errors: [
+        `no approval at ${gate} in ${i.run.archive} is marked for outside review`,
+      ],
+    };
+  const decision =
+    i.decidedAt === undefined
+      ? marked[marked.length - 1]
+      : marked.find((d) => d.decided_at === i.decidedAt);
+  if (!decision)
+    return {
+      ok: false,
+      errors: [
+        `--decided-at ${i.decidedAt}: the approvals at ${gate} marked for outside review were decided at ${marked.map((d) => d.decided_at).join(', ')}`,
+      ],
+    };
+  /** @type {string[]} */
+  const errors = [];
+  if (sameName(i.by, decision.reviewer))
+    errors.push(
+      `${i.by} made this decision; an outside review is someone else's`
+    );
+  if (sameName(i.by, decision.operator))
+    errors.push(
+      `${i.by} is the operator noted for the inputs this decision approved; an outside review is someone else's`
+    );
+  if (i.verdict === 'disagree' && !i.notes?.trim())
+    errors.push('a disagreement says why: give --notes "<what is wrong>"');
+  if (errors.length) return { ok: false, errors };
+  return {
+    ok: true,
+    entry: {
+      run_id: i.run.runId,
+      run_archive: i.run.archive,
+      gate,
+      decided_at: decision.decided_at,
+      decision_record: decision.record,
+      decision_reviewer: decision.reviewer,
+      operator: decision.operator,
+      verdict: i.verdict,
+      ...(i.notes ? { notes: i.notes } : {}),
+      recorded_at: i.now.toISOString(),
+      recorded_by: i.by,
+    },
+  };
+}
+
+/**
+ * The story's outside-review document with one entry added or replaced.
+ * @param {any} doc the current document, or null
+ * @param {string} story
+ * @param {any} entry
+ * @param {boolean} replace
+ * @returns {{ ok: true, doc: any } | { ok: false, errors: string[] }}
+ */
+export function withOutsideReview(doc, story, entry, replace) {
+  const reviews = Array.isArray(doc?.reviews) ? [...doc.reviews] : [];
+  const at = reviews.findIndex(
+    (r) =>
+      r?.run_id === entry.run_id &&
+      r?.gate === entry.gate &&
+      r?.decided_at === entry.decided_at
+  );
+  if (at !== -1 && !replace)
+    return {
+      ok: false,
+      errors: [
+        `${story} already has an outside review of ${entry.gate} in ${entry.run_id} (decided ${entry.decided_at}); pass --replace to replace it`,
+      ],
+    };
+  // A verdict is its reviewer's: someone else replacing it would erase a
+  // disagreement without a trace.
+  if (at !== -1 && !sameName(reviews[at]?.recorded_by, entry.recorded_by))
+    return {
+      ok: false,
+      errors: [
+        `the outside review of ${entry.gate} in ${entry.run_id} (decided ${entry.decided_at}) is ${reviews[at]?.recorded_by}'s; only they can replace it`,
+      ],
+    };
+  if (at !== -1) reviews[at] = entry;
+  else reviews.push(entry);
+  const next = {
+    schema_version: '1.0',
+    record_type: 'outside_review',
+    story_id: story,
+    reviews,
+  };
+  const v = validateValue(next, OUTSIDE_REVIEW_SCHEMA);
+  if (!v.ok) return { ok: false, errors: schemaErrors(v) };
+  return { ok: true, doc: next };
 }
 
 /**

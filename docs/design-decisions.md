@@ -280,4 +280,6 @@ exists.
 are declared, so the second reviewer is only as strong as the team's
 honesty or its signed records; the delay shows that time passed, not that
 it was spent reviewing. The outside review needs someone outside the team,
-so it is off until a team sets a sampling rate.
+so it is off until a team sets a sampling rate; the outside reviewer
+records each verdict with `npm run record-outcome -- outside-review`, and
+the metrics list what is still waiting and every disagreement.
