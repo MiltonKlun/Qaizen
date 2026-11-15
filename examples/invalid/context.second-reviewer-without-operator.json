@@ -6,7 +6,7 @@
     "title": "Login — Successful sign-in (independent approvals)",
     "source": "manual",
     "path": "story.md",
-    "description": "Invalid on purpose: a Gate 2 approval that claims a second reviewer without naming the operator the step was handed to."
+    "description": "Invalid on purpose: a Gate 2 approval that claims a second reviewer without naming the operator noted for the approved inputs."
   },
   "acceptance_criteria": [
     "Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",
@@ -65,7 +65,7 @@
       "independence": {
         "control": "second_reviewer",
         "operator": null,
-        "handed_over_at": "2026-06-06T13:07:00Z"
+        "noted_at": "2026-06-06T13:08:00Z"
       }
     },
     {
@@ -131,14 +131,16 @@
   ],
   "status": "completed",
   "review_independence": {
-    "handoffs": {
-      "test-designer": {
+    "operators": {
+      "test_scope_reviewed": {
         "operator": "carol@example.com",
-        "at": "2026-06-06T13:07:00Z"
+        "authored_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "at": "2026-06-06T13:08:00Z"
       },
-      "generator": {
+      "code_reviewed": {
         "operator": "bob@example.com",
-        "at": "2026-06-06T12:40:00Z"
+        "authored_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "at": "2026-06-06T14:05:00Z"
       }
     },
     "briefs": {

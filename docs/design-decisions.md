@@ -266,10 +266,12 @@ their own step, with nothing between the two.
 
 **Decision.** On the `full` track, an approval at Gate 2 or Gate 4 (and the
 API branch's Gate 4) is recorded only with one of: a second reviewer (the
-person deciding is not the operator the runner handed the step to), a delay
+person deciding is not the operator of what they approve: the first person
+whose terminal session opened the gate on those inputs), a delay
 of at least an hour between the first showing of the brief for these inputs
 and the decision, or the team's sampled outside review, drawn when the
-decision is recorded. The decision and its gate record name the control
+decision is recorded once per gate and inputs. The decision and its gate
+record name the control
 (`docs/review-gates.md`, "Independence at Gates 2 and 4"). An advisory AI
 review, its accuracy measured on canaries, is a fourth control once it
 exists.

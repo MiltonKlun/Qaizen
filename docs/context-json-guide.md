@@ -367,23 +367,26 @@ person's decision; absent when the scan found nothing and on older runs
 approval of `test_scope_reviewed`, `code_reviewed` or
 `api_assertions_reviewed` on the `full` track carries what it rested on:
 `{ control, operator, ... }`, where `control` is `second_reviewer` (with
-`handed_over_at`: the person deciding is not `operator`, the one the runner
-handed the step to), `delay` (with `brief_first_shown_at` and `minutes`, an
-hour or more) or `outside_review` (with the team's sampling `rate` and
-whether this decision was `selected`). The runner refuses such an approval
-with none. Written only by the runner; absent on rejections, other tracks
-and gates, and older runs (`docs/review-gates.md`, "Independence at Gates 2
-and 4").
+`noted_at`: the person deciding is not `operator`, the one noted for the
+approved inputs, and said so), `delay` (with `brief_first_shown_at` and
+`minutes`, an hour or more) or `outside_review` (with the team's sampling
+`rate`, whether this decision was `selected`, and the `input_digest` it was
+drawn for: approving the same inputs again keeps the draw). The runner
+refuses such an approval with none. Written only by the runner; absent on
+rejections, other tracks and gates, and older runs (`docs/review-gates.md`,
+"Independence at Gates 2 and 4").
 
 ### `review_independence` (optional — written by the runner)
 
-What the independence of a full-track approval is judged from:
-`handoffs`, keyed by step (`test-designer`, `generator`, `api`), is
-`{ operator, at }`, the session's reviewer name when the runner printed
-the step's instruction (the latest operator counts); `briefs`, keyed by
-gate, is `{ input_digest, first_shown_at }`, when the gate's brief was first
-shown for the inputs it is bound to. Names are declared, not
-authenticated. Not part of any gate's reviewed input.
+What the independence of a full-track approval is judged from, keyed by
+gate. `operators` is `{ operator, authored_digest, at }`: the session's
+reviewer name in the first terminal session that opened the gate on those
+inputs, with the digest of those inputs (the gate's input digest; at Gate 2
+without each case's approval state, which the reviewer sets). Inputs that
+change get the next session that opens the gate. `briefs` is
+`{ input_digest, first_shown_at }`, when the gate's brief was first shown
+for the inputs it is bound to. Names are declared, not authenticated. Not
+part of any gate's reviewed input.
 
 ### `provenance` (optional — written by the runner)
 
@@ -662,7 +665,7 @@ older files continue to validate:
   attempt back. Not part of any gate's reviewed input.
 - Optional `review_independence` and `gate_decisions[].independence`:
   written only by the runner on the `full` track. Who each reviewed step was
-  handed to, when each Gate 2 and Gate 4 brief was first shown, and what an
+  noted operator of what each Gate 2 and Gate 4 reviews, when each brief was first shown, and what an
   approval there rested on (a second reviewer, the delay, or the sampled
   outside review).
 - Optional `likelihood`, `impact` and `likelihood_basis` on each risk (the

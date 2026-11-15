@@ -224,11 +224,19 @@ ran the step it reviews. On the `full` track the runner records an
 approval at Gate 2 or Gate 4 only when one of these applies, and the
 decision and its gate record name which (`independence`):
 
-- **a second reviewer**: the person deciding is not the operator the runner
-  handed the step to. The runner notes that operator's name when it prints
-  the Test Designer's, the Generator's or the API Agent's instruction
-  (`review_independence.handoffs`), so a two-person team gets this without
-  doing anything: one runs the step, the other decides;
+- **a second reviewer**: the person deciding is not the operator of what
+  they approve, and says so when asked. The operator is the first person
+  whose terminal session opens the gate on those inputs
+  (`review_independence.operators`): after running the Test Designer, the
+  Generator or the API Agent, its operator opens the next gate
+  (`npm run pipeline -- --resume`) and quits at its first question, and the
+  step's instruction says so (for the API Agent that is the API branch's
+  Gate 3, which notes them for its Gate 4). Inputs that change, an edit after a rejection
+  included, get the next session that opens the gate as their operator, so
+  a reviewer who edits what they review is its operator. At Gate 2,
+  deciding each draft case is not authoring it: the case's approval state
+  is left out of what the operator is noted on. Nothing outside a terminal
+  is noted;
 - **a delay**: at least an hour passed between the first time the brief
   for these same inputs was shown and the decision. Quit at the prompt and
   `--resume` later; inputs that change start the clock again. A team can
@@ -238,10 +246,14 @@ decision and its gate record name which (`independence`):
   `independence.outside_review_rate` (between 0.1 and 1) in
   `config/gate-checks.json`, because someone outside the team has agreed to
   review a share of these decisions. The draw is made when the decision is
-  recorded, so the reviewer cannot know whether this one will be looked at.
+  recorded, so the reviewer cannot know whether this one will be looked at,
+  and once per gate and inputs: approving the same inputs again keeps the
+  first draw. A decision is only marked for outside review: nothing in the pipeline
+  records the outside reviewer's verdict yet.
 
 An advisory AI review, its accuracy measured on canaries, becomes a fourth
-control when it exists. A rejection needs none of them. Solo operation
+control when it exists. A rejection needs none of them, and a setting in
+`config/gate-checks.json` that cannot apply refuses approvals only. Solo operation
 stays supported: the delay is always available. `npm run metrics` counts
 how full-track approvals rested on each control.
 

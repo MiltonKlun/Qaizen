@@ -183,7 +183,8 @@ test('the demo completes: real run, finalized Red analysis, BUG-001, a 2.0 repor
         brief: `brief for ${step}`,
         // Gates 2 and 4 of this full-track story: the demo's sampled
         // outside review (examples/demo-run/config/gate-checks.json).
-        outsideReview: { selected: false },
+        outsideReview: true,
+        rng: () => 0.99,
       });
       if (gate === 'test_scope_reviewed' || gate === 'code_reviewed')
         assert.equal(

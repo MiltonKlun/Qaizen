@@ -461,15 +461,16 @@ key approved, not how carefully (`docs/signed-gate-records.md`).
 
 On the `full` track, an approval at Gate 2 or Gate 4 also needs a second
 reviewer or a compensating control (`docs/review-gates.md`, "Independence
-at Gates 2 and 4"). When the runner prints the Test Designer's, the
-Generator's or the API Agent's instruction, it notes the session's reviewer
-name as that step's operator; someone else deciding the gate is a second
-reviewer. Otherwise the decision waits for the delay (an hour after the
-brief for these inputs was first shown: quit and `--resume` later) or, when
-the team set a sampling rate, rests on the sampled outside review, drawn
-once the decision is made. Without one, `[a]pprove` says why and what would
-allow it, and nothing is recorded; a rejection is always possible. The gate
-record names the control (`| Independence |`).
+at Gates 2 and 4"). The first terminal session to open such a gate on its
+inputs is noted as their operator, and the Test Designer's, the
+Generator's and the API Agent's instructions tell its operator to open the
+next gate once and quit; someone else deciding it, who says they are not
+that operator, is a second reviewer. Otherwise the decision waits for the
+delay (an hour after the brief for these inputs was first shown: quit and
+`--resume` later) or, when the team set a sampling rate, rests on the
+sampled outside review, drawn when the decision is recorded. Without one,
+`[a]pprove` says why and what would allow it, and nothing is recorded; a
+rejection is always possible. The gate record names the control (`| Independence |`).
 
 Two read-only views use them. Neither writes anything, not even when an
 approval has gone stale:

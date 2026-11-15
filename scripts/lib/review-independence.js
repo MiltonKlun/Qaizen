@@ -1,29 +1,39 @@
 // @ts-check
-// Independence for Red-domain approvals (docs/review-gates.md, "The full
-// track").
+// Independence for Red-domain approvals (docs/review-gates.md, "Independence
+// at Gates 2 and 4").
 //
 // On the `full` track, an approval at Gate 2 or Gate 4 must rest on more than
 // the word of the person who ran the step it reviews. One of these applies,
 // and the decision records which:
 //
-//   second_reviewer  the person deciding is not the operator the runner
-//                    handed the step to (it records who that was when it
-//                    prints the step's instruction);
+//   second_reviewer  the person deciding is not the operator of what they
+//                    approve: the first person whose terminal session opened
+//                    this gate on these inputs (the operator who ran the
+//                    step opens it once and quits). Inputs that change, an
+//                    edit after a rejection included, get a new operator;
 //   delay            at least an hour (config/gate-checks.json can make it
 //                    longer, never shorter) passed between the first time
 //                    the brief for these same inputs was shown and the
 //                    decision;
 //   outside_review   the team's sampled outside review: offered only when
 //                    the team set a sampling rate, and drawn when the
-//                    decision is recorded, so the reviewer cannot know in
-//                    advance whether an outside reviewer will look.
+//                    decision is recorded, once per gate and inputs, so the
+//                    reviewer can neither know the draw in advance nor draw
+//                    again.
 //
 // An advisory AI review joins these once it exists (its accuracy measured on
 // canaries). A rejection needs none of them. Names are the ones people decide
 // as (QAIZEN_REVIEWER or git user.name): declared, not authenticated, unless
 // the records are signed (docs/signed-gate-records.md).
 //
-// Pure: the runner does the I/O.
+// Pure except authoredDigest, which reads the reviewed files; the runner does
+// the rest of the I/O.
+
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { canonicalJson, gateDigest, semanticCase } from './approval-binding.js';
 
 /** The gates that need independence on the full track, and the step each reviews. */
 export const INDEPENDENT_GATES = Object.freeze(
@@ -41,11 +51,11 @@ export const MIN_OUTSIDE_RATE = 0.1;
 
 /**
  * @typedef {{ control: 'second_reviewer', operator: string,
- *     handed_over_at: string }
+ *     noted_at: string }
  *   | { control: 'delay', operator: string | null,
  *     brief_first_shown_at: string, minutes: number }
  *   | { control: 'outside_review', operator: string | null, rate: number,
- *     selected: boolean }} Independence
+ *     selected: boolean, input_digest: string }} Independence
  * @typedef {{ minDelayMinutes: number, outsideRate: number | null }} IndependenceConfig
  */
 
@@ -100,25 +110,73 @@ export function independenceConfig(gateChecks) {
 
 /** @param {string | null | undefined} name */
 const norm = (name) =>
-  (name ?? '').trim().replace(/\s+/g, ' ').toLowerCase() || null;
+  (name ?? '').normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase() ||
+  null;
+
+/** @param {string | Buffer} data */
+const sha256 = (data) => createHash('sha256').update(data).digest('hex');
 
 /**
- * Note that the runner handed a step to an operator (it printed the step's
- * instruction in their session). The latest operator counts; the time is
- * kept while the operator stays the same.
+ * The digest of what the step's operator produced for this gate. For Gate 4
+ * it is the gate's input digest. For Gate 2 it leaves out each case's
+ * approval state (`status`), which the reviewer sets when deciding the
+ * cases, so deciding them is not authoring them.
+ * @param {string} gate
  * @param {any} context
- * @param {string} step
+ * @param {string} [root]
+ */
+export function authoredDigest(gate, context, root = '.') {
+  if (gate !== 'test_scope_reviewed') return gateDigest(gate, context, root);
+  const read = (/** @type {string | undefined} */ rel) =>
+    rel && existsSync(join(root, rel)) ? readFileSync(join(root, rel)) : null;
+  const casesRaw = read(context?.artifact_paths?.test_cases);
+  /** @type {any} */
+  let cases = null;
+  if (casesRaw) {
+    try {
+      const doc = JSON.parse(casesRaw.toString('utf8'));
+      cases = {
+        ...doc,
+        test_cases: (doc.test_cases ?? []).map(
+          (/** @type {Record<string, any>} */ tc) => {
+            const c = semanticCase(tc);
+            delete c.status;
+            return c;
+          }
+        ),
+      };
+    } catch {
+      cases = sha256(casesRaw);
+    }
+  }
+  const brief = read(context?.artifact_paths?.planner_brief);
+  return sha256(
+    canonicalJson({
+      gate,
+      upstream: gateDigest('requirements_reviewed', context, root),
+      cases,
+      brief: brief ? sha256(brief) : null,
+    })
+  );
+}
+
+/**
+ * Note the operator of what a gate reviews: the first session that opens
+ * the gate on these inputs. Inputs that change get the session that opens
+ * the gate on them next.
+ * @param {any} context
+ * @param {string} gate
+ * @param {string} digest authoredDigest of the gate now
  * @param {string | null} operator
  * @param {string} at
  * @returns {boolean} whether the context changed
  */
-export function recordHandoff(context, step, operator, at) {
-  if (!Object.values(INDEPENDENT_GATES).includes(step)) return false;
+export function recordOperator(context, gate, digest, operator, at) {
+  if (!Object.hasOwn(INDEPENDENT_GATES, gate)) return false;
   const ri = (context.review_independence ??= {});
-  const handoffs = (ri.handoffs ??= {});
-  const was = handoffs[step];
-  if (was && norm(was.operator) === norm(operator)) return false;
-  handoffs[step] = { operator: operator || null, at };
+  const operators = (ri.operators ??= {});
+  if (operators[gate]?.authored_digest === digest) return false;
+  operators[gate] = { operator: operator || null, authored_digest: digest, at };
   return true;
 }
 
@@ -143,40 +201,46 @@ export function recordBriefShown(context, gate, digest, at) {
 /**
  * What independence an approval can rest on, at the moment of the decision.
  * @param {{ context: any, gate: string, reviewer: string | null,
- *   digest: string, at: string, config: IndependenceConfig }} args
+ *   digest: string, authored: string, at: string,
+ *   config: IndependenceConfig }} args
+ *   `digest`: the gate's input digest; `authored`: its authoredDigest
  * @returns {{ operator: string | null,
  *   second: Independence | null, delay: Independence | null,
- *   waitUntil: string | null, outsideRate: number | null, why: string[] }}
+ *   waitUntil: string | null, outsideRate: number | null,
+ *   earlierDraw: boolean | null, why: string[] }}
  */
 export function independenceOptions({
   context,
   gate,
   reviewer,
   digest,
+  authored,
   at,
   config,
 }) {
-  const step = INDEPENDENT_GATES[gate];
-  const handoff = context?.review_independence?.handoffs?.[step] ?? null;
-  const operator = handoff?.operator ?? null;
+  const noted = context?.review_independence?.operators?.[gate] ?? null;
+  const current = noted?.authored_digest === authored ? noted : null;
+  const operator = current?.operator ?? null;
   /** @type {string[]} */
   const why = [];
 
   /** @type {Independence | null} */
   let second = null;
-  if (!operator)
+  if (!current)
     why.push(
-      `who ran ${step} is not recorded (the runner records it when it prints the step's instruction)`
+      `no operator is noted for these inputs (the first session that opens the gate on them is)`
     );
+  else if (!operator)
+    why.push('the operator noted for these inputs has no name');
   else if (!norm(reviewer))
     why.push('no reviewer name is known for this decision');
   else if (norm(operator) === norm(reviewer))
-    why.push(`${step} was handed to ${operator}, who is deciding`);
+    why.push(`${operator}, the operator noted for these inputs, is deciding`);
   else
     second = {
       control: 'second_reviewer',
       operator,
-      handed_over_at: handoff.at,
+      noted_at: current.at,
     };
 
   /** @type {Independence | null} */
@@ -207,43 +271,51 @@ export function independenceOptions({
       );
     }
   }
+
+  // An outside-review draw already made for this gate and these inputs
+  // stands: approving again does not draw again.
+  const drawn = (context?.gate_decisions ?? []).findLast(
+    (/** @type {any} */ d) =>
+      d?.gate === gate &&
+      d?.independence?.control === 'outside_review' &&
+      d.independence.input_digest === digest
+  );
   return {
     operator,
     second,
     delay,
     waitUntil,
     outsideRate: config.outsideRate,
+    earlierDraw: drawn ? Boolean(drawn.independence.selected) : null,
     why,
   };
 }
 
 /**
- * The control an approval rests on: a second reviewer, else the delay, else
- * the outside review when the reviewer chose it and the team has one.
+ * The control an approval rests on: a second reviewer (unless the reviewer
+ * said they are the operator after all), else the delay, else the outside
+ * review when the reviewer chose it and the team has one. The draw is made
+ * here, unless one was made for these inputs before.
  * @param {ReturnType<typeof independenceOptions>} options
- * @param {{ selected: boolean } | null} [outside] the drawn outside review,
- *   when the reviewer chose it
+ * @param {{ outside?: boolean, notOperator?: boolean, digest?: string,
+ *   rng?: () => number }} [choice]
  * @returns {Independence | null}
  */
-export function resolveIndependence(options, outside = null) {
-  if (options.second) return options.second;
+export function resolveIndependence(options, choice = {}) {
+  if (options.second && choice.notOperator !== false) return options.second;
   if (options.delay) return options.delay;
-  if (outside && options.outsideRate !== null)
+  if (choice.outside && options.outsideRate !== null) {
+    const rng = choice.rng ?? Math.random;
     return {
       control: 'outside_review',
       operator: options.operator,
       rate: options.outsideRate,
-      selected: outside.selected,
+      selected: options.earlierDraw ?? rng() < options.outsideRate,
+      input_digest: choice.digest ?? '',
     };
+  }
   return null;
 }
-
-/**
- * Draw whether a decision goes to the outside reviewer.
- * @param {number} rate
- * @param {() => number} rng uniform in [0, 1)
- */
-export const drawOutsideReview = (rate, rng) => ({ selected: rng() < rate });
 
 /**
  * One line naming the control, for the gate record and the terminal.
@@ -251,10 +323,10 @@ export const drawOutsideReview = (rate, rng) => ({ selected: rng() < rate });
  */
 export function independenceLine(i) {
   if (i.control === 'second_reviewer')
-    return `second reviewer: the step was handed to ${i.operator} at ${i.handed_over_at}`;
+    return `second reviewer: ${i.operator} is the operator of these inputs (noted ${i.noted_at})`;
   if (i.control === 'delay')
-    return `delay: decided ${i.minutes} minute(s) after the brief was first shown (${i.brief_first_shown_at})${i.operator ? `; the step was handed to ${i.operator}` : ''}`;
-  return `sampled outside review (rate ${i.rate}): ${i.selected ? 'selected, so an outside reviewer reviews this decision' : 'not selected this time'}`;
+    return `delay: decided ${i.minutes} minute(s) after the brief was first shown (${i.brief_first_shown_at})${i.operator ? `; ${i.operator} is the operator of these inputs` : ''}`;
+  return `sampled outside review (rate ${i.rate}): ${i.selected ? 'marked for outside review' : 'not drawn this time'}`;
 }
 
 /**
@@ -265,10 +337,10 @@ export function independenceLine(i) {
  */
 export function refusalLines(options, minDelayMinutes) {
   return [
-    'On the full track this approval needs a second reviewer or a compensating control (docs/review-gates.md, "The full track"), and none applies:',
+    'On the full track this approval needs a second reviewer or a compensating control (docs/review-gates.md, "Independence at Gates 2 and 4"), and none applies:',
     ...options.why.map((w) => `  - ${w};`),
     'It can be approved by:',
-    '  - another person, deciding as themselves (QAIZEN_REVIEWER);',
+    '  - another person, in their own session, who is not the operator of these inputs;',
     `  - you, ${minDelayMinutes} minutes or more after the brief was first shown${options.waitUntil ? ` (from ${options.waitUntil})` : ''}: quit and --resume then;`,
     options.outsideRate === null
       ? '  - the sampled outside review, once the team sets independence.outside_review_rate in config/gate-checks.json.'
@@ -316,7 +388,7 @@ export function independenceLines(m) {
       '- No full-track approval at Gate 2 or Gate 4 records what it rested on.',
     ];
   return [
-    `- ${total} full-track approval(s) at Gate 2 or Gate 4: ${m.second_reviewer} by a second reviewer, ${m.delay} after the delay, ${m.outside_review} on the sampled outside review (${m.outside_selected} selected for it).`,
+    `- ${total} full-track approval(s) at Gate 2 or Gate 4: ${m.second_reviewer} by a second reviewer, ${m.delay} after the delay, ${m.outside_review} on the sampled outside review (${m.outside_selected} marked for it).`,
     '- A second reviewer and a delay are recorded by the runner; neither shows how carefully anyone read.',
   ];
 }

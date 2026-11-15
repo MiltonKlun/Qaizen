@@ -624,7 +624,7 @@
           },
           "independence": {
             "type": "object",
-            "description": "OPTIONAL. What a full-track approval at Gate 2 (test_scope_reviewed) or Gate 4 (code_reviewed, api_assertions_reviewed) rested on (scripts/lib/review-independence.js): second_reviewer, the person deciding is not the operator the runner handed the step to; delay, at least min_delay_minutes (60 or more) passed between the first showing of the brief for these inputs and the decision; outside_review, the team's sampled outside review, drawn when the decision was recorded (selected: whether an outside reviewer reviews it). The runner refuses such an approval with none of them. Absent on rejections, on other tracks and gates, and on older runs. Written only by the runner.",
+            "description": "OPTIONAL. What a full-track approval at Gate 2 (test_scope_reviewed) or Gate 4 (code_reviewed, api_assertions_reviewed) rested on (scripts/lib/review-independence.js): second_reviewer, the person deciding is not the operator noted for these inputs (the first terminal session that opened the gate on them, at noted_at) and said so; delay, at least min_delay_minutes (60 or more) passed between the first showing of the brief for these inputs and the decision; outside_review, the team's sampled outside review at its rate, drawn once per gate and input digest when the decision was recorded (selected: whether this decision is marked for outside review). The runner refuses such an approval with none of them. Absent on rejections, on other tracks and gates, and on older runs. Written only by the runner.",
             "additionalProperties": false,
             "required": ["control", "operator"],
             "properties": {
@@ -634,13 +634,14 @@
               },
               "operator": {
                 "type": ["string", "null"],
-                "description": "Who the runner handed the reviewed step to; null when it is not recorded."
+                "description": "The operator noted for the approved inputs; null when none is noted."
               },
-              "handed_over_at": { "type": "string" },
+              "noted_at": { "type": "string" },
               "brief_first_shown_at": { "type": "string" },
-              "minutes": { "type": "integer", "minimum": 0 },
-              "rate": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
-              "selected": { "type": "boolean" }
+              "minutes": { "type": "integer", "minimum": 60 },
+              "rate": { "type": "number", "minimum": 0.1, "maximum": 1 },
+              "selected": { "type": "boolean" },
+              "input_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
             },
             "allOf": [
               {
@@ -648,7 +649,7 @@
                   "properties": { "control": { "const": "second_reviewer" } }
                 },
                 "then": {
-                  "required": ["handed_over_at"],
+                  "required": ["noted_at"],
                   "properties": { "operator": { "type": "string" } }
                 }
               },
@@ -660,7 +661,7 @@
                 "if": {
                   "properties": { "control": { "const": "outside_review" } }
                 },
-                "then": { "required": ["rate", "selected"] }
+                "then": { "required": ["rate", "selected", "input_digest"] }
               }
             ]
           }
@@ -669,18 +670,28 @@
     },
     "review_independence": {
       "type": "object",
-      "description": "OPTIONAL (full track). What the independence of a Gate 2 or Gate 4 approval is judged from (scripts/lib/review-independence.js): handoffs, who the runner handed each reviewed step to (it records the session's reviewer name when it prints the step's instruction; the latest operator counts), and briefs, when each gate's brief was first shown for the inputs it is bound to (inputs that change start the clock again). Names are declared, not authenticated. Absent on other tracks and on older runs. Written only by the runner.",
+      "description": "OPTIONAL (full track). What the independence of a Gate 2 or Gate 4 approval is judged from (scripts/lib/review-independence.js): operators, keyed by gate, the operator noted for what the gate reviews: the session's reviewer name in the first terminal session that opened the gate on those inputs (authored_digest is the gate's input digest, leaving out at Gate 2 each case's approval state; inputs that change get the next session that opens the gate); and briefs, when each gate's brief was first shown for the inputs it is bound to (inputs that change start the clock again). Names are declared, not authenticated. Not part of any gate's reviewed input. Absent on other tracks and on older runs. Written only by the runner.",
       "additionalProperties": false,
       "properties": {
-        "handoffs": {
+        "operators": {
           "type": "object",
-          "propertyNames": { "enum": ["test-designer", "generator", "api"] },
+          "propertyNames": {
+            "enum": [
+              "test_scope_reviewed",
+              "code_reviewed",
+              "api_assertions_reviewed"
+            ]
+          },
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["operator", "at"],
+            "required": ["operator", "authored_digest", "at"],
             "properties": {
               "operator": { "type": ["string", "null"] },
+              "authored_digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
               "at": { "type": "string" }
             }
           }

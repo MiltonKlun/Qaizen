@@ -1,5 +1,6 @@
 // Independence for full-track approvals at Gates 2 and 4
-// (scripts/lib/review-independence.js, docs/review-gates.md "The full track").
+// (scripts/lib/review-independence.js, docs/review-gates.md "Independence
+// at Gates 2 and 4").
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,10 +16,10 @@ import { dirname, join } from 'node:path';
 
 import { removeTempDir } from './helpers/cleanup.js';
 import { runContext, scopeCases } from './helpers/valid-run.js';
-import { bindingFor } from '../scripts/lib/approval-binding.js';
+import { bindingFor, gateDigest } from '../scripts/lib/approval-binding.js';
 import {
   MIN_DELAY_MINUTES,
-  drawOutsideReview,
+  authoredDigest,
   independenceConfig,
   independenceLine,
   independenceLines,
@@ -26,7 +27,7 @@ import {
   independenceOptions,
   needsIndependence,
   recordBriefShown,
-  recordHandoff,
+  recordOperator,
   refusalLines,
   resolveIndependence,
 } from '../scripts/lib/review-independence.js';
@@ -34,6 +35,7 @@ import { recordGateDecision } from '../scripts/run-pipeline.js';
 
 const DIGEST = 'a'.repeat(64);
 const OTHER = 'b'.repeat(64);
+const AUTHORED = 'c'.repeat(64);
 const DEFAULTS = { minDelayMinutes: MIN_DELAY_MINUTES, outsideRate: null };
 
 const options = (context, extra = {}) =>
@@ -42,10 +44,23 @@ const options = (context, extra = {}) =>
     gate: 'test_scope_reviewed',
     reviewer: 'Ada Reviewer',
     digest: DIGEST,
+    authored: AUTHORED,
     at: '2026-11-14T12:00:00.000Z',
     config: DEFAULTS,
     ...extra,
   });
+
+const noted = (operator, authored = AUTHORED) => ({
+  review_independence: {
+    operators: {
+      test_scope_reviewed: {
+        operator,
+        authored_digest: authored,
+        at: '2026-11-14T09:00:00Z',
+      },
+    },
+  },
+});
 
 // ------------------------------------------------------------ pure parts --
 
@@ -94,22 +109,21 @@ test('the settings: an hour by default, longer allowed, shorter or a bad rate re
   assert.equal(independenceConfig({ independence: [] }).ok, false);
 });
 
-test('a handoff keeps the latest operator, and the first time while the operator stays', () => {
+test('the operator is the first session on these inputs; changed inputs get the next one', () => {
   const ctx = {};
-  assert.equal(recordHandoff(ctx, 'test-designer', 'Op', 't1'), true);
-  assert.equal(recordHandoff(ctx, 'test-designer', ' op ', 't2'), false);
-  assert.deepEqual(ctx.review_independence.handoffs['test-designer'], {
-    operator: 'Op',
+  assert.equal(recordOperator(ctx, 'code_reviewed', DIGEST, 'Bo', 't1'), true);
+  assert.equal(
+    recordOperator(ctx, 'code_reviewed', DIGEST, 'Ada', 't2'),
+    false
+  );
+  assert.deepEqual(ctx.review_independence.operators.code_reviewed, {
+    operator: 'Bo',
+    authored_digest: DIGEST,
     at: 't1',
   });
-  assert.equal(recordHandoff(ctx, 'test-designer', 'Ada', 't3'), true);
-  assert.deepEqual(ctx.review_independence.handoffs['test-designer'], {
-    operator: 'Ada',
-    at: 't3',
-  });
-  // A step no independent gate reviews is not noted.
-  assert.equal(recordHandoff(ctx, 'planner', 'Op', 't4'), false);
-  assert.equal(ctx.review_independence.handoffs.planner, undefined);
+  assert.equal(recordOperator(ctx, 'code_reviewed', OTHER, 'Ada', 't3'), true);
+  assert.equal(ctx.review_independence.operators.code_reviewed.operator, 'Ada');
+  assert.equal(recordOperator(ctx, 'specs_reviewed', DIGEST, 'Bo', 't'), false);
 });
 
 test('the first showing of a brief counts, and changed inputs start the clock again', () => {
@@ -128,34 +142,32 @@ test('the first showing of a brief counts, and changed inputs start the clock ag
   assert.equal(recordBriefShown(ctx, 'specs_reviewed', DIGEST, 't'), false);
 });
 
-test('a second reviewer is someone other than the operator the step was handed to', () => {
-  const handed = (operator) => ({
-    review_independence: {
-      handoffs: { 'test-designer': { operator, at: '2026-11-14T09:00:00Z' } },
-    },
-  });
-  const second = resolveIndependence(options(handed('Bo Operator')));
-  assert.deepEqual(second, {
+test('a second reviewer is someone other than the operator noted for the same inputs', () => {
+  assert.deepEqual(resolveIndependence(options(noted('Bo Operator'))), {
     control: 'second_reviewer',
     operator: 'Bo Operator',
-    handed_over_at: '2026-11-14T09:00:00Z',
+    noted_at: '2026-11-14T09:00:00Z',
   });
-  // The same person, however the name is spaced or cased, is not a second
-  // reviewer.
-  const same = options(handed('  ada   REVIEWER '));
-  assert.equal(resolveIndependence(same), null);
-  assert.match(same.why.join('\n'), /handed to .* who is deciding/);
-  // Nobody recorded, or nobody deciding, is not one either.
-  assert.match(
-    options({}).why.join('\n'),
-    /who ran test-designer is not recorded/
+  // The same person, however the name is spaced, cased or composed.
+  for (const same of ['  ada   REVIEWER ', 'Ada Reviewer'.normalize('NFD')]) {
+    const o = options(noted(same));
+    assert.equal(resolveIndependence(o), null, same);
+    assert.match(
+      o.why.join('\n'),
+      /the operator noted for these inputs, is deciding/
+    );
+  }
+  // Noted for other inputs (an edit since): no operator for these.
+  const moved = options(noted('Bo', OTHER));
+  assert.equal(resolveIndependence(moved), null);
+  assert.match(moved.why.join('\n'), /no operator is noted for these inputs/);
+  // No reviewer name, or a reviewer who says they are the operator.
+  assert.equal(
+    resolveIndependence(options(noted('Bo'), { reviewer: null })),
+    null
   );
   assert.equal(
-    resolveIndependence(options(handed('Bo')), null).control,
-    'second_reviewer'
-  );
-  assert.equal(
-    resolveIndependence(options(handed('Bo'), { reviewer: null })),
+    resolveIndependence(options(noted('Bo')), { notOperator: false }),
     null
   );
 });
@@ -168,23 +180,23 @@ test('the delay counts from the first showing for the same inputs', () => {
       },
     },
   });
-  const met = resolveIndependence(options(shown('2026-11-14T10:59:00.000Z')));
-  assert.deepEqual(met, {
-    control: 'delay',
-    operator: null,
-    brief_first_shown_at: '2026-11-14T10:59:00.000Z',
-    minutes: 61,
-  });
+  assert.deepEqual(
+    resolveIndependence(options(shown('2026-11-14T10:59:00.000Z'))),
+    {
+      control: 'delay',
+      operator: null,
+      brief_first_shown_at: '2026-11-14T10:59:00.000Z',
+      minutes: 61,
+    }
+  );
   const early = options(shown('2026-11-14T11:30:00.000Z'));
   assert.equal(resolveIndependence(early), null);
   assert.equal(early.waitUntil, '2026-11-14T12:30:00.000Z');
   assert.match(early.why.join('\n'), /30 minute\(s\) ago, under 60/);
-  // Shown for other inputs: the clock did not start for these.
   assert.equal(
     resolveIndependence(options(shown('2026-11-14T08:00:00.000Z', OTHER))),
     null
   );
-  // A team that asks for longer gets longer.
   assert.equal(
     resolveIndependence(
       options(shown('2026-11-14T10:59:00.000Z'), {
@@ -195,26 +207,57 @@ test('the delay counts from the first showing for the same inputs', () => {
   );
 });
 
-test('the outside review applies only when chosen and the team has one', () => {
-  const withRate = options(
-    {},
-    { config: { minDelayMinutes: 60, outsideRate: 0.25 } }
-  );
+test('the outside review: chosen, with a rate, drawn once per gate and inputs', () => {
+  const cfg = { config: { minDelayMinutes: 60, outsideRate: 0.25 } };
+  const withRate = options({}, cfg);
   assert.equal(resolveIndependence(withRate), null);
-  assert.deepEqual(resolveIndependence(withRate, { selected: true }), {
-    control: 'outside_review',
-    operator: null,
-    rate: 0.25,
-    selected: true,
-  });
-  assert.equal(resolveIndependence(options({}), { selected: true }), null);
   assert.deepEqual(
-    drawOutsideReview(0.25, () => 0.1),
-    { selected: true }
+    resolveIndependence(withRate, {
+      outside: true,
+      digest: DIGEST,
+      rng: () => 0.1,
+    }),
+    {
+      control: 'outside_review',
+      operator: null,
+      rate: 0.25,
+      selected: true,
+      input_digest: DIGEST,
+    }
   );
-  assert.deepEqual(
-    drawOutsideReview(0.25, () => 0.25),
-    { selected: false }
+  assert.equal(
+    resolveIndependence(withRate, { outside: true, rng: () => 0.25 }).selected,
+    false
+  );
+  // No rate, no outside review.
+  assert.equal(resolveIndependence(options({}), { outside: true }), null);
+  // A draw made before for these inputs stands, whatever the dice say now.
+  const drawnBefore = options(
+    {
+      gate_decisions: [
+        {
+          gate: 'test_scope_reviewed',
+          decision: 'approved',
+          independence: {
+            control: 'outside_review',
+            operator: null,
+            rate: 0.25,
+            selected: true,
+            input_digest: DIGEST,
+          },
+        },
+      ],
+    },
+    cfg
+  );
+  assert.equal(drawnBefore.earlierDraw, true);
+  assert.equal(
+    resolveIndependence(drawnBefore, {
+      outside: true,
+      digest: DIGEST,
+      rng: () => 0.99,
+    }).selected,
+    true
   );
   assert.match(
     refusalLines(options({}), 60).join('\n'),
@@ -228,9 +271,9 @@ test('each control reads as one line, and the metrics count them', () => {
     independenceLine({
       control: 'second_reviewer',
       operator: 'Bo',
-      handed_over_at: 't',
+      noted_at: 't',
     }),
-    /^second reviewer: the step was handed to Bo/
+    /^second reviewer: Bo is the operator of these inputs/
   );
   assert.match(
     independenceLine({
@@ -241,15 +284,20 @@ test('each control reads as one line, and the metrics count them', () => {
     }),
     /^delay: decided 75 minute/
   );
-  assert.match(
-    independenceLine({
-      control: 'outside_review',
-      operator: null,
-      rate: 0.25,
-      selected: false,
-    }),
-    /not selected this time/
-  );
+  for (const [selected, text] of [
+    [true, /marked for outside review/],
+    [false, /not drawn this time/],
+  ])
+    assert.match(
+      independenceLine({
+        control: 'outside_review',
+        operator: null,
+        rate: 0.25,
+        selected,
+        input_digest: DIGEST,
+      }),
+      text
+    );
   const m = independenceMetrics([
     {
       gate_decisions: [
@@ -310,13 +358,16 @@ function fixture(storyText) {
 }
 const RED = 'The total equals the sum of the prices.';
 const PLAIN = 'The page shows a greeting.';
+const GATE2 = 'test_scope_reviewed';
 
 const readCtx = (dir) =>
   JSON.parse(readFileSync(join(dir, 'context.json'), 'utf8'));
+const save = (dir, ctx) =>
+  writeFileSync(join(dir, 'context.json'), JSON.stringify(ctx, null, 2));
 
 function decide(dir, extra = {}) {
   const ctx = extra.context ?? readCtx(dir);
-  const gate = extra.gate ?? 'test_scope_reviewed';
+  const gate = extra.gate ?? GATE2;
   return {
     ctx,
     r: recordGateDecision({
@@ -328,12 +379,28 @@ function decide(dir, extra = {}) {
       reviewer: 'Ada Reviewer',
       notes: extra.decision === 'rejected' ? 'Add a negative case.' : null,
       openedAt: '2026-11-14T11:59:00.000Z',
-      decidedAt: '2026-11-14T12:00:00.000Z',
+      decidedAt: extra.decidedAt ?? '2026-11-14T12:00:00.000Z',
       bindings: { [gate]: bindingFor(gate, ctx, dir) },
       brief: 'brief',
-      outsideReview: extra.outsideReview ?? null,
+      outsideReview: extra.outsideReview ?? false,
+      notOperator: extra.notOperator ?? true,
+      rng: extra.rng,
     }),
   };
+}
+
+/** Note Bo as the operator of what Gate 2 reviews now. */
+function boOpened(dir) {
+  const ctx = readCtx(dir);
+  recordOperator(
+    ctx,
+    GATE2,
+    authoredDigest(GATE2, ctx, dir),
+    'Bo Operator',
+    '2026-11-14T09:00:00Z'
+  );
+  save(dir, ctx);
+  return ctx;
 }
 
 test('a full-track approval with neither a second reviewer nor a control is refused, and nothing is written', () => {
@@ -357,37 +424,107 @@ test('a full-track approval with neither a second reviewer nor a control is refu
 test('a second reviewer is recorded in the decision and in its gate record', () => {
   const { dir } = fixture(RED);
   try {
-    const ctx = readCtx(dir);
-    recordHandoff(ctx, 'test-designer', 'Bo Operator', '2026-11-14T09:00:00Z');
-    const { r } = decide(dir, { context: ctx });
+    boOpened(dir);
+    const { r } = decide(dir);
     assert.equal(r.ok, true, r.message);
-    const saved = readCtx(dir);
-    assert.deepEqual(saved.gate_decisions.at(-1).independence, {
+    assert.deepEqual(readCtx(dir).gate_decisions.at(-1).independence, {
       control: 'second_reviewer',
       operator: 'Bo Operator',
-      handed_over_at: '2026-11-14T09:00:00Z',
+      noted_at: '2026-11-14T09:00:00Z',
     });
     assert.match(
       readFileSync(join(dir, r.record), 'utf8'),
-      /\| Independence \| second reviewer: the step was handed to Bo Operator/
+      /\| Independence \| second reviewer: Bo Operator is the operator of these inputs/
     );
   } finally {
     removeTempDir(dir);
   }
 });
 
-test('the delay is met an hour after the brief for the same inputs was first shown', () => {
+test('a reviewer who says they are the operator is no second reviewer', () => {
+  const { dir } = fixture(RED);
+  try {
+    boOpened(dir);
+    const { r } = decide(dir, { notOperator: false });
+    assert.equal(r.ok, false);
+    assert.equal(r.stage, 'independence');
+  } finally {
+    removeTempDir(dir);
+  }
+});
+
+test('deciding the cases is not authoring them; editing them is', () => {
   const { dir, put } = fixture(RED);
   try {
-    const ctx = readCtx(dir);
-    const digest = bindingFor('test_scope_reviewed', ctx, dir).input_digest;
-    recordBriefShown(
-      ctx,
-      'test_scope_reviewed',
-      digest,
-      '2026-11-14T10:45:00.000Z'
+    const ctx = boOpened(dir);
+    const path = `test-cases/${STORY}.json`;
+    const doc = JSON.parse(readFileSync(join(dir, path), 'utf8'));
+    // The reviewer decides each case: Bo is still the operator.
+    for (const c of doc.test_cases) c.status = 'rejected';
+    put(path, JSON.stringify(doc, null, 2));
+    assert.equal(
+      authoredDigest(GATE2, ctx, dir),
+      ctx.review_independence.operators[GATE2].authored_digest
     );
-    put('context.json', JSON.stringify(ctx, null, 2));
+    // The reviewer edits a case after a rejection: Bo is not the operator of
+    // that, so it is no second review.
+    doc.test_cases[0].title = 'An edited title';
+    put(path, JSON.stringify(doc, null, 2));
+    const { r } = decide(dir);
+    assert.equal(r.ok, false);
+    assert.match(r.message, /no operator is noted for these inputs/);
+  } finally {
+    removeTempDir(dir);
+  }
+});
+
+test('notes on independence leave every gate digest as it was', () => {
+  const { dir } = fixture(RED);
+  try {
+    const ctx = readCtx(dir);
+    const gates = [
+      'requirements_reviewed',
+      GATE2,
+      'specs_reviewed',
+      'code_reviewed',
+    ];
+    const before = gates.map((g) => gateDigest(g, ctx, dir));
+    recordOperator(ctx, GATE2, AUTHORED, 'Bo', 't');
+    recordBriefShown(ctx, 'code_reviewed', DIGEST, 't');
+    assert.deepEqual(
+      gates.map((g) => gateDigest(g, ctx, dir)),
+      before
+    );
+  } finally {
+    removeTempDir(dir);
+  }
+});
+
+test('the delay is met an hour after the brief for the same inputs was first shown, and not by a future time', () => {
+  const { dir } = fixture(RED);
+  try {
+    const ctx = readCtx(dir);
+    const digest = bindingFor(GATE2, ctx, dir).input_digest;
+    recordBriefShown(ctx, GATE2, digest, '2026-11-14T10:45:00.000Z');
+    save(dir, ctx);
+    // A decision dated a week ahead is held to now.
+    const ahead = new Date(Date.now() + 7 * 864e5).toISOString();
+    const recent = readCtx(dir);
+    recordBriefShown(
+      recent,
+      GATE2,
+      'f'.repeat(64),
+      new Date(Date.now() - 60000).toISOString()
+    );
+    recordBriefShown(
+      recent,
+      GATE2,
+      digest,
+      new Date(Date.now() - 60000).toISOString()
+    );
+    const future = decide(dir, { context: recent, decidedAt: ahead });
+    assert.equal(future.r.ok, false, 'a future decision time is not a delay');
+
     const { r } = decide(dir);
     assert.equal(r.ok, true, r.message);
     const ind = readCtx(dir).gate_decisions.at(-1).independence;
@@ -406,15 +543,9 @@ test('the delay does not carry over to changed inputs', () => {
   const { dir, put } = fixture(RED);
   try {
     const ctx = readCtx(dir);
-    const digest = bindingFor('test_scope_reviewed', ctx, dir).input_digest;
-    recordBriefShown(
-      ctx,
-      'test_scope_reviewed',
-      digest,
-      '2026-11-14T09:00:00.000Z'
-    );
-    put('context.json', JSON.stringify(ctx, null, 2));
-    // The brief changes after it was shown.
+    const digest = bindingFor(GATE2, ctx, dir).input_digest;
+    recordBriefShown(ctx, GATE2, digest, '2026-11-14T09:00:00.000Z');
+    save(dir, ctx);
     put(`planner-input/${STORY}.planner-brief.md`, 'Explore checkout.\n');
     const { r } = decide(dir);
     assert.equal(r.ok, false);
@@ -424,31 +555,45 @@ test('the delay does not carry over to changed inputs', () => {
   }
 });
 
-test('the sampled outside review applies only when the team sets a rate', () => {
+test('the sampled outside review applies only when the team sets a rate, and is drawn once per inputs', () => {
   const { dir, put } = fixture(RED);
   try {
-    const refused = decide(dir, { outsideReview: { selected: true } });
+    const refused = decide(dir, { outsideReview: true });
     assert.equal(refused.r.ok, false);
     put(
       'config/gate-checks.json',
       JSON.stringify({ independence: { outside_review_rate: 0.25 } })
     );
-    const { r } = decide(dir, { outsideReview: { selected: true } });
+    const { r } = decide(dir, { outsideReview: true, rng: () => 0.1 });
     assert.equal(r.ok, true, r.message);
-    assert.deepEqual(readCtx(dir).gate_decisions.at(-1).independence, {
-      control: 'outside_review',
-      operator: null,
-      rate: 0.25,
-      selected: true,
-    });
+    const first = readCtx(dir).gate_decisions.at(-1).independence;
+    assert.equal(first.control, 'outside_review');
+    assert.equal(first.rate, 0.25);
+    assert.equal(first.selected, true);
+    assert.equal(
+      first.input_digest,
+      bindingFor(GATE2, readCtx(dir), dir).input_digest
+    );
+    // Approving the same inputs again (after a reopen, say) does not draw
+    // again.
+    const again = decide(dir, { outsideReview: true, rng: () => 0.99 });
+    assert.equal(again.r.ok, true, again.r.message);
+    assert.equal(
+      readCtx(dir).gate_decisions.at(-1).independence.selected,
+      true
+    );
+
     put(
       'config/gate-checks.json',
       JSON.stringify({ independence: { min_delay_minutes: 5 } })
     );
-    const bad = decide(dir, { outsideReview: { selected: true } });
+    const bad = decide(dir, { outsideReview: true });
     assert.equal(bad.r.ok, false);
     assert.equal(bad.r.stage, 'context');
     assert.match(bad.r.message, /min_delay_minutes/);
+    // A setting that cannot apply does not stop a rejection.
+    const rejected = decide(dir, { decision: 'rejected' });
+    assert.equal(rejected.r.ok, true, rejected.r.message);
   } finally {
     removeTempDir(dir);
   }

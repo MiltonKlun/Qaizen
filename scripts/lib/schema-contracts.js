@@ -163,7 +163,7 @@ export const SCHEMA_CONTRACTS = {
       },
       {
         path: 'examples/invalid/context.second-reviewer-without-operator.json',
-        rule: 'a second reviewer names the operator the step was handed to',
+        rule: 'a second reviewer names the operator noted for the approved inputs',
         errorAt: '/gate_decisions/1/independence/operator',
       },
     ],

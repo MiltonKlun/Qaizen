@@ -6,7 +6,7 @@
     "title": "Login — Successful sign-in (independent approvals)",
     "source": "manual",
     "path": "story.md",
-    "description": "Same login slice, showing review_independence and gate_decisions[].independence. Login is a Red-domain (security) story, so it runs on the full track, where an approval at Gate 2 or Gate 4 needs a second reviewer or a compensating control. Carol ran the Test Designer and Alice approved Gate 2: a second reviewer. Bob ran the Generator and decided Gate 4 himself, so his approval waited for the delay: he read the brief for the fixed test at 14:05, quit at the prompt and approved 75 minutes later. His rejection needed nothing. Optional and written only by the runner, so older contexts stay valid."
+    "description": "Same login slice, showing review_independence and gate_decisions[].independence. Login is a Red-domain (security) story, so it runs on the full track, where an approval at Gate 2 or Gate 4 needs a second reviewer or a compensating control. Carol ran the Test Designer and opened Gate 2 first, so she is noted as the operator of those inputs; Alice, deciding them later and saying she is not Carol, approved as a second reviewer. Bob edited the test after his own rejection, so he is the operator of the fixed test and his approval waited for the delay: he read the brief for the fixed test at 14:05, quit at the prompt and approved 75 minutes later. His rejection needed nothing. Optional and written only by the runner, so older contexts stay valid."
   },
   "acceptance_criteria": [
     "Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",
@@ -65,7 +65,7 @@
       "independence": {
         "control": "second_reviewer",
         "operator": "carol@example.com",
-        "handed_over_at": "2026-06-06T13:07:00Z"
+        "noted_at": "2026-06-06T13:08:00Z"
       }
     },
     {
@@ -131,14 +131,16 @@
   ],
   "status": "completed",
   "review_independence": {
-    "handoffs": {
-      "test-designer": {
+    "operators": {
+      "test_scope_reviewed": {
         "operator": "carol@example.com",
-        "at": "2026-06-06T13:07:00Z"
+        "authored_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "at": "2026-06-06T13:08:00Z"
       },
-      "generator": {
+      "code_reviewed": {
         "operator": "bob@example.com",
-        "at": "2026-06-06T12:40:00Z"
+        "authored_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "at": "2026-06-06T14:05:00Z"
       }
     },
     "briefs": {
