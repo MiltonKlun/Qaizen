@@ -190,7 +190,7 @@
         }
       ],
       "expected_results": [
-        "The \"Order placed\" confirmation is shown.",
+        "The \"Order placed\" confirmation is shown, reading \"Your order is on its way to the workshop.\"",
         "The basket count is no longer shown."
       ],
       "status": "approved"

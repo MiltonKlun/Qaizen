@@ -16,4 +16,10 @@ it shows; the story gives no amounts. Out of scope: changing the basket during
 checkout, payment, order history, how the screens look, where cancel and back
 lead.
 
+Gate 2 scope decisions: the money cases (TC-002, TC-003) use the one
+two-product basket of TC-001; other baskets and the tax rounding are not in
+scope (the story states no rounding rule, and Bench Shop's tax is an app
+rule). TC-004 is the story's negative case; no other negative variant
+(another empty field, several empty fields) is in scope.
+
 App: Bench Shop v1 (`node examples/benchmark-app/serve.js --version v1`).

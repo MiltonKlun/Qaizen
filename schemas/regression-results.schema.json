@@ -246,40 +246,58 @@
     },
     "reviewer_accuracy": {
       "type": "object",
-      "description": "Present when an AI reviewer is in scope. Per reviewer, over every trial: how many seeded defects (`finds` checks) its reviews found, and how many `no_alarm` checks they failed by raising a finding above info where none was due. An unreadable review counts as a miss and as an alarm.",
+      "description": "Present when an AI reviewer is in scope. Per reviewer, over every trial: how many seeded defects (`finds` checks) its reviews found, and how many `no_alarm` checks (on the controls and on the faithful cases of the seeded inputs) they failed by raising a finding above info where none was due. A review the gate would not show (`review_valid` failed) counts as a miss and as an alarm.",
       "propertyNames": {
         "enum": ["spec-reviewer", "test-reviewer"]
       },
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["seeded", "controls"],
+        "required": ["seeded", "no_alarm"],
         "properties": {
           "seeded": {
-            "allOf": [
-              { "$ref": "#/definitions/rate" },
-              {
-                "type": "object",
-                "required": ["checks", "caught"],
-                "properties": {
-                  "checks": { "type": "integer", "minimum": 0 },
-                  "caught": { "type": "integer", "minimum": 0 }
-                }
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["checks", "caught", "value", "wilson_95"],
+            "description": "Seeded defects found: the catch rate.",
+            "properties": {
+              "checks": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "caught": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "value": {
+                "$ref": "#/definitions/rate/properties/value"
+              },
+              "wilson_95": {
+                "$ref": "#/definitions/interval"
               }
-            ]
+            }
           },
-          "controls": {
-            "allOf": [
-              { "$ref": "#/definitions/rate" },
-              {
-                "type": "object",
-                "required": ["checks", "alarmed"],
-                "properties": {
-                  "checks": { "type": "integer", "minimum": 0 },
-                  "alarmed": { "type": "integer", "minimum": 0 }
-                }
+          "no_alarm": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["checks", "alarmed", "value", "wilson_95"],
+            "description": "no_alarm checks failed: the false-alarm rate.",
+            "properties": {
+              "checks": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "alarmed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "value": {
+                "$ref": "#/definitions/rate/properties/value"
+              },
+              "wilson_95": {
+                "$ref": "#/definitions/interval"
               }
-            ]
+            }
           }
         }
       }

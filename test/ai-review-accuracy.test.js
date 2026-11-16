@@ -215,12 +215,63 @@ test('a seeded case passes only when the defect is raised above info on its case
     // An empty review misses the defect.
     assert.deepEqual(failed(c.id, review(c.id, [])), ['finds']);
   }
-  // A spec-review finding without a severity weighs on the gate.
+  // A spec-review finding without a severity is shown as info at the gate,
+  // so it is no catch.
   const noSeverity = /** @type {any} */ (
     finding('weak_expected_outcome', 'TC-002')
   );
   delete noSeverity.severity;
-  assert.equal(score('REG-011', review('REG-011', [noSeverity])).pass, true);
+  assert.deepEqual(failed('REG-011', review('REG-011', [noSeverity])), [
+    'finds',
+  ]);
+});
+
+test('a finding naming only a risk is about the cases that cover it', () => {
+  const byRisk = (
+    /** @type {string} */ type,
+    /** @type {string} */ risk_id,
+    severity = 'warning'
+  ) => ({ type, risk_id, severity, description: 'x' });
+  // RISK-003 is covered by TC-004 alone: a catch on REG-013, no alarm.
+  assert.equal(
+    score(
+      'REG-013',
+      review('REG-013', [byRisk('missing_negative_case', 'RISK-003')])
+    ).pass,
+    true
+  );
+  // RISK-001 is covered by TC-002, a faithful case of REG-013: an alarm.
+  assert.deepEqual(
+    failed(
+      'REG-013',
+      review('REG-013', [
+        finding('approved_tc_not_in_spec', 'TC-004'),
+        byRisk('missing_negative_case', 'RISK-001'),
+      ])
+    ),
+    ['no_alarm']
+  );
+  // RISK-004 is covered by TC-001 and TC-005, both faithful in REG-011: an
+  // alarm, and no catch of the TC-002 defect. (Test-review findings name no
+  // risk: their schema has no risk_id.)
+  assert.deepEqual(
+    failed(
+      'REG-011',
+      review('REG-011', [byRisk('weak_expected_outcome', 'RISK-004')])
+    ),
+    ['finds', 'no_alarm']
+  );
+  // A finding naming neither a case nor a risk is an alarm on a seeded case.
+  assert.deepEqual(
+    failed(
+      'REG-016',
+      review('REG-016', [
+        finding('missing_assertion', 'TC-005'),
+        finding('traceability_gap', undefined),
+      ])
+    ),
+    ['no_alarm']
+  );
 });
 
 test('a control passes with nothing above info, and fails on any alarm', () => {
@@ -317,7 +368,9 @@ test("an evaluation reports each reviewer's catch and false-alarm rates, and the
   const dir = mkdtempSync(join(tmpdir(), 'qaizen-reviewer-trials-'));
   try {
     // Trial 1 catches everything cleanly; trial 2 misses REG-011 and raises
-    // an alarm on REG-018; trial 3 is unreadable for REG-015.
+    // an alarm on REG-018; trial 3 is unreadable for REG-015, and for REG-016
+    // catches the defect in a review of other inputs, which the gate would
+    // not show.
     for (const c of REVIEWER_CASES)
       for (let n = 1; n <= SET.trials; n++) {
         const quiet = review(c.id, []);
@@ -326,6 +379,11 @@ test("an evaluation reports each reviewer's catch and false-alarm rates, and the
         if (n === 2 && c.id === 'REG-018')
           out = review(c.id, [finding('weak_assertion', 'TC-001')]);
         if (n === 3 && c.id === 'REG-015') out = '{';
+        if (n === 3 && c.id === 'REG-016')
+          out = JSON.stringify({
+            ...JSON.parse(catching(c.id)),
+            input_digest: 'b'.repeat(64),
+          });
         const file =
           c.agent === 'spec-reviewer' ? 'spec-review.json' : 'test-review.json';
         mkdirSync(join(dir, c.id, `trial-${n}`), { recursive: true });
@@ -350,12 +408,12 @@ test("an evaluation reports each reviewer's catch and false-alarm rates, and the
     const doc = /** @type {any} */ (res).doc;
     assert.deepEqual(Object.keys(doc.reviewer_accuracy), ['test-reviewer']);
     const r = doc.reviewer_accuracy['test-reviewer'];
-    // 3 seeded cases x 3 trials, one unreadable; 4 no_alarm checks x 3
-    // trials, one alarm and one unreadable.
+    // 3 seeded cases x 3 trials, two not shown; 4 no_alarm checks x 3
+    // trials, one alarm and two not shown.
     assert.equal(r.seeded.checks, 9);
-    assert.equal(r.seeded.caught, 8);
-    assert.equal(r.controls.checks, 12);
-    assert.equal(r.controls.alarmed, 2);
+    assert.equal(r.seeded.caught, 7);
+    assert.equal(r.no_alarm.checks, 12);
+    assert.equal(r.no_alarm.alarmed, 3);
     assert.ok(validate(doc, 'regression-results.schema.json').ok);
     assert.deepEqual(
       doc.provenance.prompts['test-reviewer'].map(
@@ -364,16 +422,16 @@ test("an evaluation reports each reviewer's catch and false-alarm rates, and the
       ['agents/test-reviewer.md']
     );
     const lines = reportLines(doc).join('\n');
-    assert.match(lines, /test-reviewer: seeded defects found 8\/9 = 0\.89 \[/);
-    assert.match(lines, /false alarms 2\/12 = 0\.17 \[/);
-    // REG-015 passes 2 of 3; REG-018 too; no case failed every trial.
+    assert.match(lines, /test-reviewer: seeded defects found 7\/9 = 0\.78 \[/);
+    assert.match(lines, /false alarms 3\/12 = 0\.25 \[/);
+    // REG-015, REG-016 and REG-018 pass 2 of 3; none failed every trial.
     assert.equal(doc.decision.verdict, 'pass');
 
     // The spec cases: one miss (REG-011, trial 2), no alarm.
     const spec = /** @type {any} */ (run('spec-reviewer')).doc;
     assert.deepEqual(Object.keys(spec.reviewer_accuracy), ['spec-reviewer']);
     assert.equal(spec.reviewer_accuracy['spec-reviewer'].seeded.caught, 8);
-    assert.equal(spec.reviewer_accuracy['spec-reviewer'].controls.alarmed, 0);
+    assert.equal(spec.reviewer_accuracy['spec-reviewer'].no_alarm.alarmed, 0);
     // Without --agent every case needs its trials, the other agents' too.
     const all = run(null);
     assert.equal(all.ok, false);

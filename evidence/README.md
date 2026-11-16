@@ -15,7 +15,8 @@
 - **`regressions/<agent>.json`** (`all.json` for every agent) — the last
   regression evaluation of that scope: per case the trials passed, pass^k and a
   Wilson 95% interval, the prompt digests and model behind the trials, and the
-  decision the set's rule gave. Validates against
+  decision the set's rule gave; for an AI reviewer in scope, its catch rate on
+  the seeded defects and its false-alarm rate (`reviewer_accuracy`). Validates against
   `schemas/regression-results.schema.json`. Written by
   `node scripts/evaluate-agents.js --regressions <trials-dir>`, run by the
   human, and committed with the change it judged; rewritten only when the

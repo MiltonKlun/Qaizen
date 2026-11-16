@@ -283,7 +283,11 @@ The report gives, per case, the trials passed out of k, pass^k (every trial
 passed) and a Wilson 95% interval on its pass rate; then the share of cases
 passing every trial, and of trials passing, each with its interval; for an
 AI reviewer, also its catch rate on the seeded defects and its false-alarm
-rate, each with its interval. pass^k is
+rate, each with its interval. A review the gate would not show (for other
+inputs, or unreadable) counts as a miss and an alarm. These intervals treat
+the k trials of a case as independent, and with three seeded defects per
+reviewer they are wide (8 of 9 found is about 57% to 98%): read them as a
+floor on what is known, not as a rate to rely on, until more cases are added. pass^k is
 the measure because an agent behind a human gate must be right every time,
 not once in k. A missing trial is missing work, never a smaller denominator.
 

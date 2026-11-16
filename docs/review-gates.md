@@ -255,7 +255,7 @@ decision and its gate record name which (`independence`):
   §3), and `npm run metrics` lists the marked decisions still waiting and
   every disagreement.
 
-An advisory AI review, its accuracy measured on canaries, becomes a fourth
+An advisory AI review, its accuracy measured on the regression set, becomes a fourth
 control when it exists. A rejection needs none of them, and a setting in
 `config/gate-checks.json` that cannot apply refuses approvals only. Solo operation
 stays supported: the delay is always available. `npm run metrics` counts

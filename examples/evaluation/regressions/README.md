@@ -43,13 +43,15 @@ REG-011 to REG-018 measure the advisory AI review (`docs/review-gates.md`,
 defect planted in one case; each control is that faithful input. A review
 passes a seeded case when it raises the defect above "info" on the case it is
 in (`finds`, any of the finding types that name it) and raises nothing above
-"info" about the cases left faithful (`no_alarm`); it passes a control when
+"info" about the cases left faithful (`no_alarm`; a finding naming only a
+risk counts for the cases that cover it, and one naming no case counts as an
+alarm); it passes a control when
 it raises nothing above "info" at all. So a reviewer that flags everything
 fails the controls, and one that flags nothing fails the seeded cases.
 
 Besides pass^k, the report gives each reviewer's catch rate (seeded defects
 found, over every trial) and false-alarm rate (`no_alarm` checks failed),
-each with its Wilson interval. These are the "canaries" of the AI review: no
+each with its Wilson interval. They measure the AI review on the regression set only: no
 defect is planted in a real run, because the review reads `specs/` and
 `tests/`, which belong to the Planner and the Generator.
 

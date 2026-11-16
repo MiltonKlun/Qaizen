@@ -241,15 +241,17 @@ export function aggregate(cases) {
 /**
  * How often each AI reviewer found the seeded defects (`finds` checks) and
  * raised a false alarm (`no_alarm` checks), over every trial. A trial whose
- * review is unreadable counts as a miss and as an alarm: it found nothing
- * and cannot be read as quiet. Only reviewers in scope are reported.
+ * review the gate would not show (`review_valid` failed: unreadable, or for
+ * other inputs) counts as a miss and as an alarm: it found nothing the
+ * reviewer would see and cannot be read as quiet. Only reviewers in scope
+ * are reported.
  * @param {RegressionCase[]} defs
  * @param {ReturnType<typeof caseResult>[]} cases
  */
 export function reviewerAccuracy(defs, cases) {
-  /** @type {Record<string, { seeded: { checks: number, caught: number } & ReturnType<typeof rate>, controls: { checks: number, alarmed: number } & ReturnType<typeof rate> }>} */
+  /** @type {Record<string, { seeded: { checks: number, caught: number } & ReturnType<typeof rate>, no_alarm: { checks: number, alarmed: number } & ReturnType<typeof rate> }>} */
   const out = {};
-  /** @type {Record<string, { seeded: number, caught: number, controls: number, alarmed: number }>} */
+  /** @type {Record<string, { seeded: number, caught: number, quiet: number, alarmed: number }>} */
   const n = {};
   for (const c of cases) {
     if (!REVIEWER_AGENTS.includes(c.agent)) continue;
@@ -259,16 +261,17 @@ export function reviewerAccuracy(defs, cases) {
     const a = (n[c.agent] ??= {
       seeded: 0,
       caught: 0,
-      controls: 0,
+      quiet: 0,
       alarmed: 0,
     });
     for (const t of c.trial_results) {
+      const shown = !t.failed.some((f) => f.check === 'review_valid');
       const failed = (/** @type {string} */ check) =>
         t.failed.filter((f) => f.check === check).length;
       a.seeded += finds;
-      a.caught += finds - failed('finds');
-      a.controls += quiet;
-      a.alarmed += failed('no_alarm');
+      a.caught += shown ? finds - failed('finds') : 0;
+      a.quiet += quiet;
+      a.alarmed += shown ? failed('no_alarm') : quiet;
     }
   }
   for (const [agent, a] of Object.entries(n).sort(([x], [y]) =>
@@ -280,10 +283,10 @@ export function reviewerAccuracy(defs, cases) {
         caught: a.caught,
         ...rate(a.caught, a.seeded),
       },
-      controls: {
-        checks: a.controls,
+      no_alarm: {
+        checks: a.quiet,
         alarmed: a.alarmed,
-        ...rate(a.alarmed, a.controls),
+        ...rate(a.alarmed, a.quiet),
       },
     };
   return out;
@@ -569,7 +572,7 @@ export function reportLines(doc) {
   );
   for (const [agent, r] of Object.entries(doc.reviewer_accuracy ?? {}))
     lines.push(
-      `${agent}: seeded defects found ${r.seeded.caught}/${r.seeded.checks} = ${pct(r.seeded)}; false alarms ${r.controls.alarmed}/${r.controls.checks} = ${pct(r.controls)}`
+      `${agent}: seeded defects found ${r.seeded.caught}/${r.seeded.checks} = ${pct(r.seeded)}; false alarms ${r.no_alarm.alarmed}/${r.no_alarm.checks} = ${pct(r.no_alarm)}`
     );
   const p = doc.previous;
   if (p)

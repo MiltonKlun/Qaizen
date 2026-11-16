@@ -273,7 +273,7 @@ and the decision, or the team's sampled outside review, drawn when the
 decision is recorded once per gate and inputs. The decision and its gate
 record name the control
 (`docs/review-gates.md`, "Independence at Gates 2 and 4"). An advisory AI
-review, its accuracy measured on canaries, is a fourth control once it
+review, its accuracy measured on the regression set, is a fourth control once it
 exists.
 
 **Consequences.** Solo operation stays supported through the delay. Names

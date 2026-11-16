@@ -305,7 +305,11 @@
         },
         {
           "check": "finds",
-          "types": ["weak_assertion", "expected_value_mismatch"],
+          "types": [
+            "weak_assertion",
+            "missing_assertion",
+            "expected_value_mismatch"
+          ],
           "tc_id": "TC-002"
         },
         {

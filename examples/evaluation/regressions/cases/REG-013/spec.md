@@ -4,6 +4,9 @@ Story: BENCH-2. Brief: planner-input/BENCH-2.planner-brief.md.
 Seed: tests/seed.spec.ts. App: Bench Shop v1.
 
 Every figure is read from the review; no amount is copied from the story.
+As the brief records from Gate 2, the money scenarios use the one
+two-product basket, and the negative scenario is the missing postcode alone;
+other baskets, the tax rounding and other empty fields are out of scope.
 
 ## Scenarios
 
@@ -36,7 +39,7 @@ and "Order total" figures.
 **Expected:** the "Order total" equals the shown "Items" figure plus the shown
 "Sales tax", to the cent.
 
-### 5. Placing the order confirms it and clears the basket count (TC-005, RISK-004)
+### 4. Placing the order confirms it and clears the basket count (TC-005, RISK-004)
 
 **Steps:** reach the review as in scenario 1 and select "Place order".
 

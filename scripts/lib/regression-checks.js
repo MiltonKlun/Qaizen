@@ -90,10 +90,11 @@ export function findingTypes(agent) {
 
 /**
  * Whether a finding weighs on the gate: "info" does not. A spec-review
- * finding without a severity weighs, since its schema leaves it optional.
+ * finding without a severity is shown as info at the gate
+ * (scripts/lib/ai-review.js), so it is scored as info.
  * @param {any} f
  */
-const weighs = (f) => f?.severity !== 'info';
+const weighs = (f) => (f?.severity ?? 'info') !== 'info';
 const TC_ID = /^(TC|API)-[0-9]+$/;
 const caseIds = (/** @type {CaseInput} */ input) =>
   new Set(
@@ -101,6 +102,20 @@ const caseIds = (/** @type {CaseInput} */ input) =>
       (/** @type {any} */ tc) => tc.test_case_id
     )
   );
+/**
+ * The cases a finding is about: its tc_id, else the cases covering its
+ * risk_id, else null (about no case in particular).
+ * @param {any} f
+ * @param {CaseInput} input
+ * @returns {string[] | null}
+ */
+const findingCases = (f, input) => {
+  if (typeof f?.tc_id === 'string') return [f.tc_id];
+  if (typeof f?.risk_id !== 'string') return null;
+  return (input.cases?.test_cases ?? [])
+    .filter((/** @type {any} */ tc) => (tc.risk_ids ?? []).includes(f.risk_id))
+    .map((/** @type {any} */ tc) => tc.test_case_id);
+};
 /** @returns {any[] | null} */
 const findingList = (/** @type {TrialOutput} */ out) =>
   Array.isArray(out.json?.findings) ? out.json.findings : null;
@@ -413,7 +428,8 @@ export const CHECKS = {
     },
   },
   // The seeded defect is found: a finding of one of `types` about `tc_id`
-  // that weighs on the gate (above "info").
+  // that weighs on the gate (above "info"). A finding naming only a risk is
+  // about `tc_id` when that risk is covered by `tc_id` alone.
   finds: {
     agents: [...REVIEWER_AGENTS],
     needs: ['cases'],
@@ -432,19 +448,27 @@ export const CHECKS = {
         ? null
         : `${p.tc_id} is not a case of the input test-cases.json`;
     },
-    run: (p, out) => {
+    run: (p, out, input) => {
       const list = findingList(out);
       if (!list) return no('no findings list');
-      const hit = list.find(
-        (f) => p.types.includes(f?.type) && f?.tc_id === p.tc_id && weighs(f)
-      );
+      const hit = list.find((f) => {
+        const about = findingCases(f, input);
+        return (
+          p.types.includes(f?.type) &&
+          weighs(f) &&
+          about?.length === 1 &&
+          about[0] === p.tc_id
+        );
+      });
       return hit
         ? ok(`${hit.type} ${hit.severity ?? ''}`.trim())
         : no(`no ${p.types.join(' or ')} finding about ${p.tc_id} above info`);
     },
   },
   // No false alarm: no finding above "info" about the cases named, or about
-  // anything without `tc_ids`. A review that cannot be read is not quiet.
+  // anything without `tc_ids`. A finding naming no case counts unless its
+  // risk is covered only by cases not named. A review that cannot be read
+  // is not quiet.
   no_alarm: {
     agents: [...REVIEWER_AGENTS],
     needs: ['cases'],
@@ -465,12 +489,18 @@ export const CHECKS = {
         ? `${unknown.join(', ')} not in the input test-cases.json`
         : null;
     },
-    run: (p, out) => {
+    run: (p, out, input) => {
       const list = findingList(out);
       if (!list) return no('no findings list');
-      const alarms = list.filter(
-        (f) => weighs(f) && (!p.tc_ids || p.tc_ids.includes(f?.tc_id))
-      );
+      const alarms = list.filter((f) => {
+        if (!weighs(f)) return false;
+        if (!p.tc_ids) return true;
+        const about = findingCases(f, input);
+        return (
+          !about?.length ||
+          about.some((/** @type {string} */ t) => p.tc_ids.includes(t))
+        );
+      });
       return alarms.length
         ? no(
             `raised ${alarms.map((f) => `${f.type} ${f.tc_id ?? f.risk_id ?? ''}`.trim()).join(', ')}`

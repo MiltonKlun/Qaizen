@@ -37,7 +37,7 @@
     },
     {
       "risk_id": "RISK-004",
-      "description": "Placing the order does not reach the confirmation or does not clear the basket count, leaving the shopper unsure the order was placed.",
+      "description": "Checkout does not reach the review with complete delivery details, or placing the order does not reach the confirmation or does not clear the basket count, leaving the shopper unsure the order was placed.",
       "severity": "medium",
       "related_acs": [0, 4]
     }

@@ -65,7 +65,7 @@ test('TC-003 · PW-003: the Order total is Items plus Sales tax', async ({
   expect(await amount(page, 'sum-total')).toBe(items + tax);
 });
 
-test('TC-005 · PW-005: placing the order confirms it and clears the basket count', async ({
+test('TC-005 · PW-004: placing the order confirms it and clears the basket count', async ({
   page,
 }) => {
   await reachReview(page);
