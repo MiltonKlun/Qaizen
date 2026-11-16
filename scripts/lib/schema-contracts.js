@@ -335,12 +335,20 @@ export const SCHEMA_CONTRACTS = {
       'the human reviewing the change',
     ],
     docs: ['docs/prompt-versioning.md', 'evidence/README.md'],
-    examples: ['examples/expected/healer.expected-regression-results.json'],
+    examples: [
+      'examples/expected/healer.expected-regression-results.json',
+      'examples/expected/test-reviewer.expected-regression-results.json',
+    ],
     invalid: [
       {
         path: 'examples/invalid/regression-results.pass-rate-above-one.json',
         rule: 'a pass rate is a share, at most 1',
         errorAt: '/cases/0/pass_rate/value',
+      },
+      {
+        path: 'examples/invalid/regression-results.accuracy-for-a-non-reviewer.json',
+        rule: 'catch and false-alarm rates are reported for the AI reviewers only',
+        errorAt: '/reviewer_accuracy',
       },
     ],
     discovery:
@@ -353,6 +361,7 @@ export const SCHEMA_CONTRACTS = {
     consumers: ['scripts/evaluate-agents.js --regressions'],
     docs: [
       'docs/prompt-versioning.md',
+      'docs/review-gates.md',
       'examples/evaluation/regressions/README.md',
     ],
     examples: ['examples/evaluation/regressions/manifest.json'],

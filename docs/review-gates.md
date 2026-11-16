@@ -255,7 +255,7 @@ decision and its gate record name which (`independence`):
   §3), and `npm run metrics` lists the marked decisions still waiting and
   every disagreement.
 
-An advisory AI review, its accuracy measured on canaries, becomes a fourth
+An advisory AI review, its accuracy measured on the regression set, becomes a fourth
 control when it exists. A rejection needs none of them, and a setting in
 `config/gate-checks.json` that cannot apply refuses approvals only. Solo operation
 stays supported: the delay is always available. `npm run metrics` counts
@@ -1205,6 +1205,17 @@ default, `"off"`, it asks for none, and uses one only when it exists for
 the current inputs. The decision records the review it was shown, its
 round and your own concerns (`gate_decisions[].ai_review`, and a section
 of the gate record); `ai_reviews[]` logs each round.
+
+**How often it catches a defect** is measured on the agent regression set,
+not in real runs (`examples/evaluation/regressions/`, REG-011 to REG-018):
+defects planted in a faithful spec and test, each of which the reviewer must
+raise above "info", and faithful controls on which it must raise nothing
+above "info". The evaluation reports each reviewer's catch rate and
+false-alarm rate with their intervals (`docs/prompt-versioning.md` §3a).
+No defect is planted in a real run, because the review reads `specs/` and
+`tests/`, which belong to the Planner and the Generator. Until trials are
+scored (`evidence/regressions/`), the catch rate is unknown: a review with
+no findings says nothing about what it missed.
 
 ---
 

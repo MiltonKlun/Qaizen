@@ -4,14 +4,19 @@
 // Each check reads one trial's output (the file the agent wrote for that
 // trial) and the case's input, and says whether the expected behavior held.
 // They reuse the checks the pipeline already runs on a real story: the Gate 1
-// criteria comparison, the track floor, the test-case links and the Healer
-// guardrails. A check never reads prose for meaning; what it cannot decide
+// criteria comparison, the track floor, the test-case links, the Healer
+// guardrails and the AI review schemas. A check never reads prose for meaning; what it cannot decide
 // mechanically is not a check here.
 //
 // Pure: the caller loads the files.
 
+import { readFileSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { checkCandidate } from '../healer-guardrails.js';
 import { minimumTrack, trackRank, TRACK_ORDER } from '../track-floor.js';
+import { AI_REVIEW_GATES } from './ai-review.js';
 import { compareCriteria } from './criteria-check.js';
 import { ts } from './test-source.js';
 
@@ -21,7 +26,14 @@ import { ts } from './test-source.js';
  *   story: string | null,
  *   context: any,
  *   original: string | null,
+ *   cases: any,
+ *   brief: string | null,
+ *   spec: string | null,
+ *   test: string | null,
+ *   digest: string,
  * }} CaseInput
+ *   `cases` is the parsed test-cases.json; `digest` is caseDigest() of the
+ *   input files, the input_digest a reviewer's trial is given.
  * @typedef {{ text: string, json: any }} TrialOutput
  *   `json` is the parsed file, or undefined when it is not JSON.
  * @typedef {{ pass: boolean, detail: string }} CheckResult
@@ -30,9 +42,9 @@ import { ts } from './test-source.js';
  *   agents: string[],
  *   needs: (keyof CaseInput)[],
  *   keys?: string[],
- *   params?: (p: any, input: CaseInput) => string | null,
- *   run: (p: any, out: TrialOutput, input: CaseInput, validate: Validate)
- *     => CheckResult,
+ *   params?: (p: any, input: CaseInput, agent: string) => string | null,
+ *   run: (p: any, out: TrialOutput, input: CaseInput, validate: Validate,
+ *     agent: string) => CheckResult,
  * }} CheckDef
  */
 
@@ -44,7 +56,69 @@ export const TRIAL_OUTPUT = Object.freeze({
   analyst: 'context.json',
   'test-designer': 'test-cases.json',
   healer: 'candidate.spec.ts',
+  'spec-reviewer': 'spec-review.json',
+  'test-reviewer': 'test-review.json',
 });
+
+/** The gate each AI reviewer assists (scripts/lib/ai-review.js). */
+const REVIEWER_GATE = Object.freeze({
+  'spec-reviewer': AI_REVIEW_GATES.specs_reviewed,
+  'test-reviewer': AI_REVIEW_GATES.code_reviewed,
+});
+
+/** The agents whose trials are reviews, scored for catches and false alarms. */
+export const REVIEWER_AGENTS = Object.freeze(Object.keys(REVIEWER_GATE));
+
+const reviewerGate = (/** @type {string} */ agent) =>
+  /** @type {Record<string, (typeof AI_REVIEW_GATES)[string]>} */ (
+    REVIEWER_GATE
+  )[agent];
+
+const REPO_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+/**
+ * The finding types a reviewer's schema allows.
+ * @param {string} agent
+ * @returns {string[]}
+ */
+export function findingTypes(agent) {
+  const schema = JSON.parse(
+    readFileSync(join(REPO_DIR, reviewerGate(agent).schema), 'utf8')
+  );
+  return schema.properties.findings.items.properties.type.enum;
+}
+
+/**
+ * Whether a finding weighs on the gate: "info" does not. A spec-review
+ * finding without a severity is shown as info at the gate
+ * (scripts/lib/ai-review.js), so it is scored as info.
+ * @param {any} f
+ */
+const weighs = (f) => (f?.severity ?? 'info') !== 'info';
+const TC_ID = /^(TC|API)-[0-9]+$/;
+const caseIds = (/** @type {CaseInput} */ input) =>
+  new Set(
+    (input.cases?.test_cases ?? []).map(
+      (/** @type {any} */ tc) => tc.test_case_id
+    )
+  );
+/**
+ * The cases a finding is about: its tc_id, else the cases covering its
+ * risk_id, else null (about no case in particular).
+ * @param {any} f
+ * @param {CaseInput} input
+ * @returns {string[] | null}
+ */
+const findingCases = (f, input) => {
+  if (typeof f?.tc_id === 'string') return [f.tc_id];
+  if (typeof f?.risk_id !== 'string') return null;
+  return (input.cases?.test_cases ?? [])
+    .filter((/** @type {any} */ tc) => (tc.risk_ids ?? []).includes(f.risk_id))
+    .map((/** @type {any} */ tc) => tc.test_case_id);
+};
+/** @returns {any[] | null} */
+const findingList = (/** @type {TrialOutput} */ out) =>
+  Array.isArray(out.json?.findings) ? out.json.findings : null;
 
 /** An automated decision, as the Automation Decision Model names it. */
 const AUTOMATED = new Set([
@@ -321,6 +395,116 @@ export const CHECKS = {
       );
       return present.length
         ? no(`its code still contains ${present.join(', ')}`)
+        : ok();
+    },
+  },
+
+  // ------------------------------------------- Spec and Test Reviewers --
+  // The review is one the gate would show: valid against its schema, of the
+  // version the runner uses, for the case's story, and carrying the input
+  // digest and round 1 that the case gives (its README prints them).
+  review_valid: {
+    agents: [...REVIEWER_AGENTS],
+    needs: ['context'],
+    run: (_p, out, input, validate, agent) => {
+      const g = reviewerGate(agent);
+      const doc = out.json;
+      if (doc === undefined) return no('the review is not JSON');
+      const v = validate(doc, basename(g.schema));
+      if (!v.ok) return no(`does not validate: ${v.detail}`);
+      if (!g.version.test(String(doc.schema_version)))
+        return no(
+          `schema_version ${doc.schema_version} is not one the gate shows`
+        );
+      if (doc.story_id !== input.context?.story?.id)
+        return no(
+          `story_id ${doc.story_id}, the context is ${input.context?.story?.id}`
+        );
+      if (doc.input_digest !== input.digest)
+        return no('input_digest is not the one the case gives');
+      return doc.round === 1
+        ? ok()
+        : no(`round ${doc.round}, the case is round 1`);
+    },
+  },
+  // The seeded defect is found: a finding of one of `types` about `tc_id`
+  // that weighs on the gate (above "info"). A finding naming only a risk is
+  // about `tc_id` when that risk is covered by `tc_id` alone.
+  finds: {
+    agents: [...REVIEWER_AGENTS],
+    needs: ['cases'],
+    keys: ['types', 'tc_id'],
+    params: (p, input, agent) => {
+      const known = findingTypes(agent);
+      if (
+        !Array.isArray(p.types) ||
+        !p.types.length ||
+        !p.types.every((/** @type {unknown} */ t) => known.includes(String(t)))
+      )
+        return `types must be a non-empty list of ${agent} finding types`;
+      if (typeof p.tc_id !== 'string' || !TC_ID.test(p.tc_id))
+        return 'tc_id must be a TC-XXX or API-XXX';
+      return caseIds(input).has(p.tc_id)
+        ? null
+        : `${p.tc_id} is not a case of the input test-cases.json`;
+    },
+    run: (p, out, input) => {
+      const list = findingList(out);
+      if (!list) return no('no findings list');
+      const hit = list.find((f) => {
+        const about = findingCases(f, input);
+        return (
+          p.types.includes(f?.type) &&
+          weighs(f) &&
+          about?.length === 1 &&
+          about[0] === p.tc_id
+        );
+      });
+      return hit
+        ? ok(`${hit.type} ${hit.severity ?? ''}`.trim())
+        : no(`no ${p.types.join(' or ')} finding about ${p.tc_id} above info`);
+    },
+  },
+  // No false alarm: no finding above "info" about the cases named, or about
+  // anything without `tc_ids`. A finding naming no case counts unless its
+  // risk is covered only by cases not named. A review that cannot be read
+  // is not quiet.
+  no_alarm: {
+    agents: [...REVIEWER_AGENTS],
+    needs: ['cases'],
+    keys: ['tc_ids'],
+    params: (p, input) => {
+      if (p.tc_ids === undefined) return null;
+      if (
+        !Array.isArray(p.tc_ids) ||
+        !p.tc_ids.length ||
+        !p.tc_ids.every(
+          (/** @type {unknown} */ t) => typeof t === 'string' && TC_ID.test(t)
+        )
+      )
+        return 'tc_ids must be a non-empty list of TC-XXX or API-XXX';
+      const ids = caseIds(input);
+      const unknown = p.tc_ids.filter((/** @type {string} */ t) => !ids.has(t));
+      return unknown.length
+        ? `${unknown.join(', ')} not in the input test-cases.json`
+        : null;
+    },
+    run: (p, out, input) => {
+      const list = findingList(out);
+      if (!list) return no('no findings list');
+      const alarms = list.filter((f) => {
+        if (!weighs(f)) return false;
+        if (!p.tc_ids) return true;
+        const about = findingCases(f, input);
+        return (
+          !about?.length ||
+          about.some((/** @type {string} */ t) => p.tc_ids.includes(t))
+        );
+      });
+      return alarms.length
+        ? no(
+            `raised ${alarms.map((f) => `${f.type} ${f.tc_id ?? f.risk_id ?? ''}`.trim()).join(', ')}`
+          )
         : ok();
     },
   },

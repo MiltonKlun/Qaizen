@@ -132,6 +132,7 @@ test('the committed set is valid, and every case input satisfies its checks', ()
     'audit-probe',
     'bench-shop-bug',
     'false-heal',
+    'seeded-defect',
   ]);
 });
 
@@ -507,6 +508,8 @@ test('an evaluation writes per-case pass^k; an identical re-run leaves the file;
     const doc = JSON.parse(readFileSync(out, 'utf8'));
     assert.ok(validate(doc, 'regression-results.schema.json').ok);
     assert.equal(doc.provenance.model, 'model-x');
+    // No AI reviewer in scope, so no reviewer accuracy.
+    assert.equal(doc.reviewer_accuracy, undefined);
     assert.equal(doc.provenance.prompts.analyst[0].path, 'agents/analyst.md');
     assert.match(doc.provenance.prompts.analyst[0].sha256, /^[0-9a-f]{64}$/);
     assert.equal(

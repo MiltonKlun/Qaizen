@@ -1,0 +1,199 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-11-15T09-00-00Z-bench2rev",
+  "story_id": "BENCH-2",
+  "generated_at": "2026-11-15T09:10:00Z",
+  "test_cases": [
+    {
+      "test_case_id": "TC-001",
+      "title": "Delivery details lead to the order review listing both products",
+      "description": "[Use case] A shopper with two products submits complete delivery details and reaches the review.",
+      "risk_ids": ["RISK-004"],
+      "acceptance_criteria_refs": [0],
+      "priority": "P1",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Bench Shop has no API: the behavior is visible only on the rendered checkout screens, so it is checked end to end.",
+      "preconditions": ["Bench Shop v1 is served at BASE_URL."],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Sign in with the demo account the sign-in screen shows."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Put the Bevel-Edge Chisel Set and the Brass Marking Gauge in the basket."
+        },
+        {
+          "step_id": "S-03",
+          "action": "Open the basket and go to checkout."
+        },
+        {
+          "step_id": "S-04",
+          "action": "Fill the delivery details and submit them.",
+          "data": "Ada / Joiner / LS6 2QT"
+        }
+      ],
+      "expected_results": [
+        "The \"Review your order\" screen is shown.",
+        "It lists the Bevel-Edge Chisel Set and the Brass Marking Gauge."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-002",
+      "title": "The Items figure is the sum of the basket prices",
+      "description": "[Calculation] The review states the Items figure the shopper is about to pay for.",
+      "risk_ids": ["RISK-001"],
+      "acceptance_criteria_refs": [1],
+      "priority": "P0",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Bench Shop has no API: the behavior is visible only on the rendered checkout screens, so it is checked end to end.",
+      "preconditions": ["Bench Shop v1 is served at BASE_URL."],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Sign in with the demo account the sign-in screen shows."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Put the Bevel-Edge Chisel Set and the Brass Marking Gauge in the basket."
+        },
+        {
+          "step_id": "S-03",
+          "action": "Open the basket and go to checkout."
+        },
+        {
+          "step_id": "S-04",
+          "action": "Fill the delivery details and submit them.",
+          "data": "Ada / Joiner / LS6 2QT"
+        },
+        {
+          "step_id": "S-05",
+          "action": "Read the prices listed and the \"Items\" figure."
+        }
+      ],
+      "expected_results": [
+        "The \"Items\" figure equals the exact sum of the prices listed on the review, computed from the prices shown."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-003",
+      "title": "The Order total is Items plus Sales tax",
+      "description": "[Calculation] The three figures on the review add up.",
+      "risk_ids": ["RISK-002"],
+      "acceptance_criteria_refs": [2],
+      "priority": "P0",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Bench Shop has no API: the behavior is visible only on the rendered checkout screens, so it is checked end to end.",
+      "preconditions": ["Bench Shop v1 is served at BASE_URL."],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Sign in with the demo account the sign-in screen shows."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Put the Bevel-Edge Chisel Set and the Brass Marking Gauge in the basket."
+        },
+        {
+          "step_id": "S-03",
+          "action": "Open the basket and go to checkout."
+        },
+        {
+          "step_id": "S-04",
+          "action": "Fill the delivery details and submit them.",
+          "data": "Ada / Joiner / LS6 2QT"
+        },
+        {
+          "step_id": "S-05",
+          "action": "Read the \"Items\", \"Sales tax\" and \"Order total\" figures."
+        }
+      ],
+      "expected_results": [
+        "The \"Order total\" equals the shown \"Items\" figure plus the shown \"Sales tax\", to the cent."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-004",
+      "title": "Delivery details without a postcode are refused",
+      "description": "[Equivalence partition] Negative case: a required field is left empty.",
+      "risk_ids": ["RISK-003"],
+      "acceptance_criteria_refs": [3],
+      "priority": "P1",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Bench Shop has no API: the behavior is visible only on the rendered checkout screens, so it is checked end to end.",
+      "preconditions": ["Bench Shop v1 is served at BASE_URL."],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Sign in with the demo account the sign-in screen shows."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Put the Bevel-Edge Chisel Set and the Brass Marking Gauge in the basket."
+        },
+        {
+          "step_id": "S-03",
+          "action": "Open the basket and go to checkout."
+        },
+        {
+          "step_id": "S-04",
+          "action": "Fill the given name and family name, leave the postcode empty, and submit.",
+          "data": "Ada / Joiner / (empty)"
+        }
+      ],
+      "expected_results": [
+        "The \"Delivery details\" screen stays shown.",
+        "The message \"Please enter a postcode.\" is shown.",
+        "The \"Review your order\" screen is not reached."
+      ],
+      "status": "approved"
+    },
+    {
+      "test_case_id": "TC-005",
+      "title": "Placing the order confirms it and clears the basket count",
+      "description": "[Use case] The shopper places the reviewed order.",
+      "risk_ids": ["RISK-004"],
+      "acceptance_criteria_refs": [4],
+      "priority": "P1",
+      "test_level_recommendation": "e2e",
+      "automation_decision": "automate_e2e",
+      "automation_decision_reason": "Bench Shop has no API: the behavior is visible only on the rendered checkout screens, so it is checked end to end.",
+      "preconditions": ["Bench Shop v1 is served at BASE_URL."],
+      "steps": [
+        {
+          "step_id": "S-01",
+          "action": "Sign in with the demo account the sign-in screen shows."
+        },
+        {
+          "step_id": "S-02",
+          "action": "Put the Bevel-Edge Chisel Set and the Brass Marking Gauge in the basket."
+        },
+        {
+          "step_id": "S-03",
+          "action": "Open the basket and go to checkout."
+        },
+        {
+          "step_id": "S-04",
+          "action": "Fill the delivery details and submit them.",
+          "data": "Ada / Joiner / LS6 2QT"
+        },
+        {
+          "step_id": "S-05",
+          "action": "Place the order."
+        }
+      ],
+      "expected_results": [
+        "The \"Order placed\" confirmation is shown, reading \"Your order is on its way to the workshop.\"",
+        "The basket count is no longer shown."
+      ],
+      "status": "approved"
+    }
+  ]
+}

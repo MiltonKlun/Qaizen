@@ -35,7 +35,7 @@ import { fileURLToPath } from 'node:url';
 
 import { formatErrors, validateValue } from './artifact-io.js';
 import { promptDigests, STEP_PROMPTS, UNKNOWN } from './provenance.js';
-import { CHECKS, TRIAL_OUTPUT } from './regression-checks.js';
+import { CHECKS, REVIEWER_AGENTS, TRIAL_OUTPUT } from './regression-checks.js';
 import { writeResultsIfChanged } from './results-file.js';
 import { rate, wilson } from './stats.js';
 
@@ -58,7 +58,40 @@ export const AGENT_PROMPTS = Object.freeze({
   analyst: STEP_PROMPTS.analyst,
   'test-designer': STEP_PROMPTS['test-designer'],
   healer: ['.claude/agents/playwright-test-healer.md'],
+  'spec-reviewer': STEP_PROMPTS['ai-review-spec'],
+  'test-reviewer': STEP_PROMPTS['ai-review-test'],
 });
+
+/**
+ * The input files a case folder can hold, in the order its digest reads
+ * them. README.md is not an input: it says how to run the agent.
+ */
+export const INPUT_FILES = Object.freeze([
+  'story.md',
+  'context.json',
+  'test-cases.json',
+  'planner-brief.md',
+  'spec.md',
+  'test.spec.ts',
+  'original.spec.ts',
+]);
+
+/**
+ * The digest of a case's input files (names and normalized text): the
+ * input_digest a reviewer's trial is given, standing in for the runner's
+ * gate digest, which needs a workspace.
+ * @param {Record<string, string | null>} files by name
+ * @returns {string}
+ */
+export function caseDigest(files) {
+  const h = createHash('sha256');
+  for (const name of INPUT_FILES) {
+    const text = files[name];
+    if (text === null || text === undefined) continue;
+    h.update(`${name}\u0000${text}\u0000`);
+  }
+  return h.digest('hex');
+}
 
 /**
  * @typedef {{ check: string, [param: string]: unknown }} CheckRef
@@ -92,11 +125,21 @@ export function loadInput(root, c) {
     existsSync(join(dir, name))
       ? normalize(readFileSync(join(dir, name), 'utf8'))
       : null;
-  const ctx = text('context.json');
+  /** @type {Record<string, string | null>} */
+  const files = Object.fromEntries(INPUT_FILES.map((n) => [n, text(n)]));
+  const json = (/** @type {string} */ name) =>
+    files[name] === null
+      ? null
+      : JSON.parse(/** @type {string} */ (files[name]));
   return {
-    story: text('story.md'),
-    context: ctx === null ? null : JSON.parse(ctx),
-    original: text('original.spec.ts'),
+    story: files['story.md'],
+    context: json('context.json'),
+    original: files['original.spec.ts'],
+    cases: json('test-cases.json'),
+    brief: files['planner-brief.md'],
+    spec: files['spec.md'],
+    test: files['test.spec.ts'],
+    digest: caseDigest(files),
   };
 }
 
@@ -129,7 +172,7 @@ export function caseErrors(c, input) {
       );
       continue;
     }
-    const bad = def.params?.(ref, input);
+    const bad = def.params?.(ref, input, c.agent);
     if (bad) errors.push(`${c.id}: check "${ref.check}": ${bad}`);
   }
   return errors;
@@ -153,7 +196,7 @@ export function scoreTrial(c, input, text, validate) {
   const failed = c.checks
     .map((ref) => ({
       check: ref.check,
-      ...CHECKS[ref.check].run(ref, { text, json }, input, validate),
+      ...CHECKS[ref.check].run(ref, { text, json }, input, validate, c.agent),
     }))
     .filter((r) => !r.pass)
     .map(({ check, detail }) => ({ check, detail }));
@@ -193,6 +236,60 @@ export function aggregate(cases) {
     pass_k: { cases: cases.length, passed: all, ...rate(all, cases.length) },
     per_trial: { trials, passed, ...rate(passed, trials) },
   };
+}
+
+/**
+ * How often each AI reviewer found the seeded defects (`finds` checks) and
+ * raised a false alarm (`no_alarm` checks), over every trial. A trial whose
+ * review the gate would not show (`review_valid` failed: unreadable, or for
+ * other inputs) counts as a miss and as an alarm: it found nothing the
+ * reviewer would see and cannot be read as quiet. Only reviewers in scope
+ * are reported.
+ * @param {RegressionCase[]} defs
+ * @param {ReturnType<typeof caseResult>[]} cases
+ */
+export function reviewerAccuracy(defs, cases) {
+  /** @type {Record<string, { seeded: { checks: number, caught: number } & ReturnType<typeof rate>, no_alarm: { checks: number, alarmed: number } & ReturnType<typeof rate> }>} */
+  const out = {};
+  /** @type {Record<string, { seeded: number, caught: number, quiet: number, alarmed: number }>} */
+  const n = {};
+  for (const c of cases) {
+    if (!REVIEWER_AGENTS.includes(c.agent)) continue;
+    const def = /** @type {RegressionCase} */ (defs.find((d) => d.id === c.id));
+    const finds = def.checks.filter((r) => r.check === 'finds').length;
+    const quiet = def.checks.filter((r) => r.check === 'no_alarm').length;
+    const a = (n[c.agent] ??= {
+      seeded: 0,
+      caught: 0,
+      quiet: 0,
+      alarmed: 0,
+    });
+    for (const t of c.trial_results) {
+      const shown = !t.failed.some((f) => f.check === 'review_valid');
+      const failed = (/** @type {string} */ check) =>
+        t.failed.filter((f) => f.check === check).length;
+      a.seeded += finds;
+      a.caught += shown ? finds - failed('finds') : 0;
+      a.quiet += quiet;
+      a.alarmed += shown ? failed('no_alarm') : quiet;
+    }
+  }
+  for (const [agent, a] of Object.entries(n).sort(([x], [y]) =>
+    x.localeCompare(y)
+  ))
+    out[agent] = {
+      seeded: {
+        checks: a.seeded,
+        caught: a.caught,
+        ...rate(a.caught, a.seeded),
+      },
+      no_alarm: {
+        checks: a.quiet,
+        alarmed: a.alarmed,
+        ...rate(a.alarmed, a.quiet),
+      },
+    };
+  return out;
 }
 
 /**
@@ -433,6 +530,9 @@ export function evaluateSet({
         ),
       },
       aggregate: agg,
+      ...(scopeAgents.some((a) => REVIEWER_AGENTS.includes(a))
+        ? { reviewer_accuracy: reviewerAccuracy(cases, results) }
+        : {}),
       previous: previousBlock,
       decision: decide(manifest.decision_rule, k, results, agg, previousBlock),
       cases: results,
@@ -470,6 +570,10 @@ export function reportLines(doc) {
     `Cases passing every trial (pass^${k}): ${a.pass_k.passed}/${a.pass_k.cases} = ${pct(a.pass_k)}`,
     `Trials passing: ${a.per_trial.passed}/${a.per_trial.trials} = ${pct(a.per_trial)}`
   );
+  for (const [agent, r] of Object.entries(doc.reviewer_accuracy ?? {}))
+    lines.push(
+      `${agent}: seeded defects found ${r.seeded.caught}/${r.seeded.checks} = ${pct(r.seeded)}; false alarms ${r.no_alarm.alarmed}/${r.no_alarm.checks} = ${pct(r.no_alarm)}`
+    );
   const p = doc.previous;
   if (p)
     lines.push(

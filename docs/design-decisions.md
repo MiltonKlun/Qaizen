@@ -273,7 +273,7 @@ and the decision, or the team's sampled outside review, drawn when the
 decision is recorded once per gate and inputs. The decision and its gate
 record name the control
 (`docs/review-gates.md`, "Independence at Gates 2 and 4"). An advisory AI
-review, its accuracy measured on canaries, is a fourth control once it
+review, its accuracy measured on the regression set, is a fourth control once it
 exists.
 
 **Consequences.** Solo operation stays supported through the delay. Names
@@ -303,4 +303,7 @@ approve. A team turns the step on with `ai_review: "on"` in
 
 **Consequences.** The answers measure each kind of finding's precision.
 How often the reviewer catches a planted defect is measured separately, on
-the regression set, before it can count toward review independence.
+the regression set (seeded defects in a faithful spec and test, with a
+faithful control each), before it can count toward review independence; no
+defect is planted in a real run, since the review reads folders other agents
+own.
