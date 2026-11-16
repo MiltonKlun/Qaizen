@@ -53,8 +53,14 @@
             "pattern": "^REG-[0-9]{3}$"
           },
           "agent": {
-            "enum": ["analyst", "test-designer", "healer"],
-            "description": "The agent run on the input. Its output for one trial is context.json (Analyst), test-cases.json (Test Designer) or candidate.spec.ts (Healer: the test as it left it, unchanged when it declined). Every trial needs its output."
+            "enum": [
+              "analyst",
+              "test-designer",
+              "healer",
+              "spec-reviewer",
+              "test-reviewer"
+            ],
+            "description": "The agent run on the input. Its output for one trial is context.json (Analyst), test-cases.json (Test Designer), candidate.spec.ts (Healer: the test as it left it, unchanged when it declined), spec-review.json (Spec Reviewer) or test-review.json (Test Reviewer). Every trial needs its output."
           },
           "source": {
             "type": "object",
@@ -66,8 +72,10 @@
                   "audit-probe",
                   "bench-shop-bug",
                   "false-heal",
-                  "escaped-defect"
-                ]
+                  "escaped-defect",
+                  "seeded-defect"
+                ],
+                "description": "seeded-defect: a defect planted in an otherwise faithful input for an AI reviewer to find, or (with no_alarm alone) the faithful input as a control."
               },
               "description": {
                 "type": "string",
@@ -78,7 +86,7 @@
           "input": {
             "type": "string",
             "pattern": "^cases/REG-[0-9]{3}$",
-            "description": "The case's folder, relative to the set: story.md, context.json and original.spec.ts as the agent needs them, and a README.md saying how to run the agent on it."
+            "description": "The case's folder, relative to the set: story.md, context.json, test-cases.json, planner-brief.md, spec.md, test.spec.ts and original.spec.ts as the agent needs them, and a README.md saying how to run the agent on it."
           },
           "expected": {
             "type": "string",
@@ -102,7 +110,10 @@
                     "declines",
                     "candidate_eligible",
                     "candidate_contains",
-                    "candidate_omits"
+                    "candidate_omits",
+                    "review_valid",
+                    "finds",
+                    "no_alarm"
                   ]
                 },
                 "floor": {
@@ -122,6 +133,29 @@
                     "minLength": 1
                   },
                   "description": "candidate_contains / candidate_omits: texts looked for in the code of the Healer's test, comments excluded."
+                },
+                "types": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": "finds: the finding types (of the reviewer's schema) any of which names the seeded defect."
+                },
+                "tc_id": {
+                  "type": "string",
+                  "pattern": "^(TC|API)-[0-9]+$",
+                  "description": "finds: the case of the input test-cases.json the seeded defect is in."
+                },
+                "tc_ids": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^(TC|API)-[0-9]+$"
+                  },
+                  "description": "no_alarm: the cases left faithful, about which no finding above info is due. Without it, no finding above info is due at all."
                 }
               },
               "additionalProperties": false,

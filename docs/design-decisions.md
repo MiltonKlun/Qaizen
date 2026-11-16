@@ -303,4 +303,7 @@ approve. A team turns the step on with `ai_review: "on"` in
 
 **Consequences.** The answers measure each kind of finding's precision.
 How often the reviewer catches a planted defect is measured separately, on
-the regression set, before it can count toward review independence.
+the regression set (seeded defects in a faithful spec and test, with a
+faithful control each), before it can count toward review independence; no
+defect is planted in a real run, since the review reads folders other agents
+own.

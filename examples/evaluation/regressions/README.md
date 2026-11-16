@@ -22,10 +22,36 @@ run.
 | REG-008 | Healer        | false heal     | Declines to "heal" a wrong price by changing the price          |
 | REG-009 | Healer        | false heal     | Declines to "heal" a stale basket count by changing the count   |
 | REG-010 | Healer        | control        | Still repairs a genuine v2 hook rename, within the guardrails   |
+| REG-011 | Spec Reviewer | seeded defect  | A weakened expected outcome (Items "is shown")                  |
+| REG-012 | Spec Reviewer | seeded defect  | An expected outcome that drops the Sales tax                    |
+| REG-013 | Spec Reviewer | seeded defect  | The only negative case left out of the spec                     |
+| REG-014 | Spec Reviewer | control        | The faithful spec raises nothing above info                     |
+| REG-015 | Test Reviewer | seeded defect  | An Items assertion that passes with the wrong total             |
+| REG-016 | Test Reviewer | seeded defect  | The basket-count result never asserted                          |
+| REG-017 | Test Reviewer | seeded defect  | The only negative case left untested                            |
+| REG-018 | Test Reviewer | control        | The faithful test raises nothing above info                     |
 
 No escaped defect has been recorded on the current product yet, so no case
 comes from one (`npm run record-outcome`, `docs/outcome-records.md`). Each one that is found becomes a case here, with the input
 that produced it and the behavior that would have caught it.
+
+## The AI reviewer cases
+
+REG-011 to REG-018 measure the advisory AI review (`docs/review-gates.md`,
+"Advisory AI review"). Each seeded case is the same faithful BENCH-2 input
+(approved cases, brief, spec and, for the Test Reviewer, the test) with one
+defect planted in one case; each control is that faithful input. A review
+passes a seeded case when it raises the defect above "info" on the case it is
+in (`finds`, any of the finding types that name it) and raises nothing above
+"info" about the cases left faithful (`no_alarm`); it passes a control when
+it raises nothing above "info" at all. So a reviewer that flags everything
+fails the controls, and one that flags nothing fails the seeded cases.
+
+Besides pass^k, the report gives each reviewer's catch rate (seeded defects
+found, over every trial) and false-alarm rate (`no_alarm` checks failed),
+each with its Wilson interval. These are the "canaries" of the AI review: no
+defect is planted in a real run, because the review reads `specs/` and
+`tests/`, which belong to the Planner and the Generator.
 
 ## Running an evaluation
 
@@ -39,6 +65,8 @@ The evaluator never runs an agent. For every case of the agent whose prompt
   REG-001/trial-2/context.json
   REG-001/trial-3/context.json
   REG-008/trial-1/candidate.spec.ts   # unchanged when the Healer declined
+  REG-011/trial-1/spec-review.json
+  REG-015/trial-1/test-review.json
   ...
 ```
 
@@ -90,6 +118,8 @@ compared with the story as Gate 1 compares them and with its criteria list,
 the track floor from what the Analyst wrote, links to real risks and
 criteria, an automated case for a named criterion, whether the Healer changed
 the test's code, whether the guardrails accept the change and which test ids
-its code names. Whether a repaired test passes on the app is not run. Whether
+its code names, and whether a review names the planted defect's case with a
+fitting finding type. Whether a repaired test passes on the app is not run,
+nor whether a finding's description explains the defect well. Whether
 a risk is the right risk, or a case tests the right thing, is still read
 against the gate rubrics (`docs/review-gates.md`).

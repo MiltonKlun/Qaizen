@@ -256,6 +256,9 @@ it, with where it came from:
   automated case;
 - false heals, which the Healer must decline, with a control case it must
   still repair so that declining everything does not pass;
+- defects seeded into a faithful spec and test, which the Spec Reviewer and
+  the Test Reviewer must raise, with a faithful control each must leave
+  quiet, so that flagging everything does not pass;
 - every escaped defect recorded with `npm run record-outcome`
   (`docs/outcome-records.md`), once one is (none is yet).
 
@@ -273,12 +276,14 @@ it:
 
 ```bash
 QAIZEN_MODEL=<model id> node scripts/evaluate-agents.js \
-  --regressions <trials-dir> [--agent analyst|test-designer|healer]
+  --regressions <trials-dir> [--agent analyst|test-designer|healer|spec-reviewer|test-reviewer]
 ```
 
 The report gives, per case, the trials passed out of k, pass^k (every trial
 passed) and a Wilson 95% interval on its pass rate; then the share of cases
-passing every trial, and of trials passing, each with its interval. pass^k is
+passing every trial, and of trials passing, each with its interval; for an
+AI reviewer, also its catch rate on the seeded defects and its false-alarm
+rate, each with its interval. pass^k is
 the measure because an agent behind a human gate must be right every time,
 not once in k. A missing trial is missing work, never a smaller denominator.
 

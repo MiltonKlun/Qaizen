@@ -199,6 +199,186 @@
           "texts": ["basket-add-chisel-set"]
         }
       ]
+    },
+    {
+      "id": "REG-011",
+      "agent": "spec-reviewer",
+      "source": {
+        "kind": "seeded-defect",
+        "description": "Planted in a faithful BENCH-2 spec: scenario 2 expects only that an \"Items\" figure is shown, where TC-002 expects it to equal the sum of the listed prices. A test written from it passes with Bench Shop --bug wrong-item-total."
+      },
+      "input": "cases/REG-011",
+      "expected": "The review raises the weakened expected outcome on TC-002 above info, and nothing above info about the other cases.",
+      "checks": [
+        {
+          "check": "review_valid"
+        },
+        {
+          "check": "finds",
+          "types": ["weak_expected_outcome", "missing_expected_outcome"],
+          "tc_id": "TC-002"
+        },
+        {
+          "check": "no_alarm",
+          "tc_ids": ["TC-001", "TC-003", "TC-004", "TC-005"]
+        }
+      ]
+    },
+    {
+      "id": "REG-012",
+      "agent": "spec-reviewer",
+      "source": {
+        "kind": "seeded-defect",
+        "description": "Planted in a faithful BENCH-2 spec: scenario 3 expects the Order total to equal the Items figure, dropping the Sales tax that TC-003 adds."
+      },
+      "input": "cases/REG-012",
+      "expected": "The review raises the expected outcome that contradicts TC-003 above info, and nothing above info about the other cases.",
+      "checks": [
+        {
+          "check": "review_valid"
+        },
+        {
+          "check": "finds",
+          "types": ["expected_outcome_mismatch", "weak_expected_outcome"],
+          "tc_id": "TC-003"
+        },
+        {
+          "check": "no_alarm",
+          "tc_ids": ["TC-001", "TC-002", "TC-004", "TC-005"]
+        }
+      ]
+    },
+    {
+      "id": "REG-013",
+      "agent": "spec-reviewer",
+      "source": {
+        "kind": "seeded-defect",
+        "description": "Planted in a faithful BENCH-2 spec: the scenario for TC-004, the only negative case (no postcode), is left out."
+      },
+      "input": "cases/REG-013",
+      "expected": "The review raises the approved TC-004 missing from the spec above info, and nothing above info about the other cases.",
+      "checks": [
+        {
+          "check": "review_valid"
+        },
+        {
+          "check": "finds",
+          "types": ["approved_tc_not_in_spec", "missing_negative_case"],
+          "tc_id": "TC-004"
+        },
+        {
+          "check": "no_alarm",
+          "tc_ids": ["TC-001", "TC-002", "TC-003", "TC-005"]
+        }
+      ]
+    },
+    {
+      "id": "REG-014",
+      "agent": "spec-reviewer",
+      "source": {
+        "kind": "seeded-defect",
+        "description": "Control for the seeded spec cases: the faithful BENCH-2 spec, every approved case covered with its expected outcome. A reviewer that flags everything does not pass the set."
+      },
+      "input": "cases/REG-014",
+      "expected": "The review raises nothing above info.",
+      "checks": [
+        {
+          "check": "review_valid"
+        },
+        {
+          "check": "no_alarm"
+        }
+      ]
+    },
+    {
+      "id": "REG-015",
+      "agent": "test-reviewer",
+      "source": {
+        "kind": "seeded-defect",
+        "description": "Planted in a faithful BENCH-2 test: the TC-002 test checks only that the Items figure is a positive amount, never that it is the sum of the listed prices. It passes with Bench Shop --bug wrong-item-total."
+      },
+      "input": "cases/REG-015",
+      "expected": "The review raises the weak TC-002 assertion above info, and nothing above info about the other cases.",
+      "checks": [
+        {
+          "check": "review_valid"
+        },
+        {
+          "check": "finds",
+          "types": ["weak_assertion", "expected_value_mismatch"],
+          "tc_id": "TC-002"
+        },
+        {
+          "check": "no_alarm",
+          "tc_ids": ["TC-001", "TC-003", "TC-004", "TC-005"]
+        }
+      ]
+    },
+    {
+      "id": "REG-016",
+      "agent": "test-reviewer",
+      "source": {
+        "kind": "seeded-defect",
+        "description": "Planted in a faithful BENCH-2 test: the TC-005 test never checks that the basket count is cleared, one of the two results TC-005 expects."
+      },
+      "input": "cases/REG-016",
+      "expected": "The review raises the missing basket-count assertion on TC-005 above info, and nothing above info about the other cases.",
+      "checks": [
+        {
+          "check": "review_valid"
+        },
+        {
+          "check": "finds",
+          "types": ["missing_assertion", "weak_assertion"],
+          "tc_id": "TC-005"
+        },
+        {
+          "check": "no_alarm",
+          "tc_ids": ["TC-001", "TC-002", "TC-003", "TC-004"]
+        }
+      ]
+    },
+    {
+      "id": "REG-017",
+      "agent": "test-reviewer",
+      "source": {
+        "kind": "seeded-defect",
+        "description": "Planted in a faithful BENCH-2 test: the test for TC-004, the only negative case (no postcode), is left out, though Gate 2 approved it as automate_e2e and the spec has its scenario."
+      },
+      "input": "cases/REG-017",
+      "expected": "The review raises TC-004 as not tested above info, and nothing above info about the other cases.",
+      "checks": [
+        {
+          "check": "review_valid"
+        },
+        {
+          "check": "finds",
+          "types": ["case_not_tested"],
+          "tc_id": "TC-004"
+        },
+        {
+          "check": "no_alarm",
+          "tc_ids": ["TC-001", "TC-002", "TC-003", "TC-005"]
+        }
+      ]
+    },
+    {
+      "id": "REG-018",
+      "agent": "test-reviewer",
+      "source": {
+        "kind": "seeded-defect",
+        "description": "Control for the seeded test cases: the faithful BENCH-2 test, every approved case tested against its expected results. A reviewer that flags everything does not pass the set."
+      },
+      "input": "cases/REG-018",
+      "expected": "The review raises nothing above info.",
+      "checks": [
+        {
+          "check": "review_valid"
+        },
+        {
+          "check": "no_alarm"
+        }
+      ]
     }
   ]
 }

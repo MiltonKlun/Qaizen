@@ -1,0 +1,209 @@
+{
+  "kind": "regression-evaluation",
+  "schema_version": "1.0",
+  "generated_at": "2026-11-15T12:00:00.000Z",
+  "scope": {
+    "agent": "test-reviewer",
+    "agents": ["test-reviewer"],
+    "cases": 4,
+    "trials": 3
+  },
+  "decision_rule": {
+    "statement": "Block the change when any case fails all 3 of its trials, or when the share of cases passing every trial falls below the lower bound of the Wilson 95% interval of the previous results for the same scope.",
+    "block_when_a_case_fails_every_trial": true,
+    "block_below_previous_lower_bound": true,
+    "sha256": "9609589b59e246b9510ac5efd0aaf64d24b38fd85bceec1b4b8f65c26a417507",
+    "set_tree": "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+  },
+  "provenance": {
+    "model": "model-x",
+    "harness": "claude-code",
+    "prompts": {
+      "test-reviewer": [
+        {
+          "path": "agents/test-reviewer.md",
+          "sha256": "04b8ced4d7185495afee01f636f7734d8fadea9b0a741c00c56c3657bb544a33"
+        }
+      ]
+    }
+  },
+  "aggregate": {
+    "pass_k": {
+      "cases": 4,
+      "passed": 2,
+      "value": 0.5,
+      "wilson_95": [0.15, 0.85]
+    },
+    "per_trial": {
+      "trials": 12,
+      "passed": 10,
+      "value": 0.8333,
+      "wilson_95": [0.552, 0.953]
+    }
+  },
+  "reviewer_accuracy": {
+    "test-reviewer": {
+      "seeded": {
+        "checks": 9,
+        "caught": 8,
+        "value": 0.8889,
+        "wilson_95": [0.565, 0.9801]
+      },
+      "controls": {
+        "checks": 12,
+        "alarmed": 1,
+        "value": 0.0833,
+        "wilson_95": [0.0149, 0.3539]
+      }
+    }
+  },
+  "previous": null,
+  "decision": {
+    "verdict": "pass",
+    "reasons": []
+  },
+  "cases": [
+    {
+      "id": "REG-015",
+      "agent": "test-reviewer",
+      "source": "seeded-defect",
+      "expected": "The review raises the weak TC-002 assertion above info, and nothing above info about the other cases.",
+      "trials": 3,
+      "passed": 3,
+      "pass_k": true,
+      "pass_rate": {
+        "value": 1,
+        "wilson_95": [0.4385, 1]
+      },
+      "trial_results": [
+        {
+          "trial": 1,
+          "output_sha256": "05daba9221318aa4311d730837b5999f041fe36e780a333bf0fc6f28be24c923",
+          "pass": true,
+          "failed": []
+        },
+        {
+          "trial": 2,
+          "output_sha256": "05daba9221318aa4311d730837b5999f041fe36e780a333bf0fc6f28be24c923",
+          "pass": true,
+          "failed": []
+        },
+        {
+          "trial": 3,
+          "output_sha256": "05daba9221318aa4311d730837b5999f041fe36e780a333bf0fc6f28be24c923",
+          "pass": true,
+          "failed": []
+        }
+      ]
+    },
+    {
+      "id": "REG-016",
+      "agent": "test-reviewer",
+      "source": "seeded-defect",
+      "expected": "The review raises the missing basket-count assertion on TC-005 above info, and nothing above info about the other cases.",
+      "trials": 3,
+      "passed": 2,
+      "pass_k": false,
+      "pass_rate": {
+        "value": 0.6667,
+        "wilson_95": [0.2077, 0.9385]
+      },
+      "trial_results": [
+        {
+          "trial": 1,
+          "output_sha256": "559c9fb7849c609d79fb526459f2170e48c8c47f2c2125b53c40692b3038ad8b",
+          "pass": true,
+          "failed": []
+        },
+        {
+          "trial": 2,
+          "output_sha256": "559c9fb7849c609d79fb526459f2170e48c8c47f2c2125b53c40692b3038ad8b",
+          "pass": true,
+          "failed": []
+        },
+        {
+          "trial": 3,
+          "output_sha256": "dc68114cf9b20599fc568aa021d0553c97fcb1e7caaab80242d69c03e13cec0d",
+          "pass": false,
+          "failed": [
+            {
+              "check": "finds",
+              "detail": "no missing_assertion or weak_assertion finding about TC-005 above info"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "REG-017",
+      "agent": "test-reviewer",
+      "source": "seeded-defect",
+      "expected": "The review raises TC-004 as not tested above info, and nothing above info about the other cases.",
+      "trials": 3,
+      "passed": 3,
+      "pass_k": true,
+      "pass_rate": {
+        "value": 1,
+        "wilson_95": [0.4385, 1]
+      },
+      "trial_results": [
+        {
+          "trial": 1,
+          "output_sha256": "fb4511f7e399c94778f115086983504526721dce3a4be107a2c6d1e50c5450ae",
+          "pass": true,
+          "failed": []
+        },
+        {
+          "trial": 2,
+          "output_sha256": "fb4511f7e399c94778f115086983504526721dce3a4be107a2c6d1e50c5450ae",
+          "pass": true,
+          "failed": []
+        },
+        {
+          "trial": 3,
+          "output_sha256": "fb4511f7e399c94778f115086983504526721dce3a4be107a2c6d1e50c5450ae",
+          "pass": true,
+          "failed": []
+        }
+      ]
+    },
+    {
+      "id": "REG-018",
+      "agent": "test-reviewer",
+      "source": "seeded-defect",
+      "expected": "The review raises nothing above info.",
+      "trials": 3,
+      "passed": 2,
+      "pass_k": false,
+      "pass_rate": {
+        "value": 0.6667,
+        "wilson_95": [0.2077, 0.9385]
+      },
+      "trial_results": [
+        {
+          "trial": 1,
+          "output_sha256": "da43fd263016df7131101040e1dfe98ea2b56e97846f4f5e9c0804c639837e4f",
+          "pass": true,
+          "failed": []
+        },
+        {
+          "trial": 2,
+          "output_sha256": "08c31aae5e8a6a035c7197a38584f5822e7503e39035c0ef03f88d474046bd39",
+          "pass": false,
+          "failed": [
+            {
+              "check": "no_alarm",
+              "detail": "raised weak_assertion TC-001"
+            }
+          ]
+        },
+        {
+          "trial": 3,
+          "output_sha256": "da43fd263016df7131101040e1dfe98ea2b56e97846f4f5e9c0804c639837e4f",
+          "pass": true,
+          "failed": []
+        }
+      ]
+    }
+  ]
+}

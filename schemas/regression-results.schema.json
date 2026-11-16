@@ -101,14 +101,26 @@
               "type": "null"
             },
             {
-              "enum": ["analyst", "test-designer", "healer"]
+              "enum": [
+                "analyst",
+                "test-designer",
+                "healer",
+                "spec-reviewer",
+                "test-reviewer"
+              ]
             }
           ]
         },
         "agents": {
           "type": "array",
           "items": {
-            "enum": ["analyst", "test-designer", "healer"]
+            "enum": [
+              "analyst",
+              "test-designer",
+              "healer",
+              "spec-reviewer",
+              "test-reviewer"
+            ]
           }
         },
         "cases": {
@@ -167,7 +179,13 @@
         "prompts": {
           "type": "object",
           "propertyNames": {
-            "enum": ["analyst", "test-designer", "healer"]
+            "enum": [
+              "analyst",
+              "test-designer",
+              "healer",
+              "spec-reviewer",
+              "test-reviewer"
+            ]
           },
           "additionalProperties": {
             "type": "array",
@@ -223,6 +241,46 @@
               }
             }
           ]
+        }
+      }
+    },
+    "reviewer_accuracy": {
+      "type": "object",
+      "description": "Present when an AI reviewer is in scope. Per reviewer, over every trial: how many seeded defects (`finds` checks) its reviews found, and how many `no_alarm` checks they failed by raising a finding above info where none was due. An unreadable review counts as a miss and as an alarm.",
+      "propertyNames": {
+        "enum": ["spec-reviewer", "test-reviewer"]
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seeded", "controls"],
+        "properties": {
+          "seeded": {
+            "allOf": [
+              { "$ref": "#/definitions/rate" },
+              {
+                "type": "object",
+                "required": ["checks", "caught"],
+                "properties": {
+                  "checks": { "type": "integer", "minimum": 0 },
+                  "caught": { "type": "integer", "minimum": 0 }
+                }
+              }
+            ]
+          },
+          "controls": {
+            "allOf": [
+              { "$ref": "#/definitions/rate" },
+              {
+                "type": "object",
+                "required": ["checks", "alarmed"],
+                "properties": {
+                  "checks": { "type": "integer", "minimum": 0 },
+                  "alarmed": { "type": "integer", "minimum": 0 }
+                }
+              }
+            ]
+          }
         }
       }
     },
@@ -320,14 +378,21 @@
             "pattern": "^REG-[0-9]{3}$"
           },
           "agent": {
-            "enum": ["analyst", "test-designer", "healer"]
+            "enum": [
+              "analyst",
+              "test-designer",
+              "healer",
+              "spec-reviewer",
+              "test-reviewer"
+            ]
           },
           "source": {
             "enum": [
               "audit-probe",
               "bench-shop-bug",
               "false-heal",
-              "escaped-defect"
+              "escaped-defect",
+              "seeded-defect"
             ]
           },
           "expected": {

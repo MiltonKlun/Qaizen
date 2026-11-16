@@ -262,7 +262,21 @@ test('the Bench Shop, its stories and the cases run on it hold no SauceDemo name
   const cases = benchCases();
   assert.deepEqual(
     cases.map((/** @type {any} */ c) => c.id),
-    ['REG-006', 'REG-007', 'REG-008', 'REG-009', 'REG-010']
+    [
+      'REG-006',
+      'REG-007',
+      'REG-008',
+      'REG-009',
+      'REG-010',
+      'REG-011',
+      'REG-012',
+      'REG-013',
+      'REG-014',
+      'REG-015',
+      'REG-016',
+      'REG-017',
+      'REG-018',
+    ]
   );
   /** @type {{ name: string, text: string }[]} */
   const sources = [
