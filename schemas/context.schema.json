@@ -603,7 +603,7 @@
           },
           "finding_dispositions": {
             "type": "array",
-            "description": "OPTIONAL (Gate 4 only). The reviewer's answer to each Gate 4 static scan finding, given before this decision (scripts/lib/finding-dispositions.js): fixed (the test must change, so the decision is a rejection), wrong (a false alarm), intentional or irrelevant. On a Red-domain story, wrong and intentional carry a reason. A later scan treats a finding answered at the current approval as resolved while the finding is unchanged. Absent on decisions with no scan findings and on older runs. Written only by the runner.",
+            "description": "OPTIONAL (Gates 3 and 4). The reviewer's answer to each Gate 4 static scan finding and each finding of the advisory AI review (rule ai-spec:<type> at Gate 3, ai-test:<type> at Gate 4; scripts/lib/ai-review.js), given before this decision (scripts/lib/finding-dispositions.js): fixed (the test must change, so the decision is a rejection), wrong (a false alarm), intentional or irrelevant. On a Red-domain story, wrong and intentional carry a reason. A later scan treats a finding answered at the current approval as resolved while the finding is unchanged. Absent on decisions with no scan findings and on older runs. Written only by the runner.",
             "items": {
               "type": "object",
               "additionalProperties": false,
@@ -664,7 +664,59 @@
                 "then": { "required": ["rate", "selected", "input_digest"] }
               }
             ]
+          },
+          "ai_review": {
+            "type": "object",
+            "description": "OPTIONAL (Gates 3 and 4). The advisory AI review shown before this decision (scripts/lib/ai-review.js): the review file, its SHA-256 (line endings normalized), its round, how many findings it had (each answered in finding_dispositions with a rule starting ai-spec: or ai-test:), and what the reviewer noted from their own reading before it was shown (null when nothing). It advises; it never decides. Absent when no usable review was shown, and on older runs. Written only by the runner.",
+            "additionalProperties": false,
+            "required": [
+              "review",
+              "sha256",
+              "round",
+              "findings",
+              "own_concerns"
+            ],
+            "properties": {
+              "review": {
+                "type": "string",
+                "pattern": "^analysis/(spec-reviews|test-reviews)/[^/]+\\.json$"
+              },
+              "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              "round": { "type": "integer", "minimum": 1, "maximum": 3 },
+              "findings": { "type": "integer", "minimum": 0 },
+              "own_concerns": { "type": ["string", "null"] }
+            }
           }
+        }
+      }
+    },
+    "ai_reviews": {
+      "type": "array",
+      "description": "OPTIONAL. Each advisory AI review round of Gates 3 and 4 in this run, logged the first time its review was shown at the gate (scripts/lib/ai-review.js): the gate, the round (at most 3 per gate), the review file and its SHA-256, the gate input digest it reviewed, and when it was shown. The runner counts the rounds from here and shows no fourth. Not part of any gate's reviewed input. Absent on runs with no AI review. Written only by the runner.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "gate",
+          "round",
+          "review",
+          "sha256",
+          "input_digest",
+          "shown_at"
+        ],
+        "properties": {
+          "gate": {
+            "type": "string",
+            "enum": ["specs_reviewed", "code_reviewed"]
+          },
+          "round": { "type": "integer", "minimum": 1, "maximum": 3 },
+          "review": {
+            "type": "string",
+            "pattern": "^analysis/(spec-reviews|test-reviews)/[^/]+\\.json$"
+          },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "input_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "shown_at": { "type": "string" }
         }
       }
     },

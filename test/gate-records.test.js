@@ -237,7 +237,7 @@ test('Gate 4 stores each scan finding’s answer in the record and in context.js
   assert.equal(r.ok, true, r.message);
   assert.match(
     read(dir, r.record),
-    /## Scan findings answered\n[\s\S]*\| \[hard_wait\]:4 \| x \[TC-001\] \| intentional \| waits for the animation the story asks for \|/
+    /## Findings answered\n[\s\S]*\| \[hard_wait\]:4 \| x \[TC-001\] \| intentional \| waits for the animation the story asks for \|/
   );
   const saved = JSON.parse(read(dir, 'context.json'));
   assert.deepEqual(

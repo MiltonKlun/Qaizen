@@ -6,7 +6,7 @@
     "title": "Login — Successful sign-in (scan findings answered)",
     "source": "manual",
     "path": "story.md",
-    "description": "Same login slice, showing gate_decisions[].finding_dispositions. Gate 4 was rejected once: the reviewer answered the hard wait the static scan found as fixed (the test must change), which allows only a rejection. After the Generator removed the wait, the scan found one fragile locator; the reviewer answered it wrong, with a reason because login is a Red-domain (security) story, and approved. Optional and written only by the runner, so older contexts stay valid."
+    "description": "Same login slice, showing gate_decisions[].finding_dispositions. Gate 4 was rejected once: the reviewer answered the hard wait the static scan found as fixed (the test must change), which allows only a rejection. After the Generator removed the wait, the scan found one fragile locator; the reviewer answered it wrong, with a reason because login is a Red-domain (security) story, and approved. Optional and written only by the runner, so older contexts stay valid. The approval was also shown an advisory AI review of the test (round 1, ai_reviews[] and gate_decisions[].ai_review): before seeing it, the reviewer noted their own concern; its one finding, a presence check where TC-001 expects the inventory list, was answered intentional, with a reason, because the list contents are checked by TC-003."
   },
   "acceptance_criteria": [
     "Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",
@@ -114,9 +114,35 @@
           "note": "Fragile locator (positional or long CSS chain).",
           "disposition": "wrong",
           "reason": "two ids the app documents as stable; no position involved"
+        },
+        {
+          "rule": "ai-test:weak_assertion",
+          "line": 21,
+          "test": "TC-001",
+          "excerpt": "await expect(page.locator('#inventory_container .inventory_list')).toBeVisible();",
+          "note": "[warning] TC-001 expects the inventory list; the test only checks that it is visible.",
+          "disposition": "intentional",
+          "reason": "the list contents are asserted in TC-003; TC-001 is about reaching the page"
         }
-      ]
+      ],
+      "ai_review": {
+        "review": "analysis/test-reviews/STORY-001.test-review.json",
+        "sha256": "e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4",
+        "round": 1,
+        "findings": 1,
+        "own_concerns": "Does the locked-user test check that no session was created?"
+      }
     }
   ],
-  "status": "completed"
+  "status": "completed",
+  "ai_reviews": [
+    {
+      "gate": "code_reviewed",
+      "round": 1,
+      "review": "analysis/test-reviews/STORY-001.test-review.json",
+      "sha256": "e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4",
+      "input_digest": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a",
+      "shown_at": "2026-06-06T14:06:00Z"
+    }
+  ]
 }

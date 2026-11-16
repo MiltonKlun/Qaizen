@@ -172,9 +172,9 @@ export function dispositionSection(dispositions) {
   if (!dispositions.length) return [];
   const cell = (/** @type {string} */ s) => s.replace(/\|/g, '\\|');
   return [
-    '## Scan findings answered',
+    '## Findings answered',
     '',
-    'Each Gate 4 static scan finding and the reviewer’s answer to it.',
+    'Each Gate 4 static scan finding and each advisory AI review finding, with the reviewer’s answer to it.',
     '',
     '| Finding | Test | Answer | Reason |',
     '| --- | --- | --- | --- |',
@@ -249,7 +249,7 @@ export function dispositionMetrics(contexts) {
 export function dispositionLines(m, totalRuns) {
   if (!m.answered)
     return [
-      `- No run records an answer to a scan finding yet (${m.runs_with_dispositions}/${totalRuns} run(s)); no check's precision is known.`,
+      `- No run records an answer to a scan or AI review finding yet (${m.runs_with_dispositions}/${totalRuns} run(s)); no check's precision is known.`,
     ];
   const pct = (/** @type {number | null} */ r) =>
     r === null ? 'n/a' : `${Math.round(r * 100)}%`;

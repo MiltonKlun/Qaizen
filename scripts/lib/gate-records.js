@@ -501,7 +501,10 @@ const short = (/** @type {string | null | undefined} */ d) =>
  *   title?: string,
  *   signingKey?: string | null,
  *   independence?: string | null,
+ *   aiReview?: string[],
  * }} args
+ *   `aiReview`: the record's section on the advisory AI review shown before
+ *   the decision (ai-review.js recordSection)
  *   `independence`: what a full-track approval at Gate 2 or 4 rested on, as
  *   one line (review-independence.js independenceLine)
  * @returns {PreparedRecord}
@@ -523,6 +526,7 @@ export function prepareGateRecord({
   title,
   signingKey = null,
   independence = null,
+  aiReview = [],
 }) {
   const step = GATE_STEP[gate];
   if (!step) throw new Error(`prepareGateRecord: unknown gate "${gate}"`);
@@ -642,6 +646,7 @@ export function prepareGateRecord({
       ''
     );
   }
+  lines.push(...aiReview);
   lines.push(...dispositionSection(dispositions));
   lines.push('## Brief as shown', '', '```text', brief.trimEnd(), '```', '');
   if (scan) {

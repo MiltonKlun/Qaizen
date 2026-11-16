@@ -42,6 +42,8 @@
  *   plannerBriefExists?: boolean, specExists?: boolean,
  *   generatedTestExists?: boolean, repeatCurrent?: boolean,
  *   faultCurrent?: boolean,
+ *   aiReviewSpec?: boolean,
+ *   aiReviewTest?: boolean,
  *   executionResultsExist?: boolean,
  *   failureAnalysisExists?: boolean, failureAnalysisFinalized?: boolean,
  *   bugDraftsMissing?: number, draftProblems?: number,
@@ -122,6 +124,9 @@ export const GATE_KEYS = {
  *   - faultCurrent:           false when the story has a fault check (a
  *                             Bench Shop story) and it is missing or ran
  *                             against other Gate 4 inputs; absent skips it.
+ *   - aiReviewSpec / aiReviewTest: false when the team asks for an AI
+ *                             review before Gate 3 / Gate 4 and none is usable
+ *                             for the gate's current inputs; absent skips it.
  *   - executionResultsExist:  file-existence override for execution_results.
  *   - failureAnalysisExists:  file-existence override for failure_analysis.
  *   - releaseReportExists:    file-existence override for release_report_json.
@@ -134,8 +139,8 @@ export const GATE_KEYS = {
  * filled AND (when the CLI checked) the file actually exists. Absent a hint,
  * behavior is unchanged (filled-only), so older callers are unaffected.
  * @returns {string} one of: analyst | gate1 | test-designer | gate2 |
- *   qa_scope | no-executable-scope | planner | gate3 | generator | gate4 |
- *   repeat | faults | api | gate3-api | gate4-api | external-plan | gate3-ext | execute |
+ *   qa_scope | no-executable-scope | planner | ai-review-spec | gate3 |
+ *   generator | ai-review-test | gate4 | repeat | faults | api | gate3-api | gate4-api | external-plan | gate3-ext | execute |
  *   execute-api | external-results | gate4-ext | classify |
  *   finalize | confirm-downgrades | report | done   (qa_scope replaces
  *   gate1+gate2 on the lite
@@ -199,6 +204,10 @@ export function nextStep(context, hints = {}) {
   // mixed scope runs neither suite until both are fully reviewed.
   if (e2e) {
     if (!produced(paths.playwright_spec, hints.specExists)) return 'planner';
+    // An advisory AI review first, when the team asks for one and none is
+    // usable (scripts/lib/ai-review.js).
+    if (!gatePassed(gates.specs_reviewed) && hints.aiReviewSpec === false)
+      return 'ai-review-spec';
     if (!gatePassed(gates.specs_reviewed)) return 'gate3';
     if (!produced(paths.generated_test, hints.generatedTestExists))
       return 'generator';
@@ -208,6 +217,8 @@ export function nextStep(context, hints = {}) {
     // Then, on a Bench Shop story, the fault check (scripts/lib/fault-check.js).
     if (!gatePassed(gates.code_reviewed) && hints.faultCurrent === false)
       return 'faults';
+    if (!gatePassed(gates.code_reviewed) && hints.aiReviewTest === false)
+      return 'ai-review-test';
     if (!gatePassed(gates.code_reviewed)) return 'gate4';
   }
   if (api) {

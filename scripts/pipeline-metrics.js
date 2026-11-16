@@ -508,7 +508,7 @@ const md = [
   '',
   ...dualJudgeLines(metrics.dual_judge_trigger),
   '',
-  '## Gate 4 scan findings answered',
+  '## Findings answered at the gates',
   '',
   ...dispositionLines(metrics.finding_dispositions, totalRuns),
   '',

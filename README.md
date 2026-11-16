@@ -162,7 +162,7 @@ How the runner works, step by step: [docs/pipeline-runner.md](docs/pipeline-runn
 | Layer | Pieces |
 | --- | --- |
 | **Discipline** | JSON Schemas + AJV · traceability IDs · folder ownership · human gates · one PR per contract change |
-| **Agents** | Custom: analyst · test-designer · api-agent · failure-classifier · reporter · spec-reviewer. Playwright Native: planner · generator · healer |
+| **Agents** | Custom: analyst · test-designer · api-agent · failure-classifier · reporter · spec-reviewer · test-reviewer. Playwright Native: planner · generator · healer |
 | **Official MCPs** | Atlassian (Jira) · Playwright · Postman · TestLink, reused, never rewritten |
 | **Runtime** | Node · TypeScript (strict) · Playwright · Newman · ESLint · Prettier · GitHub Actions |
 

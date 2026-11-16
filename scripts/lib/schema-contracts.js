@@ -402,21 +402,49 @@ export const SCHEMA_CONTRACTS = {
   'schemas/spec-review.schema.json': {
     artifact: 'analysis/spec-reviews/[story].spec-review.json',
     producers: ['agents/spec-reviewer.md'],
-    consumers: ['the human at Gate 3'],
+    consumers: [
+      "scripts/run-pipeline.js (shown at Gate 3 after the reviewer's own concerns, through scripts/lib/ai-review.js)",
+      'the human at Gate 3',
+    ],
     docs: ['docs/review-gates.md'],
     examples: [
       'examples/expected/spec-review-uncovered.expected-spec-review.json',
+      'examples/expected/spec-review-bound.expected-spec-review.json',
     ],
     invalid: [
       {
         path: 'examples/invalid/spec-review.eligible-with-uncovered-high-risk.json',
-        rule: 'an uncovered high-severity risk makes auto_approval_eligible false',
+        rule: 'a 1.x review: an uncovered high-severity risk makes auto_approval_eligible false',
         errorAt: '/auto_approval_eligible',
+      },
+      {
+        path: 'examples/invalid/spec-review.v2-with-approval-hint.json',
+        rule: 'a 2.x review has no approval hint',
+        errorAt: '',
       },
     ],
     discovery: 'validate:all; validate:examples',
     migration:
-      'Single version (1.0); the auto_approval_eligible rule was already in the prompt, and every archived review satisfies it.',
+      '2.0 adds input_digest and round and drops auto_approval_eligible; 1.x reviews stay valid as history and are never shown at the gate, so none needs migrating.',
+  },
+  'schemas/test-review.schema.json': {
+    artifact: 'analysis/test-reviews/[story].test-review.json',
+    producers: ['agents/test-reviewer.md'],
+    consumers: [
+      "scripts/run-pipeline.js (shown at Gate 4 after the reviewer's own concerns, through scripts/lib/ai-review.js)",
+      'the human at Gate 4',
+    ],
+    docs: ['docs/review-gates.md'],
+    examples: ['examples/expected/bench-shop.expected-test-review.json'],
+    invalid: [
+      {
+        path: 'examples/invalid/test-review.without-input-digest.json',
+        rule: 'a review names the Gate 4 input digest it reviewed',
+        errorAt: '',
+      },
+    ],
+    discovery: 'validate:all; validate:examples',
+    migration: 'Single version (1.0).',
   },
   'schemas/test-cases.schema.json': {
     artifact: 'test-cases/[story].json',

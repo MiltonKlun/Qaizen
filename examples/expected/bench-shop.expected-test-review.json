@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "story_id": "BENCH-1",
+  "reviewed_at": "2026-11-15T10:00:00Z",
+  "input_digest": "7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c",
+  "round": 2,
+  "findings": [
+    {
+      "type": "weak_assertion",
+      "tc_id": "TC-002",
+      "line": 41,
+      "quote": "await expect(page.getByTestId('items-sum')).toBeVisible();",
+      "severity": "blocker",
+      "description": "TC-002 expects the items sum to be $46.75; the test only checks that the sum is shown, so a wrong total passes."
+    },
+    {
+      "type": "behavior_not_in_cases",
+      "tc_id": "TC-001",
+      "line": 18,
+      "quote": "await expect(page).toHaveTitle('Bench Shop');",
+      "severity": "info",
+      "description": "The page title is asserted; no approved case asks for it. Harmless, but it is not part of TC-001."
+    }
+  ],
+  "recommendations": ["Assert the items sum has text $46.75 (TC-002)."]
+}

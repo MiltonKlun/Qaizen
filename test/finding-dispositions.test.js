@@ -211,7 +211,7 @@ test('the gate record lists each finding and its answer', () => {
     { redDomain: true }
   );
   const lines = dispositionSection(rec.ok ? rec.dispositions : []);
-  assert.equal(lines[0], '## Scan findings answered');
+  assert.equal(lines[0], '## Findings answered');
   assert.ok(
     lines.includes(
       '| [hard_wait]:12 | checkout [TC-001] | wrong | a \\| pipe |'
@@ -267,7 +267,7 @@ test('metrics give each check its answer counts and precision', () => {
   );
   assert.match(
     dispositionLines(dispositionMetrics([]), 3)[0],
-    /No run records an answer to a scan finding yet \(0\/3 run\(s\)\)/
+    /No run records an answer to a scan or AI review finding yet \(0\/3 run\(s\)\)/
   );
 });
 

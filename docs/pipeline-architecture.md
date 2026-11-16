@@ -66,7 +66,7 @@ section 1:
 │ CAPA 2 — Custom agents (only where no reuse exists)                      │
 │ agents/analyst · agents/test-designer                                    │
 │ agents/failure-classifier · agents/reporter                              │
-│ agents/api-agent · agents/spec-reviewer                                  │
+│ agents/api-agent · agents/spec-reviewer · agents/test-reviewer           │
 └─────────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -484,8 +484,9 @@ This layer adds:
   failures only — never commits, never merges, capped at 3 attempts (kept in
   `context.json` `healer_attempts[]` as well as the record files).
 - Healer CI job (assistive, never blocking, never committing).
-- `agents/spec-reviewer.md` assists Gate 3 with a checklist; the human
-  still decides.
+- `agents/spec-reviewer.md` and `agents/test-reviewer.md`: an advisory AI
+  review before Gates 3 and 4, shown after the reviewer's own reading; the
+  human still decides.
 - `runs/[story-id]/[run-id]/` history layout, with `scripts/new-run.js`.
 - Pipeline metrics + `/evolve` loop for prompt evolution.
 - Optional dual-judge framework evaluation.
@@ -562,7 +563,7 @@ rule).
 | Gate time                             | Minutes from each gate's brief to its decision, per gate and per run.              |
 | Rounds to approval                    | Decisions per approval per gate, and the share approved the first time.            |
 | Gate 2 canary catch rate              | Planted wrong cases the reviewer rejected, with a 95% interval.                    |
-| Scan findings answered                | Per Gate 4 scan check: how often its finding was right (precision).                |
+| Findings answered                     | Per Gate 4 scan check and AI finding type: how often it was right (precision).     |
 | Flake rate in the repeat checks       | Repeat checks that found a flaky test, earlier checks of a run included.           |
 | Heals per test                        | Validated heals per healed test, and the tests healed more than once.              |
 | Escaped defects                       | Bugs a completed run should have caught, by why they were missed.                  |

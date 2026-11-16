@@ -521,17 +521,18 @@ product owner co-approves.
       `TC-XXX` in a comment or metadata block.
 
 **Approver:** the QA engineer driving the slice. The
-`agents/spec-reviewer.md` agent assists by producing
-`analysis/spec-reviews/[story-id].spec-review.{json,md}`
-(`schemas/spec-review.schema.json`, which rejects an `auto_approval_eligible`
-hint of `true` while a high-severity risk is uncovered) — a checklist
-of `findings` plus a **deterministic risk-coverage** report
+`agents/spec-reviewer.md` agent can advise first, as the advisory AI review
+below: it writes `analysis/spec-reviews/[story-id].spec-review.{json,md}`
+(`schemas/spec-review.schema.json`), a checklist of `findings` (scope,
+fidelity to the approved cases, and expected outcomes too vague to pin
+the case's result) plus a **deterministic risk-coverage** report
 (`risk_coverage`, `uncovered_risks`, `uncovered_high_severity_count`,
-computed from the `RISK → TC` chain, no LLM). The reviewer reads the
-uncovered-risk list **before** approving: a high-severity uncovered risk
-is a `blocker` finding and forces the agent's `auto_approval_eligible`
-hint to `false`. **The hint is only a hint — the human always decides;
-the assistance never changes the approval bar** (`CLAUDE.md` §3.5).
+computed from the `RISK → TC` chain, no LLM). A high-severity uncovered
+risk is a `blocker` finding. **The review advises; the human always
+decides, and the review has no field that could approve** (`CLAUDE.md`
+§3.5). Reviews written before schema 2.0 carried an
+`auto_approval_eligible` hint; they stay valid as history and are never
+shown at the gate.
 
 **On approval:**
 
@@ -1158,15 +1159,52 @@ catching it later.
   spec, the scope or the story, or, when the app is what is wrong, raise a
   defect. Never change the expected behavior to match the app, and never
   push the agent again unchanged.
-- **AI review rounds.** Any loop in which an AI reviews an artifact again
-  after it changed is capped at 3 rounds, and after the first round it
-  reviews only the diff since the round before. The Spec Reviewer
-  (`agents/spec-reviewer.md`) is the one AI reviewer today: run again on a
-  spec revised after a Gate 3 rejection, it still reads the whole spec, and
-  bringing it under this rule is a change to its prompt that has not been
-  made. Count its re-runs on one spec as rounds, and stop at 3. An AI
-  reviewer stays advisory and has no field it can use to approve
-  (`CLAUDE.md` §3.5).
+- **AI review rounds.** The advisory AI review of a gate (below) has at
+  most 3 rounds in a run, and after the first round it reviews only what
+  changed since the round before. The runner counts a round once its
+  review has been shown at the gate (quitting at the concerns question
+  does not use one), shows no fourth, and stops asking for a review once
+  the three are used.
+
+### Advisory AI review (Gates 3 and 4)
+
+An AI reviewer can read the spec before Gate 3 (`agents/spec-reviewer.md`)
+and the generated test before Gate 4 (`agents/test-reviewer.md`), for
+what a person reading quickly misses: an expected outcome or an assertion
+that would still hold with the case's behavior broken, a value that is not
+the case's expected result, a case the spec or test leaves out, behavior
+no case asked for. It is advice, under four rules:
+
+- **Bound to what it read.** The runner's step instruction prints the
+  gate's input digest and the round; the review carries both. The runner
+  shows a review only while that digest is the gate's current one and its
+  round is the next (or one already shown). A review of other inputs, a
+  1.x spec review, or a fourth round is not shown, and the gate says why.
+- **Your reading first.** Before the review is shown, the gate asks what
+  concerns you have from your own reading; your answer is kept with the
+  decision. This holds at the gate only: the reviewer agents are told not
+  to repeat their findings when they hand back, but whoever runs the agent
+  can open the review file. Where the operator also decides the gate, open
+  the gate before reading the review. Then the findings are shown, with no verdict: no findings
+  reads as "the AI reviewer reported nothing", never as a pass.
+- **Every finding answered.** Each finding is answered like a scan
+  finding (fixed, wrong, intentional, irrelevant; a reason on a
+  Red-domain story for wrong and intentional), and "fixed" allows only a
+  rejection. The answers are kept per gate and finding type (`ai-spec:<type>`,
+  `ai-test:<type>`), so the
+  metrics show how often each kind of AI finding was right.
+- **No way to approve.** The review has no field that could approve, and
+  nothing in the runner reads one. The decision and its approval binding
+  are the same with or without it; the record only gains a section saying
+  what was shown.
+
+`ai_review: "on"` in `config/gate-checks.json` makes the runner stop for
+a review before Gates 3 and 4 (steps `ai-review-spec` and
+`ai-review-test`) whenever none is usable and rounds are left. With the
+default, `"off"`, it asks for none, and uses one only when it exists for
+the current inputs. The decision records the review it was shown, its
+round and your own concerns (`gate_decisions[].ai_review`, and a section
+of the gate record); `ai_reviews[]` logs each round.
 
 ---
 

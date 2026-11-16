@@ -79,6 +79,11 @@ function targetsFor(base = '.') {
       schema: 'schemas/spec-review.schema.json',
     },
     {
+      dir: at('analysis/test-reviews'),
+      suffix: '.json',
+      schema: 'schemas/test-review.schema.json',
+    },
+    {
       dir: at('analysis/healer-validation'),
       suffix: '.json',
       schema: 'schemas/healer-validation.schema.json',
