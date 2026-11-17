@@ -87,7 +87,8 @@ ISO 4217 code. On a run whose context logs an advisory AI review round
 `--spend` that the Spec Reviewer and Test Reviewer runs cost, in the same
 currency and at most `--spend`; the metrics report it in "Advisory AI
 review". A run already entered is refused unless `--replace` is
-passed. Entries for a run the metrics do not count (a demo, a removed
+passed; the replacement is the whole entry, so give `--ai-review-spend`
+again to keep it. Entries for a run the metrics do not count (a demo, a removed
 archive) are left out and counted apart.
 
 ## 3. Outside reviews
