@@ -376,3 +376,183 @@ export function recordSection(a) {
     '',
   ];
 }
+
+// ------------------------------------------------------------------ metrics
+
+/** The regression-set agent behind each gate's review. */
+const REVIEWER_OF = Object.freeze(
+  /** @type {Record<string, string>} */ ({
+    specs_reviewed: 'spec-reviewer',
+    code_reviewed: 'test-reviewer',
+  })
+);
+
+/**
+ * How the advisory AI review was used at each gate over the runs counted,
+ * and how its findings fared when answered.
+ * @param {any[]} contexts the runs' contexts
+ * @param {{ by_rule: Record<string, { total: number, wrong: number,
+ *   fixed: number }> }} dispositions dispositionMetrics() of the same runs
+ */
+export function aiReviewMetrics(contexts, dispositions) {
+  /** @type {Record<string, any>} */
+  const gates = {};
+  for (const gate of Object.keys(AI_REVIEW_GATES)) {
+    let decisions = 0;
+    let shown = 0;
+    let concerns = 0;
+    let findings = 0;
+    let runs = 0;
+    let rounds = 0;
+    for (const ctx of contexts) {
+      for (const d of Array.isArray(ctx?.gate_decisions)
+        ? ctx.gate_decisions
+        : []) {
+        if (d?.gate !== gate) continue;
+        decisions += 1;
+        if (!d.ai_review) continue;
+        shown += 1;
+        if (Number.isInteger(d.ai_review.findings))
+          findings += d.ai_review.findings;
+        if (
+          typeof d.ai_review.own_concerns === 'string' &&
+          d.ai_review.own_concerns.trim()
+        )
+          concerns += 1;
+      }
+      const n = new Set(
+        roundsShown(ctx, gate).map((/** @type {any} */ r) => r?.sha256)
+      ).size;
+      if (n) {
+        runs += 1;
+        rounds += n;
+      }
+    }
+    const prefix = `${RULE_PREFIX[gate]}:`;
+    /** @type {Record<string, { answered: number, wrong: number, precision: number | null }>} */
+    const byType = {};
+    let answered = 0;
+    let wrong = 0;
+    let fixed = 0;
+    for (const [rule, r] of Object.entries(dispositions?.by_rule ?? {})) {
+      if (!rule.startsWith(prefix)) continue;
+      answered += r.total;
+      wrong += r.wrong;
+      fixed += r.fixed;
+      byType[rule.slice(prefix.length)] = {
+        answered: r.total,
+        wrong: r.wrong,
+        precision: r.total ? (r.total - r.wrong) / r.total : null,
+      };
+    }
+    gates[gate] = {
+      reviewer: REVIEWER_OF[gate],
+      decisions,
+      decisions_shown_a_review: shown,
+      own_concerns_noted: concerns,
+      findings_shown: findings,
+      runs_with_rounds: runs,
+      rounds,
+      answered,
+      fixed,
+      wrong,
+      precision: answered ? (answered - wrong) / answered : null,
+      by_type: byType,
+    };
+  }
+  return { gates };
+}
+
+/**
+ * Each AI reviewer's catch and false-alarm rates from the committed
+ * regression results (evidence/regressions/): its own file when it holds
+ * them, else all.json. A file that does not validate is skipped.
+ * @param {string} [dir]
+ * @returns {Record<string, { source: string, model: string,
+ *   generated_at: string, seeded: any, no_alarm: any }>}
+ */
+export function readReviewerAccuracy(dir = 'evidence/regressions') {
+  /** @type {Record<string, any>} */
+  const out = {};
+  const schema = join(REPO_DIR, 'schemas', 'regression-results.schema.json');
+  for (const agent of Object.values(REVIEWER_OF))
+    for (const name of [`${agent}.json`, 'all.json']) {
+      const file = join(dir, name);
+      if (!existsSync(file)) continue;
+      let doc;
+      try {
+        doc = JSON.parse(readFileSync(file, 'utf8'));
+      } catch {
+        continue;
+      }
+      if (!validateValue(doc, schema).ok) continue;
+      const r = doc.reviewer_accuracy?.[agent];
+      if (!r) continue;
+      out[agent] = {
+        source: `${dir}/${name}`,
+        model: doc.provenance.model,
+        generated_at: doc.generated_at,
+        seeded: r.seeded,
+        no_alarm: r.no_alarm,
+      };
+      break;
+    }
+  return out;
+}
+
+/**
+ * The metrics Markdown for the advisory AI review.
+ * @param {ReturnType<typeof aiReviewMetrics>} m
+ * @param {ReturnType<typeof readReviewerAccuracy>} accuracy
+ * @param {Record<string, { runs: number, total: number | null,
+ *   per_run: number | null }>} spend the AI review spend per currency
+ *   (costMetrics().overall.ai_review_spend)
+ * @param {number} totalRuns
+ * @returns {string[]}
+ */
+export function aiReviewLines(m, accuracy, spend, totalRuns) {
+  const pct = (/** @type {number | null} */ r) =>
+    r === null ? 'n/a' : `${Math.round(r * 100)}%`;
+  const rate = (/** @type {any} */ r, /** @type {string} */ n) =>
+    `${r[n]}/${r.checks}${r.value === null ? '' : ` = ${pct(r.value)} [${pct(r.wilson_95[0])}, ${pct(r.wilson_95[1])}]`}`;
+  /** @type {string[]} */
+  const lines = [];
+  const used = Object.values(m.gates).some(
+    (g) => g.runs_with_rounds || g.decisions_shown_a_review
+  );
+  if (!used)
+    lines.push(
+      `- No run logs an AI review round (0/${totalRuns} run(s)). It is off unless config/gate-checks.json sets ai_review "on".`
+    );
+  for (const [gate, g] of Object.entries(m.gates)) {
+    const name = gate === 'specs_reviewed' ? 'Gate 3' : 'Gate 4';
+    if (!used) lines.push(`- ${name} (${g.reviewer}):`);
+    else
+      lines.push(
+        `- ${name} (${g.reviewer}): shown at ${g.decisions_shown_a_review} of ${g.decisions} decision(s); ${g.rounds} round(s) over ${g.runs_with_rounds} run(s); own concerns noted first at ${g.own_concerns_noted} of ${g.decisions_shown_a_review}; ${g.findings_shown} finding(s) shown.`,
+        g.answered
+          ? `  - Answered ${g.answered}: precision ${pct(g.precision)} (fixed ${g.fixed}, wrong ${g.wrong}); ${Object.entries(
+              g.by_type
+            )
+              .map(
+                ([t, r]) =>
+                  `${t} ${pct(/** @type {any} */ (r).precision)} of ${/** @type {any} */ (r).answered}`
+              )
+              .join(', ')}.`
+          : '  - No finding answered yet; precision unknown.'
+      );
+    const a = accuracy[g.reviewer];
+    lines.push(
+      a
+        ? `  - On the regression set (${a.source}, ${a.model}, ${a.generated_at}): seeded defects found ${rate(a.seeded, 'caught')}; false alarms ${rate(a.no_alarm, 'alarmed')}.`
+        : `  - Catch rate unknown: no committed regression results for the ${g.reviewer} (docs/prompt-versioning.md §3a).`
+    );
+  }
+  const costs = Object.entries(spend ?? {});
+  lines.push(
+    costs.length
+      ? `- Cost: ${costs.map(([cur, v]) => `${v.total} ${cur} over ${v.runs} run(s), ${v.per_run} per run`).join('; ')} (entered with npm run record-outcome -- cost --ai-review-spend).`
+      : '- Cost: none entered (npm run record-outcome -- cost --spend <amount> --currency <code> --ai-review-spend <amount>).'
+  );
+  return lines;
+}

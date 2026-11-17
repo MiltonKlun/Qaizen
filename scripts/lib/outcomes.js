@@ -508,6 +508,23 @@ export function withCostEntry(doc, story, entry, replace) {
         `${story} already has a cost for ${entry.run_id}; pass --replace to replace it`,
       ],
     };
+  const ai = entry?.ai_review_spend;
+  if (ai && entry.spend) {
+    if (ai.currency !== entry.spend.currency)
+      return {
+        ok: false,
+        errors: [
+          `the AI review spend is in ${ai.currency}, the run's spend in ${entry.spend.currency}; enter both in one currency`,
+        ],
+      };
+    if (ai.amount > entry.spend.amount)
+      return {
+        ok: false,
+        errors: [
+          `the AI review spend (${ai.amount}) is part of the run's spend (${entry.spend.amount}) and cannot exceed it`,
+        ],
+      };
+  }
   if (at !== -1) runs[at] = entry;
   else runs.push(entry);
   const next = {

@@ -32,6 +32,11 @@ import { dirname, join } from 'node:path';
 import { argv, exit } from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import {
+  aiReviewLines,
+  aiReviewMetrics,
+  readReviewerAccuracy,
+} from './lib/ai-review.js';
 import { validateValue } from './lib/artifact-io.js';
 import { failureMetrics, healerMetrics } from './lib/run-metrics.js';
 import { CANARY_LOG, canaryLines, canaryMetrics } from './lib/canaries.js';
@@ -375,6 +380,13 @@ metrics.cost_per_story = {
   ...costMetrics(costsRead.docs, seen),
   invalid_records: costsRead.invalid,
 };
+// The advisory AI review: use, answers, cost, and its catch rate on the
+// regression set (scripts/lib/ai-review.js).
+metrics.ai_review = {
+  ...aiReviewMetrics(liveContexts, metrics.finding_dispositions),
+  regression_accuracy: readReviewerAccuracy(),
+  spend: metrics.cost_per_story.overall.ai_review_spend,
+};
 metrics.dual_judge_trigger = dualJudgeTrigger(
   metrics.escaped_defects,
   metrics.gate_canaries
@@ -511,6 +523,15 @@ const md = [
   '## Findings answered at the gates',
   '',
   ...dispositionLines(metrics.finding_dispositions, totalRuns),
+  '',
+  '## Advisory AI review',
+  '',
+  ...aiReviewLines(
+    metrics.ai_review,
+    metrics.ai_review.regression_accuracy,
+    metrics.ai_review.spend,
+    totalRuns
+  ),
   '',
   '## Prompt stability',
   '',

@@ -1215,7 +1215,10 @@ false-alarm rate with their intervals (`docs/prompt-versioning.md` §3a).
 No defect is planted in a real run, because the review reads `specs/` and
 `tests/`, which belong to the Planner and the Generator. Until trials are
 scored (`evidence/regressions/`), the catch rate is unknown: a review with
-no findings says nothing about what it missed.
+no findings says nothing about what it missed. `npm run metrics` shows,
+per gate, how often a review was shown, whether your own concerns came first,
+how its findings were answered, its catch rate from the committed regression
+results and the spend entered for it.
 
 ---
 
