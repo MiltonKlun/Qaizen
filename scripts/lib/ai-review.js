@@ -17,8 +17,10 @@
 // `ai_review: "on"` in config/gate-checks.json the runner asks for a review
 // before each gate; with "off" (the default) it uses one only if it exists.
 //
-// Pure except readReview, which reads the review file.
+// Pure except readReview, which reads the review file, and the metrics
+// readers at the end (readReviewerAccuracy, measuredAccuracy).
 
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -382,7 +384,7 @@ export function recordSection(a) {
 // ------------------------------------------------------------------ metrics
 
 /** The regression-set agent behind each gate's review. */
-const REVIEWER_OF = Object.freeze(
+export const REVIEWER_OF = Object.freeze(
   /** @type {Record<string, string>} */ ({
     specs_reviewed: 'spec-reviewer',
     code_reviewed: 'test-reviewer',
@@ -538,6 +540,63 @@ export function readReviewerAccuracy(dir = 'evidence/regressions', root = '.') {
     if (found.length) out[agent] = found[0];
   }
   return out;
+}
+
+/**
+ * @typedef {{ agent: string, results: string, model: string,
+ *   generated_at: string, current_prompt: boolean, committed: boolean,
+ *   seeded: { checks: number, caught: number,
+ *     wilson_95: [number, number] | null },
+ *   no_alarm: { checks: number, alarmed: number,
+ *     wilson_95: [number, number] | null } }} MeasuredAccuracy
+ */
+
+/**
+ * The measured accuracy of a gate's AI reviewer, for the independence
+ * control at Gate 4 (scripts/lib/review-independence.js): the regression
+ * results readReviewerAccuracy picks in <root>/evidence/regressions/, their
+ * intervals recounted from the counts, and whether that file is committed as
+ * it is on disk. Null when the gate has no AI reviewer or no results hold
+ * its accuracy.
+ * @param {string} gate
+ * @param {string} [root] the repository root
+ * @returns {MeasuredAccuracy | null}
+ */
+export function measuredAccuracy(gate, root = '.') {
+  const agent = REVIEWER_OF[gate];
+  if (!agent) return null;
+  const dir = 'evidence/regressions';
+  const a = readReviewerAccuracy(join(root, dir), root)[agent];
+  if (!a) return null;
+  const results = `${dir}/${a.source.split('/').pop()}`;
+  const git = (/** @type {string[]} */ args) =>
+    spawnSync('git', args, { cwd: root, encoding: 'utf8', windowsHide: true });
+  const tracked = git(['ls-files', '--error-unmatch', '--', results]);
+  const status = git(['status', '--porcelain', '--', results]);
+  const committed =
+    !tracked.error &&
+    tracked.status === 0 &&
+    !status.error &&
+    status.status === 0 &&
+    !status.stdout.trim();
+  return {
+    agent,
+    results,
+    model: a.model,
+    generated_at: a.generated_at,
+    current_prompt: a.current_prompt,
+    committed,
+    seeded: {
+      checks: a.seeded.checks,
+      caught: a.seeded.caught,
+      wilson_95: wilson(a.seeded.caught, a.seeded.checks),
+    },
+    no_alarm: {
+      checks: a.no_alarm.checks,
+      alarmed: a.no_alarm.alarmed,
+      wilson_95: wilson(a.no_alarm.alarmed, a.no_alarm.checks),
+    },
+  };
 }
 
 /**

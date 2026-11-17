@@ -136,8 +136,10 @@ import {
   aiFindings,
   aiReviewMode,
   logRound,
+  measuredAccuracy,
   readReview,
   recordSection,
+  REVIEWER_OF,
   reviewInstruction,
   blindFirst,
   reviewNeeded,
@@ -863,6 +865,30 @@ function independenceFor(context, gateKey, root = '.') {
 }
 
 /**
+ * What the AI review control is judged on at a gate with an AI review: the
+ * review shown (or to be shown) before the decision, while it is still the
+ * gate's usable review of the inputs being decided, and its reviewer's
+ * measured accuracy (scripts/lib/ai-review.js). Null at other gates.
+ * @param {{ gateKey: string, context: Context, digest: string,
+ *   shown: { review: string, sha256: string, round: number } | null,
+ *   root?: string }} a
+ * @returns {import('./lib/review-independence.js').AiReviewInput | null}
+ */
+function aiControlInput({ gateKey, context, digest, shown, root = '.' }) {
+  if (!Object.hasOwn(REVIEWER_OF, gateKey)) return null;
+  const state = shown
+    ? readReview({ context, gate: gateKey, digest, root })
+    : null;
+  return {
+    shown:
+      shown && state?.usable && state.sha256 === shown.sha256
+        ? { path: shown.review, sha256: shown.sha256, round: shown.round }
+        : null,
+    measured: measuredAccuracy(gateKey, root),
+  };
+}
+
+/**
  * Record one human gate decision: what was reviewed is read first, then the
  * decision goes into context.json (validated, atomic) naming its gate record
  * by digest, then that record is written under gates/
@@ -883,7 +909,10 @@ function independenceFor(context, gateKey, root = '.') {
  *     findings: number, own_concerns: string | null, lines: string[] }
  *     | null }} args
  *   `aiReview`: the advisory AI review shown before the decision, with the
- *   reviewer's own concerns noted before it (scripts/lib/ai-review.js).
+ *   reviewer's own concerns noted before it (scripts/lib/ai-review.js). On
+ *   the full track at Gate 4 it is also a control an approval can rest on,
+ *   while it is still the gate's usable review of the approved inputs and
+ *   its reviewer's measured accuracy clears the bar.
  *   `signingKeyPath`: the operator's SSH key that signs the record
  *   (scripts/lib/record-signing.js); the interactive gate passes
  *   QAIZEN_SIGNING_KEY, and no other caller signs.
@@ -940,6 +969,13 @@ export function recordGateDecision({
         authored: authoredDigest(gateKey, context, root),
         at,
         config: ind.config,
+        aiReview: aiControlInput({
+          gateKey,
+          context,
+          digest,
+          shown: aiReview,
+          root,
+        }),
       });
       independence = resolveIndependence(options, {
         outside: outsideReview,
@@ -1394,6 +1430,14 @@ async function runGateInteractive(step, context) {
   // setting that cannot apply refuses approvals only: a rejection stays
   // possible.
   const authored = authoredDigest(gateKey, context, '.');
+  // The advisory AI review of these inputs, shown below before the decision
+  // (scripts/lib/ai-review.js); at Gate 4 on the full track it can also be
+  // the control an approval rests on.
+  const reviewNow = Object.hasOwn(AI_REVIEW_GATES, gateKey)
+    ? readReview({ context, gate: gateKey, digest: reviewedDigests[gateKey] })
+    : null;
+  /** @type {Parameters<typeof recordGateDecision>[0]['aiReview']} */
+  let aiReview = null;
   const optionsNow = () =>
     ind.ok
       ? independenceOptions({
@@ -1404,6 +1448,21 @@ async function runGateInteractive(step, context) {
           authored,
           at: new Date().toISOString(),
           config: ind.config,
+          aiReview: aiControlInput({
+            gateKey,
+            context,
+            digest: reviewedDigests[gateKey],
+            // Before it is shown: the review that will be.
+            shown:
+              aiReview ??
+              (reviewNow?.usable
+                ? {
+                    review: reviewNow.path,
+                    sha256: reviewNow.sha256,
+                    round: reviewNow.round,
+                  }
+                : null),
+          }),
         })
       : null;
   if (!ind.ok)
@@ -1452,14 +1511,8 @@ async function runGateInteractive(step, context) {
     // concerns first, then its findings, each answered with the scan's.
     /** @type {import('./lib/finding-dispositions.js').Finding[]} */
     let reviewFindings = [];
-    /** @type {Parameters<typeof recordGateDecision>[0]['aiReview']} */
-    let aiReview = null;
-    if (Object.hasOwn(AI_REVIEW_GATES, gateKey)) {
-      const state = readReview({
-        context,
-        gate: gateKey,
-        digest: reviewedDigests[gateKey],
-      });
+    if (reviewNow) {
+      const state = reviewNow;
       if (state.usable) {
         // Blind first: the reviewer's own concerns, then the review. The
         // round counts once the review has been shown.

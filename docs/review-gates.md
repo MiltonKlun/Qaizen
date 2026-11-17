@@ -253,10 +253,19 @@ decision and its gate record name which (`independence`):
   whatever changes, and approving the same inputs again keeps the draw. The outside reviewer records their verdict on each marked decision
   with `npm run record-outcome -- outside-review` (`docs/outcome-records.md`
   §3), and `npm run metrics` lists the marked decisions still waiting and
-  every disagreement.
+  every disagreement;
+- **a measured AI review**, at Gate 4 only (not the API branch's): an
+  advisory AI review of these inputs ("Advisory AI review" below) was shown
+  before the decision and each of its findings answered, and the Test
+  Reviewer's regression results in `evidence/regressions/`, scored on its
+  current prompt and committed as they are on disk, put the lower bound of
+  its catch rate on seeded defects at 0.7 or more and the upper bound of its
+  false-alarm rate at 0.4 or less (Wilson 95%; with the set's three trials,
+  every seeded check caught and at most one false alarm in twelve). The
+  record names the review and the results, with their model. Until such
+  results are committed, the brief says what is missing.
 
-An advisory AI review, its accuracy measured on the regression set, becomes a fourth
-control when it exists. A rejection needs none of them, and a setting in
+A rejection needs none of them, and a setting in
 `config/gate-checks.json` that cannot apply refuses approvals only. Solo operation
 stays supported: the delay is always available. `npm run metrics` counts
 how full-track approvals rested on each control.
@@ -266,7 +275,10 @@ Names are the ones people decide as (`QAIZEN_REVIEWER`, else
 `context.json`: someone who sets another name can pose as a second
 reviewer. Signed gate records (`docs/signed-gate-records.md`) tie the
 deciding reviewer to a key; the operator's name stays declared. A delay
-shows time passed, not that the time was spent reviewing.
+shows time passed, not that the time was spent reviewing. A measured AI
+review shows that a reviewer with a known catch rate on one benchmark story
+read the same inputs, not that its findings were weighed: the metrics'
+precision of the answers is where careless answers show.
 
 ### When it's worth consolidating (team-wide, all tracks)
 
@@ -1196,7 +1208,10 @@ no case asked for. It is advice, under four rules:
 - **No way to approve.** The review has no field that could approve, and
   nothing in the runner reads one. The decision and its approval binding
   are the same with or without it; the record only gains a section saying
-  what was shown.
+  what was shown. On the full track at Gate 4, a review shown and answered
+  can be the control a solo approval rests on, once the Test Reviewer's
+  accuracy clears the bar ("Independence at Gates 2 and 4"); you still
+  make the decision.
 
 `ai_review: "on"` in `config/gate-checks.json` makes the runner stop for
 a review before Gates 3 and 4 (steps `ai-review-spec` and

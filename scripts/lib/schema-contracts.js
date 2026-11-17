@@ -190,6 +190,11 @@ export const SCHEMA_CONTRACTS = {
         rule: 'a second reviewer names the operator noted for the approved inputs',
         errorAt: '/gate_decisions/1/independence/operator',
       },
+      {
+        path: 'examples/invalid/context.ai-review-control-without-accuracy.json',
+        rule: 'an approval resting on the AI review names the measured accuracy it rested on',
+        errorAt: '/gate_decisions/5/independence',
+      },
     ],
     discovery:
       'validate:all (context.json and archived runs); validate:examples',
