@@ -108,12 +108,17 @@ export const SCHEMA_CONTRACTS = {
       'scripts/record-outcome.js cost (run by a person, never by an agent)',
     ],
     consumers: ['scripts/pipeline-metrics.js'],
-    docs: ['docs/outcome-records.md'],
+    docs: ['docs/outcome-records.md', 'docs/review-gates.md'],
     examples: ['examples/expected/sample.expected-story-cost.json'],
     invalid: [
       {
         path: 'examples/invalid/story-cost.entry-without-time-or-spend.json',
         rule: 'an entry records time, spend or both',
+        errorAt: '/runs/0',
+      },
+      {
+        path: 'examples/invalid/story-cost.ai-review-spend-without-spend.json',
+        rule: 'the AI review spend is part of the run spend, so it needs one',
         errorAt: '/runs/0',
       },
     ],

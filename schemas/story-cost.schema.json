@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://qaizen/schemas/story-cost.schema.json",
   "title": "Story cost",
-  "description": "What the runs of one story cost, as the operator entered it (outcomes/costs/<story>.json, written only by scripts/record-outcome.js): the hands-on time a person spent on each archived run and, when known, what the run spent (model usage, for example). The pipeline cannot measure either; gate time, which it does measure, is in the metrics apart from this. One entry per run; entering a run again replaces its entry only when asked to.",
+  "description": "What the runs of one story cost, as the operator entered it (outcomes/costs/<story>.json, written only by scripts/record-outcome.js): the hands-on time a person spent on each archived run and, when known, what the run spent (model usage, for example), and how much of that spend was the advisory AI review. The pipeline cannot measure either; gate time, which it does measure, is in the metrics apart from this. One entry per run; entering a run again replaces its entry only when asked to.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "record_type", "story_id", "runs"],
@@ -24,6 +24,7 @@
           { "required": ["operator_minutes"] },
           { "required": ["spend"] }
         ],
+        "dependencies": { "ai_review_spend": ["spend"] },
         "properties": {
           "run_id": {
             "type": "string",
@@ -50,6 +51,16 @@
                 "pattern": "^[A-Z]{3}$",
                 "description": "ISO 4217 code."
               }
+            }
+          },
+          "ai_review_spend": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["amount", "currency"],
+            "description": "The part of `spend` that the advisory AI review rounds of Gates 3 and 4 cost (the Spec Reviewer and Test Reviewer runs), in the same currency and at most `spend`. Only for a run whose context logs an AI review round (`ai_reviews[]`).",
+            "properties": {
+              "amount": { "type": "number", "minimum": 0 },
+              "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
             }
           },
           "notes": { "type": "string", "maxLength": 1000 },

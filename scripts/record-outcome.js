@@ -63,7 +63,7 @@ import {
 const USAGE = [
   'Usage:',
   '  node scripts/record-outcome.js escaped-defect --story <id> --run <run> (--risk RISK-NNN ... | --unresolved "<why>") [--case TC-NNN ...] --summary "<text>" --severity high|medium|low --found-in production|staging|later_run|other --found-at YYYY-MM-DD --why-missed no_case|not_automated|test_passed_wrongly|not_run|unknown --by "<name>" [--jira KEY-1] [--notes "<text>"] [--replace ESC-NNN | --force-new] [--dry-run]',
-  '  node scripts/record-outcome.js cost --story <id> --run <run> [--minutes <n>] [--spend <amount> --currency <ISO 4217>] --by "<name>" [--notes "<text>"] [--replace] [--dry-run]',
+  '  node scripts/record-outcome.js cost --story <id> --run <run> [--minutes <n>] [--spend <amount> --currency <ISO 4217> [--ai-review-spend <amount>]] --by "<name>" [--notes "<text>"] [--replace] [--dry-run]',
   '  node scripts/record-outcome.js outside-review --story <id> --run <run> --gate gate2|gate4|gate4-api [--decided-at <ISO time>] --verdict agree|disagree --by "<outside reviewer>" [--notes "<text>"] [--replace] [--dry-run]',
 ].join('\n');
 const RUNS = 'runs';
@@ -156,6 +156,7 @@ const cli = parseCli(
             minutes: { type: 'string' },
             spend: { type: 'string' },
             currency: { type: 'string' },
+            'ai-review-spend': { type: 'string' },
             replace: { type: 'boolean' },
           },
         }
@@ -318,6 +319,18 @@ if (kind === 'escaped-defect') {
     usage(
       `--currency expects an ISO 4217 code such as USD (got "${v.currency}")`
     );
+  const aiSpend = number('ai-review-spend');
+  if (aiSpend !== undefined && spend === undefined)
+    usage(
+      '--ai-review-spend is the part of --spend the AI review cost; give --spend and --currency too'
+    );
+  if (
+    aiSpend !== undefined &&
+    !(Array.isArray(run.context?.ai_reviews) && run.context.ai_reviews.length)
+  )
+    refuse([
+      `${v.story} (${run.runId}) logs no AI review round (ai_reviews[] in its context), so no part of its spend was the AI review`,
+    ]);
   const path = join(COSTS_DIR, `${v.story}.json`);
   /** @type {any} */
   let doc = null;
@@ -337,6 +350,9 @@ if (kind === 'escaped-defect') {
       ...(minutes !== undefined ? { operator_minutes: minutes } : {}),
       ...(spend !== undefined
         ? { spend: { amount: spend, currency: v.currency } }
+        : {}),
+      ...(aiSpend !== undefined
+        ? { ai_review_spend: { amount: aiSpend, currency: v.currency } }
         : {}),
       ...(v.notes ? { notes: v.notes } : {}),
       recorded_at: now.toISOString(),

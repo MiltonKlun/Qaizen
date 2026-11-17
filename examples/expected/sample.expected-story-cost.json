@@ -8,7 +8,8 @@
       "run_archive": "runs/STORY-010/2026-06-29T05-42-14-389Z",
       "operator_minutes": 95,
       "spend": { "amount": 3.4, "currency": "USD" },
-      "notes": "Gate reviews included; model usage from the provider's console.",
+      "ai_review_spend": { "amount": 0.6, "currency": "USD" },
+      "notes": "Gate reviews included; model usage from the provider's console, the Spec and Test Reviewer runs apart.",
       "recorded_at": "2026-06-29T06:00:00Z",
       "recorded_by": "QA lead"
     }

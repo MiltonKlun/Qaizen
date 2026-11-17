@@ -82,8 +82,13 @@ npm run record-outcome -- cost --story STORY-010 \
 ```
 
 At least one of `--minutes` and `--spend` is given; `--currency` is an
-ISO 4217 code. A run already entered is refused unless `--replace` is
-passed. Entries for a run the metrics do not count (a demo, a removed
+ISO 4217 code. On a run whose context logs an advisory AI review round
+(`ai_reviews[]`), `--ai-review-spend <amount>` records the part of
+`--spend` that the Spec Reviewer and Test Reviewer runs cost, in the same
+currency and at most `--spend`; the metrics report it in "Advisory AI
+review". A run already entered is refused unless `--replace` is
+passed; the replacement is the whole entry, so give `--ai-review-spend`
+again to keep it. Entries for a run the metrics do not count (a demo, a removed
 archive) are left out and counted apart.
 
 ## 3. Outside reviews

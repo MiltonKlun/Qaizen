@@ -568,6 +568,7 @@ rule).
 | Heals per test                        | Validated heals per healed test, and the tests healed more than once.              |
 | Escaped defects                       | Bugs a completed run should have caught, by why they were missed.                  |
 | Cost and time per story               | The operator's hands-on minutes and spend per run, as entered.                     |
+| Advisory AI review                    | Per gate: reviews shown, rounds, answers, precision; catch rate; spend.            |
 | Outside reviews                       | Approvals marked for outside review: reviewed, agreed with, waiting.               |
 | Dual-judge trigger                    | Whether escaped false negatives or missed canaries re-open that evaluation.        |
 

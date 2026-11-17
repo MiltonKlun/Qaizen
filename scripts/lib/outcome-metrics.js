@@ -222,20 +222,38 @@ export function repeatFlakes(contexts) {
  *   an entry for any other run (a demo, an archive since removed) is left out
  */
 export function costMetrics(docs, counted) {
-  /** @type {Record<string, { runs: number, minutes: number[], spend: Record<string, number[]> }>} */
+  /** @type {Record<string, { runs: number, minutes: number[], spend: Record<string, number[]>, ai: Record<string, number[]> }>} */
   const byStory = {};
   let ignored = 0;
+  let aiIgnored = 0;
   for (const doc of docs) {
     for (const e of doc?.runs ?? []) {
       if (counted && !counted.has(`${doc.story_id}|${e.run_id}`)) {
         ignored += 1;
         continue;
       }
-      const s = (byStory[doc.story_id] ??= { runs: 0, minutes: [], spend: {} });
+      const s = (byStory[doc.story_id] ??= {
+        runs: 0,
+        minutes: [],
+        spend: {},
+        ai: {},
+      });
       s.runs += 1;
       if (typeof e.operator_minutes === 'number')
         s.minutes.push(e.operator_minutes);
       if (e.spend) (s.spend[e.spend.currency] ??= []).push(e.spend.amount);
+      // The AI review spend is part of the run's spend: in its currency and
+      // at most it. An entry breaking that (edited by hand) is left out.
+      const ai = e.ai_review_spend;
+      if (ai) {
+        if (
+          !e.spend ||
+          ai.currency !== e.spend.currency ||
+          ai.amount > e.spend.amount
+        )
+          aiIgnored += 1;
+        else (s.ai[ai.currency] ??= []).push(ai.amount);
+      }
     }
   }
   /** @param {number[]} xs */
@@ -246,29 +264,42 @@ export function costMetrics(docs, counted) {
       ? round2(xs.reduce((a, b) => a + b, 0) / xs.length)
       : null,
   });
-  /** @param {{ minutes: number[], spend: Record<string, number[]> }} s */
-  const shape = (s) => ({
-    operator_minutes: tally(s.minutes),
-    spend: Object.fromEntries(
-      Object.entries(s.spend)
+  /** @param {Record<string, number[]>} byCur */
+  const perCurrency = (byCur) =>
+    Object.fromEntries(
+      Object.entries(byCur)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([cur, xs]) => [cur, tally(xs)])
-    ),
+    );
+  /** @param {{ minutes: number[], spend: Record<string, number[]>, ai: Record<string, number[]> }} s */
+  const shape = (s) => ({
+    operator_minutes: tally(s.minutes),
+    spend: perCurrency(s.spend),
+    // The part of the spend the advisory AI review cost, over the runs
+    // whose entry gives it.
+    ai_review_spend: perCurrency(s.ai),
   });
   const stories = Object.entries(byStory).sort(([a], [b]) =>
     a.localeCompare(b)
   );
   /** @type {Record<string, number[]>} */
   const allSpend = {};
-  for (const [, s] of stories)
+  /** @type {Record<string, number[]>} */
+  const allAi = {};
+  for (const [, s] of stories) {
     for (const [cur, xs] of Object.entries(s.spend))
       (allSpend[cur] ??= []).push(...xs);
+    for (const [cur, xs] of Object.entries(s.ai))
+      (allAi[cur] ??= []).push(...xs);
+  }
   return {
     runs_with_cost: stories.reduce((a, [, s]) => a + s.runs, 0),
     entries_not_counted: ignored,
+    ai_review_spend_not_counted: aiIgnored,
     overall: shape({
       minutes: stories.flatMap(([, s]) => s.minutes),
       spend: allSpend,
+      ai: allAi,
     }),
     by_story: Object.fromEntries(
       stories.map(([story, s]) => [story, { runs: s.runs, ...shape(s) }])
@@ -494,14 +525,24 @@ export function costLines(c, totalRuns) {
         : 'no time entered',
       ...Object.entries(s.spend).map(
         ([cur, v]) =>
-          `${v.total} ${cur} spent (${v.per_run} per run over ${v.runs})`
+          `${v.total} ${cur} spent (${v.per_run} per run over ${v.runs})` +
+          (s.ai_review_spend[cur]
+            ? `, of which ${s.ai_review_spend[cur].total} ${cur} the AI review (${s.ai_review_spend[cur].per_run} per run over ${s.ai_review_spend[cur].runs})`
+            : '')
       ),
     ].join('; ');
-  const skipped = c.entries_not_counted
-    ? [
-        `- ${c.entries_not_counted} entry(ies) left out: their run is not among the runs counted here.`,
-      ]
-    : [];
+  const skipped = [
+    ...(c.entries_not_counted
+      ? [
+          `- ${c.entries_not_counted} entry(ies) left out: their run is not among the runs counted here.`,
+        ]
+      : []),
+    ...(c.ai_review_spend_not_counted
+      ? [
+          `- ${c.ai_review_spend_not_counted} AI review spend(s) left out: not in the run spend's currency, or above it.`,
+        ]
+      : []),
+  ];
   if (!c.runs_with_cost)
     return [
       `- No cost entered for any run (0/${totalRuns}): enter it with npm run record-outcome -- cost.`,

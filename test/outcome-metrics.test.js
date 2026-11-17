@@ -439,11 +439,19 @@ test('the schemas hold an escape to its run and its risks, and a cost entry to t
     readFileSync('examples/expected/sample.expected-story-cost.json', 'utf8')
   );
   assert.equal(validateValue(cost, COST_SCHEMA).ok, true);
-  const { spend: _s, ...minutesOnly } = cost.runs[0];
+  const { spend: _s, ai_review_spend: ai, ...minutesOnly } = cost.runs[0];
   void _s;
   assert.equal(
     validateValue({ ...cost, runs: [minutesOnly] }, COST_SCHEMA).ok,
     true
+  );
+  assert.equal(
+    validateValue(
+      { ...cost, runs: [{ ...minutesOnly, ai_review_spend: ai }] },
+      COST_SCHEMA
+    ).ok,
+    false,
+    'the AI review spend is part of a run spend'
   );
 });
 
@@ -775,6 +783,35 @@ test('record-outcome cost adds one entry per run, and replaces it only when aske
     cli(dir, 'cost', ...base, '--spend', '3', '--currency', 'usd').stderr,
     /ISO 4217/
   );
+  // The AI review spend is part of the run's spend, on a run that had one.
+  assert.match(
+    cli(dir, 'cost', ...base, '--minutes', '9', '--ai-review-spend', '1')
+      .stderr,
+    /give --spend and --currency too/
+  );
+  const aiArgs = ['--spend', '3', '--currency', 'USD', '--ai-review-spend'];
+  const noRound = cli(dir, 'cost', ...base, ...aiArgs, '1');
+  assert.equal(noRound.status, 2);
+  assert.match(noRound.stderr, /logs no AI review round/);
+  const ctxPath = join(dir, 'runs/S-1/a/context.json');
+  const withRound = JSON.parse(readFileSync(ctxPath, 'utf8'));
+  withRound.ai_reviews = [
+    {
+      gate: 'code_reviewed',
+      round: 1,
+      review: 'analysis/test-reviews/S-1.test-review.json',
+      sha256: 'a'.repeat(64),
+      input_digest: 'b'.repeat(64),
+      shown_at: '2026-10-01T10:00:00.000Z',
+    },
+  ];
+  writeFileSync(ctxPath, JSON.stringify(withRound));
+  const over = cli(dir, 'cost', ...base, ...aiArgs, '4', '--dry-run');
+  assert.equal(over.status, 2);
+  assert.match(over.stderr, /cannot exceed it/);
+  const dry = cli(dir, 'cost', ...base, ...aiArgs, '0.75', '--dry-run');
+  assert.equal(dry.status, 0, dry.stderr);
+  assert.match(dry.stdout, /"ai_review_spend"/);
   assert.equal(
     cli(
       dir,
@@ -894,6 +931,7 @@ test('npm run metrics renders every outcome section on fixture runs, and /evolve
     'Escaped defects',
     'Cost and time per story',
     'Dual-judge re-evaluation trigger',
+    'Advisory AI review',
   ])
     assert.match(md, new RegExp(`^## ${heading}$`, 'm'), heading);
 
