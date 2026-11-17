@@ -254,16 +254,20 @@ decision and its gate record name which (`independence`):
   with `npm run record-outcome -- outside-review` (`docs/outcome-records.md`
   §3), and `npm run metrics` lists the marked decisions still waiting and
   every disagreement;
-- **a measured AI review**, at Gate 4 only (not the API branch's): an
-  advisory AI review of these inputs ("Advisory AI review" below) was shown
-  before the decision and each of its findings answered, and the Test
-  Reviewer's regression results in `evidence/regressions/`, scored on its
-  current prompt and committed as they are on disk, put the lower bound of
-  its catch rate on seeded defects at 0.7 or more and the upper bound of its
-  false-alarm rate at 0.4 or less (Wilson 95%; with the set's three trials,
-  every seeded check caught and at most one false alarm in twelve). The
-  record names the review and the results, with their model. Until such
-  results are committed, the brief says what is missing.
+- **a measured AI review**, at Gate 4 only (not the API branch's): a
+  first-round advisory AI review of these inputs ("Advisory AI review"
+  below) was shown before the decision and each of its findings answered
+  (a later round reviews only a change, and only first rounds are
+  measured); the runner recorded the review as written with the Test
+  Reviewer's current prompt by the model the session declared
+  (`QAIZEN_MODEL`, in `provenance`); and the Test Reviewer's regression
+  results in the repository's `evidence/regressions/`, scored on that
+  prompt by that model and committed as they are on disk, put the lower
+  bound of its catch rate on seeded defects at 0.7 or more and the upper
+  bound of its false-alarm rate at 0.4 or less (Wilson 95%; with the set's
+  three trials, every seeded check caught and at most one false alarm in
+  twelve). The record names the review and the results. Where a review or
+  results exist and the control does not apply, the brief says why.
 
 A rejection needs none of them, and a setting in
 `config/gate-checks.json` that cannot apply refuses approvals only. Solo operation
@@ -275,10 +279,11 @@ Names are the ones people decide as (`QAIZEN_REVIEWER`, else
 `context.json`: someone who sets another name can pose as a second
 reviewer. Signed gate records (`docs/signed-gate-records.md`) tie the
 deciding reviewer to a key; the operator's name stays declared. A delay
-shows time passed, not that the time was spent reviewing. A measured AI
-review shows that a reviewer with a known catch rate on one benchmark story
-read the same inputs, not that its findings were weighed: the metrics'
-precision of the answers is where careless answers show.
+shows time passed, not that the time was spent reviewing. The model behind
+a measured AI review is declared too: a review written by hand under the
+measured model's name passes. Its catch rate comes from one benchmark
+story, and answering its findings shows they were answered, not weighed:
+the metrics' precision of the answers is where careless answers show.
 
 ### When it's worth consolidating (team-wide, all tracks)
 

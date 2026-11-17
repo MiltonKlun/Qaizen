@@ -23,9 +23,11 @@
 //                    holds for the rest of the run, and one for the same
 //                    inputs is never made again, so the reviewer can
 //                    neither know the draw in advance nor draw again;
-//   ai_review        Gate 4 only (code_reviewed): an advisory AI review of
-//                    these inputs was shown before the decision and each of
-//                    its findings answered, and the Test Reviewer's
+//   ai_review        Gate 4 only (code_reviewed): a first-round advisory AI
+//                    review of these inputs was shown before the decision
+//                    and each of its findings answered; the runner recorded
+//                    it as written with the measured prompt by the measured
+//                    model (as declared, QAIZEN_MODEL); and the Test Reviewer's
 //                    regression results, scored on its current prompt and
 //                    committed as they are on disk, put the lower bound of
 //                    its catch rate on seeded defects at MIN_AI_CATCH or
@@ -88,9 +90,14 @@ export const MAX_AI_FALSE_ALARM = 0.4;
  *     wilson_95: [number, number] } }} AiAccuracy
  * @typedef {{ minDelayMinutes: number, outsideRate: number | null }} IndependenceConfig
  * @typedef {{ shown: { path: string, sha256: string, round: number } | null,
- *   measured: import('./ai-review.js').MeasuredAccuracy | null }} AiReviewInput
- *   At a gate with an AI review: the review shown (or to be shown) before the
- *   decision, and its reviewer's measured accuracy (measuredAccuracy).
+ *   unusable?: string | null,
+ *   measured: import('./ai-review.js').MeasuredAccuracy | null,
+ *   produced: { model: string, prompts_current: boolean } | null }} AiReviewInput
+ *   At Gate 4: the review shown (or to be shown) before the decision, or
+ *   null with `unusable` saying why it cannot count; its reviewer's measured
+ *   accuracy (measuredAccuracy); and what the runner recorded as producing
+ *   the review (context.json provenance["ai-review-test"]): the model the
+ *   session declared, and whether its prompt files are the current ones.
  */
 
 /**
@@ -230,11 +237,13 @@ export function recordBriefShown(context, gate, digest, at) {
 /**
  * Whether the AI reviewer's measured accuracy lets its review count as a
  * control: results scored on its current prompt, committed as they are on
- * disk, with both bounds on the right side of the bar.
+ * disk, with both bounds on the right side of the bar, and a review the
+ * runner recorded as written with that prompt by the measured model (as the
+ * session declared it).
  * @param {AiReviewInput} input
  * @returns {{ ok: true, accuracy: AiAccuracy } | { ok: false, reason: string }}
  */
-export function aiAccuracy({ measured: m }) {
+export function aiAccuracy({ measured: m, produced }) {
   if (!m)
     return {
       ok: false,
@@ -252,17 +261,45 @@ export function aiAccuracy({ measured: m }) {
       ok: false,
       reason: `${name} are not committed as they are on disk`,
     };
+  if (
+    !(m.seeded.caught >= 0 && m.seeded.caught <= m.seeded.checks) ||
+    !(m.no_alarm.alarmed >= 0 && m.no_alarm.alarmed <= m.no_alarm.checks)
+  )
+    return {
+      ok: false,
+      reason: `${name} count more catches or alarms than checks`,
+    };
   const catchLow = m.seeded.wilson_95?.[0] ?? null;
   const alarmHigh = m.no_alarm.wilson_95?.[1] ?? null;
-  if (catchLow === null || catchLow < MIN_AI_CATCH)
+  if (catchLow === null || !(catchLow >= MIN_AI_CATCH))
     return {
       ok: false,
       reason: `${name} put its catch rate at ${m.seeded.caught} of ${m.seeded.checks} seeded checks, lower bound ${catchLow ?? 'none'}, under ${MIN_AI_CATCH}`,
     };
-  if (alarmHigh === null || alarmHigh > MAX_AI_FALSE_ALARM)
+  if (alarmHigh === null || !(alarmHigh <= MAX_AI_FALSE_ALARM))
     return {
       ok: false,
       reason: `${name} put its false alarms at ${m.no_alarm.alarmed} of ${m.no_alarm.checks} checks, upper bound ${alarmHigh ?? 'none'}, over ${MAX_AI_FALSE_ALARM}`,
+    };
+  if (!produced)
+    return {
+      ok: false,
+      reason:
+        'the runner has recorded nothing about what wrote the review (context.json provenance["ai-review-test"]; recorded when a runner session first sees it)',
+    };
+  if (!produced.prompts_current)
+    return {
+      ok: false,
+      reason:
+        'the review was recorded as written with another test-reviewer prompt than the one measured',
+    };
+  if (produced.model === 'unknown' || produced.model !== m.model)
+    return {
+      ok: false,
+      reason:
+        produced.model === 'unknown'
+          ? `no model was declared (QAIZEN_MODEL) in the session that first saw the review, so it cannot be matched to the measured one (${m.model})`
+          : `the review was recorded as written by ${produced.model}, and the results measured ${m.model}`,
     };
   return {
     ok: true,
@@ -367,7 +404,9 @@ export function independenceOptions({
   if (aiGate) {
     const r = aiAccuracy(aiReview);
     if (!aiReview.shown)
-      why.push('no usable AI review of these inputs is shown');
+      why.push(
+        aiReview.unusable ?? 'no usable AI review of these inputs is shown'
+      );
     if (!r.ok) why.push(r.reason);
     if (aiReview.shown && r.ok)
       ai = {

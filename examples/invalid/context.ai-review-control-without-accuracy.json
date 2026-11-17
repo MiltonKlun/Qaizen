@@ -144,6 +144,23 @@
     }
   ],
   "status": "completed",
+  "provenance": {
+    "ai-review-test": {
+      "prompts": [
+        {
+          "path": "agents/test-reviewer.md",
+          "sha256": "04b8ced4d7185495afee01f636f7734d8fadea9b0a741c00c56c3657bb544a33"
+        }
+      ],
+      "model": "model-x",
+      "harness": "claude-code 2.4.0",
+      "output": {
+        "path": "analysis/test-reviews/STORY-001.test-review.json",
+        "sha256": "e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4"
+      },
+      "recorded_at": "2026-06-06T14:05:30Z"
+    }
+  },
   "ai_reviews": [
     {
       "gate": "code_reviewed",

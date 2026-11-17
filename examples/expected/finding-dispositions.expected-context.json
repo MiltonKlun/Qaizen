@@ -6,7 +6,7 @@
     "title": "Login — Successful sign-in (scan findings answered)",
     "source": "manual",
     "path": "story.md",
-    "description": "Same login slice, showing gate_decisions[].finding_dispositions. Gate 4 was rejected once: the reviewer answered the hard wait the static scan found as fixed (the test must change), which allows only a rejection. After the Generator removed the wait, the scan found one fragile locator; the reviewer answered it wrong, with a reason because login is a Red-domain (security) story, and approved. Optional and written only by the runner, so older contexts stay valid. The approval was also shown an advisory AI review of the test (round 1, ai_reviews[] and gate_decisions[].ai_review): before seeing it, the reviewer noted their own concern; its one finding, a presence check where TC-001 expects the inventory list, was answered intentional, with a reason, because the list contents are checked by TC-003. On the full track this solo approval rests on that review (gate_decisions[].independence, control ai_review): the Test Reviewer's committed regression results on its current prompt caught 9 of 9 seeded checks and raised 1 false alarm in 12."
+    "description": "Same login slice, showing gate_decisions[].finding_dispositions. Gate 4 was rejected once: the reviewer answered the hard wait the static scan found as fixed (the test must change), which allows only a rejection. After the Generator removed the wait, the scan found one fragile locator; the reviewer answered it wrong, with a reason because login is a Red-domain (security) story, and approved. Optional and written only by the runner, so older contexts stay valid. The approval was also shown an advisory AI review of the test (round 1, ai_reviews[] and gate_decisions[].ai_review): before seeing it, the reviewer noted their own concern; its one finding, a presence check where TC-001 expects the inventory list, was answered intentional, with a reason, because the list contents are checked by TC-003. On the full track this solo approval rests on that review (gate_decisions[].independence, control ai_review): the runner recorded it as written by model-x with the current test-reviewer prompt (provenance), and the Test Reviewer's committed regression results on its current prompt caught 9 of 9 seeded checks and raised 1 false alarm in 12."
   },
   "acceptance_criteria": [
     "Given a registered, non-locked user with valid credentials, when they submit the login form, then they are taken to the home page and see the inventory list.",
@@ -155,6 +155,23 @@
     }
   ],
   "status": "completed",
+  "provenance": {
+    "ai-review-test": {
+      "prompts": [
+        {
+          "path": "agents/test-reviewer.md",
+          "sha256": "04b8ced4d7185495afee01f636f7734d8fadea9b0a741c00c56c3657bb544a33"
+        }
+      ],
+      "model": "model-x",
+      "harness": "claude-code 2.4.0",
+      "output": {
+        "path": "analysis/test-reviews/STORY-001.test-review.json",
+        "sha256": "e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4"
+      },
+      "recorded_at": "2026-06-06T14:05:30Z"
+    }
+  },
   "ai_reviews": [
     {
       "gate": "code_reviewed",

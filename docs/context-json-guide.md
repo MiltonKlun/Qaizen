@@ -375,8 +375,9 @@ approved inputs, and said so), `delay` (with `brief_first_shown_at` and
 `rate`, whether this decision was `selected`, and the `input_digest` it was
 drawn for: a selection holds for the rest of the run, and approving the
 same inputs again keeps the draw) or, at `code_reviewed` only, `ai_review`
-(with `review`, the advisory AI review shown before the decision as
-`{ path, sha256, round }`, and `accuracy`, the Test Reviewer's regression
+(with `review`, the first-round advisory AI review shown before the
+decision, also named in its `ai_review`, as `{ path, sha256, round }`, and
+`accuracy`, the Test Reviewer's regression
 results it rested on: `results`, `model`, `generated_at`, and the `seeded`
 and `no_alarm` counts with their Wilson 95% intervals). The runner
 refuses such an approval with none. Written only by the runner; absent on
@@ -413,11 +414,14 @@ part of any gate's reviewed input.
 ### `provenance` (optional — written by the runner)
 
 What produced each agent step's output, keyed by step (`analyst`,
-`test-designer`, `planner`, `generator`, `api`, `external-plan`,
-`finalize`, `report`): `{ prompts: [{ path, sha256 }], model, harness,
-output: { path, sha256 }, recorded_at }`. `sha256` is `null` for a prompt
-file that does not exist; `model` and `harness` are what the operator
-declared (`QAIZEN_MODEL`, `QAIZEN_HARNESS`) or `unknown`.
+`test-designer`, `planner`, `generator`, `ai-review-spec`,
+`ai-review-test`, `api`, `external-plan`, `finalize`, `report`):
+`{ prompts: [{ path, sha256 }], model, harness, output: { path, sha256 },
+recorded_at }`. `sha256` is `null` for a prompt file that does not exist;
+`model` and `harness` are what the operator declared (`QAIZEN_MODEL`,
+`QAIZEN_HARNESS`) in the session that first saw the output, or `unknown`.
+A Gate 4 approval rests on an AI review only when its `ai-review-test`
+entry names the measured model and prompt.
 `docs/prompt-versioning.md` §2a has the rules.
 
 ### `repeat_check` (optional — written by the runner)

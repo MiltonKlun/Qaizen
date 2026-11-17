@@ -624,7 +624,7 @@
           },
           "independence": {
             "type": "object",
-            "description": "OPTIONAL. What a full-track approval at Gate 2 (test_scope_reviewed) or Gate 4 (code_reviewed, api_assertions_reviewed) rested on (scripts/lib/review-independence.js): second_reviewer, the person deciding is not the operator noted for these inputs (the first terminal session that opened the gate on them, at noted_at) and said so; delay, at least min_delay_minutes (60 or more) passed between the first showing of the brief for these inputs and the decision; outside_review, the team's sampled outside review at its rate, drawn once per gate and input digest when the decision was recorded (selected: whether this decision is marked for outside review); ai_review, Gate 4 (code_reviewed) only, an advisory AI review of these inputs (review: its file, SHA-256 and round) was shown before the decision and its findings answered, and the Test Reviewer's regression results scored on its current prompt and committed as on disk (accuracy: the results file, model, when scored, and the counts with their Wilson 95% intervals) put its catch rate's lower bound at 0.7 or more and its false-alarm rate's upper bound at 0.4 or less. The runner refuses such an approval with none of them. Absent on rejections, on other tracks and gates, and on older runs. Written only by the runner.",
+            "description": "OPTIONAL. What a full-track approval at Gate 2 (test_scope_reviewed) or Gate 4 (code_reviewed, api_assertions_reviewed) rested on (scripts/lib/review-independence.js): second_reviewer, the person deciding is not the operator noted for these inputs (the first terminal session that opened the gate on them, at noted_at) and said so; delay, at least min_delay_minutes (60 or more) passed between the first showing of the brief for these inputs and the decision; outside_review, the team's sampled outside review at its rate, drawn once per gate and input digest when the decision was recorded (selected: whether this decision is marked for outside review); ai_review, Gate 4 (code_reviewed) only, a round-1 advisory AI review of these inputs (review: its file, SHA-256 and round) was shown before the decision (logged in ai_reviews[] and named in this decision's ai_review) and each of its findings answered, the runner recorded it (provenance[\"ai-review-test\"]) as written with the measured prompt by the measured model as the session declared it, and the Test Reviewer's regression results scored on its current prompt and committed as on disk (accuracy: the results file, model, when scored, and the counts with their Wilson 95% intervals) put its catch rate's lower bound at 0.7 or more and its false-alarm rate's upper bound at 0.4 or less. The runner refuses such an approval with none of them. Absent on rejections, on other tracks and gates, and on older runs. Written only by the runner.",
             "additionalProperties": false,
             "required": ["control", "operator"],
             "properties": {
@@ -657,7 +657,7 @@
                     "pattern": "^analysis/test-reviews/[^/]+\\.json$"
                   },
                   "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-                  "round": { "type": "integer", "minimum": 1, "maximum": 3 }
+                  "round": { "type": "integer", "const": 1 }
                 }
               },
               "accuracy": {
@@ -766,6 +766,18 @@
               "own_concerns": { "type": ["string", "null"] }
             }
           }
+        },
+        "if": {
+          "required": ["independence"],
+          "properties": {
+            "independence": {
+              "properties": { "control": { "const": "ai_review" } }
+            }
+          }
+        },
+        "then": {
+          "required": ["ai_review"],
+          "properties": { "gate": { "const": "code_reviewed" } }
         }
       }
     },
@@ -854,13 +866,15 @@
     },
     "provenance": {
       "type": "object",
-      "description": "OPTIONAL. What produced each agent step's output (scripts/lib/provenance.js): the SHA-256 of every prompt file the step uses (its agent prompt and skills, or the generated .claude/agents/ definition; null when the file does not exist), the model id and harness version the operator declared (QAIZEN_MODEL, QAIZEN_HARNESS; unknown when undeclared, since the runner cannot see which model ran), the output it describes, and when it was recorded. Recorded the first time the runner sees the output, and again when the output changes. Absent on older runs, which show as unknown; nothing is backfilled. Written only by the runner.",
+      "description": "OPTIONAL. What produced each agent step's output (scripts/lib/provenance.js): the SHA-256 of every prompt file the step uses (its agent prompt and skills, or the generated .claude/agents/ definition; null when the file does not exist), the model id and harness version the operator declared (QAIZEN_MODEL, QAIZEN_HARNESS, in the session that first saw the output; unknown when undeclared, since the runner cannot see which model ran), the output it describes, and when it was recorded. Recorded the first time the runner sees the output, and again when the output changes. Absent on older runs, which show as unknown; nothing is backfilled. Written only by the runner.",
       "propertyNames": {
         "enum": [
           "analyst",
           "test-designer",
           "planner",
           "generator",
+          "ai-review-spec",
+          "ai-review-test",
           "api",
           "external-plan",
           "finalize",
