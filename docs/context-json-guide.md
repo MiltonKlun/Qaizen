@@ -482,7 +482,8 @@ Gate 1 on its own (a file written before this default) stays `"standard"`,
 so an older run keeps its path. The default is computed by the runner
 (`scripts/track-floor.js` `liteByDefault`), not baked into the schema; to
 keep Gates 1 and 2 apart on a story the floor allows on lite, declare
-`"standard"`.
+`"standard"`. A track declared later is part of what Gate 1 reviews, so it
+reopens a scope approval made before it.
 
 - **`lite`** — routine, low-risk work. Thins **artifacts, never decisions**:
   schema validation, traceability, and the automation-decision requirement

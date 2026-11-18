@@ -14,7 +14,9 @@ import {
   REJECTION_ADVICE_AT,
   rejectionCount,
   rejectionLine,
+  trackLine,
 } from '../scripts/lib/brief-checks.js';
+import { effectiveTrack } from '../scripts/track-floor.js';
 
 function run(t, { scored = true } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'qaizen-brief-'));
@@ -224,4 +226,19 @@ test('rejections are counted per gate per run, and from the third the brief advi
   // A step that is not a gate gets no line.
   ctx.gate_decisions = three('specs_reviewed');
   assert.deepEqual(briefChecks('planner', ctx, dir), []);
+});
+
+test('the track line says when lite is the default and how to keep the gates apart', () => {
+  const benign = {
+    story: { id: 'S-1', title: 'Footer year' },
+    acceptance_criteria: ['The footer shows the year.'],
+    risks: [],
+  };
+  const line = trackLine(effectiveTrack(benign, ''));
+  assert.match(line, /^track: lite, by default: no track is declared/);
+  assert.match(line, /set "track": "standard" in context\.json and --resume/);
+  assert.doesNotMatch(
+    trackLine(effectiveTrack({ ...benign, track: 'lite' }, '')),
+    /by default/
+  );
 });

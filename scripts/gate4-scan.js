@@ -420,6 +420,7 @@ export function loadGate4Artifacts(contextPath = 'context.json') {
 
 /**
  * The track the scan holds a story to: the declared track (absent means
+ * lite when the floor allows it, scripts/track-floor.js liteByDefault, else
  * standard) or the story's floor, whichever is higher. The floor is computed
  * now from the story file and the context (scripts/track-floor.js), so a
  * floor the Analyst recorded too low does not lower it.

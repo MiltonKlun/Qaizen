@@ -143,9 +143,11 @@ against the schema.
 
 ## Optional consolidation of Gates 1 and 2
 
-> **Optional, opt-in, and reversible.** Most teams keep the four gates
-> separate. Consolidation is an efficiency lever, not a default — turn
-> it on only after the evidence below, and never for Gate 4.
+> **Optional, opt-in, and reversible** as a team-wide practice: most
+> teams keep the four gates separate on `standard` and `full`, and turn
+> consolidation on there only after the evidence below, never for Gate 4.
+> The lite track (below) is the exception: a routine story starts on it by
+> default and consolidates Gates 1 and 2.
 
 After enough runs, a team may notice Gate 1 (Requirement
 Interpretation) and Gate 2 (Test Scope Approval) are _always approved
@@ -167,8 +169,11 @@ run is on lite when `context.track` is `"lite"`, or, by default, when it
 declares no track and its floor (below) allows lite: a small story outside
 the Red domains with no high-severity risk starts on lite. A run that
 already decided Gate 1 on its own stays on the four gates. The
-consolidated brief says when the track is the default; to keep Gates 1 and
-2 apart, quit, set `"track": "standard"` in `context.json` and `--resume`.
+consolidated brief and `--status` say when the track is the default; to
+keep Gates 1 and 2 apart, quit, set `"track": "standard"` in
+`context.json` and `--resume`. The Test Designer trims its prose (its lite
+output profile) only when `"track": "lite"` is declared; on lite by default
+it writes its usual output, and only the gates are consolidated.
 A lite run's gate path is:
 
 ```
@@ -192,7 +197,8 @@ Two rules make this a thinning of _ceremony_, never of _review_:
   `config/red-domains.json`, in English and Spanish, and the runner checks
   the floor again on every resume: a lite run whose story mentions a word
   added there (login, an order, a total, a promo code, "pagar") stops until
-  its track is raised.
+  its track is raised, whether lite was declared or the runner consolidated
+  Gates 1 and 2 on lite by default.
 
 Unlike the team-wide opt-in below, lite consolidation is a **per-story**
 default the floor allows and the Analyst or the team can raise by declaring
@@ -215,8 +221,8 @@ The scope is one decision on lite (`qa_scope_approved`) and two elsewhere
 branch's collection and assertions, the external plan and evidence). On
 `full`, an approval at Gate 2 or Gate 4 also rests on a second reviewer or
 a compensating control, and every lowered failure severity needs a
-confirmation; on every track, Gate 2 asks the reviewer to decide each draft
-case first.
+confirmation; on every track, the scope approval (Gate 2, or the lite
+gate) asks the reviewer to decide each draft case first.
 
 ### The full track
 

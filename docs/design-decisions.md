@@ -342,5 +342,10 @@ the track is the default and how to raise it (`docs/review-gates.md`,
 **Consequences.** A routine story takes one approval fewer. The floor
 becomes what keeps a story off lite: a story that is not routine for a
 reason the floor does not see (no Red keyword, few criteria, no
-high-severity risk) starts on lite unless the Analyst or the team declares
-`standard`, and the reviewer at the consolidated gate is the check on that.
+high-severity risk) starts on lite unless someone declares `standard`; the
+Analyst is not asked to, so the reviewer at the consolidated gate, whose
+brief says the track is the default, is the check on that. A run whose
+consolidated approval no longer fits its floor (a keyword added to
+`config/red-domains.json`) stops on resume until its track is raised. On
+lite by default only the gates are consolidated: the Test Designer's
+trimmed prose applies when lite is declared.

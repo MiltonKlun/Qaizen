@@ -54,7 +54,11 @@ npm run pipeline -- --reopen gate2       # send the run back to Gate 2 (asks why
 npm run pipeline -- --restore gate2      # put back the files Gate 2 approved (asks first)
 ```
 
-A full loop looks like:
+A full loop looks like this on the `standard` and `full` tracks. A story
+with no declared track whose floor allows lite starts on lite, where the
+test-designer step comes straight after the analyst and Gates 1 and 2 are one
+decision (`QA SCOPE`); `--status` says so (`docs/review-gates.md`, "The
+lite track uses this consolidation").
 
 ```
 --story → [analyst step: you run the agent] → --resume → GATE 1 (interactive)

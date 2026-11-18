@@ -16,14 +16,14 @@
 
 ## TL;DR
 
-| Your situation                                                   | Reach for                                     | Why                                                                     |
-| ---------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------- |
-| Important feature; bugs would hurt                               | **Full pipeline** (`npm run pipeline`)        | Four gates + traceability + tests written against the running app       |
-| Red-domain work (money, permissions, security, data, compliance) | **Full pipeline — and the floor enforces it** | `scripts/track-floor.js` refuses `lite` here; these get the full review |
-| Routine, low-risk change (copy tweak, cosmetic UI)               | **Lite track** (`track: lite`)                | Same validation + traceability, less prose (`docs/review-gates.md`)     |
-| You need an audit trail / to hand work to a coworker             | **Full or lite pipeline**                     | The traceability chain + gate decisions are the deliverable             |
-| One-off throwaway script, a spike you'll delete                  | **Just prompt an AI directly**                | The ceremony earns nothing here; see "what you forfeit" below           |
-| You only want one capability, not the whole flow                 | **An à-la-carte piece**                       | See the standalone one-pagers (`docs/standalone-*.md`)                  |
+| Your situation                                                   | Reach for                                             | Why                                                                         |
+| ---------------------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------- |
+| Important feature; bugs would hurt                               | **Full pipeline** (`npm run pipeline`)                | Four gates + traceability + tests written against the running app           |
+| Red-domain work (money, permissions, security, data, compliance) | **Full pipeline — and the floor enforces it**         | `scripts/track-floor.js` refuses `lite` here; these get the full review     |
+| Routine, low-risk change (copy tweak, cosmetic UI)               | **Lite track** (the default when the floor allows it) | Same validation + traceability, one scope decision (`docs/review-gates.md`) |
+| You need an audit trail / to hand work to a coworker             | **Full or lite pipeline**                             | The traceability chain + gate decisions are the deliverable                 |
+| One-off throwaway script, a spike you'll delete                  | **Just prompt an AI directly**                        | The ceremony earns nothing here; see "what you forfeit" below               |
+| You only want one capability, not the whole flow                 | **An à-la-carte piece**                               | See the standalone one-pagers (`docs/standalone-*.md`)                      |
 
 ---
 

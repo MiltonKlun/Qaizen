@@ -698,3 +698,13 @@ test('lite track — sequencing uses one consolidated qa_scope gate', () => {
     assert.equal(nextStep(context, hints), expected, `case: ${name}`);
   }
 });
+
+test('lite by default — the hint puts a run with no track on the lite path, its absence keeps the four gates', () => {
+  const fresh = ctx();
+  assert.equal(nextStep(fresh), 'gate1');
+  assert.equal(nextStep(fresh, { liteByDefault: false }), 'gate1');
+  assert.equal(nextStep(fresh, { liteByDefault: true }), 'test-designer');
+  const cases = ctx({ paths: { test_cases: ALL_PATHS.test_cases } });
+  assert.equal(nextStep(cases, { liteByDefault: true }), 'qa_scope');
+  assert.equal(nextStep(cases, { liteByDefault: false }), 'gate1');
+});

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "run_id": "2026-06-11T09-00-00Z-liteex",
+  "run_id": "2026-06-12T09-00-00Z-litedefault",
   "story": {
     "id": "STORY-010",
     "title": "Inventory page footer shows the current year",

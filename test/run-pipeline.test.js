@@ -222,13 +222,14 @@ test('runner --status reports gate state and next step (read-only)', () => {
   }
 });
 
-test('a run that declares no track starts on lite when its floor allows it, and on its floor otherwise', () => {
+test('a run that declares no track starts on lite when its floor allows it, and on the four gates otherwise', () => {
   const dir = makeMiniRepo();
   try {
     const ctxPath = join(dir, 'context.json');
     writeFileSync(ctxPath, JSON.stringify(freshContext(), null, 2));
     const lite = runPipeline(dir, ['--status']);
     assert.equal(lite.code, 0, lite.out);
+    assert.match(lite.out, /Track: {2}lite by default/);
     assert.match(lite.out, /Next step: test-designer/);
     // A Red-domain story is held to full: the four gates, Gate 1 first.
     writeFileSync(
@@ -241,7 +242,69 @@ test('a run that declares no track starts on lite when its floor allows it, and 
         2
       )
     );
-    assert.match(runPipeline(dir, ['--status']).out, /Next step: gate1/);
+    const red = runPipeline(dir, ['--status']).out;
+    assert.match(red, /Next step: gate1/);
+    assert.doesNotMatch(red, /lite by default/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a run consolidated on lite by default stops on resume once its floor is higher', () => {
+  const dir = makeMiniRepo();
+  try {
+    const ctxPath = join(dir, 'context.json');
+    const approval = {
+      status: true,
+      reviewer: 'alice',
+      reviewed_at: '2026-06-10T10:05:00Z',
+      opened_at: '2026-06-10T10:00:00Z',
+      notes: null,
+    };
+    writeFileSync(
+      ctxPath,
+      JSON.stringify(
+        freshContext({
+          review_gates: {
+            qa_scope_approved: approval,
+            requirements_reviewed: approval,
+            test_scope_reviewed: approval,
+            specs_reviewed: false,
+            code_reviewed: false,
+          },
+          gate_decisions: [
+            {
+              gate: 'qa_scope_approved',
+              decision: 'approved',
+              opened_at: '2026-06-10T10:00:00Z',
+              decided_at: '2026-06-10T10:05:00Z',
+              reviewer: 'alice',
+              notes: null,
+            },
+          ],
+        }),
+        null,
+        2
+      )
+    );
+    // A keyword added to config/red-domains.json since then matches the story.
+    writeFileSync(
+      join(dir, 'story.md'),
+      '# STORY-001\nThe total equals the sum of the prices.\n'
+    );
+    const before = readFileSync(ctxPath, 'utf8');
+    const r = runPipeline(dir, ['--resume']);
+    assert.equal(r.code, 2, r.out);
+    assert.match(
+      r.out,
+      /Refusing to continue on lite by default: Gates 1 and 2 were approved as one decision, and the floor for this story is now "full"/
+    );
+    assert.match(r.out, /Set\n`track` to "full" in context\.json/);
+    assert.equal(
+      readFileSync(ctxPath, 'utf8'),
+      before,
+      'a refusal writes nothing'
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

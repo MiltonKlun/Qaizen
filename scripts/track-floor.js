@@ -138,19 +138,21 @@ export function trackAllowed(context, proposed, story = null) {
 
 /**
  * Whether Gate 1 was decided on its own, as the standard path decides it: a
- * run that already took that path keeps it.
+ * run that already took that path keeps it, and one that took the lite path
+ * (a qa_scope_approved decision in its log) keeps that, even after a reopen
+ * leaves Gate 1's consolidated approval in place. review_gates is read only
+ * for a run that logs no decision at all.
  * @param {any} context
  */
 function gate1DecidedAlone(context) {
   const decisions = Array.isArray(context?.gate_decisions)
     ? context.gate_decisions
     : [];
-  if (
-    decisions.some(
-      (/** @type {any} */ d) => d?.gate === 'requirements_reviewed'
-    )
-  )
-    return true;
+  const logged = (/** @type {string} */ gate) =>
+    decisions.some((/** @type {any} */ d) => d?.gate === gate);
+  if (logged('qa_scope_approved')) return false;
+  if (logged('requirements_reviewed')) return true;
+  if (decisions.length) return false;
   const gates = context?.review_gates ?? {};
   const qa = gates.qa_scope_approved;
   if (qa === true || qa?.status === true) return false;
@@ -163,17 +165,20 @@ function gate1DecidedAlone(context) {
 
 /**
  * Whether a run that declares no track starts on lite (docs/review-gates.md,
- * "Tracks"): its floor, computed now and as the Analyst recorded it, allows
+ * "The lite track uses this consolidation"): its floor, computed now and as
+ * the Analyst recorded it, allows
  * lite, and Gate 1 was not already decided on its own (an older run that took
  * the standard path stays on it). A story the floor holds higher (a Red
  * domain, its size, a high-severity risk) starts where the floor puts it,
- * and a declared track is always kept.
+ * and a declared track is always kept. Without the story's text the floor
+ * cannot be read from it, so there is no default.
  * @param {any} context parsed context.json
  * @param {string | null} [story] the story file's text
  */
 export function liteByDefault(context, story = null) {
   if (!context || (context.track !== undefined && context.track !== null))
     return false;
+  if (typeof story !== 'string') return false;
   if (gate1DecidedAlone(context)) return false;
   const recorded = context.track_floor?.minimum;
   if (TRACK_ORDER.includes(recorded) && recorded !== 'lite') return false;

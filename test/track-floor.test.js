@@ -225,8 +225,10 @@ test('an Analyst omission no longer lowers the floor', () => {
 test('the effective track is the highest of declared, computed and recorded', () => {
   const benign = ctx({ title: 'Footer year', acs: ['shows year'] });
   // No track declared: lite, the lowest track the floor allows.
-  assert.equal(effectiveTrack(benign).track, 'lite');
-  assert.equal(effectiveTrack(benign).defaulted, true);
+  assert.equal(effectiveTrack(benign, '').track, 'lite');
+  assert.equal(effectiveTrack(benign, '').defaulted, true);
+  // Without the story's text there is no default.
+  assert.equal(effectiveTrack(benign).track, 'standard');
   assert.equal(
     effectiveTrack({ ...benign, track: 'standard' }).track,
     'standard'
@@ -246,21 +248,23 @@ test('the effective track is the highest of declared, computed and recorded', ()
 
 test('a run with no declared track starts on lite only when its floor allows it and Gate 1 was not decided on its own', () => {
   const benign = ctx({ title: 'Footer year', acs: ['shows year'] });
-  assert.equal(liteByDefault(benign), true);
+  // The story's text, empty unless a case gives one.
+  const lbd = (/** @type {any} */ c, story = '') => liteByDefault(c, story);
+  assert.equal(lbd(benign, ''), true);
   assert.equal(liteByDefault(null), false);
   // A declared track is kept, an unknown one included.
   for (const track of ['lite', 'standard', 'full', 'bogus'])
-    assert.equal(liteByDefault({ ...benign, track }), false, track);
+    assert.equal(lbd({ ...benign, track }, ''), false, track);
   // The floor holds it higher: a Red domain in the story file or the
   // context, its size, a high-severity risk, or a floor the Analyst recorded.
-  assert.equal(liteByDefault(benign, 'Users pay by card.'), false);
+  assert.equal(lbd(benign, 'Users pay by card.'), false);
   assert.equal(
-    liteByDefault(ctx({ acs: ['The total equals the sum of the prices.'] })),
+    lbd(ctx({ acs: ['The total equals the sum of the prices.'] }), ''),
     false
   );
-  assert.equal(liteByDefault(ctx({ acs: ['a', 'b', 'c', 'd', 'e'] })), false);
+  assert.equal(lbd(ctx({ acs: ['a', 'b', 'c', 'd', 'e'] }), ''), false);
   assert.equal(
-    liteByDefault(
+    lbd(
       ctx({
         risks: [{ risk_id: 'RISK-001', description: 'x', severity: 'high' }],
       })
@@ -268,20 +272,20 @@ test('a run with no declared track starts on lite only when its floor allows it 
     false
   );
   assert.equal(
-    liteByDefault({
+    lbd({
       ...benign,
       track_floor: { minimum: 'standard', reasons: [] },
     }),
     false
   );
   assert.equal(
-    liteByDefault({ ...benign, track_floor: { minimum: 'lite', reasons: [] } }),
+    lbd({ ...benign, track_floor: { minimum: 'lite', reasons: [] } }),
     true
   );
   // An older run that took the standard path keeps it: Gate 1 decided on
   // its own, approved or rejected, logged or only in review_gates.
   assert.equal(
-    liteByDefault({
+    lbd({
       ...benign,
       gate_decisions: [
         {
@@ -294,11 +298,11 @@ test('a run with no declared track starts on lite only when its floor allows it 
     false
   );
   assert.equal(
-    liteByDefault({ ...benign, review_gates: { requirements_reviewed: true } }),
+    lbd({ ...benign, review_gates: { requirements_reviewed: true } }),
     false
   );
   assert.equal(
-    liteByDefault({
+    lbd({
       ...benign,
       review_gates: {
         requirements_reviewed: { status: false, reviewed_at: 't' },
@@ -308,7 +312,7 @@ test('a run with no declared track starts on lite only when its floor allows it 
   );
   // The lite gate approves Gate 1 with it: that run stays on lite.
   assert.equal(
-    liteByDefault({
+    lbd({
       ...benign,
       gate_decisions: [
         { gate: 'qa_scope_approved', decision: 'approved', decided_at: 't' },
@@ -321,7 +325,7 @@ test('a run with no declared track starts on lite only when its floor allows it 
     true
   );
   assert.equal(
-    liteByDefault({
+    lbd({
       ...benign,
       review_gates: { requirements_reviewed: false },
     }),
@@ -335,7 +339,36 @@ test('the lite-default example is held to lite by default', () => {
   );
   assert.equal(c.track, undefined);
   assert.deepEqual(
-    { track: effectiveTrack(c).track, defaulted: effectiveTrack(c).defaulted },
+    {
+      track: effectiveTrack(c, '').track,
+      defaulted: effectiveTrack(c, '').defaulted,
+    },
     { track: 'lite', defaulted: true }
   );
+});
+
+test('without the story text there is no default, and a reopen keeps a lite run on lite', () => {
+  const benign = ctx({ title: 'Footer year', acs: ['shows year'] });
+  assert.equal(liteByDefault(benign, null), false);
+  assert.equal(liteByDefault(benign), false);
+  // --reopen gate2 after the lite gate: Gate 2 and qa_scope_approved are
+  // reset, Gate 1 keeps its consolidated approval. The log shows the run
+  // took the lite path, so it stays there (back to the lite gate).
+  const reopened = {
+    ...benign,
+    gate_decisions: [
+      { gate: 'qa_scope_approved', decision: 'approved', decided_at: 't' },
+    ],
+    review_gates: {
+      qa_scope_approved: { status: false, reviewer: null, reviewed_at: null },
+      requirements_reviewed: {
+        status: true,
+        reviewed_at: 't',
+        notes: 'Consolidated via qa_scope_approved (lite track).',
+      },
+      test_scope_reviewed: { status: false, reviewed_at: null },
+    },
+  };
+  assert.equal(liteByDefault(reopened, ''), true);
+  assert.equal(effectiveTrack(reopened, '').track, 'lite');
 });
