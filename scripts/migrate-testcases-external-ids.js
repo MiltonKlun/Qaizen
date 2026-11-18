@@ -14,8 +14,10 @@
 //
 // Exit codes: 0 ok (or nothing to do) · 1 error · 2 usage/file error
 
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { argv, exit } from 'node:process';
+
+import { IO_ERROR, readJson } from './lib/artifact-io.js';
 
 const APPLY = argv.includes('--apply');
 const ALL = argv.includes('--all');
@@ -41,19 +43,12 @@ if (ALL) {
 
 let totalChanged = 0;
 for (const path of targets) {
-  if (!existsSync(path)) {
-    console.error(`File not found: ${path}`);
-    exit(2);
+  const read = readJson(path);
+  if (!read.ok) {
+    console.error(read.message);
+    exit(read.kind === IO_ERROR.MISSING_FILE ? 2 : 1);
   }
-  let doc;
-  try {
-    doc = JSON.parse(readFileSync(path, 'utf8'));
-  } catch (e) {
-    console.error(
-      `${path} is not valid JSON: ${e instanceof Error ? e.message : e}`
-    );
-    exit(1);
-  }
+  const doc = read.data;
   let changed = 0;
   for (const tc of doc.test_cases || []) {
     if (tc.testlink_id) {

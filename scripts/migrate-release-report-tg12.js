@@ -30,6 +30,8 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { argv, exit } from 'node:process';
 
+import { readJson } from './lib/artifact-io.js';
+
 const APPLY = argv.includes('--apply');
 const positional = argv.filter((a, i) => i >= 2 && !a.startsWith('--'));
 const reportPath = positional[0] || 'release/release-report.json';
@@ -41,16 +43,13 @@ if (!existsSync(reportPath)) {
   exit(2);
 }
 
-/** @type {any} the report being migrated; its old shape predates the schema */
-let report;
-try {
-  report = JSON.parse(readFileSync(reportPath, 'utf8'));
-} catch (e) {
-  console.error(
-    `${reportPath} is not valid JSON: ${e instanceof Error ? e.message : e}`
-  );
+const read = readJson(reportPath);
+if (!read.ok) {
+  console.error(read.message);
   exit(2);
 }
+/** @type {any} the report being migrated; its old shape predates the schema */
+const report = read.data;
 
 /** @type {any} */
 const ctx =
