@@ -21,27 +21,21 @@
 //
 // Exit codes: 0 ok (or already migrated) · 1 migration error · 2 usage/file error
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { argv, exit } from 'node:process';
+
+import { readJson } from './lib/artifact-io.js';
 
 const APPLY = argv.includes('--apply');
 const target =
   argv.find((a, i) => i >= 2 && !a.startsWith('--')) || 'context.json';
 
-if (!existsSync(target)) {
-  console.error(`File not found: ${target}`);
+const read = readJson(target);
+if (!read.ok) {
+  console.error(read.message);
   exit(2);
 }
-
-let doc;
-try {
-  doc = JSON.parse(readFileSync(target, 'utf8'));
-} catch (e) {
-  console.error(
-    `${target} is not valid JSON: ${e instanceof Error ? e.message : e}`
-  );
-  exit(2);
-}
+const doc = read.data;
 
 const gates = doc.review_gates;
 if (!gates || typeof gates !== 'object') {
