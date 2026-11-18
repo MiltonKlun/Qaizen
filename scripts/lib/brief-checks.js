@@ -47,7 +47,11 @@ import { FULL_TRACK_REQUIREMENTS, effectiveTrack } from '../track-floor.js';
  */
 export function trackLine(t) {
   const raised =
-    t.track !== t.declared ? `, raised from ${t.declared} by its floor` : '';
+    t.track !== t.declared
+      ? `, raised from ${t.declared} by its floor`
+      : t.defaulted
+        ? ', by default: no track is declared and the floor allows lite (to keep Gates 1 and 2 apart, quit, set "track": "standard" in context.json and --resume)'
+        : '';
   const why = t.reasons.length ? ` (${t.reasons.join('; ')})` : '';
   const requires =
     t.track === 'full'

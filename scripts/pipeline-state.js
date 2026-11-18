@@ -43,7 +43,7 @@
  *   generatedTestExists?: boolean, repeatCurrent?: boolean,
  *   faultCurrent?: boolean,
  *   aiReviewSpec?: boolean,
- *   aiReviewTest?: boolean,
+ *   aiReviewTest?: boolean, liteByDefault?: boolean,
  *   executionResultsExist?: boolean,
  *   failureAnalysisExists?: boolean, failureAnalysisFinalized?: boolean,
  *   bugDraftsMissing?: number, draftProblems?: number,
@@ -124,6 +124,9 @@ export const GATE_KEYS = {
  *   - faultCurrent:           false when the story has a fault check (a
  *                             Bench Shop story) and it is missing or ran
  *                             against other Gate 4 inputs; absent skips it.
+ *   - liteByDefault:          true when the run declares no track and starts
+ *                             on lite by default (scripts/track-floor.js
+ *                             liteByDefault); absent keeps the declared track.
  *   - aiReviewSpec / aiReviewTest: false when the team asks for an AI
  *                             review before Gate 3 / Gate 4 and none is usable
  *                             for the gate's current inputs; absent skips it.
@@ -144,7 +147,8 @@ export const GATE_KEYS = {
  *   execute-api | external-results | gate4-ext | classify |
  *   finalize | confirm-downgrades | report | done   (qa_scope replaces
  *   gate1+gate2 on the lite
- *   track — context.track === "lite" or a passed qa_scope_approved)
+ *   track — context.track === "lite", hints.liteByDefault, or a passed
+ *   qa_scope_approved)
  */
 export function nextStep(context, hints = {}) {
   if (!context) return 'analyst';
@@ -172,7 +176,8 @@ export function nextStep(context, hints = {}) {
   // Gates 3 and 4 are unchanged in every track. A run that already carries a
   // passed qa_scope_approved follows the lite path regardless of `track`, so
   // an in-flight run is never stranded by a track edit.
-  const lite = context.track === 'lite' || consolidated;
+  const lite =
+    context.track === 'lite' || hints.liteByDefault === true || consolidated;
 
   if (lite) {
     // Lite path: analyst -> test-designer -> qa_scope (one decision covering

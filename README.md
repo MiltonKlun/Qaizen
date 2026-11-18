@@ -113,7 +113,7 @@ In more detail:
 | **4. Code** | Generator | Stable locators, real assertions, nothing skipped or weakened |
 
 Each branch has its own Gate 3 and Gate 4; one branch's approval never stands in
-for another's. Routine stories may take the `lite` track, where Gates 1 and 2
+for another's. Routine stories start on the `lite` track, where Gates 1 and 2
 are one decision; a story that touches payments, permissions, security or data
 integrity, or is too large to be routine, always gets all four
 ([review gates](docs/review-gates.md)).

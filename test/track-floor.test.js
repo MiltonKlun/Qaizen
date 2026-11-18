@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   effectiveTrack,
+  liteByDefault,
   minimumTrack,
   trackAllowed,
   trackRank,
@@ -222,7 +223,13 @@ test('an Analyst omission no longer lowers the floor', () => {
 
 test('the effective track is the highest of declared, computed and recorded', () => {
   const benign = ctx({ title: 'Footer year', acs: ['shows year'] });
-  assert.equal(effectiveTrack(benign).track, 'standard');
+  // No track declared: lite, the lowest track the floor allows.
+  assert.equal(effectiveTrack(benign).track, 'lite');
+  assert.equal(effectiveTrack(benign).defaulted, true);
+  assert.equal(
+    effectiveTrack({ ...benign, track: 'standard' }).track,
+    'standard'
+  );
   assert.equal(effectiveTrack({ ...benign, track: 'lite' }).track, 'lite');
   assert.equal(effectiveTrack({ ...benign, track: 'full' }).track, 'full');
   assert.equal(
@@ -234,4 +241,89 @@ test('the effective track is the highest of declared, computed and recorded', ()
     'full'
   );
   assert.equal(effectiveTrack({ ...benign, track: 'bogus' }).track, 'standard');
+});
+
+test('a run with no declared track starts on lite only when its floor allows it and Gate 1 was not decided on its own', () => {
+  const benign = ctx({ title: 'Footer year', acs: ['shows year'] });
+  assert.equal(liteByDefault(benign), true);
+  assert.equal(liteByDefault(null), false);
+  // A declared track is kept, an unknown one included.
+  for (const track of ['lite', 'standard', 'full', 'bogus'])
+    assert.equal(liteByDefault({ ...benign, track }), false, track);
+  // The floor holds it higher: a Red domain in the story file or the
+  // context, its size, a high-severity risk, or a floor the Analyst recorded.
+  assert.equal(liteByDefault(benign, 'Users pay by card.'), false);
+  assert.equal(
+    liteByDefault(ctx({ acs: ['The total equals the sum of the prices.'] })),
+    false
+  );
+  assert.equal(liteByDefault(ctx({ acs: ['a', 'b', 'c', 'd', 'e'] })), false);
+  assert.equal(
+    liteByDefault(
+      ctx({
+        risks: [{ risk_id: 'RISK-001', description: 'x', severity: 'high' }],
+      })
+    ),
+    false
+  );
+  assert.equal(
+    liteByDefault({
+      ...benign,
+      track_floor: { minimum: 'standard', reasons: [] },
+    }),
+    false
+  );
+  assert.equal(
+    liteByDefault({ ...benign, track_floor: { minimum: 'lite', reasons: [] } }),
+    true
+  );
+  // An older run that took the standard path keeps it: Gate 1 decided on
+  // its own, approved or rejected, logged or only in review_gates.
+  assert.equal(
+    liteByDefault({
+      ...benign,
+      gate_decisions: [
+        {
+          gate: 'requirements_reviewed',
+          decision: 'rejected',
+          decided_at: 't',
+        },
+      ],
+    }),
+    false
+  );
+  assert.equal(
+    liteByDefault({ ...benign, review_gates: { requirements_reviewed: true } }),
+    false
+  );
+  assert.equal(
+    liteByDefault({
+      ...benign,
+      review_gates: {
+        requirements_reviewed: { status: false, reviewed_at: 't' },
+      },
+    }),
+    false
+  );
+  // The lite gate approves Gate 1 with it: that run stays on lite.
+  assert.equal(
+    liteByDefault({
+      ...benign,
+      gate_decisions: [
+        { gate: 'qa_scope_approved', decision: 'approved', decided_at: 't' },
+      ],
+      review_gates: {
+        qa_scope_approved: { status: true },
+        requirements_reviewed: { status: true, reviewed_at: 't' },
+      },
+    }),
+    true
+  );
+  assert.equal(
+    liteByDefault({
+      ...benign,
+      review_gates: { requirements_reviewed: false },
+    }),
+    true
+  );
 });

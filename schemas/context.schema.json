@@ -398,7 +398,7 @@
     },
     "track": {
       "type": "string",
-      "description": "OPTIONAL (lite track). How much ceremony this story needs. ABSENT => 'standard' (the four gates; the historical default — documented here, NOT schema-defaulted, so existing files behave unchanged). 'lite' thins ARTIFACTS, never decisions: schema validation, traceability, the automation-decision requirement, and auditable gate records all survive; Gates 1+2 consolidate via review_gates.qa_scope_approved while Gates 3 and 4 stay two distinct recorded decisions. 'full' is everything (highest-risk features); every Red-domain story is held to it. A story may NOT declare 'lite' below its track floor (scripts/track-floor.js); see docs/review-gates.md and docs/pipeline-architecture.md.",
+      "description": "OPTIONAL (lite track). How much ceremony this story needs. ABSENT => the lowest track the floor allows: 'lite' when the floor is lite, else the floor; a run that already decided Gate 1 on its own stays 'standard' (computed by the runner, scripts/track-floor.js liteByDefault, NOT schema-defaulted, so existing files keep their path). Declare 'standard' to keep Gates 1 and 2 apart on a story the floor allows on lite. 'lite' thins ARTIFACTS, never decisions: schema validation, traceability, the automation-decision requirement, and auditable gate records all survive; Gates 1+2 consolidate via review_gates.qa_scope_approved while Gates 3 and 4 stay two distinct recorded decisions. 'full' is everything (highest-risk features); every Red-domain story is held to it. A story may NOT declare 'lite' below its track floor (scripts/track-floor.js); see docs/review-gates.md and docs/pipeline-architecture.md.",
       "enum": ["lite", "standard", "full"]
     },
     "track_floor": {

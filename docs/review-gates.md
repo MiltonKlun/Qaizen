@@ -161,9 +161,15 @@ _passed_ by the same rule (boolean `true` or object `status: true`).
 
 ### The lite track uses this consolidation
 
-The `lite` track (`context.track == "lite"`; `docs/context-json-guide.md`,
+The `lite` track (`docs/context-json-guide.md`,
 `docs/pipeline-architecture.md`) is the standing case for consolidation. A
-lite run's gate path is:
+run is on lite when `context.track` is `"lite"`, or, by default, when it
+declares no track and its floor (below) allows lite: a small story outside
+the Red domains with no high-severity risk starts on lite. A run that
+already decided Gate 1 on its own stays on the four gates. The
+consolidated brief says when the track is the default; to keep Gates 1 and
+2 apart, quit, set `"track": "standard"` in `context.json` and `--resume`.
+A lite run's gate path is:
 
 ```
 Analyst → qa_scope_approved (Gates 1+2 in one decision) → Planner/API
@@ -189,8 +195,28 @@ Two rules make this a thinning of _ceremony_, never of _review_:
   its track is raised.
 
 Unlike the team-wide opt-in below, lite consolidation is a **per-story**
-choice the analyst proposes and the floor constrains — the two mechanisms
-share the same `qa_scope_approved` field but answer different questions.
+default the floor allows and the Analyst or the team can raise by declaring
+a track — the two mechanisms share the same `qa_scope_approved` field but
+answer different questions.
+
+### Approvals per track
+
+How many approvals a story takes when each review is approved the first
+time (a rejection adds a decision on the same gate):
+
+| Branches the approved scope activates | `lite` | `standard` | `full` |
+| ------------------------------------- | ------ | ---------- | ------ |
+| E2E only                              | 3      | 4          | 4      |
+| E2E and API                           | 5      | 6          | 6      |
+| E2E, API and external                 | 7      | 8          | 8      |
+
+The scope is one decision on lite (`qa_scope_approved`) and two elsewhere
+(Gates 1 and 2); each branch adds its own two (Gates 3 and 4, the API
+branch's collection and assertions, the external plan and evidence). On
+`full`, an approval at Gate 2 or Gate 4 also rests on a second reviewer or
+a compensating control, and every lowered failure severity needs a
+confirmation; on every track, Gate 2 asks the reviewer to decide each draft
+case first.
 
 ### The full track
 

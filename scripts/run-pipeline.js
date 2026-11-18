@@ -79,7 +79,7 @@ import {
   renderHistory,
   resolveGate,
 } from './lib/gate-history.js';
-import { effectiveTrack } from './track-floor.js';
+import { effectiveTrack, liteByDefault } from './track-floor.js';
 import {
   needsProvenance,
   promptDigests,
@@ -407,6 +407,13 @@ function gatherHints(context) {
   /** @type {Hints} */
   const hints = { problems: [] };
   if (!context) return hints;
+  // A run that declares no track starts on lite when its floor allows it
+  // (scripts/track-floor.js liteByDefault).
+  const storyFile = context.story?.path || 'story.md';
+  hints.liteByDefault = liteByDefault(
+    context,
+    existsSync(storyFile) ? readFileSync(storyFile, 'utf8') : null
+  );
   const paths = context.artifact_paths || {};
   const check = (/** @type {string} */ key) => {
     const r = checkArtifact(key, context, '.');

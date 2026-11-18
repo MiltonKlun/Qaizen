@@ -202,7 +202,10 @@ test('runner --status reports gate state and next step (read-only)', () => {
   const dir = makeMiniRepo();
   try {
     const ctxPath = join(dir, 'context.json');
-    writeFileSync(ctxPath, JSON.stringify(freshContext(), null, 2));
+    writeFileSync(
+      ctxPath,
+      JSON.stringify(freshContext({ track: 'standard' }), null, 2)
+    );
     const before = readFileSync(ctxPath, 'utf8');
 
     const r = runPipeline(dir, ['--status']);
@@ -219,11 +222,39 @@ test('runner --status reports gate state and next step (read-only)', () => {
   }
 });
 
-test('NON-TTY REFUSAL — piped stdin at a gate: GATE PENDING, non-zero, no writes', () => {
+test('a run that declares no track starts on lite when its floor allows it, and on its floor otherwise', () => {
   const dir = makeMiniRepo();
   try {
     const ctxPath = join(dir, 'context.json');
     writeFileSync(ctxPath, JSON.stringify(freshContext(), null, 2));
+    const lite = runPipeline(dir, ['--status']);
+    assert.equal(lite.code, 0, lite.out);
+    assert.match(lite.out, /Next step: test-designer/);
+    // A Red-domain story is held to full: the four gates, Gate 1 first.
+    writeFileSync(
+      ctxPath,
+      JSON.stringify(
+        freshContext({
+          acceptance_criteria: ['The total equals the sum of the prices.'],
+        }),
+        null,
+        2
+      )
+    );
+    assert.match(runPipeline(dir, ['--status']).out, /Next step: gate1/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('NON-TTY REFUSAL — piped stdin at a gate: GATE PENDING, non-zero, no writes', () => {
+  const dir = makeMiniRepo();
+  try {
+    const ctxPath = join(dir, 'context.json');
+    writeFileSync(
+      ctxPath,
+      JSON.stringify(freshContext({ track: 'standard' }), null, 2)
+    );
     const before = readFileSync(ctxPath, 'utf8');
 
     const r = runPipeline(dir, []); // next step is gate1; stdin is a pipe
@@ -243,7 +274,10 @@ test('resume idempotence — re-running at the same gate changes nothing', () =>
   const dir = makeMiniRepo();
   try {
     const ctxPath = join(dir, 'context.json');
-    writeFileSync(ctxPath, JSON.stringify(freshContext(), null, 2));
+    writeFileSync(
+      ctxPath,
+      JSON.stringify(freshContext({ track: 'standard' }), null, 2)
+    );
 
     const first = runPipeline(dir, ['--resume']);
     const second = runPipeline(dir, ['--resume']);
