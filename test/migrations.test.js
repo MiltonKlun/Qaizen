@@ -139,3 +139,42 @@ test('release-report migration: a missing or malformed report exits 2, and a dry
   );
   assert.equal(dry.read('release/release-report.json'), report);
 });
+
+test('a path that exists but cannot be read is named as such, with each script file-error exit code', (t) => {
+  for (const [script, args, status] of [
+    ['migrate-context-v1-to-v2.js', ['dir.json'], 2],
+    ['migrate-context-gate-decisions.js', ['dir.json'], 2],
+    ['migrate-testcases-external-ids.js', ['dir.json'], 1],
+    ['migrate-release-report-tg12.js', ['dir.json'], 2],
+  ]) {
+    const r = migrate(t, script, { 'dir.json/keep': '' }, args);
+    assert.equal(r.status, status, script);
+    assert.match(r.stderr, /^Could not read dir\.json: /, script);
+  }
+});
+
+test('test-case migration --all: every test-cases/*.json, written with the same formatting', (t) => {
+  const r = migrate(
+    t,
+    'migrate-testcases-external-ids.js',
+    {
+      'test-cases/a.json': CASES,
+      'test-cases/b.json': JSON.stringify({ test_cases: [] }),
+      'test-cases/notes.txt': 'not a case file',
+    },
+    ['--all', '--apply']
+  );
+  assert.equal(r.status, 0);
+  assert.equal(
+    r.stdout,
+    'test-cases/a.json: mirrored 1 testlink_id -> external_ids.testlink (written).\n' +
+      'test-cases/b.json: nothing to migrate (no testlink_id, or already mirrored).\n'
+  );
+  const migrated = JSON.parse(CASES);
+  migrated.test_cases[0].external_ids = { testlink: 'TL-1' };
+  assert.equal(
+    r.read('test-cases/a.json'),
+    JSON.stringify(migrated, null, 2) + '\n'
+  );
+  assert.equal(r.read('test-cases/b.json'), JSON.stringify({ test_cases: [] }));
+});

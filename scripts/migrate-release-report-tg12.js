@@ -38,6 +38,8 @@ const reportPath = positional[0] || 'release/release-report.json';
 const contextPath =
   positional[1] || (existsSync('context.json') ? 'context.json' : null);
 
+// Checked here, before readJson, to keep this script's own wording for a
+// missing report.
 if (!existsSync(reportPath)) {
   console.error(`Report not found: ${reportPath}`);
   exit(2);
