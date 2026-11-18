@@ -82,7 +82,9 @@ import {
 import { effectiveTrack } from './track-floor.js';
 import {
   needsProvenance,
+  promptDigests,
   provenanceLines,
+  STEP_PROMPTS,
   stepOutputs,
   stepProvenance,
 } from './lib/provenance.js';
@@ -136,11 +138,15 @@ import {
   aiFindings,
   aiReviewMode,
   logRound,
+  measuredAccuracy,
+  reviewPath,
   readReview,
   recordSection,
+  REVIEWER_OF,
   reviewInstruction,
   blindFirst,
   reviewNeeded,
+  RULE_PREFIX,
 } from './lib/ai-review.js';
 import {
   gate4Findings,
@@ -863,6 +869,90 @@ function independenceFor(context, gateKey, root = '.') {
 }
 
 /**
+ * What the AI review control is judged on at a gate with an AI review
+ * (scripts/lib/review-independence.js): the review shown before the
+ * decision, while it is still the gate's usable review of the inputs being
+ * decided, logged as shown, of round 1 (later rounds review only a change,
+ * and only round 1 is measured), with every finding answered; what the
+ * runner recorded as producing it (provenance); and its reviewer's measured
+ * accuracy, read from the repository (scripts/lib/ai-review.js). Null at
+ * other gates, and where there is neither a review nor measured results, so
+ * a team that does not use the review sees nothing about it.
+ * @param {{ gateKey: string, context: Context, digest: string,
+ *   shown: { review: string, sha256: string, round: number } | null,
+ *   dispositions: import('./lib/finding-dispositions.js').DispositionRecord[]
+ *     | null, root?: string, repoRoot?: string }} a
+ *   `dispositions`: the answers given before the decision; null for the
+ *   preview before the review is shown, judged as it will be once shown
+ *   and answered. `root`: the run's folder; `repoRoot`: where the prompts
+ *   and the regression results are (the runner's repository)
+ * @returns {import('./lib/review-independence.js').AiReviewInput | null}
+ */
+function aiControlInput({
+  gateKey,
+  context,
+  digest,
+  shown,
+  dispositions,
+  root = '.',
+  repoRoot = REPO_DIR,
+}) {
+  if (!Object.hasOwn(REVIEWER_OF, gateKey)) return null;
+  const state = readReview({ context, gate: gateKey, digest, root });
+  const measured = measuredAccuracy(gateKey, repoRoot);
+  if (!measured && !state.usable && state.state === 'missing') return null;
+  const preview = dispositions === null;
+  /** @type {string | null} */
+  let unusable = null;
+  if (!state.usable)
+    unusable = `no usable AI review of these inputs: ${state.reason}`;
+  else if (!shown || state.sha256 !== shown.sha256)
+    unusable =
+      'the AI review of these inputs was not shown before this decision';
+  else if (!preview && !state.logged)
+    unusable = 'the AI review shown is not logged as shown (ai_reviews[])';
+  else if (state.round !== 1)
+    unusable = `the AI review shown is round ${state.round}, which reviews only a change; only round 1 is measured`;
+  else if (!preview) {
+    const findings = aiFindings(gateKey, state.review).length;
+    const answered = dispositions.filter((d) =>
+      d.rule.startsWith(`${RULE_PREFIX[gateKey]}:`)
+    );
+    if (
+      answered.length !== findings ||
+      answered.some((d) => d.disposition === 'fixed')
+    )
+      unusable =
+        'the findings of the AI review shown are not all answered, or one is answered fixed';
+  }
+  const step = AI_REVIEW_GATES[gateKey].step;
+  const p = /** @type {any} */ (context)?.provenance?.[step];
+  const produced =
+    state.usable && p?.output?.sha256 === state.sha256
+      ? {
+          model: String(p.model),
+          prompts_current:
+            JSON.stringify(p.prompts) ===
+            JSON.stringify(
+              promptDigests(
+                /** @type {Record<string, string[]>} */ (STEP_PROMPTS)[step],
+                repoRoot
+              )
+            ),
+        }
+      : null;
+  return {
+    shown:
+      state.usable && !unusable
+        ? { path: state.path, sha256: state.sha256, round: state.round }
+        : null,
+    unusable,
+    measured,
+    produced,
+  };
+}
+
+/**
  * Record one human gate decision: what was reviewed is read first, then the
  * decision goes into context.json (validated, atomic) naming its gate record
  * by digest, then that record is written under gates/
@@ -878,15 +968,22 @@ function independenceFor(context, gateKey, root = '.') {
  *   dispositions?: import('./lib/finding-dispositions.js').DispositionRecord[],
  *   signingKeyPath?: string | null,
  *   outsideReview?: boolean, notOperator?: boolean,
- *   rng?: () => number,
+ *   rng?: () => number, repoRoot?: string,
  *   aiReview?: { review: string, sha256: string, round: number,
  *     findings: number, own_concerns: string | null, lines: string[] }
  *     | null }} args
  *   `aiReview`: the advisory AI review shown before the decision, with the
- *   reviewer's own concerns noted before it (scripts/lib/ai-review.js).
+ *   reviewer's own concerns noted before it (scripts/lib/ai-review.js). On
+ *   the full track at Gate 4 it is also a control an approval can rest on,
+ *   on the conditions aiControlInput checks (round 1, logged as shown, its
+ *   findings answered in `dispositions`, recorded as written by the
+ *   measured model with the measured prompt) and its reviewer's measured
+ *   accuracy clearing the bar.
  *   `signingKeyPath`: the operator's SSH key that signs the record
  *   (scripts/lib/record-signing.js); the interactive gate passes
- *   QAIZEN_SIGNING_KEY, and no other caller signs.
+ *   QAIZEN_SIGNING_KEY, and no other caller signs. `repoRoot`: where the
+ *   prompts and regression results the AI review control is judged on are
+ *   (the runner's repository; a test gives its own).
  *   `outsideReview`: the reviewer chose the sampled outside review for a
  *   full-track approval; it is drawn here, with `rng` (crypto randomness
  *   unless a test gives one), or taken from a draw made for these inputs
@@ -917,6 +1014,7 @@ export function recordGateDecision({
   notOperator = true,
   rng = () => randomInt(0, 2 ** 32) / 2 ** 32,
   aiReview = null,
+  repoRoot = REPO_DIR,
 }) {
   // A decision is never recorded as made later than now.
   if (!(Date.parse(decidedAt) <= Date.now()))
@@ -940,6 +1038,15 @@ export function recordGateDecision({
         authored: authoredDigest(gateKey, context, root),
         at,
         config: ind.config,
+        aiReview: aiControlInput({
+          gateKey,
+          context,
+          digest,
+          shown: aiReview,
+          dispositions,
+          root,
+          repoRoot,
+        }),
       });
       independence = resolveIndependence(options, {
         outside: outsideReview,
@@ -1251,7 +1358,7 @@ async function runGateInteractive(step, context) {
       writeContext(context);
       for (const g of changed)
         console.log(
-          `Full track: ${operator ?? 'this session (no name)'} is noted as the operator of what ${g} reviews now (the output of ${INDEPENDENT_GATES[g]}). If someone else is to review it, quit here ([q] at the first question): their approval then counts as a second review. Deciding it yourself needs the delay or the sampled outside review.\n`
+          `Full track: ${operator ?? 'this session (no name)'} is noted as the operator of what ${g} reviews now (the output of ${INDEPENDENT_GATES[g]}). If someone else is to review it, quit here ([q] at the first question): their approval then counts as a second review. Deciding it yourself needs the delay${g === 'code_reviewed' ? ', a measured AI review' : ''} or the sampled outside review.\n`
         );
     }
   }
@@ -1394,6 +1501,16 @@ async function runGateInteractive(step, context) {
   // setting that cannot apply refuses approvals only: a rejection stays
   // possible.
   const authored = authoredDigest(gateKey, context, '.');
+  // The advisory AI review of these inputs, shown below before the decision
+  // (scripts/lib/ai-review.js); at Gate 4 on the full track it can also be
+  // the control an approval rests on.
+  const reviewNow = Object.hasOwn(AI_REVIEW_GATES, gateKey)
+    ? readReview({ context, gate: gateKey, digest: reviewedDigests[gateKey] })
+    : null;
+  /** @type {Parameters<typeof recordGateDecision>[0]['aiReview']} */
+  let aiReview = null;
+  /** @type {import('./lib/finding-dispositions.js').DispositionRecord[] | null} */
+  let answered = null;
   const optionsNow = () =>
     ind.ok
       ? independenceOptions({
@@ -1404,6 +1521,24 @@ async function runGateInteractive(step, context) {
           authored,
           at: new Date().toISOString(),
           config: ind.config,
+          aiReview: aiControlInput({
+            gateKey,
+            context,
+            digest: reviewedDigests[gateKey],
+            // Before the findings are answered: the review that will be
+            // shown, judged as it will be once shown and answered.
+            shown:
+              answered !== null
+                ? (aiReview ?? null)
+                : reviewNow?.usable
+                  ? {
+                      review: reviewNow.path,
+                      sha256: reviewNow.sha256,
+                      round: reviewNow.round,
+                    }
+                  : null,
+            dispositions: answered,
+          }),
         })
       : null;
   if (!ind.ok)
@@ -1426,7 +1561,7 @@ async function runGateInteractive(step, context) {
     const rests = resolveIndependence(now);
     console.log(
       rests
-        ? `Full track: an approval now would record its independence as ${independenceLine(rests)}.`
+        ? `Full track: an approval now would record its independence as ${independenceLine(rests)}${rests.control === 'ai_review' ? ' (once the review is shown and each finding answered)' : ''}.`
         : `Full track: an approval here needs a second reviewer or a compensating control. Now: ${now.why.join('; ')}.` +
             (now.waitUntil ? ` The delay is met from ${now.waitUntil}.` : '') +
             (now.outsideRate !== null
@@ -1452,14 +1587,8 @@ async function runGateInteractive(step, context) {
     // concerns first, then its findings, each answered with the scan's.
     /** @type {import('./lib/finding-dispositions.js').Finding[]} */
     let reviewFindings = [];
-    /** @type {Parameters<typeof recordGateDecision>[0]['aiReview']} */
-    let aiReview = null;
-    if (Object.hasOwn(AI_REVIEW_GATES, gateKey)) {
-      const state = readReview({
-        context,
-        gate: gateKey,
-        digest: reviewedDigests[gateKey],
-      });
+    if (reviewNow) {
+      const state = reviewNow;
       if (state.usable) {
         // Blind first: the reviewer's own concerns, then the review. The
         // round counts once the review has been shown.
@@ -1492,6 +1621,7 @@ async function runGateInteractive(step, context) {
       ...scanFindings,
       ...reviewFindings,
     ]);
+    answered = dispositions;
     const canApprove = approvalAllowed(dispositions);
     if (!canApprove)
       console.log(
@@ -1546,7 +1676,7 @@ async function runGateInteractive(step, context) {
               /^y(es)?$/i.test(
                 (
                   await rl.question(
-                    `No second reviewer, and the delay is not met. Rest this approval on the sampled outside review? About ${Math.round(rate * 100)}% of such decisions are drawn for an outside reviewer, after you decide. [y]es / [n]o: `
+                    `No second reviewer, the delay is not met${options.aiGate ? ', and the AI review cannot count' : ''}. Rest this approval on the sampled outside review? About ${Math.round(rate * 100)}% of such decisions are drawn for an outside reviewer, after you decide. [y]es / [n]o: `
                   )
                 ).trim()
               );
@@ -2061,6 +2191,8 @@ function updateProvenance(context, root = '.') {
   const outputs = stepOutputs(context, root, {
     api: apiPaths(context).collection,
     externalPlan: externalPaths(context).plan,
+    aiReviewSpec: reviewPath('specs_reviewed', context),
+    aiReviewTest: reviewPath('code_reviewed', context),
   });
   /** @type {string[]} */
   const recorded = [];
@@ -2743,6 +2875,8 @@ function printStatus(context, hints) {
     stepOutputs(context, '.', {
       api: apiPaths(context).collection,
       externalPlan: externalPaths(context).plan,
+      aiReviewSpec: reviewPath('specs_reviewed', context),
+      aiReviewTest: reviewPath('code_reviewed', context),
     })
   )
     .filter(([, o]) => o)

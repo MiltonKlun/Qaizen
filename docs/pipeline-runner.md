@@ -467,7 +467,10 @@ Generator's and the API Agent's instructions tell its operator to open the
 next gate once and quit; someone else deciding it, who says they are not
 that operator, is a second reviewer. Otherwise the decision waits for the
 delay (an hour after the brief for these inputs was first shown: quit and
-`--resume` later) or, when the team set a sampling rate, rests on the
+`--resume` later), rests at Gate 4 on a first-round advisory AI review
+shown and answered before it, once the Test Reviewer's committed regression
+results clear the bar for the model declared when the review was first
+seen, or, when the team set a sampling rate, rests on the
 sampled outside review, drawn when the decision is recorded. Without one,
 `[a]pprove` says why and what would allow it, and nothing is recorded; a
 rejection is always possible. The gate record names the control (`| Independence |`).

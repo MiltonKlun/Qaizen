@@ -114,7 +114,7 @@ metrics and `/evolve` read back.
 
 ### 2a. What the runner records: prompt-file digests
 
-For each agent step the runner keeps `context.json` `provenance`
+For each agent step, the advisory AI reviewers' included, the runner keeps `context.json` `provenance`
 (`scripts/lib/provenance.js`): the SHA-256 of every prompt file the step uses
 (its agent prompt and skills; for the Playwright Planner and Generator the
 generated `.claude/agents/` definitions, untracked as they are, or `null`

@@ -272,9 +272,15 @@ of at least an hour between the first showing of the brief for these inputs
 and the decision, or the team's sampled outside review, drawn when the
 decision is recorded once per gate and inputs. The decision and its gate
 record name the control
-(`docs/review-gates.md`, "Independence at Gates 2 and 4"). An advisory AI
-review, its accuracy measured on the regression set, is a fourth control once it
-exists.
+(`docs/review-gates.md`, "Independence at Gates 2 and 4"). At Gate 4 an
+advisory AI review is a fourth control (D12): it counts when a first-round
+review was shown before the decision and each of its findings answered,
+the runner recorded it as written with the measured prompt by the measured
+model (as declared), and only while the
+Test Reviewer's committed regression results on its current prompt put the
+lower bound of its catch rate at 0.7 or more and the upper bound of its
+false-alarm rate at 0.4 or less (Wilson 95%; with the set's three trials,
+every seeded check caught and at most one false alarm).
 
 **Consequences.** Solo operation stays supported through the delay. Names
 are declared, so the second reviewer is only as strong as the team's
@@ -282,7 +288,14 @@ honesty or its signed records; the delay shows that time passed, not that
 it was spent reviewing. The outside review needs someone outside the team,
 so it is off until a team sets a sampling rate; the outside reviewer
 records each verdict with `npm run record-outcome -- outside-review`, and
-the metrics list what is still waiting and every disagreement.
+the metrics list what is still waiting and every disagreement. The AI
+review counts on accuracy measured on seeded defects in one benchmark
+story, and on a model the session declares (`QAIZEN_MODEL`) like the
+reviewer's name: nothing proves which model, or whether any, wrote the
+review, so an operator who writes it by hand and declares the measured
+model passes the control. A story unlike the benchmark is not measured.
+A reviewer who answers every finding without reading it also passes; the
+answers' precision in the metrics is where that shows.
 
 ## D12 — The AI reviewer at Gates 3 and 4 advises after the human's own reading
 
@@ -304,6 +317,6 @@ approve. A team turns the step on with `ai_review: "on"` in
 **Consequences.** The answers measure each kind of finding's precision.
 How often the reviewer catches a planted defect is measured separately, on
 the regression set (seeded defects in a faithful spec and test, with a
-faithful control each), before it can count toward review independence; no
-defect is planted in a real run, since the review reads folders other agents
-own.
+faithful control each); at Gate 4 it counts toward review independence
+only once those results clear the bar in D11. No defect is planted in a
+real run, since the review reads folders other agents own.

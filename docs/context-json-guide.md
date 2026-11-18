@@ -374,7 +374,12 @@ approved inputs, and said so), `delay` (with `brief_first_shown_at` and
 `minutes`, an hour or more) or `outside_review` (with the team's sampling
 `rate`, whether this decision was `selected`, and the `input_digest` it was
 drawn for: a selection holds for the rest of the run, and approving the
-same inputs again keeps the draw). The runner
+same inputs again keeps the draw) or, at `code_reviewed` only, `ai_review`
+(with `review`, the first-round advisory AI review shown before the
+decision, also named in its `ai_review`, as `{ path, sha256, round }`, and
+`accuracy`, the Test Reviewer's regression
+results it rested on: `results`, `model`, `generated_at`, and the `seeded`
+and `no_alarm` counts with their Wilson 95% intervals). The runner
 refuses such an approval with none. Written only by the runner; absent on
 rejections, other tracks and gates, and older runs (`docs/review-gates.md`,
 "Independence at Gates 2 and 4").
@@ -409,11 +414,14 @@ part of any gate's reviewed input.
 ### `provenance` (optional — written by the runner)
 
 What produced each agent step's output, keyed by step (`analyst`,
-`test-designer`, `planner`, `generator`, `api`, `external-plan`,
-`finalize`, `report`): `{ prompts: [{ path, sha256 }], model, harness,
-output: { path, sha256 }, recorded_at }`. `sha256` is `null` for a prompt
-file that does not exist; `model` and `harness` are what the operator
-declared (`QAIZEN_MODEL`, `QAIZEN_HARNESS`) or `unknown`.
+`test-designer`, `planner`, `generator`, `ai-review-spec`,
+`ai-review-test`, `api`, `external-plan`, `finalize`, `report`):
+`{ prompts: [{ path, sha256 }], model, harness, output: { path, sha256 },
+recorded_at }`. `sha256` is `null` for a prompt file that does not exist;
+`model` and `harness` are what the operator declared (`QAIZEN_MODEL`,
+`QAIZEN_HARNESS`) in the session that first saw the output, or `unknown`.
+A Gate 4 approval rests on an AI review only when its `ai-review-test`
+entry names the measured model and prompt.
 `docs/prompt-versioning.md` §2a has the rules.
 
 ### `repeat_check` (optional — written by the runner)
@@ -687,8 +695,8 @@ older files continue to validate:
 - Optional `review_independence` and `gate_decisions[].independence`:
   written only by the runner on the `full` track. Who each reviewed step was
   noted operator of what each Gate 2 and Gate 4 reviews, when each brief was first shown, and what an
-  approval there rested on (a second reviewer, the delay, or the sampled
-  outside review).
+  approval there rested on (a second reviewer, the delay, a measured AI
+  review at Gate 4, or the sampled outside review).
 - Optional `likelihood`, `impact` and `likelihood_basis` on each risk (the
   risk matrix, Analyst 3.0.0); when both are present, `severity` must be
   their cell.

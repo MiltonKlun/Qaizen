@@ -349,6 +349,7 @@ test('each control reads as one line, and the metrics count them', () => {
   assert.deepEqual(m, {
     second_reviewer: 1,
     delay: 1,
+    ai_review: 0,
     outside_review: 1,
     outside_selected: 1,
   });

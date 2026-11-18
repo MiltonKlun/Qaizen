@@ -146,8 +146,10 @@ export function provenanceLines(context, steps) {
  * decisions the reviewer records before Gate 2.
  * @param {any} context
  * @param {string} root the run's folder
- * @param {{ api?: string | null, externalPlan?: string | null }} [paths]
- *   the API collection and external plan paths, when the run has them
+ * @param {{ api?: string | null, externalPlan?: string | null,
+ *   aiReviewSpec?: string | null, aiReviewTest?: string | null }} [paths]
+ *   the API collection and external plan paths, when the run has them, and
+ *   where the advisory AI reviews are written (scripts/lib/ai-review.js)
  * @returns {Record<string, { path: string, sha256: string } | null>}
  */
 export function stepOutputs(context, root, paths = {}) {
@@ -213,6 +215,8 @@ export function stepOutputs(context, root, paths = {}) {
     })(),
     planner: file(ap.playwright_spec),
     generator: file(ap.generated_test),
+    'ai-review-spec': file(paths.aiReviewSpec),
+    'ai-review-test': file(paths.aiReviewTest),
     api: file(paths.api),
     'external-plan': file(paths.externalPlan),
     finalize: finalized ? file(ap.failure_analysis) : null,

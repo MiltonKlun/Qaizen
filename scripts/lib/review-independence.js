@@ -22,10 +22,19 @@
 //                    decision is recorded; a draw that selected the gate
 //                    holds for the rest of the run, and one for the same
 //                    inputs is never made again, so the reviewer can
-//                    neither know the draw in advance nor draw again.
+//                    neither know the draw in advance nor draw again;
+//   ai_review        Gate 4 only (code_reviewed): a first-round advisory AI
+//                    review of these inputs was shown before the decision
+//                    and each of its findings answered; the runner recorded
+//                    it as written with the measured prompt by the measured
+//                    model (as declared, QAIZEN_MODEL); and the Test Reviewer's
+//                    regression results, scored on its current prompt and
+//                    committed as they are on disk, put the lower bound of
+//                    its catch rate on seeded defects at MIN_AI_CATCH or
+//                    more and the upper bound of its false-alarm rate at
+//                    MAX_AI_FALSE_ALARM or less (scripts/lib/ai-review.js).
 //
-// An advisory AI review joins these once it exists (its accuracy measured on
-// canaries). A rejection needs none of them. Names are the ones people decide
+// A rejection needs none of them. Names are the ones people decide
 // as (QAIZEN_REVIEWER or git user.name): declared, not authenticated, unless
 // the records are signed (docs/signed-gate-records.md).
 //
@@ -51,6 +60,19 @@ export {
 export const MIN_DELAY_MINUTES = 60;
 /** The lowest outside-review sampling rate a team can set. */
 export const MIN_OUTSIDE_RATE = 0.1;
+/**
+ * The AI review counts as a control only for a reviewer whose regression
+ * results put the lower bound (Wilson 95%) of its catch rate on seeded
+ * defects at this or more: every seeded check caught over the set's three
+ * trials (9 of 9) is 0.7009, one miss (8 of 9) 0.565.
+ */
+export const MIN_AI_CATCH = 0.7;
+/**
+ * ...and the upper bound (Wilson 95%) of its false-alarm rate on the checks
+ * it should stay quiet on at this or less: 1 alarm in the set's 12 such
+ * checks is 0.3539, 2 are 0.448.
+ */
+export const MAX_AI_FALSE_ALARM = 0.4;
 
 /**
  * @typedef {{ control: 'second_reviewer', operator: string,
@@ -58,8 +80,24 @@ export const MIN_OUTSIDE_RATE = 0.1;
  *   | { control: 'delay', operator: string | null,
  *     brief_first_shown_at: string, minutes: number }
  *   | { control: 'outside_review', operator: string | null, rate: number,
- *     selected: boolean, input_digest: string }} Independence
+ *     selected: boolean, input_digest: string }
+ *   | { control: 'ai_review', operator: string | null,
+ *     review: { path: string, sha256: string, round: number },
+ *     accuracy: AiAccuracy }} Independence
+ * @typedef {{ results: string, model: string, generated_at: string,
+ *   seeded: { checks: number, caught: number, wilson_95: [number, number] },
+ *   no_alarm: { checks: number, alarmed: number,
+ *     wilson_95: [number, number] } }} AiAccuracy
  * @typedef {{ minDelayMinutes: number, outsideRate: number | null }} IndependenceConfig
+ * @typedef {{ shown: { path: string, sha256: string, round: number } | null,
+ *   unusable?: string | null,
+ *   measured: import('./ai-review.js').MeasuredAccuracy | null,
+ *   produced: { model: string, prompts_current: boolean } | null }} AiReviewInput
+ *   At Gate 4: the review shown (or to be shown) before the decision, or
+ *   null with `unusable` saying why it cannot count; its reviewer's measured
+ *   accuracy (measuredAccuracy); and what the runner recorded as producing
+ *   the review (context.json provenance["ai-review-test"]): the model the
+ *   session declared, and whether its prompt files are the current ones.
  */
 
 /**
@@ -197,13 +235,102 @@ export function recordBriefShown(context, gate, digest, at) {
 }
 
 /**
+ * Whether the AI reviewer's measured accuracy lets its review count as a
+ * control: results scored on its current prompt, committed as they are on
+ * disk, with both bounds on the right side of the bar, and a review the
+ * runner recorded as written with that prompt by the measured model (as the
+ * session declared it).
+ * @param {AiReviewInput} input
+ * @returns {{ ok: true, accuracy: AiAccuracy } | { ok: false, reason: string }}
+ */
+export function aiAccuracy({ measured: m, produced }) {
+  if (!m)
+    return {
+      ok: false,
+      reason:
+        'the AI review counts only on measured accuracy, and evidence/regressions/ holds no regression results for the test-reviewer',
+    };
+  const name = `the ${m.agent}'s regression results (${m.results})`;
+  if (!m.current_prompt)
+    return {
+      ok: false,
+      reason: `${name} were scored on an earlier prompt; re-run them`,
+    };
+  if (!m.committed)
+    return {
+      ok: false,
+      reason: `${name} are not committed as they are on disk`,
+    };
+  if (
+    !(m.seeded.caught >= 0 && m.seeded.caught <= m.seeded.checks) ||
+    !(m.no_alarm.alarmed >= 0 && m.no_alarm.alarmed <= m.no_alarm.checks)
+  )
+    return {
+      ok: false,
+      reason: `${name} count more catches or alarms than checks`,
+    };
+  const catchLow = m.seeded.wilson_95?.[0] ?? null;
+  const alarmHigh = m.no_alarm.wilson_95?.[1] ?? null;
+  if (catchLow === null || !(catchLow >= MIN_AI_CATCH))
+    return {
+      ok: false,
+      reason: `${name} put its catch rate at ${m.seeded.caught} of ${m.seeded.checks} seeded checks, lower bound ${catchLow ?? 'none'}, under ${MIN_AI_CATCH}`,
+    };
+  if (alarmHigh === null || !(alarmHigh <= MAX_AI_FALSE_ALARM))
+    return {
+      ok: false,
+      reason: `${name} put its false alarms at ${m.no_alarm.alarmed} of ${m.no_alarm.checks} checks, upper bound ${alarmHigh ?? 'none'}, over ${MAX_AI_FALSE_ALARM}`,
+    };
+  if (!produced)
+    return {
+      ok: false,
+      reason:
+        'the runner has recorded nothing about what wrote the review (context.json provenance["ai-review-test"]; recorded when a runner session first sees it)',
+    };
+  if (!produced.prompts_current)
+    return {
+      ok: false,
+      reason:
+        'the review was recorded as written with another test-reviewer prompt than the one measured',
+    };
+  if (produced.model === 'unknown' || produced.model !== m.model)
+    return {
+      ok: false,
+      reason:
+        produced.model === 'unknown'
+          ? `no model was declared (QAIZEN_MODEL) in the session that first saw the review, so it cannot be matched to the measured one (${m.model})`
+          : `the review was recorded as written by ${produced.model}, and the results measured ${m.model}`,
+    };
+  return {
+    ok: true,
+    accuracy: {
+      results: m.results,
+      model: m.model,
+      generated_at: m.generated_at,
+      seeded: {
+        checks: m.seeded.checks,
+        caught: m.seeded.caught,
+        wilson_95: /** @type {[number, number]} */ (m.seeded.wilson_95),
+      },
+      no_alarm: {
+        checks: m.no_alarm.checks,
+        alarmed: m.no_alarm.alarmed,
+        wilson_95: /** @type {[number, number]} */ (m.no_alarm.wilson_95),
+      },
+    },
+  };
+}
+
+/**
  * What independence an approval can rest on, at the moment of the decision.
  * @param {{ context: any, gate: string, reviewer: string | null,
  *   digest: string, authored: string, at: string,
- *   config: IndependenceConfig }} args
- *   `digest`: the gate's input digest; `authored`: its authoredDigest
+ *   config: IndependenceConfig, aiReview?: AiReviewInput | null }} args
+ *   `digest`: the gate's input digest; `authored`: its authoredDigest;
+ *   `aiReview`: null at a gate without an AI review
  * @returns {{ operator: string | null,
  *   second: Independence | null, delay: Independence | null,
+ *   ai: Independence | null, aiGate: boolean,
  *   waitUntil: string | null, outsideRate: number | null,
  *   earlierDraw: boolean | null, why: string[] }}
  */
@@ -215,6 +342,7 @@ export function independenceOptions({
   authored,
   at,
   config,
+  aiReview = null,
 }) {
   const noted = context?.review_independence?.operators?.[gate] ?? null;
   const current = noted?.authored_digest === authored ? noted : null;
@@ -270,6 +398,25 @@ export function independenceOptions({
     }
   }
 
+  const aiGate = aiReview !== null && gate === 'code_reviewed';
+  /** @type {Independence | null} */
+  let ai = null;
+  if (aiGate) {
+    const r = aiAccuracy(aiReview);
+    if (!aiReview.shown)
+      why.push(
+        aiReview.unusable ?? 'no usable AI review of these inputs is shown'
+      );
+    if (!r.ok) why.push(r.reason);
+    if (aiReview.shown && r.ok)
+      ai = {
+        control: 'ai_review',
+        operator,
+        review: { ...aiReview.shown },
+        accuracy: r.accuracy,
+      };
+  }
+
   // An outside-review draw made before stands: one that selected this gate
   // holds for the rest of the run, so changing the inputs does not escape
   // it, and one for these same inputs is not drawn again.
@@ -290,6 +437,8 @@ export function independenceOptions({
     operator,
     second,
     delay,
+    ai,
+    aiGate,
     waitUntil,
     outsideRate: config.outsideRate,
     earlierDraw,
@@ -299,8 +448,9 @@ export function independenceOptions({
 
 /**
  * The control an approval rests on: a second reviewer (unless the reviewer
- * said they are the operator after all), else the delay, else the outside
- * review when the reviewer chose it and the team has one. The draw is made
+ * said they are the operator after all), else the delay, else the AI review,
+ * else the outside review when the reviewer chose it and the team has one.
+ * The draw is made
  * here with `rng` (which the caller must give: the runner gives crypto
  * randomness), unless an earlier draw stands.
  * @param {ReturnType<typeof independenceOptions>} options
@@ -311,6 +461,7 @@ export function independenceOptions({
 export function resolveIndependence(options, choice = {}) {
   if (options.second && choice.notOperator !== false) return options.second;
   if (options.delay) return options.delay;
+  if (options.ai) return options.ai;
   if (choice.outside && options.outsideRate !== null) {
     const rng = choice.rng;
     if (options.earlierDraw === null && !rng)
@@ -337,6 +488,10 @@ export function independenceLine(i) {
     return `second reviewer: ${i.operator} is the operator of these inputs (noted ${i.noted_at})`;
   if (i.control === 'delay')
     return `delay: decided ${i.minutes} minute(s) after the brief was first shown (${i.brief_first_shown_at})${i.operator ? `; ${i.operator} is the operator of these inputs` : ''}`;
+  if (i.control === 'ai_review') {
+    const a = i.accuracy;
+    return `advisory AI review: ${i.review.path} (round ${i.review.round}) shown before the decision, its findings answered; measured in ${a.results} (${a.model}, ${a.generated_at}): caught ${a.seeded.caught} of ${a.seeded.checks} seeded checks [${a.seeded.wilson_95.join(', ')}], false alarms ${a.no_alarm.alarmed} of ${a.no_alarm.checks} [${a.no_alarm.wilson_95.join(', ')}]`;
+  }
   return `sampled outside review (rate ${i.rate}): ${i.selected ? 'marked for outside review' : 'not drawn this time'}`;
 }
 
@@ -353,6 +508,11 @@ export function refusalLines(options, minDelayMinutes) {
     'It can be approved by:',
     '  - another person, in their own session, who is not the operator of these inputs;',
     `  - you, ${minDelayMinutes} minutes or more after the brief was first shown${options.waitUntil ? ` (from ${options.waitUntil})` : ''}: quit and --resume then;`,
+    ...(options.aiGate
+      ? [
+          `  - you, after an advisory AI review of these inputs, once the test-reviewer's committed regression results on its current prompt put its catch rate's lower bound at ${MIN_AI_CATCH} or more and its false alarms' upper bound at ${MAX_AI_FALSE_ALARM} or less;`,
+        ]
+      : []),
     options.outsideRate === null
       ? '  - the sampled outside review, once the team sets independence.outside_review_rate in config/gate-checks.json.'
       : '  - the sampled outside review, which you declined.',
@@ -368,6 +528,7 @@ export function independenceMetrics(contexts) {
   const counts = {
     second_reviewer: 0,
     delay: 0,
+    ai_review: 0,
     outside_review: 0,
     outside_selected: 0,
   };
@@ -377,7 +538,7 @@ export function independenceMetrics(contexts) {
       if (d?.decision !== 'approved' || !i) continue;
       if (i.control in counts)
         counts[
-          /** @type {'second_reviewer' | 'delay' | 'outside_review'} */ (
+          /** @type {'second_reviewer' | 'delay' | 'ai_review' | 'outside_review'} */ (
             i.control
           )
         ] += 1;
@@ -393,13 +554,13 @@ export function independenceMetrics(contexts) {
  * @returns {string[]}
  */
 export function independenceLines(m) {
-  const total = m.second_reviewer + m.delay + m.outside_review;
+  const total = m.second_reviewer + m.delay + m.ai_review + m.outside_review;
   if (!total)
     return [
       '- No full-track approval at Gate 2 or Gate 4 records what it rested on.',
     ];
   return [
-    `- ${total} full-track approval(s) at Gate 2 or Gate 4: ${m.second_reviewer} by a second reviewer, ${m.delay} after the delay, ${m.outside_review} on the sampled outside review (${m.outside_selected} marked for it).`,
-    '- A second reviewer and a delay are recorded by the runner; neither shows how carefully anyone read.',
+    `- ${total} full-track approval(s) at Gate 2 or Gate 4: ${m.second_reviewer} by a second reviewer, ${m.delay} after the delay, ${m.ai_review} after a measured AI review, ${m.outside_review} on the sampled outside review (${m.outside_selected} marked for it).`,
+    '- A second reviewer, a delay and an AI review are recorded by the runner; none shows how carefully anyone read.',
   ];
 }

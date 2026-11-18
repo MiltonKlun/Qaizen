@@ -9,9 +9,12 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 3.1.18
+version: 3.1.19
 changed_in_run: null
 changelog: |
+  - 3.1.19: PATCH (no output change). The ai_review control of a full-track
+    Gate 4 approval (gate_decisions[].independence) is written by the runner
+    only.
   - 3.1.18: PATCH (no output change). ai_reviews[], and the advisory AI
     review a decision was shown (gate_decisions[].ai_review), are written by
     the runner only.
