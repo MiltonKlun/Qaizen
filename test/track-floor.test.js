@@ -6,6 +6,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   effectiveTrack,
   liteByDefault,
@@ -325,5 +326,16 @@ test('a run with no declared track starts on lite only when its floor allows it 
       review_gates: { requirements_reviewed: false },
     }),
     true
+  );
+});
+
+test('the lite-default example is held to lite by default', () => {
+  const c = JSON.parse(
+    readFileSync('examples/expected/lite-default.expected-context.json', 'utf8')
+  );
+  assert.equal(c.track, undefined);
+  assert.deepEqual(
+    { track: effectiveTrack(c).track, defaulted: effectiveTrack(c).defaulted },
+    { track: 'lite', defaulted: true }
   );
 });
