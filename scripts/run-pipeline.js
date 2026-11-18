@@ -79,7 +79,7 @@ import {
   renderHistory,
   resolveGate,
 } from './lib/gate-history.js';
-import { effectiveTrack } from './track-floor.js';
+import { effectiveTrack, liteByDefault } from './track-floor.js';
 import {
   needsProvenance,
   promptDigests,
@@ -407,6 +407,13 @@ function gatherHints(context) {
   /** @type {Hints} */
   const hints = { problems: [] };
   if (!context) return hints;
+  // A run that declares no track starts on lite when its floor allows it
+  // (scripts/track-floor.js liteByDefault).
+  const storyFile = context.story?.path || 'story.md';
+  hints.liteByDefault = liteByDefault(
+    context,
+    existsSync(storyFile) ? readFileSync(storyFile, 'utf8') : null
+  );
   const paths = context.artifact_paths || {};
   const check = (/** @type {string} */ key) => {
     const r = checkArtifact(key, context, '.');
@@ -2846,6 +2853,11 @@ function printStatus(context, hints) {
   console.log(
     `Gates:  G1 ${mark('requirements_reviewed')} · G2 ${mark('test_scope_reviewed')} · G3 ${mark('specs_reviewed')} · G4 ${mark('code_reviewed')}`
   );
+  // A run on lite by default (scripts/track-floor.js liteByDefault).
+  if (hints.liteByDefault)
+    console.log(
+      `Track:  lite by default (no track declared; the floor allows lite): Gates 1+2 are one decision, qa_scope ${mark('qa_scope_approved')}`
+    );
   if (hints.branches?.api || gates.collection_reviewed !== undefined) {
     console.log(
       `API:    G3' ${mark('collection_reviewed')} · G4' ${mark('api_assertions_reviewed')}`
@@ -3169,28 +3181,46 @@ async function main() {
   // domain to full (scripts/track-floor.js, docs/healer-guardrails.md §4). The
   // floor is computed live, from the story file as well as the context, and
   // is read-only here — the runner never rewrites context.json just to
-  // advance, preserving the "a refusal writes nothing" guarantee.
-  if (context && context.track === 'lite') {
+  // advance, preserving the "a refusal writes nothing" guarantee. A run with
+  // no declared track whose Gates 1 and 2 the runner consolidated on lite by
+  // default is held to the same check: its consolidated approval stands only
+  // while the floor still allows lite. (A team-wide consolidation set by hand
+  // logs no qa_scope_approved decision and is not affected.)
+  const declaredTrack = context?.track !== undefined && context?.track !== null;
+  const liteDefaultConsolidated =
+    !!context &&
+    !declaredTrack &&
+    gatePassed(context.review_gates?.qa_scope_approved) &&
+    (context.gate_decisions ?? []).some(
+      (/** @type {any} */ d) => d?.gate === 'qa_scope_approved'
+    );
+  if (context && (context.track === 'lite' || liteDefaultConsolidated)) {
     const storyFile = context.story?.path || 'story.md';
+    const story = existsSync(storyFile)
+      ? readFileSync(storyFile, 'utf8')
+      : null;
     // The same track the briefs show: a floor recorded above lite counts
     // even when the computed one is lite.
-    const { track, minimum, reasons } = effectiveTrack(
-      context,
-      existsSync(storyFile) ? readFileSync(storyFile, 'utf8') : null
-    );
+    const { track, minimum, reasons } = effectiveTrack(context, story);
     if (track !== 'lite') {
       console.error(
-        `Refusing track "lite": the floor for this story is "${track}".`
+        declaredTrack
+          ? `Refusing track "lite": the floor for this story is "${track}".`
+          : `Refusing to continue on lite by default: Gates 1 and 2 were approved as one decision, and the floor for this story is now "${track}".`
       );
       console.error('Reasons the floor is higher than lite:');
       for (const r of reasons) console.error(`  - ${r}`);
+      if (story === null)
+        console.error(
+          `  - ${storyFile} is missing, so its floor cannot be read from it`
+        );
       if (track !== minimum)
         console.error(
           `  - context.json records track_floor.minimum "${track}"`
         );
       console.error(
         'High-consequence or non-routine stories keep the four gates. Set\n' +
-          `\`track\` to "${track}" (or remove it) in context.json, then --resume.`
+          `\`track\` to "${track}"${declaredTrack ? ' (or remove it)' : ''} in context.json, then --resume.`
       );
       exit(2);
     }

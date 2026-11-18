@@ -168,6 +168,7 @@ export const SCHEMA_CONTRACTS = {
       'examples/expected/fault-check.expected-context.json',
       'examples/expected/provenance.expected-context.json',
       'examples/expected/review-independence.expected-context.json',
+      'examples/expected/lite-default.expected-context.json',
     ],
     invalid: [
       {

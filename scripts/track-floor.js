@@ -18,9 +18,12 @@
 //   2. Size (many criteria or risks) and a high-severity risk raise it to
 //      `standard`: such a story is not routine, so it is never `lite`.
 //
-// `effectiveTrack` is the track a run is held to: the declared track (absent
-// means standard) or the floor, whichever is higher. The runner refuses a
-// declared `lite` below the floor; any other track below it is raised.
+// `effectiveTrack` is the track a run is held to: the declared track or the
+// floor, whichever is higher. A run that declares no track starts on the
+// lowest track its floor allows (`liteByDefault`): lite for a small story
+// outside the Red domains, as long as Gate 1 was not already decided on its
+// own. The runner refuses a declared `lite` below the floor; any other track
+// below it is raised.
 //
 // Pure: no I/O, no side effects. Constants are at the top, documented.
 
@@ -134,25 +137,79 @@ export function trackAllowed(context, proposed, story = null) {
 }
 
 /**
- * The track a run is held to: the declared track (absent or unknown means
- * standard), the floor computed now, or the floor the Analyst recorded,
- * whichever is highest.
+ * Whether Gate 1 was decided on its own, as the standard path decides it: a
+ * run that already took that path keeps it, and one that took the lite path
+ * (a qa_scope_approved decision in its log) keeps that, even after a reopen
+ * leaves Gate 1's consolidated approval in place. review_gates is read only
+ * for a run that logs no decision at all.
+ * @param {any} context
+ */
+function gate1DecidedAlone(context) {
+  const decisions = Array.isArray(context?.gate_decisions)
+    ? context.gate_decisions
+    : [];
+  const logged = (/** @type {string} */ gate) =>
+    decisions.some((/** @type {any} */ d) => d?.gate === gate);
+  if (logged('qa_scope_approved')) return false;
+  if (logged('requirements_reviewed')) return true;
+  if (decisions.length) return false;
+  const gates = context?.review_gates ?? {};
+  const qa = gates.qa_scope_approved;
+  if (qa === true || qa?.status === true) return false;
+  const g1 = gates.requirements_reviewed;
+  return (
+    g1 === true ||
+    (!!g1 && typeof g1 === 'object' && (g1.status === true || !!g1.reviewed_at))
+  );
+}
+
+/**
+ * Whether a run that declares no track starts on lite (docs/review-gates.md,
+ * "The lite track uses this consolidation"): its floor, computed now and as
+ * the Analyst recorded it, allows
+ * lite, and Gate 1 was not already decided on its own (an older run that took
+ * the standard path stays on it). A story the floor holds higher (a Red
+ * domain, its size, a high-severity risk) starts where the floor puts it,
+ * and a declared track is always kept. Without the story's text the floor
+ * cannot be read from it, so there is no default.
  * @param {any} context parsed context.json
  * @param {string | null} [story] the story file's text
- * @returns {{ track: Track, declared: Track, minimum: Track, reasons: string[] }}
+ */
+export function liteByDefault(context, story = null) {
+  if (!context || (context.track !== undefined && context.track !== null))
+    return false;
+  if (typeof story !== 'string') return false;
+  if (gate1DecidedAlone(context)) return false;
+  const recorded = context.track_floor?.minimum;
+  if (TRACK_ORDER.includes(recorded) && recorded !== 'lite') return false;
+  return minimumTrack(context, story).minimum === 'lite';
+}
+
+/**
+ * The track a run is held to: the declared track (absent means lite when
+ * liteByDefault allows it, else standard; unknown means standard), the floor
+ * computed now, or the floor the Analyst recorded, whichever is highest.
+ * `defaulted`: no track is declared and the run is on lite by default.
+ * @param {any} context parsed context.json
+ * @param {string | null} [story] the story file's text
+ * @returns {{ track: Track, declared: Track, minimum: Track, reasons: string[],
+ *   defaulted: boolean }}
  */
 export function effectiveTrack(context, story = null) {
+  const defaulted = liteByDefault(context, story);
   /** @type {Track} */
   const declared = TRACK_ORDER.includes(context?.track)
     ? context.track
-    : 'standard';
+    : defaulted
+      ? 'lite'
+      : 'standard';
   const { minimum, reasons } = minimumTrack(context, story);
   const recorded = context?.track_floor?.minimum;
   /** @type {Track} */
   let track = declared;
   for (const t of [minimum, recorded])
     if (TRACK_ORDER.includes(t) && trackRank(t) > trackRank(track)) track = t;
-  return { track, declared, minimum, reasons };
+  return { track, declared, minimum, reasons, defaulted };
 }
 
 /**

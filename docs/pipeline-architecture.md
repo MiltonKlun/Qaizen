@@ -242,8 +242,10 @@ next" lookup. Full doc: `docs/pipeline-runner.md`.
 change isn't forced through the full machinery (`docs/context-json-guide.md`).
 The state machine is **track-aware**:
 
-- **`standard`** (the default; absent ⇒ standard) and **`full`** run the four
-  gates in the chain above — Gate 1 → Gate 2 → Gate 3 → Gate 4.
+- **`standard`** and **`full`** run the four gates in the chain above —
+  Gate 1 → Gate 2 → Gate 3 → Gate 4. A story with no declared track starts
+  on the lowest track its floor allows: lite when the floor allows it, else
+  the floor (a run that already decided Gate 1 on its own stays standard).
 - **`lite`** consolidates Gates 1+2 into a single `qa_scope_approved` decision,
   then runs Gate 3 and Gate 4 as usual:
   `analyst → qa_scope_approved → planner/api → gate3 → generator → repeat → gate4 →

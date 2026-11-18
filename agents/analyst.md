@@ -9,9 +9,12 @@ description: |
   approved.
 phase_introduced: 1
 phase_active: 1+
-version: 3.1.19
+version: 3.1.20
 changed_in_run: null
 changelog: |
+  - 3.1.20: PATCH (no output change). An omitted track now means the lowest
+    track the floor allows (lite for a small story outside the Red domains),
+    as the runner computes it; what the Analyst writes is unchanged.
   - 3.1.19: PATCH (no output change). The ai_review control of a full-track
     Gate 4 approval (gate_decisions[].independence) is written by the runner
     only.
@@ -246,14 +249,16 @@ record the `track_floor` it implies (`docs/context-json-guide.md`):
   `story.md` and this context, and raises a Red-domain story to `full`
   (`docs/review-gates.md`, "The full track"); what you record is advisory.
 - **Never propose a `track` below the floor.** A high-consequence story is
-  never `lite`. When unsure, omit `track` (⇒ `standard`) — the safe default.
+  never `lite`. When unsure, omit `track`: the runner then starts the
+  story on the lowest track its floor allows (`lite` for a small story
+  outside the Red domains), and the reviewer sees that at the gate.
 - Propose `lite` only for genuinely routine, low-risk work (a cosmetic UI
   change, a copy tweak). The reduced ceremony thins prose, never decisions:
   the Test Designer still classifies every case and gives a real reason.
 - The runner enforces the floor and will refuse a `lite` below it; proposing
   it correctly here just saves a round trip.
 
-When `track` is omitted the pipeline behaves exactly as before (standard).
+When `track` is omitted the runner computes it from the floor (`docs/review-gates.md`, "The lite track uses this consolidation").
 
 ---
 

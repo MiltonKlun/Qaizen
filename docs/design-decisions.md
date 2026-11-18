@@ -320,3 +320,32 @@ the regression set (seeded defects in a faithful spec and test, with a
 faithful control each); at Gate 4 it counts toward review independence
 only once those results clear the bar in D11. No defect is planted in a
 real run, since the review reads folders other agents own.
+
+## D13 — A story with no declared track starts on the lowest track its floor allows
+
+**Status.** Accepted (2026-11-18).
+
+**Context.** Lite was opt-in: a story with no declared track ran the four
+gates, so a routine change paid for two scope approvals unless someone
+proposed lite. Most stories never declared a track, and the cost of the
+pipeline is counted in approvals per story.
+
+**Decision.** A run that declares no track is held to the lowest track its
+floor allows (`scripts/track-floor.js` `liteByDefault`): lite for a small
+story outside the Red domains with no high-severity risk, where Gates 1 and
+2 are one decision; otherwise the floor, so a Red-domain story stays on
+`full`. A declared track is always kept, and a run that already decided
+Gate 1 on its own keeps the four gates. The consolidated brief says when
+the track is the default and how to raise it (`docs/review-gates.md`,
+"Approvals per track").
+
+**Consequences.** A routine story takes one approval fewer. The floor
+becomes what keeps a story off lite: a story that is not routine for a
+reason the floor does not see (no Red keyword, few criteria, no
+high-severity risk) starts on lite unless someone declares `standard`; the
+Analyst is not asked to, so the reviewer at the consolidated gate, whose
+brief says the track is the default, is the check on that. A run whose
+consolidated approval no longer fits its floor (a keyword added to
+`config/red-domains.json`) stops on resume until its track is raised. On
+lite by default only the gates are consolidated: the Test Designer's
+trimmed prose applies when lite is declared.

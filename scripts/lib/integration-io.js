@@ -24,6 +24,7 @@
 import { createHash } from 'node:crypto';
 import {
   closeSync,
+  existsSync,
   mkdirSync,
   openSync,
   readFileSync,
@@ -37,6 +38,7 @@ import { fileURLToPath } from 'node:url';
 import { canonicalJson, requireCurrentGate } from './approval-binding.js';
 import { redactText } from './report-sanitization.js';
 import { gatePassed } from '../pipeline-state.js';
+import { liteByDefault } from '../track-floor.js';
 
 // Schemas and config/ maps belong to the repository, not to a run: an
 // adapter finds them next to its own code, so it can sync any run from that
@@ -473,12 +475,20 @@ export function sanitizeDiagnostic(text, secrets = []) {
 // ------------------------------------------------------------ scope checks
 
 /**
- * The approval that covers a run's test scope: Gate 2, or the lite gate.
+ * The approval that covers a run's test scope: Gate 2, or the lite gate
+ * (declared, passed, or the run's track by default: scripts/track-floor.js
+ * liteByDefault), as the runner asks for it.
  * @param {import('./approval-binding.js').Context} context
+ * @param {string} [root] where the story file is read
  */
-export function scopeGate(context) {
+export function scopeGate(context, root = '.') {
+  const storyFile = join(root, context.story?.path || 'story.md');
   return context.track === 'lite' ||
-    gatePassed(context.review_gates?.qa_scope_approved)
+    gatePassed(context.review_gates?.qa_scope_approved) ||
+    liteByDefault(
+      context,
+      existsSync(storyFile) ? readFileSync(storyFile, 'utf8') : null
+    )
     ? 'qa_scope_approved'
     : 'test_scope_reviewed';
 }
@@ -512,7 +522,7 @@ export function checkSyncScope(context, doc, storyId, root = '.') {
       reason: `the test cases belong to run ${doc.run_id}, but the active run is ${context.run_id}`,
     };
   }
-  const gate = scopeGate(context);
+  const gate = scopeGate(context, root);
   const current = requireCurrentGate(context, gate, root);
   if (!current.ok)
     return { ok: false, reason: `scope approval: ${current.reason}` };

@@ -386,7 +386,10 @@ test('the scan is read-only and never records an approval', async () => {
 });
 
 test('the track a story is scanned at is the higher of its track and its floor', () => {
+  // No track declared: lite when the floor allows it and the story's text is
+  // known, as the runner holds it; without the text, standard.
   assert.equal(storyTrack({}), 'standard');
+  assert.equal(storyTrack({}, ''), 'lite');
   assert.equal(storyTrack({ track: 'lite' }), 'lite');
   assert.equal(storyTrack({ track: 'full' }), 'full');
   assert.equal(storyTrack({ track: 'bogus' }), 'standard');
